@@ -1,0 +1,150 @@
+{
+  "files": {
+    "proc/meminfo": "MemTotal: 1536000 kB\nMemFree: 120000 kB\nMemAvailable: 850000 kB\nBuffers: 45000 kB\nCached: 650000 kB\nSwapTotal: 524284 kB\nSwapFree: 404284 kB\n",
+    "proc/swaps": "Filename Type Size Used Priority\n/dev/block/zram0 partition 524284 120000 -1\n",
+    "proc/stat": "cpu  226653 42 89823 3463643 705 0 3055 0 0 0\ncpu0 103220 12 39911 1425675 208 0 2878 0 7 0\ncpu1 90592 13 34823 1434212 230 0 86 0 0 0\nintr 123 0 0\nbtime 1791204921\nprocesses 4567\n",
+    "proc/uptime": "12345.67 45678.90\n",
+    "proc/loadavg": "1.25 0.95 0.80 2/250 12345\n",
+    "proc/net/dev": "Inter-|   Receive                                                |  Transmit\n face |bytes    packets errs drop fifo frame compressed multicast|bytes    packets errs drop fifo colls carrier compressed\n  eth0: 100000000    1000    0    0    0     0          0         0 50000000     800    0    0    0     0       0          0\nwlan0:  25000000     500    0    0    0     0          0         0 10000000     400    0    0    0     0       0          0\n",
+    "proc/net/wireless": "Inter-| sta-|   Quality        |   Discarded packets               | Missed | WE\n face | tus | link level noise |  nwid  crypt   frag  retry   misc | beacon | 22\nwlan0: 0000   76.  -63.  -256        0      0      0      0      0        0\n",
+    "proc/lg/pe/hdr_status": "VPQ_PQ_MODE_INFO=\n[0]{hdrStatus:hdr10(sdr),colorimetry:bt709,peakLuminance:1000,supportPrime:0,reserved:255}\n[1]{hdrStatus:hdr10(hdr10),colorimetry:bt2020,peakLuminance:1000,supportPrime:0,reserved:255}\n",
+    "proc/lg/base/chip_name": "O22\n",
+    "proc/lg/hdmi20/port0/status": "",
+    "mnt/lg/cmn_data/pnwash/completedOffRsCount": "1\n",
+    "mnt/lg/cmn_data/mrcu/mrcu1.info": "Name = LGE MR24\nBDAddr = 00:00:5e:00:53:02\nfwVer = 23.63(H).04.1.0.192.7.1.0.62.1\nBattery = 52(M) 35(L)\nhidraw = /dev/hidraw0\n",
+    "sys/devices/system/cpu/present": "0-3\n",
+    "sys/devices/system/cpu/online": "0-1\n",
+    "sys/class/net/eth0/operstate": "down\n",
+    "sys/class/net/wlan0/operstate": "up\n",
+    "sys/class/net/wlan0/address": "00:51:ed:99:7e:20\n",
+    "proc/lg/pm/status": "cpu_num: 4\nload: 25 30 15 20\n",
+    "proc/lg/pm/current_load": "35\n",
+    "proc/lg/pm/frequency": "1200000\n",
+    "proc/lg/pm/temperature": "48\n",
+    "proc/lg/sys/status": "gpu pll out: 550000000\nss: OFF\n",
+    "sys/block/mmcblk0/device/life_time": "0x01 0x01\n",
+    "sys/block/mmcblk0/device/pre_eol_info": "0x01\n"
+  },
+  "expected": {
+    "ok": true,
+    "mem": {
+      "total": 1536000,
+      "avail": 850000
+    },
+    "swap": {
+      "total": 524284,
+      "free": 404284,
+      "backing": "zram"
+    },
+    "cpu": {
+      "times": {
+        "cpus": {
+          "0": {
+            "user": 103220,
+            "nice": 12,
+            "system": 39911,
+            "idle": 1425675,
+            "iowait": 208,
+            "irq": 0,
+            "softirq": 2878,
+            "steal": 0
+          },
+          "1": {
+            "user": 90592,
+            "nice": 13,
+            "system": 34823,
+            "idle": 1434212,
+            "iowait": 230,
+            "irq": 0,
+            "softirq": 86,
+            "steal": 0
+          }
+        },
+        "btime": 1791204921
+      },
+      "coresTotal": 4,
+      "coreLoads": [
+        25,
+        30
+      ],
+      "currentLoad": 35
+    },
+    "uptime": 12345,
+    "loadavg": [
+      "1.25",
+      "0.95",
+      "0.80"
+    ],
+    "net": {
+      "iface": "wlan0",
+      "rx": 25000000,
+      "tx": 10000000,
+      "mac": "00:51:ed:99:7e:20"
+    },
+    "wifi": {
+      "link": 76,
+      "level": -63
+    },
+    "pictureEngine": {
+      "colorimetry": "BT.709",
+      "hdr_mode": "sdr"
+    },
+    "hasHdrStatus": true,
+    "hasHdmiProc": true,
+    "socArch": "Alpha 9 Gen 5 (O22)",
+    "hasPnwash": true,
+    "hdmiPorts": ["", null, null, null],
+    "hdmiPortFacts": [
+      {
+        "timing": {
+          "connected": false,
+          "width": null,
+          "height": null,
+          "refreshHz": null,
+          "pixelClockKhz": null
+        },
+        "link": {
+          "locked": false,
+          "phy_mode": null,
+          "chroma": null,
+          "hdcp": null,
+          "tmds_clock_khz": null,
+          "qms": null
+        },
+        "diagnosticConnected": false,
+        "allm": null,
+        "vrr": null,
+        "sourcePowered": null,
+        "colorDepth": null,
+        "interlaced": false
+      },
+      null,
+      null,
+      null
+    ],
+    "remote": {
+      "battery": null,
+      "model": "LGE MR24",
+      "mac": "00:00:5e:00:53:02",
+      "firmware": "23.63(H).04.1.0.192.7.1.0.62.1",
+      "paired": true
+    },
+    "tempMillidegrees": 48000,
+    "temp": 48,
+    "thermalPresent": true,
+    "emmcWearPresent": true,
+    "emmc": {
+      "life": "0-10%",
+      "wear": "0-10%",
+      "health": ">90% (Healthy)",
+      "eol": "Normal",
+      "life_est_a": 1,
+      "life_est_b": 1
+    },
+    "cpuHz": 1200000000,
+    "mhz": 1200,
+    "gpuHz": 550000000,
+    "gpuMhz": 550,
+    "appStorage": null
+  }
+}

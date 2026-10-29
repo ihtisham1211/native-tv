@@ -1,0 +1,219 @@
+#include "service/app_icons.hpp"
+#include "core/json.hpp"
+#include <cerrno>
+#include <cstdint>
+#include <fcntl.h>
+#include <limits.h>
+#include <sstream>
+#include <string>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <vector>
+
+namespace nativetv {
+namespace service {
+namespace {
+const size_t MAX_APPINFO_BYTES = 64 * 1024;
+const size_t MAX_ICON_BYTES = 16 * 1024 * 1024;
+
+bool validAppId(const std::string &appId) {
+    if (appId.empty() || appId.size() > 128)
+        return false;
+    for (size_t index = 0; index < appId.size(); ++index) {
+        const unsigned char character = static_cast<unsigned char>(appId[index]);
+        const bool alphaNumeric = (character >= 'a' && character <= 'z') ||
+                                  (character >= 'A' && character <= 'Z') ||
+                                  (character >= '0' && character <= '9');
+        if (alphaNumeric || character == '_' || character == '-' ||
+            (index > 0 && character == '.'))
+            continue;
+        return false;
+    }
+    return true;
+}
+
+std::string rooted(const std::string &systemRoot, const std::string &path) {
+    const std::string root = systemRoot.empty() ? "/" : systemRoot;
+    if (root == "/")
+        return path;
+    size_t end = root.size();
+    while (end > 1 && root[end - 1] == '/')
+        --end;
+    return root.substr(0, end) + path;
+}
+
+bool readBounded(const std::string &path, size_t maximumBytes, std::string &contents) {
+    const int descriptor = open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (descriptor < 0)
+        return false;
+    struct stat info;
+    bool ok = fstat(descriptor, &info) == 0 && S_ISREG(info.st_mode) &&
+              info.st_size >= 0 &&
+              static_cast<unsigned long long>(info.st_size) <= maximumBytes;
+    contents.clear();
+    if (ok) {
+        contents.reserve(static_cast<size_t>(info.st_size));
+        char buffer[16384];
+        for (;;) {
+            const ssize_t count = read(descriptor, buffer, sizeof(buffer));
+            if (count < 0 && errno == EINTR)
+                continue;
+            if (count < 0) {
+                ok = false;
+                break;
+            }
+            if (count == 0)
+                break;
+            if (static_cast<size_t>(count) > maximumBytes ||
+                contents.size() > maximumBytes - static_cast<size_t>(count)) {
+                ok = false;
+                break;
+            }
+            contents.append(buffer, static_cast<size_t>(count));
+        }
+    }
+    close(descriptor);
+    if (!ok)
+        contents.clear();
+    return ok;
+}
+
+bool canonicalInside(const std::string &root, const std::string &candidate,
+                     std::string &resolved) {
+    char output[PATH_MAX];
+    if (!realpath(candidate.c_str(), output))
+        return false;
+    resolved.assign(output);
+    return resolved.size() > root.size() &&
+           resolved.compare(0, root.size(), root) == 0 && resolved[root.size()] == '/';
+}
+
+bool appDirectory(const std::string &appId, const std::string &systemRoot,
+                  std::string &directory) {
+    const char *const bases[] = {
+        "/media/developer/apps/usr/palm/applications",
+        "/media/cryptofs/apps/usr/palm/applications",
+        "/media/system/apps/usr/palm/applications",
+        "/usr/palm/applications",
+        "/mnt/otncabi/usr/palm/applications",
+        "/mnt/otycabi/usr/palm/applications"
+    };
+    for (size_t index = 0; index < sizeof(bases) / sizeof(bases[0]); ++index) {
+        const std::string candidate = rooted(systemRoot, bases[index]) + "/" + appId;
+        if (access(candidate.c_str(), F_OK) == 0) {
+            directory = candidate;
+            return true;
+        }
+    }
+    return false;
+}
+
+std::string iconEtag(size_t size, const struct stat &info) {
+#if defined(__APPLE__)
+    const int64_t modifiedMs = static_cast<int64_t>(info.st_mtimespec.tv_sec) * 1000 +
+                               info.st_mtimespec.tv_nsec / 1000000;
+#else
+    const int64_t modifiedMs = static_cast<int64_t>(info.st_mtim.tv_sec) * 1000 +
+                               info.st_mtim.tv_nsec / 1000000;
+#endif
+    std::ostringstream etag;
+    etag << '"' << std::hex << size << '-' << modifiedMs << '"';
+    return etag.str();
+}
+} // namespace
+
+AppIconFile readAppIcon(const std::string &appId, const std::string &systemRoot) {
+    AppIconFile result;
+    if (!validAppId(appId))
+        return result;
+
+    std::string locatedDirectory;
+    if (!appDirectory(appId, systemRoot, locatedDirectory))
+        return result;
+    char realDirectory[PATH_MAX];
+    if (!realpath(locatedDirectory.c_str(), realDirectory))
+        return result;
+    const std::string appRoot(realDirectory);
+    struct stat directoryInfo;
+    if (stat(appRoot.c_str(), &directoryInfo) != 0 || !S_ISDIR(directoryInfo.st_mode))
+        return result;
+
+    std::string appInfoText;
+    if (!readBounded(appRoot + "/appinfo.json", MAX_APPINFO_BYTES, appInfoText))
+        return result;
+    const Json appInfo = Json::parse(appInfoText);
+    if (!appInfo.isObject())
+        return result;
+    std::string iconRelative = appInfo["largeIcon"].string();
+    if (iconRelative.empty())
+        iconRelative = appInfo["icon"].string();
+    if (iconRelative.empty())
+        iconRelative = "icon.png";
+    if (iconRelative.find('\0') != std::string::npos)
+        return result;
+    if (!iconRelative.empty() && iconRelative[0] == '$')
+        iconRelative.erase(0, 1);
+
+    std::string base = appRoot;
+    const std::string assetsBase = appInfo["sysAssetsBasePath"].string();
+    if (!assetsBase.empty())
+        base += "/" + assetsBase;
+    const std::vector<std::string> candidates = {
+        base + "/" + iconRelative,
+        base + "/hd1080/" + iconRelative,
+        base + "/hd720/" + iconRelative,
+        appRoot + "/" + iconRelative,
+        appRoot + "/hd1080/" + iconRelative,
+        appRoot + "/icon.png",
+        appRoot + "/assets/icon.png"
+    };
+
+    std::string iconPath;
+    for (const std::string &candidate : candidates) {
+        if (canonicalInside(appRoot, candidate, iconPath))
+            break;
+        iconPath.clear();
+    }
+    if (iconPath.empty())
+        return result;
+
+    const int descriptor = open(iconPath.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (descriptor < 0)
+        return result;
+    struct stat info;
+    bool ok = fstat(descriptor, &info) == 0 && S_ISREG(info.st_mode) &&
+              info.st_size >= 0 &&
+              static_cast<unsigned long long>(info.st_size) <= MAX_ICON_BYTES;
+    if (ok) {
+        result.bytes.reserve(static_cast<size_t>(info.st_size));
+        char buffer[16384];
+        for (;;) {
+            const ssize_t count = read(descriptor, buffer, sizeof(buffer));
+            if (count < 0 && errno == EINTR)
+                continue;
+            if (count < 0) {
+                ok = false;
+                break;
+            }
+            if (count == 0)
+                break;
+            if (static_cast<size_t>(count) > MAX_ICON_BYTES ||
+                result.bytes.size() > MAX_ICON_BYTES - static_cast<size_t>(count)) {
+                ok = false;
+                break;
+            }
+            result.bytes.append(buffer, static_cast<size_t>(count));
+        }
+    }
+    close(descriptor);
+    if (!ok) {
+        result.bytes.clear();
+        return result;
+    }
+    result.etag = iconEtag(result.bytes.size(), info);
+    result.found = true;
+    return result;
+}
+
+} // namespace service
+} // namespace nativetv

@@ -1,0 +1,26 @@
+name: Docs
+
+# The site at ihtisham1211.github.io/nativeTv, built from docs/.
+# A pull request only builds it, in strict mode, so a broken link fails there;
+# docs-publish.yml publishes it once merged.
+on:
+  pull_request:
+    paths: ['docs/**', 'mkdocs.yml', '.github/workflows/docs.yml']
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    name: Site build
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      # MkDocs 2 drops the theme and plugin system Material is built on.
+      - run: pip install 'mkdocs>=1.6,<2' 'mkdocs-material>=9.7,<10' 'markdown-callouts>=0.4,<0.5'
+      - run: mkdocs build
+        env:
+          NO_MKDOCS_2_WARNING: '1'

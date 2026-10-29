@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>nativeTv Home</title>
+<style>
+html,body{margin:0;height:100%;background:#000;overflow:hidden;cursor:none}
+</style>
+</head>
+<body>
+<script>
+/*
+ * LG's Home, as the TV opens it: mounted over LG's Home under its id
+ * (src/daemon/home_takeover_*). It has no screen. It asks the app manager for
+ * the native client's Home screen and shows black until the client is in front.
+ *
+ * There is no page to fall back to. A launch the app manager refuses is asked
+ * again; the server decides when the client has failed for good, and then gives
+ * LG's Home its place back (src/daemon/home_orchestrator.cpp).
+ */
+(function () {
+  var APP_ID = 'com.tvweb.native';
+  var RETRY_MS = 3000;
+  // Rewritten to match config.json by the stager and the launcher sync, which
+  // both look for this line; the launch does not use it.
+  var PORT = 8080;                // tvweb:port
+  var timer = null;
+
+  function retry() {
+    clearTimeout(timer);
+    timer = setTimeout(launch, RETRY_MS);
+  }
+
+  function answered(reply) {
+    if (!reply || reply.returnValue !== true) retry();
+  }
+
+  // webOS.service where the platform provides it; the bridge under it otherwise.
+  function call(parameters) {
+    var service = window.webOS && window.webOS.service;
+    if (service && typeof service.request === 'function') {
+      service.request('luna://com.webos.applicationManager', {
+        method: 'launch',
+        parameters: parameters,
+        onSuccess: answered,
+        onFailure: retry
+      });
+    } else if (window.PalmServiceBridge) {
+      var bridge = new window.PalmServiceBridge();
+      bridge.onservicecallback = function (message) {
+        var reply = null;
+        try { reply = JSON.parse(message); } catch (e) {}
+        answered(reply);
+      };
+      bridge.call('luna://com.webos.applicationManager/launch', JSON.stringify(parameters));
+    } else {
+      retry();
+    }
+  }
+
+  // At load, and each time this page is shown again: the Home key opens this
+  // app over the client, which is then asked for its Home screen once more.
+  // Never while hidden, or a launch that kept failing would take the screen
+  // from whatever is on it once it worked.
+  function launch() {
+    clearTimeout(timer);
+    if (document.visibilityState === 'hidden') return;
+    try {
+      call({ id: APP_ID, params: { screen: 'home' } });
+    } catch (e) {
+      retry();
+    }
+  }
+
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'visible') launch();
+  });
+  document.addEventListener('webOSRelaunch', launch);
+  launch();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+ "ok": true,
+ "isOled": true,
+ "writable": true,
+ "serviceControls": true,
+ "panelHours": 4210,
+ "hoursUntilComp": 1.3,
+ "hoursUntilRefresher": 612,
+ "compCycles": 1052,
+ "refresherCycles": 2,
+ "gsrStressCount": 3,
+ "gsr": true,
+ "tpc": true,
+ "screenShift": "on",
+ "logoDimming": "light"
+}

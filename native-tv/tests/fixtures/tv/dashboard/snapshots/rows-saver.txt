@@ -1,0 +1,8 @@
+== Screen saver
+action  LG's screen saver -> Use this one <display>
+action  Starfield = In use -> Use this one <eye>
+action  Drift -> Use this one <eye>
+== How it looks
+action  Brightness = Dim -> Change <display>
+== Show it now
+action  Start screen saver -> Start it <display>

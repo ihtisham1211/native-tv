@@ -1,0 +1,46 @@
+# Opens every tab of both dashboards in a headless browser against the real
+# daemon and a fake TV, and fails on any script error: a break in the pages
+# shows only when a tab opens, which the unit tests never do.
+name: Dashboards
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'native-tv/src/**'
+      - 'native-tv/web/**'
+      - 'native-tv/assets/**'
+      - 'scripts/check-dashboards.js'
+      - '.github/workflows/dashboards.yml'
+  pull_request:
+    paths:
+      - 'native-tv/src/**'
+      - 'native-tv/web/**'
+      - 'native-tv/assets/**'
+      - 'scripts/check-dashboards.js'
+      - '.github/workflows/dashboards.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tabs:
+    runs-on: ubuntu-latest
+    name: Browser smoke test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+      # Here only: the daemon and its tests need none of it. The runner's own
+      # Chrome is used, so no browser is downloaded.
+      - name: Build the daemon with its fake luna-send
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build g++ pkg-config libjson-c-dev libcurl4-openssl-dev
+          python3 native-tv/build.py --service-only
+      - run: npm install --no-save playwright-core
+      - run: node scripts/check-dashboards.js
+        env:
+          BROWSER_CHANNEL: chrome

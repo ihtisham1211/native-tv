@@ -1,0 +1,26 @@
+{
+ "ok": true,
+ "writable": true,
+ "current": "starfield",
+ "level": "dim",
+ "modes": [
+  {
+   "id": "stock",
+   "label": "LG's screen saver",
+   "available": true,
+   "active": false
+  },
+  {
+   "id": "starfield",
+   "label": "Starfield",
+   "available": true,
+   "active": true
+  },
+  {
+   "id": "drift",
+   "label": "Drift",
+   "available": true,
+   "active": false
+  }
+ ]
+}

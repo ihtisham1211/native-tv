@@ -1,0 +1,80 @@
+# Offline checks that need nothing but the repository.
+name: Checks
+
+# Branch pushes run through their PR, so a push to one runs once rather than
+# once per event. A branch without a PR can be run by hand.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  # Where the release tags the checks compare against are fetched from, when the
+  # checkout lacks them.
+  NATIVETV_REPO_URL: https://github.com/ihtisham1211/nativeTv.git
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    name: Checks
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # the release tags, for the entity stability check
+
+      - name: Imported release baselines when absent
+        run: |
+          for tag in v0.118.0 v0.80.8; do
+            if ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+              git fetch --no-tags "$NATIVETV_REPO_URL" "refs/tags/$tag:refs/tags/$tag"
+            fi
+          done
+
+      - name: dashboard reaches for no missing element
+        run: ./scripts/check-ui-ids.py
+
+      # webOS 4's browser runs the TV pages.
+      - name: the TV pages are ES5
+        run: ./scripts/check-es5.py
+
+      - name: strings keyed and translations current
+        run: ./scripts/check-strings.py
+
+      - name: screen saver QML matches its declared QtQuick version
+        run: ./scripts/check-screensavers.py
+
+      - name: documented entity list and deploy list match the code
+        run: ./scripts/check-drift.py
+
+      # An entity that goes or is renamed breaks the automations that used it.
+      - name: no Home Assistant entity from the last release gone without a reason
+        run: ./scripts/check-entity-stability.py
+
+      # Preinstalled on ubuntu-latest.
+      - name: shell scripts
+        run: shellcheck native-tv/lifecycle/deploy.sh native-tv/lifecycle/tvwebctl native-tv/lifecycle/50-tvweb.sh hbc/install.sh scripts/tvstats.sh
+
+      - name: entity templates resolve against fixture
+        run: ./scripts/check-entities.py --stats native-tv/tests/fixtures/tv/stats-b8-webos4.json
+
+      # An install of the last Node release is cleaned at the first start.
+      - name: every file the last Node release installed is shipped or retired
+        run: ./scripts/check-retired-files.py
+
+  # Its own job, so it builds alongside the rest.
+  package:
+    runs-on: ubuntu-latest
+    name: Package build
+    steps:
+      - uses: actions/checkout@v7
+      - run: npm install -g @webos-tools/cli@3.2.6 && python3 scripts/build-ipk.py
+      # The Homebrew Channel's own compatibility check, as its listing runs it:
+      # it reads every .js file in the package as code for the TV's browser.
+      - name: Homebrew Channel compatibility check
+        run: |
+          gh release download -R webosbrew/dev-toolbox-cli -p 'webosbrew-toolbox-*_amd64.deb' -D /tmp/toolbox
+          sudo apt-get install -y /tmp/toolbox/*.deb
+          webosbrew-ipk-verify --format markdown --details --fw-releases '>=4.0' dist/*.ipk
+        env:
+          GH_TOKEN: ${{ github.token }}

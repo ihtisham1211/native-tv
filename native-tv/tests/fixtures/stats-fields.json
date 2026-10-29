@@ -1,0 +1,822 @@
+{
+ "signalFormat": [
+  {
+   "input": null,
+   "expected": null
+  },
+  {
+   "input": {},
+   "expected": null
+  },
+  {
+   "input": {
+    "video": []
+   },
+   "expected": null
+  },
+  {
+   "input": {
+    "video": [
+     {
+      "connected": false,
+      "videoInfo": {
+       "hdrType": "hdr10"
+      }
+     }
+    ]
+   },
+   "expected": null
+  },
+  {
+   "input": {
+    "video": [
+     {
+      "connected": true
+     }
+    ]
+   },
+   "expected": null
+  },
+  {
+   "input": {
+    "video": [
+     {
+      "connected": true,
+      "videoInfo": {
+       "hdrType": "hdr10",
+       "colormetry": "BT2020",
+       "pixelEncoding": "YCbCr444",
+       "isGameMode": 1,
+       "freesyncEnabled": false,
+       "HDMIHDRInfo": {
+        "EOTFtype": 2,
+        "maxDisplayMasteringLuminance": 1000,
+        "minDisplayMasteringLuminance": 50,
+        "maximumContentLightLevel": 0,
+        "maximumFrameAverageLightLevel": 400
+       }
+      }
+     }
+    ]
+   },
+   "expected": {
+    "type": "hdr10",
+    "type_display": "HDR10",
+    "eotf": "pq",
+    "colorimetry": "BT2020",
+    "encoding": "YCbCr444",
+    "max_luminance": 1000,
+    "min_luminance": 0.005,
+    "max_cll": 0,
+    "max_fall": 400,
+    "game_mode": true,
+    "freesync": false
+   }
+  },
+  {
+   "input": {
+    "video": [
+     {
+      "connected": true,
+      "videoInfo": {
+       "hdrType": "dolbyvision",
+       "colormetry": "FUTURE",
+       "extendedColormetry": "DCI-P3",
+       "pixelEncoding": "",
+       "isGameMode": true,
+       "freesyncEnabled": "yes"
+      }
+     }
+    ]
+   },
+   "expected": {
+    "type": "dolbyvision",
+    "type_display": "Dolbyvision",
+    "eotf": null,
+    "colorimetry": "DCI-P3",
+    "encoding": null,
+    "max_luminance": null,
+    "min_luminance": null,
+    "max_cll": null,
+    "max_fall": null,
+    "game_mode": true,
+    "freesync": null
+   }
+  },
+  {
+   "input": {
+    "video": [
+     {
+      "connected": false
+     },
+     {
+      "connected": true,
+      "videoInfo": {
+       "hdrType": "sdr",
+       "colormetry": "BT709",
+       "HDMIHDRInfo": {
+        "EOTFtype": 0
+       }
+      }
+     }
+    ]
+   },
+   "expected": {
+    "type": "sdr",
+    "type_display": "SDR",
+    "eotf": "sdr",
+    "colorimetry": "BT709",
+    "encoding": null,
+    "max_luminance": null,
+    "min_luminance": null,
+    "max_cll": null,
+    "max_fall": null,
+    "game_mode": null,
+    "freesync": null
+   }
+  }
+ ],
+ "volumeControl": [
+  {
+   "vs": null,
+   "sound": null,
+   "expected": "level"
+  },
+  {
+   "vs": {
+    "adjustVolume": true
+   },
+   "sound": null,
+   "expected": "level"
+  },
+  {
+   "vs": {
+    "adjustVolume": false,
+    "volumeSyncable": true
+   },
+   "sound": null,
+   "expected": "level"
+  },
+  {
+   "vs": {
+    "adjustVolume": false,
+    "externalDeviceControl": true
+   },
+   "sound": null,
+   "expected": "steps"
+  },
+  {
+   "vs": {
+    "adjustVolume": false
+   },
+   "sound": null,
+   "expected": "none"
+  },
+  {
+   "vs": null,
+   "sound": {
+    "volume": -1,
+    "scenario": "mastervolume_ext_speaker_arc"
+   },
+   "expected": "steps"
+  },
+  {
+   "vs": null,
+   "sound": {
+    "volume": -1,
+    "scenario": "mastervolume_ext_speaker_optical"
+   },
+   "expected": "none"
+  },
+  {
+   "vs": null,
+   "sound": {
+    "volume": 10,
+    "scenario": "mastervolume_tv_speaker"
+   },
+   "expected": "level"
+  },
+  {
+   "vs": {
+    "soundOutput": "external_arc"
+   },
+   "sound": {
+    "volume": 3
+   },
+   "expected": "level"
+  },
+  {
+   "vs": {
+    "adjustVolume": "yes"
+   },
+   "sound": {
+    "volume": -1
+   },
+   "expected": "none"
+  }
+ ],
+ "offeredSoundOutputs": [
+  {
+   "values": [
+    {
+     "value": "tv_speaker",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "external_optical",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "external_arc",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "tv_speaker_external_arc",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "bt_soundbar",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "tv_speaker_bluetooth",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "wisa_speaker",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "wow_cast",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "lineout",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "headphone",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "usb_speaker",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "tv_speakerbar",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "tv_speaker",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "hidden_one",
+     "visible": false,
+     "active": true
+    },
+    {
+     "value": "inactive_one",
+     "visible": true,
+     "active": false
+    },
+    {
+     "value": "odd_webos4_name",
+     "visible": true,
+     "active": true
+    }
+   ],
+   "cfg": {},
+   "current": "tv_speaker",
+   "expected": [
+    "tv_speaker",
+    "external_optical",
+    "external_arc",
+    "bt_soundbar",
+    "tv_speaker_bluetooth",
+    "lineout",
+    "headphone",
+    "odd_webos4_name"
+   ]
+  },
+  {
+   "values": [
+    {
+     "value": "tv_speaker",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "external_optical",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "external_arc",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "tv_speaker_external_arc",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "bt_soundbar",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "tv_speaker_bluetooth",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "wisa_speaker",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "wow_cast",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "lineout",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "headphone",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "usb_speaker",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "tv_speakerbar",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "tv_speaker",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "hidden_one",
+     "visible": false,
+     "active": true
+    },
+    {
+     "value": "inactive_one",
+     "visible": true,
+     "active": false
+    },
+    {
+     "value": "odd_webos4_name",
+     "visible": true,
+     "active": true
+    }
+   ],
+   "cfg": {
+    "tv.model.supportHeadPhone": false,
+    "tv.model.supportOpticalJack": "Off"
+   },
+   "current": "tv_speaker",
+   "expected": [
+    "tv_speaker",
+    "external_arc",
+    "bt_soundbar",
+    "tv_speaker_bluetooth",
+    "odd_webos4_name"
+   ]
+  },
+  {
+   "values": [
+    {
+     "value": "tv_speaker",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "external_optical",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "external_arc",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "tv_speaker_external_arc",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "bt_soundbar",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "tv_speaker_bluetooth",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "wisa_speaker",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "wow_cast",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "lineout",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "headphone",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "usb_speaker",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "tv_speakerbar",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "tv_speaker",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "hidden_one",
+     "visible": false,
+     "active": true
+    },
+    {
+     "value": "inactive_one",
+     "visible": true,
+     "active": false
+    },
+    {
+     "value": "odd_webos4_name",
+     "visible": true,
+     "active": true
+    }
+   ],
+   "cfg": {
+    "tv.model.supportWiSA": true,
+    "com.webos.service.wowplay.supportWowCast": true,
+    "system.supportBluetoothFeatures": [
+     "btsound",
+     "bluetoothPlusTvSpeaker"
+    ],
+    "profile.list": [
+     "gaming",
+     "usbSoundOutput"
+    ]
+   },
+   "current": "tv_speaker_external_arc",
+   "expected": [
+    "tv_speaker",
+    "external_optical",
+    "external_arc",
+    "tv_speaker_external_arc",
+    "bt_soundbar",
+    "tv_speaker_bluetooth",
+    "wow_cast",
+    "lineout",
+    "headphone",
+    "usb_speaker",
+    "wisa_speaker",
+    "odd_webos4_name"
+   ]
+  },
+  {
+   "values": [
+    {
+     "value": "tv_speaker",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "external_optical",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "external_arc",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "tv_speaker_external_arc",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "bt_soundbar",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "tv_speaker_bluetooth",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "wisa_speaker",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "wow_cast",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "lineout",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "headphone",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "usb_speaker",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "tv_speakerbar",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "tv_speaker",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "hidden_one",
+     "visible": false,
+     "active": true
+    },
+    {
+     "value": "inactive_one",
+     "visible": true,
+     "active": false
+    },
+    {
+     "value": "odd_webos4_name",
+     "visible": true,
+     "active": true
+    }
+   ],
+   "cfg": {
+    "system.supportBluetoothFeatures": []
+   },
+   "current": "bt_audio",
+   "expected": [
+    "tv_speaker",
+    "external_optical",
+    "external_arc",
+    "lineout",
+    "headphone",
+    "odd_webos4_name",
+    "bt_audio"
+   ]
+  },
+  {
+   "values": [],
+   "cfg": {},
+   "current": "tv_speaker",
+   "expected": []
+  },
+  {
+   "values": null,
+   "cfg": null,
+   "current": "",
+   "expected": []
+  },
+  {
+   "values": [
+    {
+     "value": "tv_speaker",
+     "visible": true,
+     "active": true
+    },
+    {
+     "value": "external_optical",
+     "visible": true,
+     "active": true
+    }
+   ],
+   "cfg": null,
+   "current": "something_else",
+   "expected": [
+    "tv_speaker",
+    "external_optical",
+    "something_else"
+   ]
+  }
+ ],
+ "timers": [
+  {
+   "settings": null,
+   "expected": null
+  },
+  {
+   "settings": {},
+   "expected": null
+  },
+  {
+   "settings": {
+    "onTimerEnable": "on",
+    "onTimerHour": "7",
+    "onTimerMinute": "30",
+    "onTimerWeekday": "62",
+    "autoOff2HourOnTimer": "on",
+    "offTimerEnable": "off",
+    "offTimerHour": "24",
+    "offTimerMinute": "5",
+    "offTimerWeekday": "0"
+   },
+   "expected": {
+    "on": {
+     "enabled": true,
+     "time": "07:30",
+     "days": [
+      1,
+      2,
+      3,
+      4,
+      5
+     ],
+     "autoOff": true
+    },
+    "off": {
+     "enabled": false,
+     "time": "00:05",
+     "days": []
+    }
+   }
+  },
+  {
+   "settings": {
+    "offTimerEnable": "on",
+    "offTimerHour": "23",
+    "offTimerMinute": "59",
+    "offTimerWeekday": "127"
+   },
+   "expected": {
+    "off": {
+     "enabled": true,
+     "time": "23:59",
+     "days": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+     ]
+    }
+   }
+  },
+  {
+   "settings": {
+    "onTimerEnable": "off",
+    "onTimerHour": "1"
+   },
+   "expected": {
+    "on": {
+     "enabled": false,
+     "time": "01:00",
+     "days": []
+    }
+   }
+  },
+  {
+   "settings": {
+    "onTimerHour": "1"
+   },
+   "expected": null
+  },
+  {
+   "settings": {
+    "onTimerEnable": "on",
+    "onTimerHour": "x",
+    "onTimerMinute": "9",
+    "onTimerWeekday": "y",
+    "autoOff2HourOnTimer": "off"
+   },
+   "expected": {
+    "on": {
+     "enabled": true,
+     "time": "00:09",
+     "days": [],
+     "autoOff": false
+    }
+   }
+  }
+ ],
+ "appList": [
+  {
+   "raw": [
+    {
+     "id": "netflix",
+     "title": "Netflix",
+     "iconColor": "#E50914"
+    },
+    {
+     "id": "youtube",
+     "title": "YouTube",
+     "iconColor": "#fff"
+    },
+    {
+     "id": "hidden.app",
+     "title": "Hidden",
+     "visible": false
+    },
+    {
+     "id": "com.webos.app.container1",
+     "title": "Container"
+    },
+    {
+     "id": "netflix",
+     "title": "Netflix again"
+    },
+    {
+     "id": "notitle"
+    },
+    {
+     "id": "amazon",
+     "title": "Prime Video",
+     "iconColor": "red"
+    },
+    {
+     "title": "No id"
+    },
+    null
+   ],
+   "expected": [
+    {
+     "id": "netflix",
+     "title": "Netflix",
+     "iconColor": "#e50914"
+    },
+    {
+     "id": "notitle",
+     "title": "notitle"
+    },
+    {
+     "id": "amazon",
+     "title": "Prime Video"
+    },
+    {
+     "id": "youtube",
+     "title": "YouTube",
+     "iconColor": "#ffffff"
+    }
+   ],
+   "titles": {
+    "netflix": "Netflix again",
+    "youtube": "YouTube",
+    "hidden.app": "Hidden",
+    "com.webos.app.container1": "Container",
+    "amazon": "Prime Video"
+   }
+  }
+ ]
+}

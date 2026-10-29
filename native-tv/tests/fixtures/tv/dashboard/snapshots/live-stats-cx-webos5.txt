@@ -1,0 +1,8 @@
+LG OLED77CX | OLED77CXAUA · webOS 5.6.0
+processor: 9 % | 4 cores · 1.0 GHz | spark
+memory: 1.8 of 2.6 GB | Swap 527 MB free of 600 MB | bar 0.69
+temperature: 43 °C | Normal | bar 0.48
+network: 68 % link | Home-5G · -66 dBm · wlan0 | Down 0.6 KB/s · Up 2.4 KB/s | bar 0.68
+uptime: 0h 15m | Since Thursday 09:54 | days .............#
+panel: 11,633 hours | Pixel refresher in 376 h | bar 0.81
+input: HDMI 4 | HDMI 4

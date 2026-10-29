@@ -1,0 +1,14 @@
+{
+  "id": "com.tvweb.splash",
+  "version": "1.0.0",
+  "vendor": "nativeTv",
+  "type": "native",
+  "main": "nativetv-tv",
+  "title": "nativeTv",
+  "icon": "assets/icon80.png",
+  "largeIcon": "assets/icon130.png",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "visible": false,
+  "requiredACG": []
+}

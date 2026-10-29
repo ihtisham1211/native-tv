@@ -1,0 +1,144 @@
+[
+  {
+    "at": 3500,
+    "expectScreen": "dashboard:system",
+    "expectText": "Metrics",
+    "checkpoint": "system",
+    "capture": "/tmp/nativetv-native-system.ppm"
+  },
+  {
+    "at": 3900,
+    "key": "right"
+  },
+  {
+    "at": 6300,
+    "expectScreen": "dashboard:apps",
+    "expectText": "Apps",
+    "checkpoint": "apps",
+    "capture": "/tmp/nativetv-native-apps.ppm"
+  },
+  {
+    "at": 6700,
+    "key": "right"
+  },
+  {
+    "at": 9100,
+    "expectScreen": "dashboard:oled",
+    "expectText": "OLED Care",
+    "checkpoint": "oled",
+    "capture": "/tmp/nativetv-native-oled.ppm"
+  },
+  {
+    "at": 9500,
+    "key": "right"
+  },
+  {
+    "at": 11900,
+    "expectScreen": "dashboard:game",
+    "expectText": "Game",
+    "checkpoint": "game",
+    "capture": "/tmp/nativetv-native-game.ppm"
+  },
+  {
+    "at": 12300,
+    "key": "right"
+  },
+  {
+    "at": 14700,
+    "expectScreen": "dashboard:saver",
+    "expectText": "Screen Saver",
+    "checkpoint": "saver",
+    "capture": "/tmp/nativetv-native-saver.ppm"
+  },
+  {
+    "at": 15100,
+    "key": "right"
+  },
+  {
+    "at": 17500,
+    "expectScreen": "dashboard:home",
+    "expectText": "Home",
+    "checkpoint": "home",
+    "capture": "/tmp/nativetv-native-home.ppm"
+  },
+  {
+    "at": 17900,
+    "key": "right"
+  },
+  {
+    "at": 20300,
+    "expectScreen": "dashboard:privacy",
+    "expectText": "Privacy",
+    "checkpoint": "privacy",
+    "capture": "/tmp/nativetv-native-privacy.ppm"
+  },
+  {
+    "at": 20500,
+    "key": "down"
+  },
+  {
+    "at": 20700,
+    "key": "down"
+  },
+  {
+    "at": 20900,
+    "key": "down"
+  },
+  {
+    "at": 21100,
+    "key": "down"
+  },
+  {
+    "at": 21300,
+    "key": "down"
+  },
+  {
+    "at": 21500,
+    "key": "down"
+  },
+  {
+    "at": 21700,
+    "key": "down"
+  },
+  {
+    "at": 21900,
+    "key": "down"
+  },
+  {
+    "at": 22100,
+    "expectText": "Block TV updates"
+  },
+  {
+    "at": 22300,
+    "key": "right"
+  },
+  {
+    "at": 24700,
+    "expectScreen": "dashboard:service",
+    "expectText": "Service Menu",
+    "checkpoint": "service",
+    "capture": "/tmp/nativetv-native-service.ppm"
+  },
+  {
+    "at": 25100,
+    "key": "right"
+  },
+  {
+    "at": 27500,
+    "expectScreen": "dashboard:options",
+    "expectText": "System",
+    "checkpoint": "options",
+    "capture": "/tmp/nativetv-native-options.ppm"
+  },
+  {
+    "at": 27900,
+    "key": "right"
+  },
+  {
+    "at": 30300,
+    "expectScreen": "dashboard:settings",
+    "expectText": "Settings",
+    "checkpoint": "settings",
+    "capture": "/tmp/nativetv-native-settings.ppm"
+  }
+]

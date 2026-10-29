@@ -1,0 +1,8 @@
+LG OLED55C4 | OLED55C4PUA · webOS 9.2.0
+processor: 3 % | 4 cores · 1.4 GHz | spark
+memory: 1.1 of 2.0 GB | Swap 369 MB free of 600 MB | bar 0.57
+temperature: 56 °C | Normal | bar 0.62
+network: 64 % link | Home-5G · -68 dBm · wlan0 | Down 0.3 KB/s · Up 4.9 KB/s | bar 0.64
+uptime: 10h 30m | Since Wednesday 23:39 | days .............#
+panel: 400 hours | Pixel refresher in 2,000 h | bar 0.00
+input: HDMI 1 | HDMI 1 [4K] [60 Hz] [HDR10]

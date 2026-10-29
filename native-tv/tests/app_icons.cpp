@@ -1,0 +1,92 @@
+#include "service/app_icons.hpp"
+#include <cerrno>
+#include <cstdio>
+#include <cstdlib>
+#include <fstream>
+#include <iterator>
+#include <string>
+#include <sys/stat.h>
+#include <unistd.h>
+
+using namespace nativetv;
+
+namespace {
+void require(bool condition, const char *message) {
+    if (condition)
+        return;
+    std::fprintf(stderr, "%s\n", message);
+    std::exit(1);
+}
+
+void makeDirectory(const std::string &path) {
+    if (mkdir(path.c_str(), 0700) != 0)
+        require(errno == EEXIST, "could not create app icon test directory");
+}
+
+void writeFile(const std::string &path, const std::string &contents) {
+    std::ofstream output(path.c_str(), std::ios::binary);
+    output.write(contents.data(), static_cast<std::streamsize>(contents.size()));
+    require(output.good(), "could not write app icon fixture");
+}
+}
+
+int main() {
+    char directory[] = "/tmp/nativetv-app-icons-XXXXXX";
+    char *root = mkdtemp(directory);
+    require(root != nullptr, "could not create app icon test root");
+    const std::string systemRoot(root);
+    const std::string apps = systemRoot + "/media/developer/apps/usr/palm/applications";
+    const std::string app = apps + "/com.example.app";
+    const std::string escapedApp = apps + "/com.example.escape";
+    makeDirectory(systemRoot + "/media");
+    makeDirectory(systemRoot + "/media/developer");
+    makeDirectory(systemRoot + "/media/developer/apps");
+    makeDirectory(systemRoot + "/media/developer/apps/usr");
+    makeDirectory(systemRoot + "/media/developer/apps/usr/palm");
+    makeDirectory(apps);
+    makeDirectory(app);
+    makeDirectory(app + "/assets");
+    makeDirectory(escapedApp);
+
+    const std::string icon("\x89PNG\r\n\x1a\nicon", 11);
+    writeFile(app + "/appinfo.json", "{\"largeIcon\":\"assets/icon.png\"}");
+    writeFile(app + "/assets/icon.png", icon);
+    const service::AppIconFile found = service::readAppIcon("com.example.app", systemRoot);
+    require(found.found, "declared app icon was not found");
+    require(found.bytes == icon, "app icon bytes changed");
+    require(!found.etag.empty(), "app icon ETag was not created");
+
+    const std::string secret = systemRoot + "/secret.json";
+    writeFile(secret, "{\"token\":\"secret\"}");
+    require(symlink(secret.c_str(), (escapedApp + "/escape.png").c_str()) == 0,
+            "could not create escaping app icon symlink");
+    writeFile(escapedApp + "/appinfo.json", "{\"icon\":\"escape.png\"}");
+    require(!service::readAppIcon("com.example.escape", systemRoot).found,
+            "icon symlink outside its app directory was served");
+
+    writeFile(escapedApp + "/appinfo.json",
+              "{\"icon\":\"../../../../secret.json\"}");
+    require(!service::readAppIcon("com.example.escape", systemRoot).found,
+            "icon path outside its app directory was served");
+    require(!service::readAppIcon("../secret", systemRoot).found,
+            "invalid app id was accepted");
+    require(!service::readAppIcon("com.example.missing", systemRoot).found,
+            "missing app icon was reported as found");
+
+    unlink((escapedApp + "/escape.png").c_str());
+    unlink((escapedApp + "/appinfo.json").c_str());
+    unlink((app + "/assets/icon.png").c_str());
+    unlink((app + "/appinfo.json").c_str());
+    unlink(secret.c_str());
+    rmdir((app + "/assets").c_str());
+    rmdir(app.c_str());
+    rmdir(escapedApp.c_str());
+    rmdir(apps.c_str());
+    rmdir((systemRoot + "/media/developer/apps/usr/palm").c_str());
+    rmdir((systemRoot + "/media/developer/apps/usr").c_str());
+    rmdir((systemRoot + "/media/developer/apps").c_str());
+    rmdir((systemRoot + "/media/developer").c_str());
+    rmdir((systemRoot + "/media").c_str());
+    rmdir(systemRoot.c_str());
+    return 0;
+}

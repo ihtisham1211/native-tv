@@ -1,0 +1,60 @@
+{
+  "web": {
+    "enabled": true
+  },
+  "port": 8080,
+  "host": "0.0.0.0",
+  "allowControl": true,
+  "allowPower": true,
+  "token": "",
+  "allowOnWebos10": false,
+  "allowTileHiding": false,
+  "iconServer": false,
+  "piccap": {
+    "pollIntervalMs": 30000
+  },
+  "mqtt": {
+    "enabled": false,
+    "host": "",
+    "port": 1883,
+    "tls": false,
+    "tlsRejectUnauthorized": true,
+    "username": "",
+    "password": "",
+    "topicPrefix": "lgtv",
+    "discoveryPrefix": "homeassistant",
+    "telemetryIntervalMs": 10000,
+    "entities": {
+      "controls": true,
+      "oled": true,
+      "video": true,
+      "system": true,
+      "diagnostics": true,
+      "disabled": []
+    }
+  },
+  "logging": {
+    "level": "info"
+  },
+  "prometheus": {
+    "enabled": false
+  },
+  "syslog": {
+    "server": "",
+    "port": 514,
+    "hostname": "",
+    "sources": ["system", "nativetv"],
+    "redact": true
+  },
+  "device": {
+    "id": "lg_tv",
+    "name": "LG webOS TV",
+    "model": "",
+    "manufacturer": "LG"
+  },
+  "update": {
+    "check": false,
+    "intervalHours": 24,
+    "client": ""
+  }
+}

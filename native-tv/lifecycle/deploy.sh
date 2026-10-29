@@ -1,0 +1,377 @@
+#!/usr/bin/env bash
+#
+# Install tvweb on the TV, or update it, and start it.
+#
+# The files go over as one bundle and are unpacked on the TV by the same few
+# lines whichever way they get there:
+#
+#   SSH     when key-based login works - the recommended setup, see "Moving
+#           from telnet to SSH" in docs/SECURITY.md.
+#   telnet  otherwise, through the Homebrew Channel's root shell. Telnet has no
+#           file transfer, so the bundle is sent down the connection as text
+#           and decoded on the TV.
+#
+# Deployment needs bash, Python 3 and an ARM native runtime build on the host;
+# the TV needs no internet connection.
+#
+# Usage: ./deploy.sh <tv-ip> [--no-persist] [--telnet] [--app|--no-app] [--native-build=DIR]
+#   --no-persist  skip the boot hook, so the server does not come back after
+#                 the TV restarts
+#   --telnet      use telnet even when SSH works
+#   --app         add the dashboard app to the TV's home screen
+#   --no-app      leave the home screen alone
+#   --native-build=DIR  select the required ARM runtime (defaults to native-tv/build-webos)
+# By default a first install adds the app and an update leaves the home screen
+# as it is, so re-deploying never puts back an app removed from the Server tab.
+
+set -e
+
+TV=""
+PERSIST=1
+# The telnet fallback opens its socket through bash's /dev/tcp, so another
+# shell cannot run this script. Checked before the first bash-only line, which
+# a POSIX shell would otherwise report as a syntax error.
+if [ -z "$BASH_VERSION" ]; then
+  echo "deploy.sh needs bash: run it as 'bash deploy.sh <tv-ip>'" >&2
+  exit 2
+fi
+
+FORCE_TELNET=""
+APP_MODE=auto     # auto: add on a first install, leave an update alone
+NATIVE_BUILD=""
+for a in "$@"; do
+  case "$a" in
+    --persist)    PERSIST=1 ;;          # the default; still accepted
+    --no-persist) PERSIST="" ;;
+    --telnet)     FORCE_TELNET=1 ;;
+    --app)        APP_MODE=yes ;;
+    --no-app)     APP_MODE=no ;;
+    --native-build=*) NATIVE_BUILD="${a#*=}" ;;
+    -*)           echo "unknown option: $a" >&2; exit 2 ;;
+    *)            TV="$a" ;;
+  esac
+done
+if [ -z "$TV" ]; then
+  echo "usage: $0 <tv-ip> [--no-persist] [--telnet] [--app|--no-app] [--native-build=DIR]" >&2
+  echo "  <tv-ip> is the TV's address, from Settings > Network on the TV." >&2
+  exit 2
+fi
+
+DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$DIR/.." && pwd)"   # native-tv/
+NATIVE_BUILD="${NATIVE_BUILD:-$ROOT/build-webos}"
+SSH_OPTS=(-i /Users/ihtisham/.ssh/lg_tv_root -o IdentitiesOnly=yes -o UserKnownHostsFile=/Users/ihtisham/.ssh/lg_tv_known_hosts -o BatchMode=yes -o ConnectTimeout=6 -o StrictHostKeyChecking=accept-new)
+STAGE=/var/lib/tvweb/.deploy     # on the TV; beside the install so moves are renames
+
+FILES="tvwebctl assets/ui.html assets/favicon.svg \
+assets/ui/theme.css assets/ui/ui.css assets/ui/core.js assets/ui/theme.js assets/ui/format.js assets/ui/readouts.js \
+assets/ui/server.js assets/ui/controls.js assets/ui/privacy.js assets/ui/lgsettings.js assets/ui/game.js \
+assets/ui/system.js assets/ui/history.js assets/ui/ssh.js assets/ui/screentime.js assets/ui/apps.js assets/ui/install.js assets/ui/home.js assets/ui/tabs.js assets/ui/servicemenu.js \
+assets/ui/oled.js assets/ui/screensavers.js assets/ui/mqtt.js assets/ui/tools.js assets/ui/search-aliases.js assets/ui/search.js assets/ui/main.js \
+assets/dashboard-app/appinfo.json assets/dashboard-app/packageinfo.json \
+assets/dashboard-app/install-app.sh \
+assets/dashboard-app/assets/icon80.png assets/dashboard-app/assets/icon130.png \
+assets/home-app/appinfo.json assets/home-app/index.html assets/home-app/packageinfo.json \
+assets/home-app/assets/icon80.png assets/home-app/assets/icon130.png \
+assets/splash-app/appinfo.json assets/splash-app/packageinfo.json \
+assets/splash-app/assets/icon80.png assets/splash-app/assets/icon130.png \
+assets/early-service/install.sh assets/early-service/early-start.sh \
+assets/fonts/Roboto-Regular.woff assets/fonts/Roboto-Medium.woff assets/fonts/LICENSE-Roboto.txt \
+assets/fonts/Figtree-Light.ttf assets/fonts/Figtree-Regular.ttf assets/fonts/Figtree-Medium.ttf assets/fonts/Figtree-SemiBold.ttf assets/fonts/LICENSE-Figtree-OFL.txt \
+assets/google-tv/shared/common.css assets/google-tv/shared/common.js assets/google-tv/shared/qr.js assets/google-tv/shared/keyboard.js \
+assets/google-tv/shared/key-done.svg assets/google-tv/shared/key-space.svg assets/google-tv/shared/key-left.svg assets/google-tv/shared/key-right.svg assets/google-tv/shared/key-delete.svg assets/google-tv/shared/key-shift.svg \
+assets/google-tv/pages/dashboard/index.html assets/google-tv/pages/dashboard/dashboard.css assets/google-tv/pages/dashboard/dashboard.js \
+assets/google-tv/pages/home/index.html assets/google-tv/pages/home/home.css assets/google-tv/pages/home/home.js assets/google-tv/pages/home/quick.js assets/google-tv/pages/home/content.js \
+assets/google-tv/pages/setup/index.html assets/google-tv/pages/setup/setup.css assets/google-tv/pages/setup/setup.js \
+assets/google-tv/pages/setup-phone/index.html assets/google-tv/pages/setup-phone/setup-phone.css assets/google-tv/pages/setup-phone/setup-phone.js \
+assets/screensavers/clock.qml assets/screensavers/fireworks.qml \
+assets/screensavers/starfield.qml assets/screensavers/vitals.qml assets/screensavers/star.png \
+assets/screensavers/bokeh.qml assets/screensavers/bokeh.png \
+assets/screensavers/harmonograph.qml"
+
+for t in tar base64 fold; do
+  command -v "$t" >/dev/null 2>&1 && continue
+  echo "Can't install: this computer has no '$t' command. Every Mac, Linux machine" >&2
+  echo "and Git Bash window on Windows has one, so try one of those." >&2
+  exit 1
+done
+
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+
+# ---------------------------------------------------------------- the bundle
+mkdir -p "$WORK/b"
+for f in $FILES; do
+  mkdir -p "$WORK/b/$(dirname "$f")"
+  case "$f" in
+    assets/ui.html) source="$ROOT/web/ui.html" ;;
+    assets/ui/*) source="$ROOT/web/${f#assets/}" ;;
+    assets/*) source="$ROOT/$f" ;;
+    *) source="$DIR/$f" ;;
+  esac
+  cp "$source" "$WORK/b/$f"
+done
+cp "$DIR/50-tvweb.sh" "$WORK/b/50-tvweb.sh"
+cp "$ROOT/VERSION" "$WORK/b/VERSION"   # what the Homebrew Channel installer compares with its own
+python3 "$ROOT/tools/runtime_payload.py" --build "$NATIVE_BUILD" --out "$WORK/b/native"
+# The native client, whole (executable, libraries, fonts, icons, licences and a
+# manifest of their hashes), in each app that runs it: the dashboard tile and
+# the boot splash. The files of FILES above join them in the same folders.
+for app in dashboard-app splash-app; do
+  python3 "$ROOT/tools/runtime_payload.py" --client --build "$NATIVE_BUILD" --out "$WORK/b/assets/$app"
+done
+# From a git clone, the commit the server is built from, which it shows after
+# its version as 0.80.1+55e51e5. Dirty means uncommitted changes under server/
+# and the native runtime sources when included. With the version it was made for, so
+# a release installed over this later shows as itself. The TV has no git, so
+# this can only be worked out here.
+if commit=$(git -C "$DIR" rev-parse --short HEAD 2>/dev/null); then
+  dirty=false
+  [ -n "$(git -C "$DIR" status --porcelain -- . 2>/dev/null)" ] && dirty=true
+  if [ -n "$NATIVE_BUILD" ] && [ -n "$(git -C "$DIR/.." status --porcelain -- native-tv/src/core native-tv/src/service native-tv/src/daemon native-tv/web native-tv/assets native-tv/CMakeLists.txt native-tv/build.py native-tv/deploy.py native-tv/tools/runtime_payload.py native-tv/third_party/json-c 2>/dev/null)" ]; then
+    dirty=true
+  fi
+  version=$(tr -d '[:space:]' < "$ROOT/VERSION")
+  printf '{"version":"%s","commit":"%s","dirty":%s}\n' "$version" "$commit" "$dirty" > "$WORK/b/build.json"
+fi
+# A config for this particular TV wins over the general one. Either is only
+# used where the TV has none yet: its own holds its device id and topics.
+if [ -f "$DIR/config.$TV.json" ]; then
+  cp "$DIR/config.$TV.json" "$WORK/b/config.seed.json"
+elif [ -f "$DIR/config.json" ]; then
+  cp "$DIR/config.json" "$WORK/b/config.seed.json"
+fi
+# ustar is the plainest format, and both the GNU tar on webOS 4 and the BusyBox
+# tar on webOS 9 read it. COPYFILE_DISABLE stops macOS adding its ._ files.
+( cd "$WORK/b" && COPYFILE_DISABLE=1 tar --format=ustar -cf "$WORK/bundle.tar" . )
+
+SUM=""
+if command -v md5sum >/dev/null 2>&1; then
+  SUM=$(md5sum < "$WORK/bundle.tar" | cut -d' ' -f1)
+elif command -v md5 >/dev/null 2>&1; then
+  SUM=$(md5 -q "$WORK/bundle.tar")
+fi
+
+# What runs on the TV once the bundle is there, whichever way it arrived. It
+# reports with TVWEB_ lines, which are how this script learns what happened.
+install_script() {
+  cat <<EOF
+S=$STAGE
+D=/var/lib/tvweb
+fail() { echo "TVWEB_FAIL \$1"; cd /; rm -rf "\$S"; exit 1; }
+cd "\$S" || fail "the files did not arrive"
+# Before anything is unpacked, so it records whether tvweb was already here.
+FRESH=""
+[ -f "\$D/tvwebctl" ] || FRESH=1
+if [ -n "$SUM" ] && [ "\$(md5sum < bundle.tar | cut -d' ' -f1)" != "$SUM" ]; then
+  fail "the files arrived damaged"
+fi
+mkdir -p x && tar -xof bundle.tar -C x || fail "the TV could not unpack the files"
+cd x
+# A bundle with no build.json was made outside a git clone, and the one an
+# earlier deploy left would name a commit this is not.
+[ -f build.json ] || rm -f "\$D/build.json"
+# Renamed into place, never written over: BusyBox's shell reads a script as it
+# runs it, so overwriting tvwebctl would corrupt the watchdog running out of it.
+for f in \$(find . -type f); do
+  case "\$f" in ./config.seed.json|./50-tvweb.sh) continue ;; esac
+  mkdir -p "\$D/\$(dirname "\$f")"
+  mv -f "\$f" "\$D/\$f"
+done
+if [ ! -f "\$D/config.json" ] && [ -f config.seed.json ]; then
+  mv config.seed.json "\$D/config.json" && echo "config set up from this computer's copy"
+fi
+chmod 600 "\$D/config.json" 2>/dev/null
+chmod +x "\$D/tvwebctl"
+# The Node server of earlier releases: nothing runs it now (the daemon also retires
+# these at start, which covers a Homebrew Channel install).
+rm -rf "\$D/tvweb.js" "\$D/lib"
+if [ -f "\$D/native/nativetv-service" ] && [ -f "\$D/native/nativetv-daemon" ]; then
+  chmod 755 "\$D/native/nativetv-daemon" "\$D/native/nativetv-service" || fail "could not make native runtimes executable"
+  rm -f /media/developer/apps/usr/palm/applications/com.tvweb.native/glasshouse-service
+fi
+if [ -n "$PERSIST" ]; then
+  mkdir -p /var/lib/webosbrew/init.d
+  # run-parts skips names with a dot in them, so the copy in progress never runs.
+  cp 50-tvweb.sh /var/lib/webosbrew/init.d/.50-tvweb.new &&
+    chmod +x /var/lib/webosbrew/init.d/.50-tvweb.new &&
+    mv -f /var/lib/webosbrew/init.d/.50-tvweb.new /var/lib/webosbrew/init.d/50-tvweb &&
+    echo "boot hook installed"
+fi
+echo "TVWEB_INSTALLED \$(wc -c < "\$D/tvwebctl")"
+cd / && rm -rf "\$S"
+"\$D/tvwebctl" restart
+# The binaries before the project was renamed; the restart stopped the daemon that ran as one.
+rm -f "\$D/native/glasshouse-daemon" "\$D/native/glasshouse-service"
+sleep 4
+"\$D/tvwebctl" status
+tail -6 "\$D/tvweb.log"
+# How this TV's own config exposes the dashboard, so the check at the end asks
+# for it only where it can answer. The TV keeps its own config.json, which is
+# the one that counts, not the copy on this computer.
+# Read as JSON: a loopback mqtt.host is not the dashboard's host.
+exposure=\$(/usr/bin/node -e '
+try {
+  var c = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+  if (c.web && c.web.enabled === false) console.log("TVWEB_WEB_OFF");
+  else if (/^(127\\.[0-9.]*|localhost|::1)\$/.test(String(c.host || ""))) console.log("TVWEB_WEB_LOCAL");
+} catch (e) {}' "\$D/config.json" 2>/dev/null)
+[ -n "\$exposure" ] && echo "\$exposure"
+# The port the dashboard is on, which the Server tab can change.
+port=\$("\$D/native/nativetv-service" port --data-root "\$D" 2>/dev/null) || port=8080
+case "\$port" in ''|*[!0-9]*) port=8080 ;; esac
+echo "TVWEB_PORT \$port"
+# Added on a first install, left alone on an update, so removing it from the
+# Server tab sticks. Never fails the install: the dashboard is served to
+# browsers whether or not the TV has a tile for it.
+case "$APP_MODE" in
+  yes) doapp=1 ;;
+  no)  doapp="" ;;
+  *)   doapp="\$FRESH" ;;
+esac
+[ -n "\$doapp" ] && { sh "\$D/assets/dashboard-app/install-app.sh" install 2>&1 || true; }
+# The native OpenGL splash the boot key filter opens; it has no home-screen tile.
+# (The dashboard's tile above is the same client, opened on the dashboard screen.)
+[ -n "\$doapp" ] && { sh "\$D/assets/dashboard-app/install-app.sh" install "\$D/assets/splash-app" 2>&1 || true; }
+EOF
+}
+
+# ---------------------------------------------------------------- SSH
+use_ssh() {
+  [ -n "$FORCE_TELNET" ] && return 1
+  command -v ssh >/dev/null 2>&1 || return 1
+  ssh "${SSH_OPTS[@]}" "root@$TV" true >/dev/null 2>&1
+}
+
+deploy_ssh() {
+  echo "installing on $TV over SSH ..."
+  # shellcheck disable=SC2029  # $STAGE is a fixed path, meant to be filled in here
+  ssh "${SSH_OPTS[@]}" "root@$TV" "mkdir -p $STAGE && cat > $STAGE/bundle.tar" < "$WORK/bundle.tar"
+  install_script | ssh "${SSH_OPTS[@]}" "root@$TV" 'sh -s' > "$WORK/out" 2>&1 || true
+}
+
+# ---------------------------------------------------------------- telnet
+# Does anything answer on this port within six seconds? A connection to an
+# address nothing is using would otherwise hang for over a minute.
+answers() {
+  ( exec 3<>"/dev/tcp/$TV/$1" ) 2>/dev/null &
+  p=$!
+  for _ in 1 2 3 4 5 6; do
+    sleep 1
+    if ! kill -0 "$p" 2>/dev/null; then
+      wait "$p"
+      return $?
+    fi
+  done
+  kill "$p" 2>/dev/null
+  return 1
+}
+
+deploy_telnet() {
+  if ! answers 23; then
+    cat >&2 <<EOF
+
+Couldn't reach the TV. Check that it is on and that $TV is its address
+(Settings > Network on the TV). If it is, telnet may be switched off in the
+Homebrew Channel's settings: switch it on, or set up SSH - see "Moving from
+telnet to SSH" in docs/SECURITY.md.
+EOF
+    exit 1
+  fi
+  if [ -z "$FORCE_TELNET" ]; then
+    echo "SSH isn't set up on this TV, so installing over telnet instead."
+    echo "(SSH is safer - see \"Moving from telnet to SSH\" in docs/SECURITY.md.)"
+  fi
+  echo "installing on $TV over telnet ..."
+
+  # bash can open a network connection itself, so no telnet program is needed.
+  exec 3<>"/dev/tcp/$TV/23"
+  cat <&3 > "$WORK/raw" &      # read while writing, so neither side can stall
+  reader=$!
+  sleep 1
+  {
+    # No prompts and no echo: otherwise every line sent comes straight back, and
+    # the shell prints a continuation prompt for each line of the bundle.
+    printf 'PS1=; PS2=; stty -echo; echo __TVWEB_START__\n'
+    sleep 1
+    printf "mkdir -p %s && base64 -d > %s/bundle.tar <<'__TVWEB_B64__'\n" "$STAGE" "$STAGE"
+    base64 < "$WORK/bundle.tar" | fold -w 76
+    printf '__TVWEB_B64__\n'
+    printf "cat > %s/install.sh <<'__TVWEB_SH__'\n" "$STAGE"
+    install_script
+    printf '__TVWEB_SH__\n'
+    printf 'sh %s/install.sh; echo __TVWEB_DONE__; exit\n' "$STAGE"
+  } >&3
+
+  for _ in $(seq 1 90); do
+    grep -q '__TVWEB_DONE__' "$WORK/raw" 2>/dev/null && break
+    sleep 1
+  done
+  exec 3>&-
+  kill "$reader" 2>/dev/null || true
+  wait "$reader" 2>/dev/null || true
+  # Only what the TV printed once the install began: before that come telnet's
+  # control bytes, the login banner and the first command echoed back.
+  LC_ALL=C tr -cd '\11\12\40-\176' < "$WORK/raw" |
+    sed -n '/__TVWEB_START__/,$p' | grep -Ev '__TVWEB_(START|DONE)__' > "$WORK/out" || true
+}
+
+# ---------------------------------------------------------------- go
+if use_ssh; then
+  deploy_ssh
+else
+  deploy_telnet
+fi
+
+grep -v '^TVWEB_' "$WORK/out" | grep -v '^$' || true
+
+fail=$(sed -n 's/^TVWEB_FAIL //p' "$WORK/out" | head -1)
+if [ -n "$fail" ] || ! grep -Eq '^TVWEB_INSTALLED [1-9][0-9]*' "$WORK/out"; then
+  cat >&2 <<EOF
+
+Nothing was installed: ${fail:-the TV did not confirm it received the files}.
+Run this again; if it keeps happening, check the TV is still on and connected.
+EOF
+  exit 1
+fi
+
+echo
+# Where the TV will not answer on the network by design, skip the check rather
+# than report a false failure.
+if grep -q '^TVWEB_WEB_OFF' "$WORK/out"; then
+  echo "installed; the dashboard is switched off in the TV's config.json, so there is nothing to open."
+  exit 0
+fi
+if grep -q '^TVWEB_WEB_LOCAL' "$WORK/out"; then
+  echo "installed; the dashboard answers only on the TV itself (\"host\" is loopback in its config.json)."
+  exit 0
+fi
+
+PORT=$(sed -n 's/^TVWEB_PORT //p' "$WORK/out" | head -1)
+case "$PORT" in ''|*[!0-9]*) PORT=8080 ;; esac
+
+echo "checking the dashboard answers ..."
+if ! command -v curl >/dev/null 2>&1; then
+  echo "(skipped: this computer has no curl to ask it with)"
+  echo "open  http://$TV:$PORT/"
+  exit 0
+fi
+# A restart takes a few seconds, so try for up to a minute before calling it a
+# failure. Any reply counts: with a token set, the 401 is the server answering.
+# curl fails while the server is still starting, and under set -e a failed
+# command substitution would end the script on the first try, hence || true.
+answered=""
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 4 "http://$TV:$PORT/api/caps") || true
+  if [ -n "$code" ] && [ "$code" != 000 ]; then answered=1; break; fi
+  sleep 2
+done
+if [ -z "$answered" ]; then
+  cat >&2 <<EOF
+
+The files were installed, but the dashboard at http://$TV:$PORT/ didn't answer
+within a minute. Check that the TV is on, then run this again.
+EOF
+  exit 1
+fi
+echo "done - open http://$TV:$PORT/"

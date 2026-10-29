@@ -1,0 +1,26 @@
+{
+ "state": "awaiting-confirm",
+ "jobId": "job-1",
+ "preview": {
+  "package": "org.example.photos",
+  "version": "1.4.0",
+  "direction": "new",
+  "vetted": true,
+  "rootRequired": false,
+  "apps": [
+   {
+    "id": "org.example.photos",
+    "title": "Photo Frame"
+   }
+  ],
+  "services": [
+   "org.example.photos.service"
+  ],
+  "reelevate": [],
+  "freeBytes": 4100000000,
+  "needBytes": 15600000,
+  "storeInstalled": false,
+  "cpuMismatch": false,
+  "isScreensaver": false
+ }
+}

@@ -1,0 +1,6 @@
+[
+  { "at": 0, "wallClock": { "hour": 6, "minute": 0, "weekday": 0, "day": 25, "month": 9 } },
+  { "at": 8000, "expectScreen": "home", "expectWallpaper": "visible", "expectWallpaperSlot": "morning", "expectText": "Fixture One", "checkpoint": "wallpaper-loaded", "capture": "/tmp/nativetv-native-wallpaper.ppm" },
+  { "at": 8200, "key": "down" },
+  { "at": 8900, "expectWallpaper": "visible", "expectWallpaperSlot": "morning", "expectText": "Fixture Film", "checkpoint": "wallpaper-focus-readable", "capture": "/tmp/nativetv-native-wallpaper-focus.ppm" }
+]

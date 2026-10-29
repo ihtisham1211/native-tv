@@ -1,0 +1,161 @@
+/* The dashboard as it appears on the TV itself, driven by the remote.
+   Left/Right flips between sections, Up/Down moves within one, Enter acts on
+   the selected row. Built on google-tv/ (Google's TV Design Kit): a tab row of
+   pills, the rows as dense list items that fill light under the focus, and an
+   explainer card beside them, on true black so an OLED panel is off where
+   nothing is shown. 1rem is 1vh (base.css). */
+html,body{width:100%;height:100%;overflow:hidden}
+
+#stage{width:100%;height:100vh;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;padding:5rem 0 5rem 8vw}
+
+/* The clock on the left and the nativeTv mark on the right. */
+#top{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;
+  -webkit-justify-content:space-between;justify-content:space-between;-webkit-flex:0 0 auto;flex:0 0 auto;margin:0 4vw 3rem 0}
+#mark{height:4.6rem;width:auto;color:#E3E3E3}
+#clock{font-size:4.44rem;line-height:1;color:#C4C7C5}
+
+/* The section bar scrolls sideways when the sections outgrow it; the masks
+   fade whichever end has more. The rows hold the focus, so the bar is idle:
+   the section in view is the selected pill and the others recede. */
+#tabs{-webkit-flex:0 0 auto;flex:0 0 auto;margin:0 4vw 3rem -2.96rem;overflow:hidden}
+#tabs.clip-r{-webkit-mask-image:-webkit-linear-gradient(left,#000 88%,transparent);mask-image:linear-gradient(to right,#000 88%,transparent)}
+#tabs.clip-l{-webkit-mask-image:-webkit-linear-gradient(right,#000 88%,transparent);mask-image:linear-gradient(to left,#000 88%,transparent)}
+#tabs.clip-l.clip-r{-webkit-mask-image:-webkit-linear-gradient(left,transparent,#000 12%,#000 88%,transparent);
+  mask-image:linear-gradient(to right,transparent,#000 12%,#000 88%,transparent)}
+.tab{font-size:3.33rem;height:6.67rem;line-height:6.67rem;padding:0 3.33rem;border-radius:3.33rem}
+
+/* Two columns: the rows on the left, an explainer for whichever row is selected
+   on the right. A row's label and value never needed the full width, and the
+   space buys somewhere to say what a setting means without a second screen. */
+/* #main clips the list; it reaches 4rem left of the column so a focused row,
+   which grows 5% about its centre, is not cut at its edge. */
+#main{-webkit-flex:1 1 auto;flex:1 1 auto;display:-webkit-flex;display:flex;overflow:hidden;padding:0 4vw 0 4rem;margin-left:-4rem;min-height:0}
+#list{-webkit-flex:1 1 62%;flex:1 1 62%;position:relative}
+#rows{position:absolute;left:0;right:2.22rem;-webkit-transition:-webkit-transform .16s cubic-bezier(.2,0,0,1);transition:transform .16s cubic-bezier(.2,0,0,1)}
+
+#hint{-webkit-flex:0 0 31%;flex:0 0 31%;margin-left:3rem;-webkit-align-self:center;align-self:center;
+  padding:4.44rem;border-radius:2.96rem;background:#1E1F20;opacity:0;-webkit-transition:opacity .2s;transition:opacity .2s}
+#hint.on{opacity:1}
+.h-title{font-size:4.07rem;line-height:5.19rem;margin-bottom:1.48rem;color:#E3E3E3}
+.h-body{font-size:2.59rem;line-height:3.7rem;letter-spacing:.018em;color:#C4C7C5}
+/* What OK does here, or that it does nothing. The accent only when there is
+   something to press, so the colour itself carries the distinction. */
+.h-act{font-size:2.22rem;line-height:2.96rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;margin-top:2.96rem;color:#A8C7FA}
+.h-act.ro{color:#8E918F}
+
+/* For the few rows that can only be changed in a browser: a code to scan and
+   the address under it, so the dashboard can be opened without typing an
+   address on a remote. White on black would invert the code, so it sits on a
+   white tile with its own quiet zone. */
+.h-qr{margin-top:2.96rem;display:none}
+.h-qr.on{display:block}
+.h-qr svg{width:15rem;height:15rem;display:block;background:#fff;padding:1rem;border-radius:1.48rem}
+.h-url{font-size:2.04rem;letter-spacing:.01em;color:#C4C7C5;margin-top:1.48rem;word-break:break-all}
+
+/* A row is a dense list item: a label and its value. Its height is ROW_VH in
+   the script, which scrolls by it, so the two change together. */
+.row{height:7.6rem;min-height:0;padding:0 2.22rem;-webkit-justify-content:space-between;justify-content:space-between}
+.row:not(.head){cursor:pointer}
+.lbl{font-size:2.96rem;font-weight:500;letter-spacing:.009em}
+.val{font-size:2.96rem;color:#C4C7C5;text-align:right;white-space:nowrap;padding-left:2vw}
+.row.sel .val{color:#444746}
+/* A second, smaller line under a value. */
+.val .sub{display:block;font-size:2.22rem;line-height:1.2;opacity:.8}
+/* Catalog rows: an icon, a version and a root badge beside the title. The
+   title gives way with an ellipsis rather than pushing the state off the row. */
+.row.cat .lbl{-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row.cat .val{font-size:2.59rem}
+.lbl .ic{width:4.44rem;height:4.44rem;border-radius:1.11rem;object-fit:contain;background:#333537;
+  vertical-align:middle;margin-right:1.48rem}
+.lbl .ic.none{display:inline-block}
+.lbl .ver{font-weight:400;font-size:2.22rem;opacity:.7;margin-left:1.48rem}
+.lbl .bdg{margin-left:1.48rem}
+/* Values carry their meaning in colour: the kit's tertiary for good, error for
+   bad, and amber for a warning (the kit has none). On a focused row, whose fill
+   is light, each takes its light-theme tone. */
+.val.on{color:#6DD58C}
+.val.off{color:#8E918F}
+.val.bad{color:#F2B8B5}
+.val.warn{color:#FFB74D}
+.val.act{color:#8E918F}
+.row.sel .val.on{color:#146C2E}
+.row.sel .val.off{color:#5E5E5E}
+.row.sel .val.act{color:#0B57D0}
+.row.sel .val.bad{color:#B3261E}
+.row.sel .val.warn{color:#B45309}
+/* A read-out rather than a setting: a status label with a lit dot, set small in
+   capitals, so it cannot be mistaken for the On/Off values of the toggles. */
+.val.st{display:-webkit-inline-flex;display:inline-flex;-webkit-align-items:center;align-items:center;font-size:2.22rem;font-weight:500;letter-spacing:.1em;
+  text-transform:uppercase}
+.val.st::before{content:'';width:1.11rem;height:1.11rem;border-radius:50%;margin-right:1.48rem;background:currentColor}
+.val.st.good{color:#6DD58C}
+.val.st.hold{color:#FFB74D}
+.val.st.note{color:#C4C7C5}
+.val.st.bad{color:#F2B8B5}
+.row.sel .val.st.good{color:#146C2E}
+.row.sel .val.st.hold{color:#B45309}
+.row.sel .val.st.note{color:#444746}
+.row.sel .val.st.bad{color:#B3261E}
+
+/* The mark that separates a row you can press from one you can only read. It
+   sits in a gutter every row reserves, so nothing shifts as the eye moves down
+   and the pressable ones line up as a column of their own. */
+.lbl::before{content:'';display:inline-block;width:1.11rem;height:1.11rem;
+  border-radius:50%;margin-right:2.22rem;vertical-align:middle;background:transparent}
+.row.doable .lbl::before{background:#8E918F}
+.row.doable.sel .lbl::before{background:#0B57D0}
+
+/* A heading inside the list, as the kit's section header: it groups rows
+   without being selectable itself. Its height is HEAD_VH in the script. */
+.row.head{height:5.4rem;-webkit-align-items:flex-end;align-items:flex-end;padding-bottom:.74rem}
+.row.head .lbl{font-size:2.22rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#C4C7C5}
+.row.head .lbl::before{display:none}
+
+#msg{position:absolute;top:50%;left:0;-webkit-transform:translateY(-50%);transform:translateY(-50%);
+  font-size:4.07rem;color:#E3E3E3}
+#msg .msg-detail{font-size:2.59rem;line-height:1.7;color:#C4C7C5;margin-top:2.22rem}
+#msg .msg-url{color:#E3E3E3}
+
+/* In the lane the rows leave clear on the right, so neither the labels nor the
+   values ever run underneath one. */
+.more{position:absolute;right:0;font-size:2.4rem;color:#8E918F;opacity:0;-webkit-transition:opacity .2s;transition:opacity .2s;pointer-events:none}
+.more.on{opacity:1}
+#moreUp{top:0}
+#moreDown{bottom:0}
+
+/* Shown briefly after an action so a press that changes something off-screen
+   (opening the service menu, scheduling a refresher) still acknowledges: the
+   kit's snackbar. */
+#flash{position:absolute;right:8vw;bottom:5rem}
+#flash:empty{display:none}
+
+/* ---- light theme: the kit's light scheme ---- */
+body.light #clock{color:#444746}
+body.light #mark{color:#1F1F1F}
+body.light #hint{background:#E9EEF6}
+body.light .h-title{color:#1F1F1F}
+body.light .h-body{color:#444746}
+body.light .h-act{color:#0B57D0}
+body.light .h-act.ro{color:#747775}
+body.light .h-qr svg{border:1px solid #C4C7C5}
+body.light .h-url{color:#444746}
+body.light .val{color:#444746}
+body.light .row.sel .val{color:#C4C7C5}
+body.light .val.on,body.light .val.st.good{color:#146C2E}
+body.light .val.off,body.light .val.act{color:#747775}
+body.light .val.bad,body.light .val.st.bad{color:#B3261E}
+body.light .val.warn,body.light .val.st.hold{color:#B45309}
+body.light .val.st.note{color:#444746}
+body.light .row.sel .val.on,body.light .row.sel .val.st.good{color:#6DD58C}
+body.light .row.sel .val.off{color:#ABABAB}
+body.light .row.sel .val.act{color:#A8C7FA}
+body.light .row.sel .val.bad,body.light .row.sel .val.st.bad{color:#F2B8B5}
+body.light .row.sel .val.warn,body.light .row.sel .val.st.hold{color:#FFB74D}
+body.light .row.sel .val.st.note{color:#C4C7C5}
+body.light .row.doable .lbl::before{background:#747775}
+body.light .row.doable.sel .lbl::before{background:#A8C7FA}
+body.light .lbl .ic{background:#DDE3EA}
+body.light .row.head .lbl{color:#444746}
+body.light #msg,body.light #msg .msg-url{color:#1F1F1F}
+body.light #msg .msg-detail{color:#444746}
+body.light .more{color:#747775}

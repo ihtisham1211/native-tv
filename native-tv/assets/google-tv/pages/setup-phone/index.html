@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<title>Connect Home Assistant</title>
+<link rel="stylesheet" href="/assets/google-tv/shared/common.css" data-sections="reset">
+<link rel="stylesheet" href="/assets/google-tv/pages/setup-phone/setup-phone.css">
+</head>
+<body>
+<main id="form">
+  <!-- docs/logo/nativetv.svg without its tile. -->
+  <svg class="mark" viewBox="140 128 232 266" role="img" aria-label="nativeTv" translate="no"><path d="M168 362 V154 M168 254 Q168 154 258 154 Q344 154 344 254 V362" fill="none" stroke="currentColor" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/><circle cx="256" cy="362" r="24" fill="currentColor"/></svg>
+  <h1>Connect Home Assistant</h1>
+  <p class="sub">The details of your MQTT broker. With the Mosquitto add-on, the address is your Home Assistant's own.</p>
+
+  <label for="host">Broker address</label>
+  <input id="host" type="text" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="192.168.1.10" translate="no" required>
+
+  <label for="port">Port</label>
+  <input id="port" type="number" inputmode="numeric" value="1883" min="1" max="65535">
+
+  <label for="user">Username</label>
+  <input id="user" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+
+  <label for="pass">Password</label>
+  <input id="pass" type="password" autocomplete="off">
+
+  <label class="check"><input id="tls" type="checkbox"> <span>Encrypted connection (TLS)</span></label>
+  <p class="note">Only if your broker is set up for it. Usually on port 8883.</p>
+
+  <button id="save" type="button">Connect</button>
+  <p id="msg" role="status"></p>
+</main>
+
+<main id="done" class="done" hidden>
+  <h1>Sent to the TV</h1>
+  <p class="sub">It's connecting now and will show the result on screen. You can close this page.</p>
+</main>
+
+<script src="/assets/google-tv/shared/common.js"></script>
+<script src="/assets/google-tv/pages/setup-phone/setup-phone.js"></script>
+</body>
+</html>

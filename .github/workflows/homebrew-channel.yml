@@ -1,0 +1,41 @@
+# Attaches the Homebrew Channel package to each release. The store's listing
+# reads releases/latest/download/<id>.manifest.json, so a published release is
+# what users get; a pre-release is never "latest" and reaches only those who
+# install it by hand.
+name: Homebrew Channel
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.release.tag_name }}
+
+      # The package is named from native-tv/VERSION, which the daemon is built with;
+      # a mismatch would ship one version under the other's name.
+      - name: tag matches the version in the code
+        run: |
+          code=$(tr -d '[:space:]' < native-tv/VERSION)
+          tag="${GITHUB_REF_NAME#v}"
+          [ "$code" = "$tag" ] || { echo "tag v$tag, but native-tv/VERSION says $code"; exit 1; }
+
+      # LG's packager: the store's checks reject packages without the control
+      # fields it writes. Pinned, so a new release of it cannot change a build.
+      - name: install ares-package
+        run: npm install -g @webos-tools/cli@3.2.6
+
+      - name: build
+        run: python3 scripts/build-ipk.py
+
+      - name: attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "$GITHUB_REF_NAME" dist/*.ipk dist/*.manifest.json --clobber

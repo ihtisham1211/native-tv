@@ -1,0 +1,4 @@
+[
+  { "at": 0, "wallClock": { "hour": 6, "minute": 0, "weekday": 0, "day": 25, "month": 9 } },
+  { "at": 6500, "expectScreen": "home", "expectWallpaper": "failed-black", "expectWallpaperSlot": "morning", "expectText": "Fixture One", "checkpoint": "wallpaper-missing-black", "capture": "/tmp/nativetv-native-wallpaper-missing.ppm" }
+]

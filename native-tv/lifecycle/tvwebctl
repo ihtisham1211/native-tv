@@ -1,0 +1,398 @@
+#!/bin/sh
+# tvwebctl - start/stop/restart the nativeTv daemon on the TV, and the
+# watchdog that restarts it if its event loop stops turning.
+#
+# Exists as a script rather than an inline ssh command on purpose: `pkill -f
+# nativetv-daemon` typed into an ssh command matches the remote shell running
+# that very command (its argv contains the path), so the shell kills itself
+# before starting anything. Inside a script, the shell's argv is just this file.
+#
+# Usage: tvwebctl {start|stop|restart|status|watch|restore-home|restore-keys|restore-nativetv-home}
+
+# Each can be moved by a TVWEB_ variable of the same name, which only
+# native-tv/tests/tvwebctl_test.sh sets: it runs this script against a stand-in
+# daemon.
+LOG=${TVWEB_LOG:-/var/lib/tvweb/tvweb.log}
+PIDFILE=${TVWEB_PIDFILE:-/var/run/tvweb.pid}
+WATCHPID=${TVWEB_WATCHPID:-/var/run/tvwebwatch.pid}
+BEAT=${TVWEB_BEAT:-/var/run/tvweb.beat}
+# Restarts are recorded here rather than in $LOG, which is rotated - a
+# watchdog whose evidence is discarded with the next 256k of log is no use.
+RESTARTS=${TVWEB_RESTARTS:-/var/lib/tvweb/tvweb.restarts}
+DAEMON=${TVWEB_DAEMON:-/var/lib/tvweb/native/nativetv-daemon}
+SERVICE=${TVWEB_SERVICE:-/var/lib/tvweb/native/nativetv-service}
+# What the daemon was called before the rename: one still running from an
+# install not restarted since the update is found and stopped under that name.
+LEGACY_DAEMON=${TVWEB_LEGACY_DAEMON:-/var/lib/tvweb/native/glasshouse-daemon}
+CONFIG=${TVWEB_CONFIG:-/var/lib/tvweb/config.json}
+# TVWEB_* overrides for this TV, one NAME=value per line; read at each start.
+NATIVE_ENV=${TVWEB_NATIVE_ENV:-/var/lib/tvweb/native.env}
+ASSETS=${TVWEB_ASSETS:-/var/lib/tvweb/assets}
+PROC_ROOT=${TVWEB_PROC_ROOT:-/proc}
+STUCK_SETTLE_MS=${TVWEB_STUCK_SETTLE_MS:-3000}
+SELF=$(readlink -f "$0" 2>/dev/null || echo /var/lib/tvweb/tvwebctl)
+
+# Never keep the caller's working directory: if started from a directory that is
+# later deleted (like a temporary deploy path), the daemon would keep it as its own.
+cd / || exit 1
+
+# How long the heartbeat may go unwritten before the daemon is considered
+# wedged. The daemon writes it every 20s, so this is five missed beats - long
+# enough that a busy TV delaying a timer is never mistaken for a hang.
+STALE=${TVWEB_STALE:-90}
+CHECK=${TVWEB_CHECK:-30}
+
+# In its first minutes a daemon has less slack: a child frozen between fork and
+# exec has stalled a start for good, and boot is when most children are
+# started. A shorter limit then brings the TV back in under two minutes rather
+# than two and a half. Measured from the pid file, which every start writes.
+STARTUP=${TVWEB_STARTUP:-300}
+STARTUP_STALE=${TVWEB_STARTUP_STALE:-45}
+
+# Log rotation. /var/lib is flash, and nothing else trims this file: a broker
+# the TV cannot reach, or a chatty automation, appends to it indefinitely.
+# Rotating at 256k keeps at most 512k on disk across the two generations.
+LOG_MAX=262144
+
+# What an earlier release ran in the daemon's place; a start over such an
+# install must still find and stop it.
+LEGACY_APP=/var/lib/tvweb/tvweb.js
+
+app_running() {
+  pid=$(cat "$PIDFILE" 2>/dev/null)
+  case "$pid" in ''|*[!0-9]*) return 1 ;; esac
+  kill -0 "$pid" 2>/dev/null || return 1
+  # A pid left over from before a reboot may now belong to something else.
+  tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | grep -qF -e "$DAEMON" -e "$LEGACY_DAEMON"
+}
+
+# Every daemon of this install, by command line, under either name.
+daemon_pids() {
+  # shellcheck disable=SC2009  # busybox pgrep has no -f, so ps is the only way
+  ps -eo pid,args 2>/dev/null | grep -F -e "$DAEMON --config" -e "$LEGACY_DAEMON --config" | grep -v grep | awk '{print $1}'
+}
+
+stop_app() {
+  start-stop-daemon -K -q -p "$PIDFILE" 2>/dev/null
+  # The Node server and key reader of the release before this one, on an
+  # install not yet restarted since the update.
+  # shellcheck disable=SC2009  # busybox pgrep has no -f, so ps is the only way
+  for p in $(ps -eo pid,args 2>/dev/null | grep -E "$LEGACY_APP|remotebuttons" | grep -v grep | awk '{print $1}'); do
+    [ "$p" = "$$" ] && continue
+    kill -9 "$p" 2>/dev/null
+  done
+  # A new daemon cannot bind the public ports while the old one holds them:
+  # wait for it to be gone.
+  for p in $(daemon_pids); do
+    [ "$p" = "$$" ] && continue
+    kill "$p" 2>/dev/null
+  done
+  i=0
+  while [ "$i" -lt 8 ] && [ -n "$(daemon_pids)" ]; do
+    sleep 1
+    i=$((i + 1))
+  done
+  for p in $(daemon_pids); do
+    [ "$p" = "$$" ] && continue
+    kill -9 "$p" 2>/dev/null
+  done
+  rm -f "$PIDFILE" "$BEAT"
+}
+
+start_app() {
+  [ -x "$DAEMON" ] || { echo "not installed: $DAEMON"; exit 1; }
+  # start-stop-daemon cannot see a running daemon for itself: it is told to look
+  # for /bin/sh, and the shell has exec'd into the daemon. At a cold boot the boot
+  # hook and the Homebrew Channel app can both start it, and a second copy dies
+  # on EADDRINUSE leaving the pid file naming a dead process (#392).
+  if app_running; then echo "already running (pid $(cat "$PIDFILE"))"; return 0; fi
+  chmod 600 /var/lib/tvweb/config.json 2>/dev/null
+  # Overrides for this TV, read at each start; none without the file.
+  if [ -f "$NATIVE_ENV" ]; then set -a; . "$NATIVE_ENV"; set +a; fi
+  # -b detaches and -m writes the pidfile, so the process survives the ssh
+  # session closing. `setsid ... &` alone does not.
+  # Append rather than truncate. trim_logs() below truncates this file while
+  # the daemon holds it open, and a descriptor opened without O_APPEND keeps
+  # its own offset: the daemon would carry on writing past the old end, leaving
+  # a sparse file that still reports the size rotation just reclaimed.
+  LD_LIBRARY_PATH="$(dirname "$DAEMON")${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+    start-stop-daemon -S -b -m -p "$PIDFILE" -x /bin/sh -- -c \
+    "exec $DAEMON --config $CONFIG --heartbeat $BEAT --workers 12 --listen --assets-root $ASSETS >>$LOG 2>&1"
+}
+
+# Keep one previous generation and truncate in place. Renaming the live file
+# would not work: the server writes to the descriptor it already holds, so it
+# would follow the file under its new name and the fresh one would stay empty.
+#
+# $RESTARTS is written by this loop rather than by the server, so nothing holds
+# it open and the tail can simply be kept. A crash loop is what fills it.
+trim_logs() {
+  if [ -f "$LOG" ]; then
+    sz=$(wc -c < "$LOG" 2>/dev/null)
+    case "$sz" in
+      ''|*[!0-9]*) ;;
+      *) [ "$sz" -gt "$LOG_MAX" ] && cp "$LOG" "$LOG.1" 2>/dev/null && : > "$LOG" ;;
+    esac
+  fi
+  if [ -f "$RESTARTS" ]; then
+    rsz=$(wc -c < "$RESTARTS" 2>/dev/null)
+    case "$rsz" in
+      ''|*[!0-9]*) ;;
+      *) if [ "$rsz" -gt "$LOG_MAX" ]; then
+           tail -n 200 "$RESTARTS" > "$RESTARTS.tmp" 2>/dev/null &&
+             mv "$RESTARTS.tmp" "$RESTARTS"
+         fi ;;
+    esac
+  fi
+}
+
+# Every watchdog of this install, by command line. Two starts at the same
+# moment can each start one, and the pid file names only the last.
+watch_pids() {
+  # shellcheck disable=SC2009  # busybox pgrep has no -f, so ps is the only way
+  ps -eo pid,args 2>/dev/null | grep "$SELF watch" | grep -v grep | awk '{print $1}'
+}
+
+stop_watch() {
+  start-stop-daemon -K -q -p "$WATCHPID" 2>/dev/null
+  for p in $(watch_pids); do
+    [ "$p" = "$$" ] || kill -9 "$p" 2>/dev/null
+  done
+  rm -f "$WATCHPID"
+}
+
+# A watchdog already running is left as the only one, as start_app does for
+# the server; -o makes the start-stop-daemon side of that exit 0 too.
+start_watch() {
+  [ -n "$(watch_pids)" ] && return 0
+  start-stop-daemon -S -o -b -m -p "$WATCHPID" -x /bin/sh -- -c "exec $SELF watch"
+}
+
+# A child of the daemon that is still the daemon's own binary, rather than the
+# program it was started to run, is stuck between fork and exec: it sits on a
+# lock it inherited held, and the daemon waits on it. The daemon starts nothing
+# that runs its own binary, so one is stuck. The window is normally
+# microseconds; one still there seconds later is killed, which frees the
+# daemon, and the call is run again. (nativetv-service does this scan where it
+# is installed; this is the fallback.)
+stuck_children() {
+  parent_exe=$(readlink "/proc/$1/exe" 2>/dev/null)
+  [ -n "$parent_exe" ] || return
+  for st in /proc/[0-9]*/stat; do
+    read -r cpid _ _ ppid _ < "$st" 2>/dev/null || continue
+    [ "$ppid" = "$1" ] || continue
+    [ "$(readlink "/proc/$cpid/exe" 2>/dev/null)" = "$parent_exe" ] || continue
+    cmd=$(tr '\0' ' ' < "/proc/$cpid/cmdline" 2>/dev/null)
+    case "$cmd" in *remotebuttons*) continue ;; esac
+    printf "%s " "$cpid"
+  done
+}
+
+# Where a stuck child is waiting: its system call and the library holding the
+# instruction it stopped at, which names the lock it is stuck on.
+where_stuck() {
+  read -r nr _ _ _ _ _ _ _ pc < "/proc/$1/syscall" 2>/dev/null || return
+  # awk rather than $(( )): busybox sh arithmetic is 32-bit signed here, and
+  # addresses above 0x7fffffff would compare wrongly.
+  lib=$(awk -v pc="$pc" '
+    function hex(s,  i, n) { n = 0; s = tolower(s); sub(/^0x/, "", s)
+      for (i = 1; i <= length(s); i++) n = n * 16 + index("0123456789abcdef", substr(s, i, 1)) - 1
+      return n }
+    BEGIN { p = hex(pc) }
+    { split($1, r, "-"); if (hex(r[1]) <= p && p < hex(r[2])) {
+      printf "%s+0x%x", ($6 == "" ? "anon" : $6), p - hex(r[1]) + hex($3); exit } }
+  ' "/proc/$1/maps" 2>/dev/null)
+  echo "syscall $nr at $pc in ${lib:-?}"
+}
+
+free_stuck_children_compat() {
+  [ -n "$1" ] || return
+  first=$(stuck_children "$1")
+  [ -n "$first" ] || return
+  sleep 3
+  for cpid in $(stuck_children "$1"); do
+    case " $first " in *" $cpid "*)
+      where=$(where_stuck "$cpid")
+      kill -9 "$cpid" 2>/dev/null &&
+        echo "$(date): child $cpid stuck before exec ($where) - killed it" >> "$RESTARTS" ;;
+    esac
+  done
+}
+
+free_stuck_children() {
+  [ -n "$1" ] || return
+  if [ -x "$SERVICE" ]; then
+    result=$("$SERVICE" reap-stuck-children --pid "$1" --proc-root "$PROC_ROOT" \
+      --settle-ms "$STUCK_SETTLE_MS" 2>&1)
+    status=$?
+    if [ "$status" -ne 0 ]; then
+      echo "$(date): native stuck-child scan failed ($result)" >> "$RESTARTS"
+      return 0
+    fi
+    if [ -n "$result" ]; then
+      printf '%s\n' "$result" | while IFS= read -r line; do
+        echo "$(date): $line" >> "$RESTARTS"
+      done
+    fi
+    return 0
+  fi
+  free_stuck_children_compat "$1"
+}
+
+restore_nativetv_home() {
+  [ -x "$DAEMON" ] || return 1
+  "$DAEMON" --restore-nativetv-home --config "$CONFIG"
+}
+
+# LG's Home back in its place, where nativeTv Home has it. home.json is left
+# as it is, so the server takes the place again when it next starts.
+release_home() {
+  [ -x "$DAEMON" ] || return 0
+  LD_LIBRARY_PATH="$(dirname "$DAEMON")${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+    "$DAEMON" --release-home --config "$CONFIG" --assets-root "$ASSETS" >/dev/null 2>&1
+}
+
+restore_home_screen() {
+  [ -x "$DAEMON" ] || return 1
+  LD_LIBRARY_PATH="$(dirname "$DAEMON")${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+    "$DAEMON" --restore-home-screen --config "$CONFIG" --assets-root "$ASSETS" >/dev/null 2>&1
+}
+
+restore_remote_keys() {
+  [ -x "$DAEMON" ] || return 1
+  LD_LIBRARY_PATH="$(dirname "$DAEMON")${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" \
+    "$DAEMON" --restore-remote-keys --config "$CONFIG" --assets-root "$ASSETS" >/dev/null 2>&1
+}
+
+# A daemon restarted this many times in RESTART_WINDOW seconds is not coming
+# back soon: nativeTv Home's page would wait on black, so LG's Home gets its
+# place back until a daemon stays up.
+RESTART_LIMIT=${TVWEB_RESTART_LIMIT:-3}
+RESTART_WINDOW=${TVWEB_RESTART_WINDOW:-600}
+restarts_since=0
+restarts=0
+counted_restart() {
+  now=$(date +%s)
+  if [ $(( now - restarts_since )) -gt "$RESTART_WINDOW" ]; then
+    restarts_since=$now
+    restarts=0
+  fi
+  restarts=$(( restarts + 1 ))
+  [ "$restarts" -lt "$RESTART_LIMIT" ] && return
+  # Each restart past the limit too: a server that started has taken it again.
+  [ "$restarts" -eq "$RESTART_LIMIT" ] &&
+    echo "$(date): $restarts restarts in ${RESTART_WINDOW}s - LG's Home given back its place" >> "$RESTARTS"
+  release_home
+}
+
+# The watchdog loop. Runs as its own detached process; restarts only the app,
+# never itself, so a restart cannot orphan the watchdog.
+#
+# A wedged server still holds its port open and still looks alive to `kill -0`,
+# so liveness is judged by the heartbeat file the server rewrites every 20s.
+# An absent heartbeat is deliberately NOT a fault: a server predating the
+# heartbeat, or one still starting up, would otherwise be restarted forever.
+watch_loop() {
+  last=$(date +%s)
+  stale=0
+  while true; do
+    sleep "$CHECK"
+
+    # The watchdog is the only thing running on a schedule, so it keeps the
+    # log trimmed too. Done before the liveness checks: a full filesystem is
+    # one of the things that wedges the server.
+    trim_logs
+
+    #
+    # Standby suspends this loop along with everything else, so on resume the
+    # heartbeat is stale because the whole TV stopped - not because the server
+    # wedged. The tell is that far more time passed than was slept for: a real
+    # wedge is caught inside two checks, because the watchdog itself keeps
+    # running. Give the server one round to write a beat before judging it.
+    #
+    now=$(date +%s)
+    slept=$(( now - last ))
+    last=$now
+    if [ "$slept" -gt $(( CHECK * 3 )) ]; then
+      printf '%s [%s] [INFO] watchdog: resumed after %ss suspended - skipping one check\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        "$(cut -d' ' -f1 /proc/uptime 2>/dev/null || echo 0)" \
+        "$slept" >> "$LOG"
+      stale=0
+      continue
+    fi
+
+    [ -f "$PIDFILE" ] || { stale=0; continue; }       # stopped on purpose
+    free_stuck_children "$(cat "$PIDFILE" 2>/dev/null)"
+    if ! kill -0 "$(cat "$PIDFILE" 2>/dev/null)" 2>/dev/null; then
+      echo "$(date): process gone - starting" >> "$RESTARTS"
+      counted_restart
+      # A child the server left stuck before exec outlives it, still holding
+      # the port: each new server then died on EADDRINUSE, restarted every
+      # round for ten minutes on a B8. stop_app clears every copy first.
+      stop_app
+      start_app
+      stale=0
+      continue
+    fi
+    beat=$(cat "$BEAT" 2>/dev/null)
+    case "$beat" in ''|*[!0-9]*) stale=0; continue ;; esac   # no usable heartbeat yet
+    age=$(( $(date +%s) - beat ))
+    limit=$STALE
+    up=$(( $(date +%s) - $(date -r "$PIDFILE" +%s 2>/dev/null || echo 0) ))
+    [ "$up" -lt "$STARTUP" ] && limit=$STARTUP_STALE
+    if [ "$age" -le "$limit" ]; then
+      stale=0
+      continue
+    fi
+    #
+    # One stale reading is not enough. Both halves of the resume check are wall
+    # clock - $slept from the stamp taken before the suspend, $age from a second
+    # read a moment later - and the clock steps when the TV comes out of
+    # standby. A step landing between those two reads leaves $slept looking like
+    # a normal round while $age carries the whole suspension, which restarted a
+    # healthy server: "heartbeat 2509s old" at 14:41:07, then "resumed after
+    # 2529s suspended" from the next round, 33s later. Waiting for a second
+    # stale round lets that resume arrive and clear the count. A real wedge
+    # keeps the watchdog running, so it simply reports on the round after.
+    #
+    stale=$(( stale + 1 ))
+    [ "$stale" -lt 2 ] && continue
+    echo "$(date): heartbeat ${age}s old on two checks - event loop wedged, restarting" >> "$RESTARTS"
+    counted_restart
+    stop_app; sleep 1; start_app
+    stale=0
+  done
+}
+
+case "$1" in
+  start)   start_app; start_watch ;;
+  # nativeTv Home's page is only a wait for the server, so a server stopped
+  # on purpose gives LG's Home its place back; its next start takes it again.
+  stop)    stop_watch; stop_app; release_home ;;
+  restart) stop_watch; stop_app; sleep 1; start_app; start_watch ;;
+  watch)   watch_loop ;;
+  # Before uninstalling: LG's Home screen layout back, and the input tiles added here off it.
+  restore-home) restore_home_screen ;;
+  # Before uninstalling: the remote's keys as LG has them.
+  restore-keys) restore_remote_keys ;;
+  # LG's Home as the TV's Home again, and nativeTv Home switched off.
+  restore-nativetv-home|restore-glasshouse-home) restore_nativetv_home ;;
+  status)
+    if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
+      echo "running (pid $(cat "$PIDFILE"))"
+    else
+      echo "not running"
+    fi
+    if [ -f "$WATCHPID" ] && kill -0 "$(cat "$WATCHPID")" 2>/dev/null; then
+      beat=$(cat "$BEAT" 2>/dev/null)
+      case "$beat" in
+        ''|*[!0-9]*) echo "watchdog running (pid $(cat "$WATCHPID")), no heartbeat yet" ;;
+        *) echo "watchdog running (pid $(cat "$WATCHPID")), heartbeat $(( $(date +%s) - beat ))s old" ;;
+      esac
+    else
+      echo "watchdog not running"
+    fi
+    [ -s "$RESTARTS" ] && echo "last restart: $(tail -1 "$RESTARTS")" ;;
+  *) echo "usage: $0 {start|stop|restart|status|watch|restore-home|restore-keys|restore-nativetv-home}"; exit 2 ;;
+esac

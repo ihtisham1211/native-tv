@@ -1,0 +1,1447 @@
+{
+ "scenarios": [
+  {
+   "name": "Home off and LG's Home in its place: the starting notice is cleared",
+   "config": {
+    "enabled": false
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:off"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "Home off but still in LG's Home's place: switched off",
+   "config": {
+    "enabled": false
+   },
+   "tv": {
+    "mounted": true
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "release"
+    ],
+    "config": null
+   }
+  },
+  {
+   "name": "a switch-off cut short is finished",
+   "config": {
+    "enabled": false,
+    "restorePending": true
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "release"
+    ],
+    "config": null
+   }
+  },
+  {
+   "name": "Home on: it takes LG's Home's place and auto launch is synced",
+   "config": {
+    "enabled": true
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "the start layout is taken empty on webOS 9 where chosen",
+   "config": {
+    "enabled": true,
+    "hideLgHomeAtStart": true
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take:blank",
+     "notice:on",
+     "sync:false"
+    ],
+    "config": {
+     "hideLgHomeAtStart": true,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "the empty start layout is not chosen on webOS 10",
+   "webos": "10.3.1",
+   "config": {
+    "enabled": true,
+    "hideLgHomeAtStart": true
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false"
+    ],
+    "config": {
+     "hideLgHomeAtStart": true,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "a webOS it was never tried on is switched off",
+   "webos": "8.5.1",
+   "config": {
+    "enabled": true
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "release"
+    ],
+    "config": null
+   }
+  },
+  {
+   "name": "webOS 11 needs the setting",
+   "webos": "11.0.0",
+   "config": {
+    "enabled": true
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "release"
+    ],
+    "config": null
+   }
+  },
+  {
+   "name": "webOS 11 with the setting is taken",
+   "webos": "11.0.0",
+   "experimental": true,
+   "config": {
+    "enabled": true
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "an empty start layout kept from before is inferred as chosen",
+   "config": {
+    "enabled": true
+   },
+   "tv": {
+    "blankKept": true
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take:blank",
+     "notice:on",
+     "sync:false"
+    ],
+    "config": {
+     "hideLgHomeAtStart": true,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "a refused takeover is not fatal to the auto launch sync",
+   "config": {
+    "enabled": true
+   },
+   "tv": {
+    "takeoverOk": false
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "sync:false"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "a starting notice the TV will not take after the takeover",
+   "config": {
+    "enabled": true
+   },
+   "tv": {
+    "noticeOk": false
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "settings an earlier build changed are put back and its snapshot dropped",
+   "config": {
+    "enabled": false,
+    "snapshot": {
+     "takenAt": 1700000000000,
+     "settings": {
+      "defaultApps": {
+       "home": "com.webos.app.home"
+      },
+      "lastInputApp": "com.webos.app.hdmi2",
+      "physicalLastInputApp": "com.webos.app.hdmi2"
+     }
+    }
+   },
+   "settings": {
+    "defaultApps": {
+     "home": "com.tvweb.home",
+     "idleApp": "com.tvweb.home",
+     "other": "x"
+    },
+    "lastInputApp": "com.tvweb.home",
+    "physicalLastInputApp": "com.webos.app.hdmi1"
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "write:{\"defaultApps\":{\"home\":\"com.webos.app.home\",\"other\":\"x\"},\"lastInputApp\":\"com.webos.app.hdmi2\"}",
+     "legacy:installed?",
+     "notice:off"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "a start-up app with no snapshot goes back to Live TV and its key is dropped",
+   "config": {
+    "enabled": false
+   },
+   "settings": {
+    "defaultApps": {
+     "home": "com.tvweb.home",
+     "keep": "y"
+    },
+    "lastInputApp": "com.tvweb.home"
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "write:{\"defaultApps\":{\"keep\":\"y\"},\"lastInputApp\":\"com.webos.app.livetv\"}",
+     "legacy:installed?",
+     "notice:off"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "the screen saver setting an earlier build changed is put back",
+   "config": {
+    "enabled": false,
+    "snapshot": {
+     "takenAt": 1,
+     "settings": {
+      "screenSaverEnabled": false
+     }
+    }
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "write:{\"screenSaverEnabled\":false}",
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:off"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "a refused screen saver write stops the start",
+   "config": {
+    "enabled": true,
+    "snapshot": {
+     "takenAt": 1,
+     "settings": {
+      "screenSaverEnabled": "true"
+     }
+    }
+   },
+   "tv": {
+    "writeOk": false
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "write:{\"screenSaverEnabled\":\"true\"}"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": true
+    }
+   }
+  },
+  {
+   "name": "settings that cannot be read stop the start",
+   "config": {
+    "enabled": true
+   },
+   "tv": {
+    "settingsUnreadable": true
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "a write the TV refuses stops the start",
+   "config": {
+    "enabled": true
+   },
+   "settings": {
+    "lastInputApp": "com.tvweb.home"
+   },
+   "tv": {
+    "writeOk": false
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "write:{\"lastInputApp\":\"com.webos.app.livetv\"}"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "the Home key still opening the old app is given back",
+   "config": {
+    "enabled": false
+   },
+   "tv": {
+    "homeKey": "com.tvweb.home"
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "homekey:clear",
+     "legacy:installed?",
+     "notice:off"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "a Home key that cannot be given back stops the start",
+   "config": {
+    "enabled": true
+   },
+   "tv": {
+    "homeKey": "com.tvweb.home",
+    "homeKeyClearOk": false
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "homekey:clear"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "the old app is closed and removed once nothing has it open",
+   "config": {
+    "enabled": false
+   },
+   "tv": {
+    "legacy": {
+     "installed": true,
+     "running": true
+    }
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "legacy:running?",
+     "legacy:kill",
+     "legacy:running?",
+     "legacy:installed?",
+     "legacy:remove",
+     "legacy:installed?",
+     "notice:off"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "the old app is removed where it is not running",
+   "config": {
+    "enabled": false
+   },
+   "tv": {
+    "legacy": {
+     "installed": true,
+     "running": false
+    }
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "legacy:running?",
+     "legacy:installed?",
+     "legacy:remove",
+     "legacy:installed?",
+     "notice:off"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "the old app is left while it is in front, and removed once it is not",
+   "config": {
+    "enabled": false
+   },
+   "tv": {
+    "legacy": {
+     "installed": true,
+     "running": false
+    }
+   },
+   "steps": [
+    {
+     "foreground": "com.tvweb.home"
+    },
+    {
+     "start": true
+    },
+    {
+     "foreground": "com.webos.app.livetv"
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "notice:off",
+     "legacy:installed?",
+     "legacy:running?",
+     "legacy:installed?",
+     "legacy:remove",
+     "legacy:installed?"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "the old app that cannot be told about is not touched",
+   "config": {
+    "enabled": false
+   },
+   "tv": {
+    "legacy": {
+     "installed": null
+    }
+   },
+   "steps": [
+    {
+     "start": true
+    },
+    {
+     "foreground": "com.webos.app.livetv"
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:off",
+     "legacy:installed?"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "an old app still running after its page was closed stays",
+   "config": {
+    "enabled": false
+   },
+   "tv": {
+    "legacy": {
+     "installed": true,
+     "running": true,
+     "killFails": true
+    }
+   },
+   "steps": [
+    {
+     "start": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "legacy:running?",
+     "legacy:kill",
+     "legacy:running?",
+     "notice:off"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "woken from standby with the power-on preference, Home opens over the input",
+   "config": {
+    "enabled": true,
+    "openOnPowerOn": true
+   },
+   "steps": [
+    {
+     "start": true
+    },
+    {
+     "foreground": "com.webos.app.hdmi4"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "power": "Active Standby"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "wait": 1700
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false",
+     "reason",
+     "launch:com.webos.app.home"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "woken with LG's auto launch held off, Home opens over the input",
+   "config": {
+    "enabled": true,
+    "lgAutoLaunch": "on"
+   },
+   "steps": [
+    {
+     "start": true
+    },
+    {
+     "foreground": "com.webos.app.hdmi4"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "power": "Active Standby"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "wait": 1700
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false",
+     "reason",
+     "launch:com.webos.app.home"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "a wake LG does not open Home for stays on the input",
+   "config": {
+    "enabled": true,
+    "openOnPowerOn": true
+   },
+   "tv": {
+    "powerOnReason": "wakeOnLan"
+   },
+   "steps": [
+    {
+     "start": true
+    },
+    {
+     "foreground": "com.webos.app.hdmi4"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "power": "Active Standby"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "wait": 1700
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false",
+     "reason"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "a reason that cannot be read opens nothing",
+   "config": {
+    "enabled": true,
+    "openOnPowerOn": true
+   },
+   "tv": {
+    "powerOnReason": ""
+   },
+   "steps": [
+    {
+     "start": true
+    },
+    {
+     "foreground": "com.webos.app.hdmi4"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "power": "Active Standby"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "wait": 1700
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false",
+     "reason"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "no wake open where neither preference is on",
+   "config": {
+    "enabled": true
+   },
+   "steps": [
+    {
+     "start": true
+    },
+    {
+     "foreground": "com.webos.app.hdmi4"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "power": "Active Standby"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "wait": 1700
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "a different input chosen meanwhile cancels the wake",
+   "config": {
+    "enabled": true,
+    "openOnPowerOn": true
+   },
+   "steps": [
+    {
+     "start": true
+    },
+    {
+     "foreground": "com.webos.app.hdmi4"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "power": "Active Standby"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "wait": 500
+    },
+    {
+     "foreground": "com.webos.app.hdmi2"
+    },
+    {
+     "wait": 1700
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "the first input in front after the wake is the one opened over",
+   "config": {
+    "enabled": true,
+    "openOnPowerOn": true
+   },
+   "steps": [
+    {
+     "start": true
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "power": "Active Standby"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "foreground": "com.webos.app.hdmi1"
+    },
+    {
+     "wait": 1700
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false",
+     "reason",
+     "launch:com.webos.app.home"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "an app that is not an input is not opened over",
+   "config": {
+    "enabled": true,
+    "openOnPowerOn": true
+   },
+   "steps": [
+    {
+     "start": true
+    },
+    {
+     "foreground": "com.example.app"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "power": "Active Standby"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "wait": 1700
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "standby again before the timer cancels the wake",
+   "config": {
+    "enabled": true,
+    "openOnPowerOn": true
+   },
+   "steps": [
+    {
+     "start": true
+    },
+    {
+     "foreground": "com.webos.app.hdmi4"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "power": "Active Standby"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "wait": 600
+    },
+    {
+     "power": "Active Standby"
+    },
+    {
+     "wait": 1700
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "the screen going off before the timer cancels the wake and syncs auto launch",
+   "config": {
+    "enabled": true,
+    "openOnPowerOn": true
+   },
+   "steps": [
+    {
+     "start": true
+    },
+    {
+     "foreground": "com.webos.app.hdmi4"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "power": "Active Standby"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "wait": 600
+    },
+    {
+     "screen": false
+    },
+    {
+     "wait": 1700
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false",
+     "sync:false"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "LG's Home open by one of the ways back blocks the wake open",
+   "config": {
+    "enabled": true,
+    "openOnPowerOn": true
+   },
+   "steps": [
+    {
+     "start": true
+    },
+    {
+     "foreground": "com.webos.app.hdmi4"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "power": "Active Standby"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "escaped": true
+    },
+    {
+     "wait": 1700
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "Home not in LG's Home's place blocks the wake open",
+   "config": {
+    "enabled": true,
+    "openOnPowerOn": true
+   },
+   "steps": [
+    {
+     "start": true
+    },
+    {
+     "foreground": "com.webos.app.hdmi4"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "power": "Active Standby"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "mounted": false
+    },
+    {
+     "wait": 1700
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "two wakes in a row open Home each time",
+   "config": {
+    "enabled": true,
+    "openOnPowerOn": true
+   },
+   "steps": [
+    {
+     "start": true
+    },
+    {
+     "foreground": "com.webos.app.hdmi4"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "power": "Active Standby"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "wait": 1700
+    },
+    {
+     "power": "Active Standby"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "wait": 1700
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false",
+     "reason",
+     "launch:com.webos.app.home",
+     "reason",
+     "launch:com.webos.app.home"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "a power state seen again changes nothing",
+   "config": {
+    "enabled": true,
+    "openOnPowerOn": true
+   },
+   "steps": [
+    {
+     "start": true
+    },
+    {
+     "foreground": "com.webos.app.hdmi4"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "wait": 1700
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "the first power state seen is not a wake",
+   "config": {
+    "enabled": true,
+    "openOnPowerOn": true
+   },
+   "steps": [
+    {
+     "start": true
+    },
+    {
+     "foreground": "com.webos.app.hdmi4"
+    },
+    {
+     "power": "Active"
+    },
+    {
+     "wait": 1700
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "the screen going off and on syncs LG's auto launch each time",
+   "config": {
+    "enabled": true
+   },
+   "steps": [
+    {
+     "start": true
+    },
+    {
+     "screen": false
+    },
+    {
+     "screen": true
+    },
+    {
+     "screen": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false",
+     "sync:false",
+     "sync:false"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "the screen with Home off syncs nothing",
+   "config": {
+    "enabled": false
+   },
+   "steps": [
+    {
+     "start": true
+    },
+    {
+     "screen": false
+    },
+    {
+     "screen": true
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:off"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  },
+  {
+   "name": "the escape state is the one passed to the sync",
+   "config": {
+    "enabled": true
+   },
+   "steps": [
+    {
+     "start": true
+    },
+    {
+     "escaped": true
+    },
+    {
+     "screen": false
+    }
+   ],
+   "expect": {
+    "events": [
+     "read:defaultApps,lastInputApp,physicalLastInputApp",
+     "legacy:installed?",
+     "notice:on",
+     "take",
+     "notice:on",
+     "sync:false",
+     "sync:true"
+    ],
+    "config": {
+     "hideLgHomeAtStart": null,
+     "snapshot": false
+    }
+   }
+  }
+ ]
+}

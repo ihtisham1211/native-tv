@@ -1,0 +1,40 @@
+/* First-run setup on the TV, and the Home Assistant screen the dashboard's
+   Settings tab reuses. Built on google-tv/ as the dashboard is: the choices
+   are dense list items, the one action a focused button. 1rem is 1vh. */
+html,body{height:100%;overflow:hidden;cursor:none}
+#stage{position:relative;height:100vh;padding:12rem 8vw 8rem}
+.step{font-size:2.22rem;line-height:2.96rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:#8E918F}
+.title{font-size:6.67rem;line-height:8.15rem;margin:2.22rem 0 1.48rem}
+.mark{display:block;height:11rem;width:auto;color:#E3E3E3;margin:6rem 0 3rem}
+.sub{font-size:2.96rem;line-height:4.44rem;letter-spacing:.016em;color:#C4C7C5;max-width:62vw}
+.rows{margin:5rem 0 0 -2.22rem;width:52vw}
+.row{height:8rem;min-height:0;-webkit-justify-content:space-between;justify-content:space-between;font-size:2.96rem;font-weight:500}
+.row .lbl::before{content:'';display:inline-block;width:1.11rem;height:1.11rem;border-radius:50%;
+  margin-right:2.22rem;vertical-align:middle;background:#8E918F}
+.row.sel .lbl::before{background:#0B57D0}
+.row.ro .lbl::before{display:none}
+.row .val{font-weight:400;color:#C4C7C5}
+.row.sel .val{color:#444746}
+.val.on{color:#6DD58C}
+.row.sel .val.on{color:#146C2E}
+.btn{margin-top:5rem;-webkit-transform-origin:left center;transform-origin:left center}
+#hint{position:absolute;right:8vw;top:42rem;width:30vw;padding:4.44rem;border-radius:2.96rem;background:#1E1F20}
+#hint:empty{display:none}
+#hint .ht{font-size:4.07rem;line-height:5.19rem;margin-bottom:1.48rem}
+#hint .hb{font-size:2.59rem;line-height:3.7rem;letter-spacing:.018em;color:#C4C7C5}
+#hint .ok{font-size:2.22rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;margin-top:2.96rem;color:#A8C7FA}
+#qr{position:absolute;right:10vw;top:22rem;width:34rem;text-align:center}
+#qr svg{width:34rem;height:34rem;display:block;background:#fff;border-radius:2.96rem;padding:1.48rem}
+#qr .url{font-size:2.22rem;color:#C4C7C5;margin-top:1.48rem}
+.wait{margin-top:5rem;font-size:2.96rem}
+.wait::before{content:'';display:inline-block;width:1.11rem;height:1.11rem;border-radius:50%;
+  margin-right:2.22rem;vertical-align:middle;background:#A8C7FA}
+.skip{margin-top:1.48rem;font-size:2.59rem;color:#C4C7C5}
+/* Where setup has got to: one segment a screen, the kit's progress track. */
+.dots{position:absolute;left:8vw;bottom:7rem;display:-webkit-flex;display:flex}
+.dots i{display:block;width:5.93rem;height:.74rem;border-radius:.74rem;background:#444746}
+.dots i.on{background:#A8C7FA}
+.dots i+i{margin-left:1.48rem}
+#hsub{max-width:44vw}
+#hwait,#hskip{visibility:hidden}
+.summary-note{margin-top:2vh}

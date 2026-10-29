@@ -1,0 +1,2 @@
+== Other
+toggle  Viewing information = On [on] -> Turn off <info>

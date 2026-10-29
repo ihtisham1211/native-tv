@@ -1,0 +1,12 @@
+{
+  "id": "com.tvweb.native",
+  "version": "0.1.0",
+  "vendor": "nativeTv",
+  "type": "native",
+  "main": "nativetv-tv",
+  "title": "nativeTv Native",
+  "icon": "assets/icon.png",
+  "resolution": "1920x1080",
+  "disableBackHistoryAPI": true,
+  "requiredACG": []
+}

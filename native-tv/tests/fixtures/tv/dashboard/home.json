@@ -1,0 +1,69 @@
+{
+ "ok": true,
+ "writable": true,
+ "enabled": true,
+ "active": true,
+ "supported": {
+  "ok": true
+ },
+ "hideLgHomeAtStart": false,
+ "openOnPowerOn": true,
+ "layout": {
+  "rows": [
+   "app",
+   "dev"
+  ],
+  "hidden": {
+   "app": [],
+   "dev": [],
+   "ch": []
+  },
+  "sort": {},
+  "channels": [],
+  "appNames": true,
+  "showInputs": true,
+  "showLive": false,
+  "showLgHome": true,
+  "picture": false,
+  "clockFormat": "12h"
+ },
+ "profiles": [
+  {
+   "id": "main",
+   "name": "Ihtisham",
+   "active": true
+  }
+ ],
+ "colourPresets": [],
+ "catalogue": {
+  "apps": [
+   {
+    "id": "streamline",
+    "title": "Streamline"
+   },
+   {
+    "id": "tunes",
+    "title": "Tunes"
+   },
+   {
+    "id": "arcade",
+    "title": "Arcade"
+   },
+   {
+    "id": "lens",
+    "title": "Lens"
+   }
+  ],
+  "devices": [
+   {
+    "id": "hdmi1",
+    "name": "Game Console",
+    "port": 1
+   }
+  ],
+  "channels": []
+ },
+ "wallpapers": {
+  "available": false
+ }
+}

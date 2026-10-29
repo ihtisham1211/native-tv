@@ -1,0 +1,133 @@
+{
+ "ok": true,
+ "available": true,
+ "writable": true,
+ "rows": [
+  {
+   "id": "gameGenre",
+   "section": "game",
+   "type": "choice",
+   "title": "Game genre",
+   "desc": "Tunes the picture for the kind of game. Each genre keeps its own stabilizer settings.",
+   "value": "Standard",
+   "choices": [
+    {
+     "value": "Standard",
+     "label": "Standard"
+    },
+    {
+     "value": "FPS",
+     "label": "First-person shooter"
+    },
+    {
+     "value": "RPG",
+     "label": "Role-playing"
+    },
+    {
+     "value": "RTS",
+     "label": "Real-time strategy"
+    },
+    {
+     "value": "Sports",
+     "label": "Sports"
+    },
+    {
+     "value": "USER",
+     "label": "User"
+    }
+   ]
+  },
+  {
+   "id": "inputOptimization",
+   "section": "game",
+   "type": "choice",
+   "title": "Prevent input delay",
+   "desc": "Standard cuts input lag for the kind of content; Boost cuts it further by matching the console's frame rate.",
+   "value": "on",
+   "choices": [
+    {
+     "value": "auto",
+     "label": "Standard"
+    },
+    {
+     "value": "on",
+     "label": "Boost"
+    }
+   ]
+  },
+  {
+   "id": "gameOptimization",
+   "section": "game",
+   "type": "switch",
+   "title": "VRR & G-Sync",
+   "desc": "Lets the TV follow the frame rate a console or PC sends, so motion stays smooth without tearing.",
+   "on": true
+  },
+  {
+   "id": "freesync",
+   "section": "game",
+   "type": "switch",
+   "title": "AMD FreeSync Premium",
+   "desc": "The same for AMD graphics cards and consoles that use FreeSync.",
+   "on": false
+  },
+  {
+   "id": "enableALLM",
+   "section": "game",
+   "type": "switch",
+   "title": "ALLM",
+   "desc": "Switches the TV to its low-latency game mode by itself when a connected device starts a game.",
+   "on": true
+  },
+  {
+   "id": "darkMode",
+   "section": "game",
+   "type": "choice",
+   "title": "Dark room mode",
+   "desc": "Lowers the brightness for playing in a dark room.",
+   "value": "off",
+   "choices": [
+    {
+     "value": "off",
+     "label": "Off"
+    },
+    {
+     "value": "level1",
+     "label": "Level 1"
+    },
+    {
+     "value": "level2",
+     "label": "Level 2"
+    }
+   ]
+  },
+  {
+   "id": "blackStabilizer",
+   "section": "game",
+   "type": "number",
+   "title": "Black stabilizer",
+   "desc": "Lifts dark areas so detail in shadows is easier to see.",
+   "value": 10,
+   "min": 0,
+   "max": 20
+  },
+  {
+   "id": "whiteStabilizer",
+   "section": "game",
+   "type": "number",
+   "title": "White stabilizer",
+   "desc": "Tames bright areas so detail in highlights is easier to see.",
+   "value": 10,
+   "min": 0,
+   "max": 20
+  },
+  {
+   "id": "aigamesound",
+   "section": "game",
+   "type": "switch",
+   "title": "AI Game Sound",
+   "desc": "Sets the sound for the game being played: effects, clear voices and surround.",
+   "on": true
+  }
+ ]
+}

@@ -1,0 +1,4 @@
+== Service menu
+toggle  Lock = Locked [on] -> Turn off <lock>
+action  Open EZ Adjust -> Open <tune>
+action  Open In Start -> Open <tune>

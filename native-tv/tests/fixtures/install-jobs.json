@@ -1,0 +1,3147 @@
+{
+ "scenarios": [
+  {
+   "name": "catalog one-click install",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": true,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": true,
+    "info": {
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "machines": [
+      "arm"
+     ],
+     "services": [],
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ]
+    }
+   },
+   "preview": {
+    "ok": true,
+    "preview": {
+     "jobId": "JOB",
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "installedVersion": null,
+     "direction": "new",
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ],
+     "services": [],
+     "rootRequired": false,
+     "willElevate": false,
+     "reelevate": [],
+     "cpuMismatch": false,
+     "storeInstalled": false,
+     "isScreensaver": false,
+     "source": "catalog",
+     "vetted": true,
+     "freeBytes": 900000000,
+     "needBytes": 8192,
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "needsReview": false,
+    "elevationAvailable": true,
+    "capacityOkay": true
+   },
+   "install": {
+    "ok": true,
+    "outcome": "installed"
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "awaiting-confirm",
+     "installing",
+     "installed"
+    ],
+    "final": {
+     "state": "installed",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": {
+      "jobId": "JOB",
+      "package": "com.example.app",
+      "version": "1.2.3",
+      "installedVersion": null,
+      "direction": "new",
+      "apps": [
+       {
+        "id": "com.example.app",
+        "title": "Example",
+        "version": "1.2.3",
+        "icon": "icon.png"
+       }
+      ],
+      "services": [],
+      "rootRequired": false,
+      "willElevate": false,
+      "reelevate": [],
+      "cpuMismatch": false,
+      "storeInstalled": false,
+      "isScreensaver": false,
+      "source": "catalog",
+      "vetted": true,
+      "freeBytes": 900000000,
+      "needBytes": 8192,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     "error": null,
+     "result": {
+      "package": "com.example.app",
+      "title": "Example",
+      "version": "1.2.3",
+      "apps": [
+       "com.example.app"
+      ],
+      "elevation": null
+     }
+    }
+   }
+  },
+  {
+   "name": "catalog install waits for confirmation, then installs",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": true,
+    "info": {
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "machines": [
+      "arm"
+     ],
+     "services": [],
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ]
+    }
+   },
+   "preview": {
+    "ok": true,
+    "preview": {
+     "jobId": "JOB",
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "installedVersion": null,
+     "direction": "new",
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ],
+     "services": [],
+     "rootRequired": false,
+     "willElevate": false,
+     "reelevate": [],
+     "cpuMismatch": false,
+     "storeInstalled": false,
+     "isScreensaver": false,
+     "source": "catalog",
+     "vetted": true,
+     "freeBytes": 900000000,
+     "needBytes": 8192,
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "needsReview": false,
+    "elevationAvailable": true,
+    "capacityOkay": true
+   },
+   "install": {
+    "ok": true,
+    "outcome": "installed"
+   },
+   "confirm": {
+    "elevate": false
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "awaiting-confirm",
+     "installing",
+     "installed"
+    ],
+    "final": {
+     "state": "installed",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": {
+      "jobId": "JOB",
+      "package": "com.example.app",
+      "version": "1.2.3",
+      "installedVersion": null,
+      "direction": "new",
+      "apps": [
+       {
+        "id": "com.example.app",
+        "title": "Example",
+        "version": "1.2.3",
+        "icon": "icon.png"
+       }
+      ],
+      "services": [],
+      "rootRequired": false,
+      "willElevate": false,
+      "reelevate": [],
+      "cpuMismatch": false,
+      "storeInstalled": false,
+      "isScreensaver": false,
+      "source": "catalog",
+      "vetted": true,
+      "freeBytes": 900000000,
+      "needBytes": 8192,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     "error": null,
+     "result": {
+      "package": "com.example.app",
+      "title": "Example",
+      "version": "1.2.3",
+      "apps": [
+       "com.example.app"
+      ],
+      "elevation": null
+     }
+    }
+   }
+  },
+  {
+   "name": "one-click stops at a review",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": true,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": true,
+    "info": {
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "machines": [
+      "arm"
+     ],
+     "services": [],
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ]
+    }
+   },
+   "preview": {
+    "ok": true,
+    "preview": {
+     "jobId": "JOB",
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "installedVersion": null,
+     "direction": "new",
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ],
+     "services": [],
+     "rootRequired": false,
+     "willElevate": false,
+     "reelevate": [],
+     "cpuMismatch": true,
+     "storeInstalled": false,
+     "isScreensaver": false,
+     "source": "catalog",
+     "vetted": true,
+     "freeBytes": 900000000,
+     "needBytes": 8192,
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "needsReview": true,
+    "elevationAvailable": true,
+    "capacityOkay": true
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "awaiting-confirm"
+    ],
+    "final": {
+     "state": "awaiting-confirm",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": {
+      "jobId": "JOB",
+      "package": "com.example.app",
+      "version": "1.2.3",
+      "installedVersion": null,
+      "direction": "new",
+      "apps": [
+       {
+        "id": "com.example.app",
+        "title": "Example",
+        "version": "1.2.3",
+        "icon": "icon.png"
+       }
+      ],
+      "services": [],
+      "rootRequired": false,
+      "willElevate": false,
+      "reelevate": [],
+      "cpuMismatch": true,
+      "storeInstalled": false,
+      "isScreensaver": false,
+      "source": "catalog",
+      "vetted": true,
+      "freeBytes": 900000000,
+      "needBytes": 8192,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     "error": null,
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "vetted root services are elevated on confirm",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": true,
+    "info": {
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "machines": [
+      "arm"
+     ],
+     "services": [
+      "com.example.app.svc",
+      "com.example.app.other"
+     ],
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ]
+    }
+   },
+   "preview": {
+    "ok": true,
+    "preview": {
+     "jobId": "JOB",
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "installedVersion": null,
+     "direction": "new",
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ],
+     "services": [
+      "com.example.app.svc",
+      "com.example.app.other"
+     ],
+     "rootRequired": true,
+     "willElevate": false,
+     "reelevate": [],
+     "cpuMismatch": false,
+     "storeInstalled": false,
+     "isScreensaver": false,
+     "source": "catalog",
+     "vetted": true,
+     "freeBytes": 900000000,
+     "needBytes": 8192,
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "needsReview": false,
+    "elevationAvailable": true,
+    "capacityOkay": true
+   },
+   "install": {
+    "ok": true,
+    "outcome": "installed"
+   },
+   "confirm": {
+    "elevate": true,
+    "nativeValidated": true,
+    "nativeServices": [
+     "com.example.app.svc",
+     "com.example.app.other"
+    ]
+   },
+   "elevate": {
+    "done": [
+     "com.example.app.svc"
+    ],
+    "failed": [
+     {
+      "service": "com.example.app.other",
+      "error": "denied"
+     }
+    ]
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "awaiting-confirm",
+     "installing",
+     "elevating",
+     "installed"
+    ],
+    "final": {
+     "state": "installed",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": {
+      "jobId": "JOB",
+      "package": "com.example.app",
+      "version": "1.2.3",
+      "installedVersion": null,
+      "direction": "new",
+      "apps": [
+       {
+        "id": "com.example.app",
+        "title": "Example",
+        "version": "1.2.3",
+        "icon": "icon.png"
+       }
+      ],
+      "services": [
+       "com.example.app.svc",
+       "com.example.app.other"
+      ],
+      "rootRequired": true,
+      "willElevate": false,
+      "reelevate": [],
+      "cpuMismatch": false,
+      "storeInstalled": false,
+      "isScreensaver": false,
+      "source": "catalog",
+      "vetted": true,
+      "freeBytes": 900000000,
+      "needBytes": 8192,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     "error": null,
+     "result": {
+      "package": "com.example.app",
+      "title": "Example",
+      "version": "1.2.3",
+      "apps": [
+       "com.example.app"
+      ],
+      "elevation": {
+       "done": [
+        "com.example.app.svc"
+       ],
+       "failed": [
+        {
+         "service": "com.example.app.other",
+         "error": "denied"
+        }
+       ]
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "saved elevation is reapplied for a vetted package",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": true,
+    "info": {
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "machines": [
+      "arm"
+     ],
+     "services": [
+      "com.example.app.svc"
+     ],
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ]
+    }
+   },
+   "elevatedSaved": [
+    "com.example.app.svc",
+    "gone"
+   ],
+   "preview": {
+    "ok": true,
+    "preview": {
+     "jobId": "JOB",
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "installedVersion": null,
+     "direction": "new",
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ],
+     "services": [
+      "com.example.app.svc"
+     ],
+     "rootRequired": false,
+     "willElevate": true,
+     "reelevate": [
+      "com.example.app.svc"
+     ],
+     "cpuMismatch": false,
+     "storeInstalled": false,
+     "isScreensaver": false,
+     "source": "catalog",
+     "vetted": true,
+     "freeBytes": 900000000,
+     "needBytes": 8192,
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "needsReview": false,
+    "elevationAvailable": true,
+    "capacityOkay": true
+   },
+   "install": {
+    "ok": true,
+    "outcome": "installed"
+   },
+   "confirm": {
+    "elevate": false,
+    "nativeValidated": true,
+    "nativeServices": [
+     "com.example.app.svc"
+    ]
+   },
+   "elevate": {
+    "done": [
+     "com.example.app.svc"
+    ],
+    "failed": []
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "awaiting-confirm",
+     "installing",
+     "elevating",
+     "installed"
+    ],
+    "final": {
+     "state": "installed",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": {
+      "jobId": "JOB",
+      "package": "com.example.app",
+      "version": "1.2.3",
+      "installedVersion": null,
+      "direction": "new",
+      "apps": [
+       {
+        "id": "com.example.app",
+        "title": "Example",
+        "version": "1.2.3",
+        "icon": "icon.png"
+       }
+      ],
+      "services": [
+       "com.example.app.svc"
+      ],
+      "rootRequired": false,
+      "willElevate": true,
+      "reelevate": [
+       "com.example.app.svc"
+      ],
+      "cpuMismatch": false,
+      "storeInstalled": false,
+      "isScreensaver": false,
+      "source": "catalog",
+      "vetted": true,
+      "freeBytes": 900000000,
+      "needBytes": 8192,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     "error": null,
+     "result": {
+      "package": "com.example.app",
+      "title": "Example",
+      "version": "1.2.3",
+      "apps": [
+       "com.example.app"
+      ],
+      "elevation": {
+       "done": [
+        "com.example.app.svc"
+       ],
+       "failed": []
+      }
+     }
+    }
+   }
+  },
+  {
+   "name": "a URL install always stops at the preview",
+   "request": {
+    "source": "url",
+    "url": "https://x.example/a.ipk",
+    "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 2048
+   },
+   "inspect": {
+    "ok": true,
+    "info": {
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "machines": [
+      "arm"
+     ],
+     "services": [],
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ]
+    }
+   },
+   "preview": {
+    "ok": true,
+    "preview": {
+     "jobId": "JOB",
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "installedVersion": null,
+     "direction": "new",
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ],
+     "services": [],
+     "rootRequired": false,
+     "willElevate": false,
+     "reelevate": [],
+     "cpuMismatch": false,
+     "storeInstalled": false,
+     "isScreensaver": false,
+     "source": "url",
+     "vetted": false,
+     "freeBytes": 900000000,
+     "needBytes": 8192,
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "needsReview": false,
+    "elevationAvailable": true,
+    "capacityOkay": true
+   },
+   "install": {
+    "ok": true,
+    "outcome": "installed"
+   },
+   "confirm": {
+    "elevate": false
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "awaiting-confirm",
+     "installing",
+     "installed"
+    ],
+    "final": {
+     "state": "installed",
+     "jobId": "JOB",
+     "source": "url",
+     "appId": null,
+     "repo": null,
+     "progress": {
+      "bytes": 2048,
+      "total": null
+     },
+     "preview": {
+      "jobId": "JOB",
+      "package": "com.example.app",
+      "version": "1.2.3",
+      "installedVersion": null,
+      "direction": "new",
+      "apps": [
+       {
+        "id": "com.example.app",
+        "title": "Example",
+        "version": "1.2.3",
+        "icon": "icon.png"
+       }
+      ],
+      "services": [],
+      "rootRequired": false,
+      "willElevate": false,
+      "reelevate": [],
+      "cpuMismatch": false,
+      "storeInstalled": false,
+      "isScreensaver": false,
+      "source": "url",
+      "vetted": false,
+      "freeBytes": 900000000,
+      "needBytes": 8192,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     "error": null,
+     "result": {
+      "package": "com.example.app",
+      "title": "Example",
+      "version": "1.2.3",
+      "apps": [
+       "com.example.app"
+      ],
+      "elevation": null
+     }
+    }
+   }
+  },
+  {
+   "name": "a staged upload is verified from the file",
+   "request": {
+    "source": "file",
+    "file": "upload-0123456789abcdef.ipk"
+   },
+   "inspect": {
+    "ok": true,
+    "info": {
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "machines": [
+      "arm"
+     ],
+     "services": [],
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ]
+    }
+   },
+   "preview": {
+    "ok": true,
+    "preview": {
+     "jobId": "JOB",
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "installedVersion": null,
+     "direction": "new",
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ],
+     "services": [],
+     "rootRequired": false,
+     "willElevate": false,
+     "reelevate": [],
+     "cpuMismatch": false,
+     "storeInstalled": false,
+     "isScreensaver": false,
+     "source": "file",
+     "vetted": false,
+     "freeBytes": 900000000,
+     "needBytes": 8192,
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "needsReview": false,
+    "elevationAvailable": true,
+    "capacityOkay": true
+   },
+   "install": {
+    "ok": true,
+    "outcome": "installed"
+   },
+   "confirm": {
+    "elevate": false
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "verifying",
+     "awaiting-confirm",
+     "installing",
+     "installed"
+    ],
+    "final": {
+     "state": "installed",
+     "jobId": "JOB",
+     "source": "file",
+     "appId": null,
+     "repo": null,
+     "progress": {
+      "bytes": 0,
+      "total": null
+     },
+     "preview": {
+      "jobId": "JOB",
+      "package": "com.example.app",
+      "version": "1.2.3",
+      "installedVersion": null,
+      "direction": "new",
+      "apps": [
+       {
+        "id": "com.example.app",
+        "title": "Example",
+        "version": "1.2.3",
+        "icon": "icon.png"
+       }
+      ],
+      "services": [],
+      "rootRequired": false,
+      "willElevate": false,
+      "reelevate": [],
+      "cpuMismatch": false,
+      "storeInstalled": false,
+      "isScreensaver": false,
+      "source": "file",
+      "vetted": false,
+      "freeBytes": 900000000,
+      "needBytes": 8192,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     "error": null,
+     "result": {
+      "package": "com.example.app",
+      "title": "Example",
+      "version": "1.2.3",
+      "apps": [
+       "com.example.app"
+      ],
+      "elevation": null
+     }
+    }
+   }
+  },
+  {
+   "name": "a file outside the upload names is refused",
+   "request": {
+    "source": "file",
+    "file": "../etc/passwd"
+   },
+   "expected": {
+    "startError": "the file is not in the staging directory",
+    "confirmError": null,
+    "cancelError": null,
+    "states": [],
+    "final": {
+     "state": "idle",
+     "jobId": null,
+     "source": null,
+     "appId": null,
+     "progress": null,
+     "preview": null,
+     "error": null,
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "an unknown source is refused",
+   "request": {
+    "source": "carrier-pigeon"
+   },
+   "expected": {
+    "startError": "unknown install source",
+    "confirmError": null,
+    "cancelError": null,
+    "states": [],
+    "final": {
+     "state": "idle",
+     "jobId": null,
+     "source": null,
+     "appId": null,
+     "progress": null,
+     "preview": null,
+     "error": null,
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "an incomplete catalog row is refused",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "x"
+    },
+    "nativeValidated": true
+   },
+   "expected": {
+    "startError": "the catalog entry is incomplete",
+    "confirmError": null,
+    "cancelError": null,
+    "states": [],
+    "final": {
+     "state": "idle",
+     "jobId": null,
+     "source": null,
+     "appId": null,
+     "progress": null,
+     "preview": null,
+     "error": null,
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "hash mismatch",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": false,
+    "code": "hash-mismatch",
+    "expected": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "actual": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": null,
+     "error": "the download does not match its sha256 hash",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "catalog id mismatch",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": false,
+    "code": "catalog-id-mismatch",
+    "expected": "com.example.app",
+    "actual": "com.other.app"
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": null,
+     "error": "the catalog lists it as com.example.app, but what it downloads is a different app, com.other.app. Whoever runs the catalog needs to correct it.",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "policy: id prefix",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": false,
+    "code": "id-prefix",
+    "id": "com.evil.svc",
+    "package": "com.example.app"
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": null,
+     "error": "com.evil.svc does not begin with the package name com.example.app",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "policy: self updating",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": false,
+    "code": "self-updating",
+    "id": "org.webosbrew.hbchannel",
+    "package": "org.webosbrew.hbchannel"
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": null,
+     "error": "org.webosbrew.hbchannel must be updated from the Homebrew Channel",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "policy: protected",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": false,
+    "code": "protected",
+    "id": "com.webos.app.home",
+    "package": "com.webos.app.home"
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": null,
+     "error": "com.webos.app.home belongs to the TV system and cannot be installed",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "policy: system existing",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": false,
+    "code": "system-existing",
+    "id": "com.example.app",
+    "package": "com.example.app"
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": null,
+     "error": "com.example.app is already part of the TV system",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "policy: invalid metadata",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": false,
+    "code": "invalid-metadata",
+    "id": "",
+    "package": ""
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": null,
+     "error": "the ipk could not be read: invalid package policy metadata",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "policy: unknown code",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": false,
+    "code": "weird",
+    "id": "com.example.weird",
+    "package": "com.example.app"
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": null,
+     "error": "native app package policy rejected com.example.weird",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "unreadable package",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": false,
+    "error": "the ipk could not be read"
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": null,
+     "error": "the ipk could not be read",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "download fails",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "error": {
+     "message": "boom"
+    }
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 0,
+      "total": 4096
+     },
+     "preview": null,
+     "error": "the download failed: boom",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "download over the size limit",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "error": {
+     "message": "x",
+     "maxBytesExceeded": true
+    }
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 0,
+      "total": 4096
+     },
+     "preview": null,
+     "error": "the package is larger than the 512 MB limit",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "download without room",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "error": {
+     "message": "x",
+     "maxBytesExceeded": true,
+     "noSpace": true,
+     "freeBytes": 52428800
+    }
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 0,
+      "total": 4096
+     },
+     "preview": null,
+     "error": "not enough free space for this download: 50 MB free, and the package needs about three times its size",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "download refused by GitHub",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://github.com/o/r/releases/a.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "error": {
+     "message": "x",
+     "remoteStatus": 404
+    }
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 0,
+      "total": 4096
+     },
+     "preview": null,
+     "error": "the download failed: GitHub returned 404 for /o/r/releases/a.ipk - no release published yet, or the repository is not visible",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "download refused by another host",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "error": {
+     "message": "x",
+     "remoteStatus": 503
+    }
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 0,
+      "total": 4096
+     },
+     "preview": null,
+     "error": "the download failed: repo.example returned 503 for /app.ipk",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "download offline",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "error": {
+     "message": "x",
+     "offline": true
+    }
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 0,
+      "total": 4096
+     },
+     "preview": null,
+     "error": "the download failed: The TV could not reach repo.example. Check it is connected to the internet.",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "download stalls",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "error": {
+     "message": "x",
+     "timedOut": true
+    }
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 0,
+      "total": 4096
+     },
+     "preview": null,
+     "error": "the download failed: the download from repo.example stalled or ran past 30 minutes",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "no room for the package",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": true,
+    "info": {
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "machines": [
+      "arm"
+     ],
+     "services": [],
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ]
+    }
+   },
+   "preview": {
+    "ok": true,
+    "preview": {
+     "jobId": "JOB",
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "installedVersion": null,
+     "direction": "new",
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ],
+     "services": [],
+     "rootRequired": false,
+     "willElevate": false,
+     "reelevate": [],
+     "cpuMismatch": false,
+     "storeInstalled": false,
+     "isScreensaver": false,
+     "source": "catalog",
+     "vetted": true,
+     "freeBytes": 1048576,
+     "needBytes": 31457280,
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "needsReview": false,
+    "elevationAvailable": true,
+    "capacityOkay": false
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": null,
+     "error": "not enough free space: 30 MB needed, 1 MB free",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "install fails",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": true,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": true,
+    "info": {
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "machines": [
+      "arm"
+     ],
+     "services": [],
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ]
+    }
+   },
+   "preview": {
+    "ok": true,
+    "preview": {
+     "jobId": "JOB",
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "installedVersion": null,
+     "direction": "new",
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ],
+     "services": [],
+     "rootRequired": false,
+     "willElevate": false,
+     "reelevate": [],
+     "cpuMismatch": false,
+     "storeInstalled": false,
+     "isScreensaver": false,
+     "source": "catalog",
+     "vetted": true,
+     "freeBytes": 900000000,
+     "needBytes": 8192,
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "needsReview": false,
+    "elevationAvailable": true,
+    "capacityOkay": true
+   },
+   "install": {
+    "ok": true,
+    "outcome": "failed",
+    "error": "disk is full"
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "awaiting-confirm",
+     "installing",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": {
+      "jobId": "JOB",
+      "package": "com.example.app",
+      "version": "1.2.3",
+      "installedVersion": null,
+      "direction": "new",
+      "apps": [
+       {
+        "id": "com.example.app",
+        "title": "Example",
+        "version": "1.2.3",
+        "icon": "icon.png"
+       }
+      ],
+      "services": [],
+      "rootRequired": false,
+      "willElevate": false,
+      "reelevate": [],
+      "cpuMismatch": false,
+      "storeInstalled": false,
+      "isScreensaver": false,
+      "source": "catalog",
+      "vetted": true,
+      "freeBytes": 900000000,
+      "needBytes": 8192,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     "error": "the install failed: disk is full",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "install times out",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": true,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": true,
+    "info": {
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "machines": [
+      "arm"
+     ],
+     "services": [],
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ]
+    }
+   },
+   "preview": {
+    "ok": true,
+    "preview": {
+     "jobId": "JOB",
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "installedVersion": null,
+     "direction": "new",
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ],
+     "services": [],
+     "rootRequired": false,
+     "willElevate": false,
+     "reelevate": [],
+     "cpuMismatch": false,
+     "storeInstalled": false,
+     "isScreensaver": false,
+     "source": "catalog",
+     "vetted": true,
+     "freeBytes": 900000000,
+     "needBytes": 8192,
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "needsReview": false,
+    "elevationAvailable": true,
+    "capacityOkay": true
+   },
+   "install": {
+    "ok": true,
+    "outcome": "timeout"
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "awaiting-confirm",
+     "installing",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": {
+      "jobId": "JOB",
+      "package": "com.example.app",
+      "version": "1.2.3",
+      "installedVersion": null,
+      "direction": "new",
+      "apps": [
+       {
+        "id": "com.example.app",
+        "title": "Example",
+        "version": "1.2.3",
+        "icon": "icon.png"
+       }
+      ],
+      "services": [],
+      "rootRequired": false,
+      "willElevate": false,
+      "reelevate": [],
+      "cpuMismatch": false,
+      "storeInstalled": false,
+      "isScreensaver": false,
+      "source": "catalog",
+      "vetted": true,
+      "freeBytes": 900000000,
+      "needBytes": 8192,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     "error": "the install failed: the install did not finish in time; check the app list",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "install service closes",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": true,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": true,
+    "info": {
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "machines": [
+      "arm"
+     ],
+     "services": [],
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ]
+    }
+   },
+   "preview": {
+    "ok": true,
+    "preview": {
+     "jobId": "JOB",
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "installedVersion": null,
+     "direction": "new",
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ],
+     "services": [],
+     "rootRequired": false,
+     "willElevate": false,
+     "reelevate": [],
+     "cpuMismatch": false,
+     "storeInstalled": false,
+     "isScreensaver": false,
+     "source": "catalog",
+     "vetted": true,
+     "freeBytes": 900000000,
+     "needBytes": 8192,
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "needsReview": false,
+    "elevationAvailable": true,
+    "capacityOkay": true
+   },
+   "install": {
+    "ok": true,
+    "outcome": "closed"
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "awaiting-confirm",
+     "installing",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": {
+      "jobId": "JOB",
+      "package": "com.example.app",
+      "version": "1.2.3",
+      "installedVersion": null,
+      "direction": "new",
+      "apps": [
+       {
+        "id": "com.example.app",
+        "title": "Example",
+        "version": "1.2.3",
+        "icon": "icon.png"
+       }
+      ],
+      "services": [],
+      "rootRequired": false,
+      "willElevate": false,
+      "reelevate": [],
+      "cpuMismatch": false,
+      "storeInstalled": false,
+      "isScreensaver": false,
+      "source": "catalog",
+      "vetted": true,
+      "freeBytes": 900000000,
+      "needBytes": 8192,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     "error": "the install failed: the install service stopped answering",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "install not accepted",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": true,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": true,
+    "info": {
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "machines": [
+      "arm"
+     ],
+     "services": [],
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ]
+    }
+   },
+   "preview": {
+    "ok": true,
+    "preview": {
+     "jobId": "JOB",
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "installedVersion": null,
+     "direction": "new",
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ],
+     "services": [],
+     "rootRequired": false,
+     "willElevate": false,
+     "reelevate": [],
+     "cpuMismatch": false,
+     "storeInstalled": false,
+     "isScreensaver": false,
+     "source": "catalog",
+     "vetted": true,
+     "freeBytes": 900000000,
+     "needBytes": 8192,
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "needsReview": false,
+    "elevationAvailable": true,
+    "capacityOkay": true
+   },
+   "install": {
+    "ok": false,
+    "error": "staged package changed after it was verified"
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "awaiting-confirm",
+     "installing",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": {
+      "jobId": "JOB",
+      "package": "com.example.app",
+      "version": "1.2.3",
+      "installedVersion": null,
+      "direction": "new",
+      "apps": [
+       {
+        "id": "com.example.app",
+        "title": "Example",
+        "version": "1.2.3",
+        "icon": "icon.png"
+       }
+      ],
+      "services": [],
+      "rootRequired": false,
+      "willElevate": false,
+      "reelevate": [],
+      "cpuMismatch": false,
+      "storeInstalled": false,
+      "isScreensaver": false,
+      "source": "catalog",
+      "vetted": true,
+      "freeBytes": 900000000,
+      "needBytes": 8192,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     "error": "the install failed: staged package changed after it was verified",
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "confirm: store copy needs its own confirmation",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": true,
+    "info": {
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "machines": [
+      "arm"
+     ],
+     "services": [],
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ]
+    }
+   },
+   "preview": {
+    "ok": true,
+    "preview": {
+     "jobId": "JOB",
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "installedVersion": null,
+     "direction": "new",
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ],
+     "services": [],
+     "rootRequired": false,
+     "willElevate": false,
+     "reelevate": [],
+     "cpuMismatch": false,
+     "storeInstalled": true,
+     "isScreensaver": false,
+     "source": "catalog",
+     "vetted": true,
+     "freeBytes": 900000000,
+     "needBytes": 8192,
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "needsReview": false,
+    "elevationAvailable": true,
+    "capacityOkay": true
+   },
+   "confirm": {
+    "elevate": false
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": "this app came from the LG store; replacing it stops store updates and needs separate confirmation",
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "awaiting-confirm"
+    ],
+    "final": {
+     "state": "awaiting-confirm",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": {
+      "jobId": "JOB",
+      "package": "com.example.app",
+      "version": "1.2.3",
+      "installedVersion": null,
+      "direction": "new",
+      "apps": [
+       {
+        "id": "com.example.app",
+        "title": "Example",
+        "version": "1.2.3",
+        "icon": "icon.png"
+       }
+      ],
+      "services": [],
+      "rootRequired": false,
+      "willElevate": false,
+      "reelevate": [],
+      "cpuMismatch": false,
+      "storeInstalled": true,
+      "isScreensaver": false,
+      "source": "catalog",
+      "vetted": true,
+      "freeBytes": 900000000,
+      "needBytes": 8192,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     "error": null,
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "confirm: root outside the catalog needs the service list",
+   "request": {
+    "source": "url",
+    "url": "https://x.example/a.ipk",
+    "sha256": null,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": true,
+    "info": {
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "machines": [
+      "arm"
+     ],
+     "services": [
+      "com.example.app.svc"
+     ],
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ]
+    }
+   },
+   "elevateAvailable": true,
+   "preview": {
+    "ok": true,
+    "preview": {
+     "jobId": "JOB",
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "installedVersion": null,
+     "direction": "new",
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ],
+     "services": [
+      "com.example.app.svc"
+     ],
+     "rootRequired": true,
+     "willElevate": false,
+     "reelevate": [],
+     "cpuMismatch": false,
+     "storeInstalled": false,
+     "isScreensaver": false,
+     "source": "url",
+     "vetted": false,
+     "freeBytes": 900000000,
+     "needBytes": 8192,
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "needsReview": false,
+    "elevationAvailable": true,
+    "capacityOkay": true
+   },
+   "confirm": {
+    "elevate": true,
+    "confirmRoot": []
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": "root access for a package from outside the catalog must be confirmed for the services listed in its preview",
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "awaiting-confirm"
+    ],
+    "final": {
+     "state": "awaiting-confirm",
+     "jobId": "JOB",
+     "source": "url",
+     "appId": null,
+     "repo": null,
+     "progress": {
+      "bytes": 4096,
+      "total": null
+     },
+     "preview": {
+      "jobId": "JOB",
+      "package": "com.example.app",
+      "version": "1.2.3",
+      "installedVersion": null,
+      "direction": "new",
+      "apps": [
+       {
+        "id": "com.example.app",
+        "title": "Example",
+        "version": "1.2.3",
+        "icon": "icon.png"
+       }
+      ],
+      "services": [
+       "com.example.app.svc"
+      ],
+      "rootRequired": true,
+      "willElevate": false,
+      "reelevate": [],
+      "cpuMismatch": false,
+      "storeInstalled": false,
+      "isScreensaver": false,
+      "source": "url",
+      "vetted": false,
+      "freeBytes": 900000000,
+      "needBytes": 8192,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     "error": null,
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "confirm: root needs the Homebrew Channel",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": true,
+    "info": {
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "machines": [
+      "arm"
+     ],
+     "services": [
+      "com.example.app.svc"
+     ],
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ]
+    }
+   },
+   "elevateAvailable": false,
+   "preview": {
+    "ok": true,
+    "preview": {
+     "jobId": "JOB",
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "installedVersion": null,
+     "direction": "new",
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ],
+     "services": [
+      "com.example.app.svc"
+     ],
+     "rootRequired": true,
+     "willElevate": false,
+     "reelevate": [],
+     "cpuMismatch": false,
+     "storeInstalled": false,
+     "isScreensaver": false,
+     "source": "catalog",
+     "vetted": true,
+     "freeBytes": 900000000,
+     "needBytes": 8192,
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "needsReview": false,
+    "elevationAvailable": true,
+    "capacityOkay": true
+   },
+   "confirm": {
+    "elevate": true
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": "root access needs the Homebrew Channel, which is not installed",
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "awaiting-confirm"
+    ],
+    "final": {
+     "state": "awaiting-confirm",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": {
+      "jobId": "JOB",
+      "package": "com.example.app",
+      "version": "1.2.3",
+      "installedVersion": null,
+      "direction": "new",
+      "apps": [
+       {
+        "id": "com.example.app",
+        "title": "Example",
+        "version": "1.2.3",
+        "icon": "icon.png"
+       }
+      ],
+      "services": [
+       "com.example.app.svc"
+      ],
+      "rootRequired": true,
+      "willElevate": false,
+      "reelevate": [],
+      "cpuMismatch": false,
+      "storeInstalled": false,
+      "isScreensaver": false,
+      "source": "catalog",
+      "vetted": true,
+      "freeBytes": 900000000,
+      "needBytes": 8192,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     "error": null,
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "confirm: wrong job",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": true,
+    "info": {
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "machines": [
+      "arm"
+     ],
+     "services": [],
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ]
+    }
+   },
+   "preview": {
+    "ok": true,
+    "preview": {
+     "jobId": "JOB",
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "installedVersion": null,
+     "direction": "new",
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ],
+     "services": [],
+     "rootRequired": false,
+     "willElevate": false,
+     "reelevate": [],
+     "cpuMismatch": false,
+     "storeInstalled": false,
+     "isScreensaver": false,
+     "source": "catalog",
+     "vetted": true,
+     "freeBytes": 900000000,
+     "needBytes": 8192,
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "needsReview": false,
+    "elevationAvailable": true,
+    "capacityOkay": true
+   },
+   "confirm": {
+    "jobId": "someone-else"
+   },
+   "expected": {
+    "startError": null,
+    "confirmError": "there is no install waiting for confirmation",
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "awaiting-confirm"
+    ],
+    "final": {
+     "state": "awaiting-confirm",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 4096,
+      "total": 4096
+     },
+     "preview": {
+      "jobId": "JOB",
+      "package": "com.example.app",
+      "version": "1.2.3",
+      "installedVersion": null,
+      "direction": "new",
+      "apps": [
+       {
+        "id": "com.example.app",
+        "title": "Example",
+        "version": "1.2.3",
+        "icon": "icon.png"
+       }
+      ],
+      "services": [],
+      "rootRequired": false,
+      "willElevate": false,
+      "reelevate": [],
+      "cpuMismatch": false,
+      "storeInstalled": false,
+      "isScreensaver": false,
+      "source": "catalog",
+      "vetted": true,
+      "freeBytes": 900000000,
+      "needBytes": 8192,
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+     },
+     "error": null,
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "cancel while waiting for confirmation",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "bytes": 4096
+   },
+   "inspect": {
+    "ok": true,
+    "info": {
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "machines": [
+      "arm"
+     ],
+     "services": [],
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ]
+    }
+   },
+   "preview": {
+    "ok": true,
+    "preview": {
+     "jobId": "JOB",
+     "package": "com.example.app",
+     "version": "1.2.3",
+     "installedVersion": null,
+     "direction": "new",
+     "apps": [
+      {
+       "id": "com.example.app",
+       "title": "Example",
+       "version": "1.2.3",
+       "icon": "icon.png"
+      }
+     ],
+     "services": [],
+     "rootRequired": false,
+     "willElevate": false,
+     "reelevate": [],
+     "cpuMismatch": false,
+     "storeInstalled": false,
+     "isScreensaver": false,
+     "source": "catalog",
+     "vetted": true,
+     "freeBytes": 900000000,
+     "needBytes": 8192,
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    },
+    "needsReview": false,
+    "elevationAvailable": true,
+    "capacityOkay": true
+   },
+   "cancel": true,
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": null,
+    "states": [
+     "downloading",
+     "verifying",
+     "awaiting-confirm",
+     "cleared"
+    ],
+    "final": {
+     "state": "idle",
+     "jobId": null,
+     "source": null,
+     "appId": null,
+     "progress": null,
+     "preview": null,
+     "error": null,
+     "result": null
+    }
+   }
+  },
+  {
+   "name": "cancel after a failure",
+   "request": {
+    "source": "catalog",
+    "pkg": {
+     "id": "com.example.app",
+     "version": "1.2.3",
+     "ipkUrl": "https://repo.example/app.ipk",
+     "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+     "size": 4096,
+     "vetted": true,
+     "repo": "main",
+     "title": "Catalog Title"
+    },
+    "auto": false,
+    "nativeValidated": true
+   },
+   "download": {
+    "error": {
+     "message": "boom"
+    }
+   },
+   "cancel": true,
+   "expected": {
+    "startError": null,
+    "confirmError": null,
+    "cancelError": "the install is already running and cannot be cancelled",
+    "states": [
+     "downloading",
+     "error"
+    ],
+    "final": {
+     "state": "error",
+     "jobId": "JOB",
+     "source": "catalog",
+     "appId": "com.example.app",
+     "repo": "main",
+     "progress": {
+      "bytes": 0,
+      "total": 4096
+     },
+     "preview": null,
+     "error": "the download failed: boom",
+     "result": null
+    }
+   }
+  }
+ ]
+}

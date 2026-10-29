@@ -1,0 +1,88 @@
+{
+  "cases": [
+    {
+      "name": "HDMI 2.0 connected timing",
+      "source": "native-tv/tests/fixtures/tv/hdmi20-c9/port0.status",
+      "expected": {
+        "timing": { "connected": true, "width": 3840, "height": 2160, "refreshHz": 50, "pixelClockKhz": null },
+        "link": { "locked": false, "phy_mode": null, "chroma": null, "hdcp": null, "tmds_clock_khz": null, "qms": null },
+        "diagnosticConnected": true,
+        "allm": null,
+        "vrr": null,
+        "sourcePowered": null,
+        "colorDepth": null,
+        "interlaced": false
+      }
+    },
+    {
+      "name": "HDMI 2.1 TMDS 1080p 10-bit",
+      "source": "native-tv/tests/fixtures/tv/hdmi20-c4/port0-1080p-10bit.status",
+      "expected": {
+        "timing": { "connected": true, "width": 1920, "height": 1080, "refreshHz": 60, "pixelClockKhz": 148496 },
+        "link": { "locked": true, "phy_mode": "3G", "chroma": "R444", "hdcp": "HDCP0", "tmds_clock_khz": 185620, "qms": false },
+        "diagnosticConnected": true,
+        "allm": true,
+        "vrr": true,
+        "sourcePowered": true,
+        "colorDepth": "10BIT",
+        "interlaced": false
+      }
+    },
+    {
+      "name": "HDMI 2.1 FRL 4K120",
+      "source": "native-tv/tests/fixtures/tv/hdmi20-c4/port0.status",
+      "expected": {
+        "timing": { "connected": true, "width": 3840, "height": 2160, "refreshHz": 120, "pixelClockKhz": 1188000 },
+        "link": { "locked": true, "phy_mode": "FRL 12G 4L(R6)", "chroma": "R444", "hdcp": "HDCP0", "tmds_clock_khz": null, "qms": false },
+        "diagnosticConnected": true,
+        "allm": true,
+        "vrr": true,
+        "sourcePowered": true,
+        "colorDepth": "10BIT",
+        "interlaced": false
+      }
+    },
+    {
+      "name": "HDMI 2.1 TMDS 4K60",
+      "source": "native-tv/tests/fixtures/tv/hdmi20-c4/port3-2160p.status",
+      "expected": {
+        "timing": { "connected": true, "width": 3840, "height": 2160, "refreshHz": 60, "pixelClockKhz": 594000 },
+        "link": { "locked": true, "phy_mode": "6G", "chroma": "Y422", "hdcp": "HDCP23", "tmds_clock_khz": 594000, "qms": false },
+        "diagnosticConnected": true,
+        "allm": false,
+        "vrr": false,
+        "sourcePowered": true,
+        "colorDepth": "8BIT",
+        "interlaced": false
+      }
+    },
+    {
+      "name": "sleeping 4K source with 5V present",
+      "source": "native-tv/tests/fixtures/tv/hdmi20-c4/port3-asleep.status",
+      "expected": {
+        "timing": { "connected": false, "width": null, "height": null, "refreshHz": null, "pixelClockKhz": null },
+        "link": { "locked": false, "phy_mode": "6G", "chroma": "Y422", "hdcp": "HDCP0", "tmds_clock_khz": 594000, "qms": false },
+        "diagnosticConnected": true,
+        "allm": false,
+        "vrr": false,
+        "sourcePowered": true,
+        "colorDepth": "8BIT",
+        "interlaced": false
+      }
+    },
+    {
+      "name": "disconnected 3G source",
+      "source": "native-tv/tests/fixtures/tv/hdmi20-c4/port1.status",
+      "expected": {
+        "timing": { "connected": false, "width": null, "height": null, "refreshHz": null, "pixelClockKhz": null },
+        "link": { "locked": false, "phy_mode": "3G", "chroma": "R444", "hdcp": "HDCP0", "tmds_clock_khz": 0, "qms": false },
+        "diagnosticConnected": false,
+        "allm": false,
+        "vrr": false,
+        "sourcePowered": false,
+        "colorDepth": "8BIT",
+        "interlaced": false
+      }
+    }
+  ]
+}

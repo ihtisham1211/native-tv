@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>nativeTv</title>
+<link rel="icon" type="image/svg+xml" href="/assets/favicon.svg">
+<link rel="apple-touch-icon" href="/assets/dashboard-app/assets/icon130.png">
+<link rel="stylesheet" href="/assets/google-tv/shared/common.css" data-sections="tokens fonts reset base list tabs chip overlay">
+<link rel="stylesheet" href="/assets/google-tv/pages/dashboard/dashboard.css">
+</head>
+<body>
+<div id="stage">
+  <div id="top">
+    <div id="clock">--:--</div>
+    <!-- docs/logo/nativetv.svg without its tile. -->
+    <svg id="mark" viewBox="140 128 232 266" role="img" aria-label="nativeTv" translate="no"><path d="M168 362 V154 M168 254 Q168 154 258 154 Q344 154 344 254 V362" fill="none" stroke="currentColor" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/><circle cx="256" cy="362" r="24" fill="currentColor"/></svg>
+  </div>
+  <nav id="tabs" class="gt-tabs idle"></nav>
+  <div id="main">
+    <div id="list">
+      <div id="msg"></div>
+      <div class="more" id="moreUp">&#9650;</div>
+      <div id="rows"></div>
+      <div class="more" id="moreDown">&#9660;</div>
+    </div>
+    <aside id="hint">
+      <div class="h-title" id="hintTitle"></div>
+      <div class="h-body" id="hintBody"></div>
+      <div class="h-act" id="hintAct"></div>
+      <div class="h-qr" id="hintQr"><svg id="hintQrSvg" viewBox="0 0 33 33" shape-rendering="crispEdges"></svg><div class="h-url" id="hintUrl"></div></div>
+    </aside>
+  </div>
+  <div id="flash" class="gt-snackbar"></div>
+</div>
+<script src="/assets/google-tv/shared/qr.js"></script>
+<script src="/assets/google-tv/shared/common.js"></script>
+<script src="/assets/google-tv/pages/dashboard/dashboard.js"></script>
+</body>
+</html>

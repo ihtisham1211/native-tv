@@ -1,0 +1,63 @@
+{
+ "ok": true,
+ "apps": [
+  {
+   "id": "org.webosbrew.hbchannel",
+   "title": "Homebrew Channel",
+   "version": "0.7.4",
+   "size": 2400000,
+   "description": "Installs and updates apps outside LG's store.",
+   "state": "hbc"
+  },
+  {
+   "id": "org.example.photos",
+   "title": "Photo Frame",
+   "version": "1.4.0",
+   "size": 5200000,
+   "description": "Shows a folder of pictures as a slideshow.",
+   "state": "new"
+  },
+  {
+   "id": "org.example.kodi",
+   "title": "Media Center",
+   "version": "21.1",
+   "size": 98000000,
+   "installedVersion": "21.0",
+   "description": "A media centre for local and network files.",
+   "state": "update",
+   "rootRequired": true
+  },
+  {
+   "id": "org.example.devmanager",
+   "title": "Dev Manager",
+   "version": "2.1.0",
+   "size": 7300000,
+   "description": "Manages the TV from a computer.",
+   "state": "installed"
+  },
+  {
+   "id": "org.example.radio",
+   "title": "Radio Player",
+   "version": "0.9.2",
+   "size": 1800000,
+   "description": "Internet radio from a list of stations.",
+   "state": "new"
+  },
+  {
+   "id": "org.example.weather",
+   "title": "Weather Board",
+   "version": "3.0.1",
+   "size": 3100000,
+   "description": "A forecast board for the next five days.",
+   "state": "new"
+  },
+  {
+   "id": "org.example.clock",
+   "title": "Big Clock",
+   "version": "1.0.0",
+   "size": 640000,
+   "description": "A large clock for a dark room.",
+   "state": "new"
+  }
+ ]
+}

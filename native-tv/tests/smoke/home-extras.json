@@ -1,0 +1,14 @@
+[
+  { "at": 2000, "expectScreen": "home", "expectText": "3840 × 2160 at 23.98 Hz", "expectWallpaper": "black", "checkpoint": "picture", "capture": "/tmp/nativetv-native-picture.ppm" },
+  { "at": 2500, "key": "back" },
+  { "at": 2600, "key": "back" },
+  { "at": 4000, "expectScreen": "quick:recents", "expectText": "Fixture One", "checkpoint": "recents", "capture": "/tmp/nativetv-native-recents.ppm" },
+  { "at": 4500, "key": "right" },
+  { "at": 4600, "key": "down" },
+  { "at": 5000, "key": "ok" },
+  { "at": 6500, "expectScreen": "quick:recents", "checkpoint": "closed-one" },
+  { "at": 7000, "key": "up" },
+  { "at": 7100, "key": "up" },
+  { "at": 7500, "key": "ok" },
+  { "at": 9000, "expectScreen": "home", "expectText": "3840 × 2160 at 23.98 Hz", "checkpoint": "closed-all" }
+]

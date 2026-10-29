@@ -1,0 +1,121 @@
+[
+  {
+    "at": 2800,
+    "expectScreen": "home",
+    "capture": "/tmp/nativetv-native-home-before.ppm"
+  },
+  {
+    "at": 3000,
+    "activate": "tool:2"
+  },
+  {
+    "at": 3200,
+    "text": "Stranger Things"
+  },
+  {
+    "at": 6000,
+    "expectScreen": "search",
+    "checkpoint": "search",
+    "capture": "/tmp/nativetv-native-search.ppm"
+  },
+  {
+    "at": 6500,
+    "activate": "editor:result:0"
+  },
+  {
+    "at": 9500,
+    "expectScreen": "details",
+    "expectText": "Stranger Things",
+    "checkpoint": "details",
+    "capture": "/tmp/nativetv-native-details.ppm"
+  },
+  {
+    "at": 10000,
+    "key": "back"
+  },
+  {
+    "at": 10500,
+    "expectScreen": "search"
+  },
+  {
+    "at": 11000,
+    "key": "back"
+  },
+  {
+    "at": 11200,
+    "key": "back"
+  },
+  {
+    "at": 11700,
+    "expectScreen": "home"
+  },
+  {
+    "at": 12000,
+    "activate": "tool:1"
+  },
+  {
+    "at": 14000,
+    "expectScreen": "quick",
+    "checkpoint": "quick",
+    "capture": "/tmp/nativetv-native-quick.ppm"
+  },
+  {
+    "at": 14500,
+    "key": "down"
+  },
+  {
+    "at": 14600,
+    "key": "ok"
+  },
+  {
+    "at": 16000,
+    "expectScreen": "quick:picture",
+    "checkpoint": "picture",
+    "capture": "/tmp/nativetv-native-quick-picture.ppm"
+  },
+  {
+    "at": 16500,
+    "key": "back"
+  },
+  {
+    "at": 17000,
+    "expectScreen": "quick"
+  },
+  {
+    "at": 17200,
+    "activate": "quick:row:9"
+  },
+  {
+    "at": 19000,
+    "expectScreen": "profiles",
+    "checkpoint": "profiles",
+    "capture": "/tmp/nativetv-native-profiles.ppm"
+  },
+  {
+    "at": 19500,
+    "key": "down"
+  },
+  {
+    "at": 19700,
+    "key": "ok"
+  },
+  {
+    "at": 21000,
+    "expectScreen": "rename",
+    "checkpoint": "rename",
+    "capture": "/tmp/nativetv-native-rename.ppm"
+  },
+  {
+    "at": 22000,
+    "key": "back"
+  },
+  {
+    "at": 22500,
+    "key": "back"
+  },
+  {
+    "at": 23000,
+    "expectScreen": "home",
+    "checkpoint": "return"
+  }
+]

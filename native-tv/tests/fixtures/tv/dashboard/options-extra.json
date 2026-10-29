@@ -1,0 +1,187 @@
+{
+ "lgSettings": [
+  {
+   "id": "soundOutput",
+   "section": "sound",
+   "type": "choice",
+   "title": "Sound output",
+   "desc": "Where the TV plays its sound. Sound mode and balance apply only to the TV speakers.",
+   "value": "tv_speaker",
+   "choices": [
+    {
+     "value": "tv_speaker",
+     "label": "TV speakers"
+    },
+    {
+     "value": "external_arc",
+     "label": "HDMI (ARC) device"
+    },
+    {
+     "value": "external_optical",
+     "label": "Optical out device"
+    },
+    {
+     "value": "bt_soundbar",
+     "label": "Bluetooth device"
+    },
+    {
+     "value": "headphone",
+     "label": "Wired headphones"
+    },
+    {
+     "value": "tv_speaker_external_arc",
+     "label": "HDMI (ARC) device and TV speakers"
+    },
+    {
+     "value": "tv_speaker_bluetooth",
+     "label": "Bluetooth device and TV speakers"
+    },
+    {
+     "value": "tv_speaker_headphone",
+     "label": "Wired headphones and TV speakers"
+    }
+   ]
+  },
+  {
+   "id": "soundMode",
+   "section": "sound",
+   "type": "choice",
+   "title": "Sound mode",
+   "desc": "How the TV tunes its sound, through its own speakers only. AI Sound Pro adjusts it to what is on by itself.",
+   "value": "standard",
+   "choices": [
+    {
+     "value": "aiSoundPlus",
+     "label": "AI Sound Pro"
+    },
+    {
+     "value": "aiSound",
+     "label": "AI Sound"
+    },
+    {
+     "value": "standard",
+     "label": "Standard"
+    },
+    {
+     "value": "news",
+     "label": "Clear Voice"
+    },
+    {
+     "value": "movie",
+     "label": "Cinema"
+    },
+    {
+     "value": "sports",
+     "label": "Sports"
+    },
+    {
+     "value": "music",
+     "label": "Music"
+    },
+    {
+     "value": "game",
+     "label": "Game Optimizer"
+    }
+   ]
+  },
+  {
+   "id": "soundOutputDigital",
+   "section": "sound",
+   "type": "choice",
+   "title": "Digital sound output",
+   "desc": "The audio sent to a soundbar or receiver over HDMI ARC or optical. Pass Through sends Dolby and DTS as they are; PCM turns them into plain stereo.",
+   "value": "pcm",
+   "choices": [
+    {
+     "value": "auto",
+     "label": "Auto"
+    },
+    {
+     "value": "pcm",
+     "label": "PCM"
+    },
+    {
+     "value": "passThrough",
+     "label": "Pass Through"
+    }
+   ]
+  },
+  {
+   "id": "audioBalance",
+   "section": "sound",
+   "type": "number",
+   "title": "Balance",
+   "desc": "Between the left and right TV speakers, and only those. At 0 both play at the same level.",
+   "value": 0,
+   "min": -50,
+   "max": 50
+  },
+  {
+   "id": "autoVolume",
+   "section": "sound",
+   "type": "switch",
+   "title": "Automatic volume",
+   "desc": "Keeps the volume level when switching channels. LG calls this Automatic Volume Adjustment.",
+   "on": false
+  },
+  {
+   "id": "btSpeakerMode",
+   "section": "sound",
+   "type": "switch",
+   "title": "Bluetooth speaker mode",
+   "desc": "Lets phones in Bluetooth range connect and play music through the TV, even while it is switched off. LG calls this Bluetooth Speaker Mode.",
+   "on": false
+  },
+  {
+   "id": "eArcSupport",
+   "section": "sound",
+   "type": "switch",
+   "title": "eARC",
+   "desc": "Sends lossless and Dolby Atmos audio to a soundbar or receiver on the HDMI (eARC) input, where both support it.",
+   "on": false
+  },
+  {
+   "id": "simplinkEnable",
+   "section": "devices",
+   "type": "switch",
+   "title": "SIMPLINK (HDMI-CEC)",
+   "desc": "Lets the TV remote control devices connected over HDMI, such as a soundbar or console.",
+   "on": true
+  },
+  {
+   "id": "simplinkAutoPowerOn",
+   "section": "devices",
+   "type": "switch",
+   "title": "Auto power sync",
+   "desc": "Switching the TV off switches connected devices off, and switching a device on switches the TV on.",
+   "on": true
+  },
+  {
+   "id": "ipControl",
+   "section": "devices",
+   "type": "switch",
+   "title": "IP control",
+   "desc": "Lets home automation systems control the TV over the network with LG's own protocol. Off unless something needs it.",
+   "on": false
+  }
+ ],
+ "sleepTimer": "30",
+ "powerTimers": {
+  "on": {
+   "enabled": false,
+   "time": "07:00",
+   "days": [
+    1,
+    2,
+    3,
+    4,
+    5
+   ]
+  },
+  "off": {
+   "enabled": true,
+   "time": "23:30",
+   "days": []
+  }
+ }
+}

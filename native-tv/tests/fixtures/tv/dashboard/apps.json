@@ -1,0 +1,104 @@
+{
+ "ok": true,
+ "writable": true,
+ "installed": [
+  {
+   "id": "org.webosbrew.hbchannel",
+   "title": "Homebrew Channel",
+   "version": "0.7.4",
+   "size": 2400000
+  },
+  {
+   "id": "com.example.devmanager",
+   "title": "Dev Manager",
+   "version": "2.1.0",
+   "size": 7300000
+  },
+  {
+   "id": "com.example.kodi",
+   "title": "Media Center",
+   "version": "21.0",
+   "size": 94000000
+  }
+ ],
+ "homeScreen": {
+  "parts": [
+   {
+    "id": "promotions",
+    "title": "Promotions",
+    "shown": false,
+    "desc": "The row of sponsored tiles at the top of LG's Home."
+   },
+   {
+    "id": "banner",
+    "title": "Banner",
+    "shown": true,
+    "desc": "The wide banner above the apps."
+   }
+  ],
+  "inputs": [
+   {
+    "id": "hdmi1",
+    "title": "HDMI 1",
+    "onHome": true
+   },
+   {
+    "id": "hdmi2",
+    "title": "HDMI 2",
+    "onHome": false
+   }
+  ]
+ },
+ "quickAccess": {
+  "keys": [
+   {
+    "key": "1",
+    "id": "com.webos.app.hdmi1",
+    "title": "HDMI 1"
+   },
+   {
+    "key": "2",
+    "id": null,
+    "title": null
+   }
+  ]
+ },
+ "systemTiles": [
+  {
+   "id": "com.webos.app.livetv",
+   "title": "Live TV",
+   "hidden": true
+  },
+  {
+   "id": "com.webos.app.music",
+   "title": "Music",
+   "hidden": false
+  }
+ ],
+ "tileHidingEnabled": true,
+ "tileHidingHeld": false,
+ "preload": [
+  {
+   "id": "com.webos.app.discovery",
+   "title": "LG Discover",
+   "off": false,
+   "memoryMb": 38,
+   "loaded": true
+  },
+  {
+   "id": "com.webos.app.browser",
+   "title": "Web Browser",
+   "off": true
+  }
+ ],
+ "services": [
+  {
+   "id": "acr",
+   "title": "Content recognition",
+   "desc": "Samples the screen to guess what is on.",
+   "badge": "Privacy",
+   "disabled": false,
+   "running": true
+  }
+ ]
+}

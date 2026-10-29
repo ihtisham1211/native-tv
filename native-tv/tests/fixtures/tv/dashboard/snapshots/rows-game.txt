@@ -1,0 +1,10 @@
+== Game Optimizer
+choice  Game genre = Standard -> Change <game>
+choice  Prevent input delay = Boost -> Change <hdmi>
+toggle  VRR & G-Sync = On [on] -> Turn off <game>
+toggle  AMD FreeSync Premium = Off [off] -> Turn on <game>
+toggle  ALLM = On [on] -> Turn off <game>
+toggle  Dark room mode = Off [off] -> Turn on <game>
+choice  Black stabilizer = 10 -> Change <game>
+choice  White stabilizer = 10 -> Change <game>
+toggle  AI Game Sound = On [on] -> Turn off <volume>

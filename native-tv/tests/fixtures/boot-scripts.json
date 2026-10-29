@@ -1,0 +1,83 @@
+{
+  "programs": [
+    "/usr/sbin/com.webos.service.mycar",
+    "/usr/sbin/com.webos.service.camera2",
+    "/usr/sbin/uploadd",
+    "/usr/sbin/rdxd",
+    "/usr/sbin/crashreportd",
+    "/usr/sbin/contentminer",
+    "/usr/sbin/nudge",
+    "/usr/sbin/remotelogger",
+    "/usr/sbin/com.webos.service.pushclient",
+    "/usr/sbin/ocpservice",
+    "/usr/sbin/livepick-plus",
+    "/usr/sbin/livepick-plus",
+    "/usr/sbin/admanager",
+    "/usr/sbin/admanager",
+    "/usr/sbin/sportsalarm",
+    "/usr/sbin/sportsalarm",
+    "/usr/sbin/iot-client",
+    "/usr/palm/services/com.webos.service.iotclient/iot-client",
+    "/usr/sbin/com.webos.service.buddyconnector",
+    "/usr/palm/services/com.webos.service.buddyconnector/com.webos.service.buddyconnector",
+    "/usr/sbin/lg.thinqai.adapter",
+    "/usr/sbin/lg.thinqai.adapter",
+    "/usr/sbin/com.webos.service.familycare",
+    "/usr/palm/services/com.webos.service.familycare/index.js",
+    "/usr/sbin/voiceconductor"
+  ],
+  "cases": [
+    {
+      "list": [
+        "camera",
+        "rdxd",
+        "thinqai"
+      ],
+      "script": "#!/bin/sh\n# tvweb managed disabled services\nBOOTLOG=/var/lib/webosbrew/tvweb-boot.log\nbootlog() { echo \"$(date): [up $(cut -d\" \" -f1 /proc/uptime)s] $*\" >>\"$BOOTLOG\"; }\nmkdir /tmp/tvweb-services-ran 2>/dev/null || { bootlog \"services: already run this boot\"; exit 0; }\nbootlog \"services: start\"\nif which systemctl >/dev/null 2>&1; then\n  printf '#!/bin/sh\\nexit 0\\n' >/var/lib/tvweb/service-off; chmod 755 /var/lib/tvweb/service-off\n  printf 'process.exit(0);\\n' >/var/lib/tvweb/service-off.js\n  off() { case \"$1\" in *.js) s=/var/lib/tvweb/service-off.js ;; *) s=/var/lib/tvweb/service-off ;; esac\n    grep -q \" $1 \" /proc/mounts || mount --bind \"$s\" \"$1\"; }\n  jail() { j=/var/palm/jail/$2; [ -e \"$3\" ] || return\n    grep -q \" $j/usr \" /proc/mounts || /usr/bin/jailer -t \"$1\" -i \"$2\" -p /usr /bin/true >/dev/null 2>&1\n    grep -q \" $j/usr \" /proc/mounts && off \"$j$3\"; }\n  jail \"native_mvpd\" \"lg.thinqai.adapter\" \"/usr/sbin/lg.thinqai.adapter\" &\n  off \"/usr/sbin/com.webos.service.camera2\"\n  off \"/usr/sbin/rdxd\"\n  off \"/usr/sbin/lg.thinqai.adapter\"\n  wait\n  bootlog \"services: stubs bound\"\n  systemctl stop \"com.webos.service.camera.service\" \"rdxd.service\" 2>/dev/null\nelif which initctl >/dev/null 2>&1; then\n  initctl stop \"rdxd\" 2>/dev/null\nfi\nbootlog \"services: stopped\"\n"
+    },
+    {
+      "list": [
+        "mycar"
+      ],
+      "script": "#!/bin/sh\n# tvweb managed disabled services\nBOOTLOG=/var/lib/webosbrew/tvweb-boot.log\nbootlog() { echo \"$(date): [up $(cut -d\" \" -f1 /proc/uptime)s] $*\" >>\"$BOOTLOG\"; }\nmkdir /tmp/tvweb-services-ran 2>/dev/null || { bootlog \"services: already run this boot\"; exit 0; }\nbootlog \"services: start\"\nif which systemctl >/dev/null 2>&1; then\n  printf '#!/bin/sh\\nexit 0\\n' >/var/lib/tvweb/service-off; chmod 755 /var/lib/tvweb/service-off\n  printf 'process.exit(0);\\n' >/var/lib/tvweb/service-off.js\n  off() { case \"$1\" in *.js) s=/var/lib/tvweb/service-off.js ;; *) s=/var/lib/tvweb/service-off ;; esac\n    grep -q \" $1 \" /proc/mounts || mount --bind \"$s\" \"$1\"; }\n  jail() { j=/var/palm/jail/$2; [ -e \"$3\" ] || return\n    grep -q \" $j/usr \" /proc/mounts || /usr/bin/jailer -t \"$1\" -i \"$2\" -p /usr /bin/true >/dev/null 2>&1\n    grep -q \" $j/usr \" /proc/mounts && off \"$j$3\"; }\n  off \"/usr/sbin/com.webos.service.mycar\"\n  wait\n  bootlog \"services: stubs bound\"\n  systemctl stop \"com.webos.service.mycar.service\" 2>/dev/null\nfi\nbootlog \"services: stopped\"\n"
+    },
+    {
+      "list": [
+        "uploadd",
+        "crashreportd"
+      ],
+      "script": "#!/bin/sh\n# tvweb managed disabled services\nBOOTLOG=/var/lib/webosbrew/tvweb-boot.log\nbootlog() { echo \"$(date): [up $(cut -d\" \" -f1 /proc/uptime)s] $*\" >>\"$BOOTLOG\"; }\nmkdir /tmp/tvweb-services-ran 2>/dev/null || { bootlog \"services: already run this boot\"; exit 0; }\nbootlog \"services: start\"\nif which systemctl >/dev/null 2>&1; then\n  printf '#!/bin/sh\\nexit 0\\n' >/var/lib/tvweb/service-off; chmod 755 /var/lib/tvweb/service-off\n  printf 'process.exit(0);\\n' >/var/lib/tvweb/service-off.js\n  off() { case \"$1\" in *.js) s=/var/lib/tvweb/service-off.js ;; *) s=/var/lib/tvweb/service-off ;; esac\n    grep -q \" $1 \" /proc/mounts || mount --bind \"$s\" \"$1\"; }\n  jail() { j=/var/palm/jail/$2; [ -e \"$3\" ] || return\n    grep -q \" $j/usr \" /proc/mounts || /usr/bin/jailer -t \"$1\" -i \"$2\" -p /usr /bin/true >/dev/null 2>&1\n    grep -q \" $j/usr \" /proc/mounts && off \"$j$3\"; }\n  off \"/usr/sbin/uploadd\"\n  off \"/usr/sbin/crashreportd\"\n  wait\n  bootlog \"services: stubs bound\"\n  systemctl stop \"uploadd.service\" 2>/dev/null\nelif which initctl >/dev/null 2>&1; then\n  initctl stop \"uploadd\" 2>/dev/null\n  initctl stop \"crashreportd\" 2>/dev/null\nfi\nbootlog \"services: stopped\"\n"
+    },
+    {
+      "list": [
+        "admanager",
+        "livepick",
+        "voiceconductor"
+      ],
+      "script": "#!/bin/sh\n# tvweb managed disabled services\nBOOTLOG=/var/lib/webosbrew/tvweb-boot.log\nbootlog() { echo \"$(date): [up $(cut -d\" \" -f1 /proc/uptime)s] $*\" >>\"$BOOTLOG\"; }\nmkdir /tmp/tvweb-services-ran 2>/dev/null || { bootlog \"services: already run this boot\"; exit 0; }\nbootlog \"services: start\"\nif which systemctl >/dev/null 2>&1; then\n  printf '#!/bin/sh\\nexit 0\\n' >/var/lib/tvweb/service-off; chmod 755 /var/lib/tvweb/service-off\n  printf 'process.exit(0);\\n' >/var/lib/tvweb/service-off.js\n  off() { case \"$1\" in *.js) s=/var/lib/tvweb/service-off.js ;; *) s=/var/lib/tvweb/service-off ;; esac\n    grep -q \" $1 \" /proc/mounts || mount --bind \"$s\" \"$1\"; }\n  jail() { j=/var/palm/jail/$2; [ -e \"$3\" ] || return\n    grep -q \" $j/usr \" /proc/mounts || /usr/bin/jailer -t \"$1\" -i \"$2\" -p /usr /bin/true >/dev/null 2>&1\n    grep -q \" $j/usr \" /proc/mounts && off \"$j$3\"; }\n  off \"/usr/sbin/livepick-plus\"\n  off \"/usr/sbin/admanager\"\n  off \"/usr/sbin/voiceconductor\"\n  wait\n  bootlog \"services: stubs bound\"\n  systemctl stop \"voiceconductor.service\" 2>/dev/null\nfi\nbootlog \"services: stopped\"\n"
+    },
+    {
+      "list": [
+        "mycar",
+        "camera",
+        "uploadd",
+        "rdxd",
+        "crashreportd",
+        "contentminer",
+        "nudge",
+        "remotelogger",
+        "pushclient",
+        "ocp",
+        "livepick",
+        "admanager",
+        "sportsalarm",
+        "iotclient",
+        "buddyconnector",
+        "thinqai",
+        "familycare",
+        "voiceconductor"
+      ],
+      "script": "#!/bin/sh\n# tvweb managed disabled services\nBOOTLOG=/var/lib/webosbrew/tvweb-boot.log\nbootlog() { echo \"$(date): [up $(cut -d\" \" -f1 /proc/uptime)s] $*\" >>\"$BOOTLOG\"; }\nmkdir /tmp/tvweb-services-ran 2>/dev/null || { bootlog \"services: already run this boot\"; exit 0; }\nbootlog \"services: start\"\nif which systemctl >/dev/null 2>&1; then\n  printf '#!/bin/sh\\nexit 0\\n' >/var/lib/tvweb/service-off; chmod 755 /var/lib/tvweb/service-off\n  printf 'process.exit(0);\\n' >/var/lib/tvweb/service-off.js\n  off() { case \"$1\" in *.js) s=/var/lib/tvweb/service-off.js ;; *) s=/var/lib/tvweb/service-off ;; esac\n    grep -q \" $1 \" /proc/mounts || mount --bind \"$s\" \"$1\"; }\n  jail() { j=/var/palm/jail/$2; [ -e \"$3\" ] || return\n    grep -q \" $j/usr \" /proc/mounts || /usr/bin/jailer -t \"$1\" -i \"$2\" -p /usr /bin/true >/dev/null 2>&1\n    grep -q \" $j/usr \" /proc/mounts && off \"$j$3\"; }\n  jail \"native_mvpd\" \"lg.thinqai.adapter\" \"/usr/sbin/lg.thinqai.adapter\" &\n  off \"/usr/sbin/com.webos.service.mycar\"\n  off \"/usr/sbin/com.webos.service.camera2\"\n  off \"/usr/sbin/uploadd\"\n  off \"/usr/sbin/rdxd\"\n  off \"/usr/sbin/crashreportd\"\n  off \"/usr/sbin/contentminer\"\n  off \"/usr/sbin/nudge\"\n  off \"/usr/sbin/remotelogger\"\n  off \"/usr/sbin/com.webos.service.pushclient\"\n  off \"/usr/sbin/ocpservice\"\n  off \"/usr/sbin/livepick-plus\"\n  off \"/usr/sbin/admanager\"\n  off \"/usr/sbin/sportsalarm\"\n  off \"/usr/sbin/iot-client\"\n  off \"/usr/palm/services/com.webos.service.iotclient/iot-client\"\n  off \"/usr/sbin/com.webos.service.buddyconnector\"\n  off \"/usr/palm/services/com.webos.service.buddyconnector/com.webos.service.buddyconnector\"\n  off \"/usr/sbin/lg.thinqai.adapter\"\n  off \"/usr/sbin/com.webos.service.familycare\"\n  off \"/usr/palm/services/com.webos.service.familycare/index.js\"\n  off \"/usr/sbin/voiceconductor\"\n  wait\n  bootlog \"services: stubs bound\"\n  systemctl stop \"com.webos.service.mycar.service\" \"com.webos.service.camera.service\" \"uploadd.service\" \"rdxd.service\" \"contentminer.service\" \"nudge.service\" \"remotelogger.service\" \"com.webos.service.pushclient.service\" \"ocp.service\" \"voiceconductor.service\" 2>/dev/null\nelif which initctl >/dev/null 2>&1; then\n  initctl stop \"uploadd\" 2>/dev/null\n  initctl stop \"rdxd\" 2>/dev/null\n  initctl stop \"crashreportd\" 2>/dev/null\n  initctl stop \"remotelogger\" 2>/dev/null\nfi\nbootlog \"services: stopped\"\n"
+    }
+  ]
+}

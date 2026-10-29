@@ -1,0 +1,128 @@
+{
+ "ok": true,
+ "consentWritable": true,
+ "simple": {
+  "total": 3,
+  "kept": [],
+  "areas": [
+   {
+    "name": "Advertising",
+    "detail": "Ads LG places on the TV's screens.",
+    "items": [
+     {
+      "label": "Home promotions"
+     }
+    ]
+   },
+   {
+    "name": "Tracking",
+    "detail": "What the TV learns about what is watched.",
+    "items": [
+     {
+      "label": "Content recognition"
+     },
+     {
+      "label": "Viewing data"
+     }
+    ]
+   }
+  ]
+ },
+ "adblock": {
+  "enabled": true,
+  "mode": "ads"
+ },
+ "tvUpdates": {
+  "blocked": false
+ },
+ "lgSettings": [
+  {
+   "id": "screenSaverAd",
+   "section": "promotions",
+   "type": "switch",
+   "title": "Screen saver ads",
+   "desc": "Adverts that some apps, such as LG Channels, show in the screen saver. LG calls this Screen Saver Promotion.",
+   "on": false
+  },
+  {
+   "id": "homePromotion",
+   "section": "promotions",
+   "type": "switch",
+   "title": "Sponsored tiles on Home",
+   "desc": "Adverts marked Sponsored on the Home screen. LG calls this Home Promotion.",
+   "on": false
+  },
+  {
+   "id": "contentRecommendation",
+   "section": "promotions",
+   "type": "switch",
+   "title": "Recommendations on Home",
+   "desc": "Rows of recommended programmes and films on the Home screen. LG calls this Content Recommendation.",
+   "on": false
+  },
+  {
+   "id": "livePromotion",
+   "section": "promotions",
+   "type": "switch",
+   "title": "Ads while watching",
+   "desc": "Adverts and offers shown over what is on screen, while LG's Live Plus is on. LG calls this Live Promotion.",
+   "on": false
+  },
+  {
+   "id": "aiNudge",
+   "section": "promotions",
+   "type": "switch",
+   "title": "Smart tips",
+   "desc": "Suggestions for TV features that pop up while watching or using an app. LG calls this Smart Tips.",
+   "on": false
+  },
+  {
+   "id": "aiSettingsNudge",
+   "section": "promotions",
+   "type": "switch",
+   "title": "Smart tips in Settings",
+   "desc": "Suggested settings shown in LG's Settings menu. LG calls this Smart Tips in Settings.",
+   "on": false
+  }
+ ],
+ "acr": {
+  "label": "Live Plus",
+  "consentOn": true,
+  "active": false,
+  "running": true,
+  "captureState": true,
+  "capturing": false
+ },
+ "advertisingId": {
+  "available": true,
+  "lmtKnown": true,
+  "limitTracking": false
+ },
+ "consent": {
+  "known": [
+   {
+    "key": "viewing",
+    "label": "Viewing information",
+    "enabled": true,
+    "settable": true,
+    "detail": "Lets LG record what is watched.",
+    "group": "unknown"
+   }
+  ],
+  "other": []
+ },
+ "consentGroups": [
+  [
+   "unknown",
+   ""
+  ]
+ ],
+ "daemons": [
+  {
+   "name": "acr2",
+   "label": "Recognition service",
+   "running": true,
+   "detail": "LG's recognition program."
+  }
+ ]
+}

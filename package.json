@@ -1,0 +1,13 @@
+{
+  "name": "nativetv",
+  "version": "0.118.0",
+  "private": true,
+  "description": "Dashboard, remote control, OLED care, and Home Assistant MQTT bridge for LG webOS TVs",
+  "scripts": {
+    "test": "python3 native-tv/build.py --service-only --test",
+    "test:ui": "node native-tv/tests/ui/run.js",
+    "check:route-manifest": "node native-tv/tests/contract/check-route-manifest.js",
+    "check:test-matrix": "node native-tv/tests/contract/check-test-matrix.js",
+    "emulate": "node scripts/emulate-tv.js --open"
+  }
+}

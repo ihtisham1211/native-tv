@@ -1,0 +1,459 @@
+/* Shared TV styles. data-sections on each page selects only the blocks it uses.
+ * Keep each reusable rule here; page-specific rules belong beside its HTML. */
+/* @section tokens */
+/*
+ * nativeTv's TV design system, after Google's TV Design Kit (Material "TV
+ * Compose", Figma file uB6lquieLC37hjDX0hEo1o). Shared by the pages the TV's
+ * own browser shows; the server inlines these files into each page.
+ *
+ * The TV's browser is Chromium 38 on webOS 3.x: no custom properties, grid,
+ * gap, min()/max() or inset (scripts/check-es5.py). So the tokens below are a
+ * table, and the files use the literal values.
+ *
+ * Size: 1rem is 1% of the screen's height. The kit is drawn at 540dp tall, so
+ * 1dp is 1/5.4rem: 4dp .74rem, 8dp 1.48rem, 12dp 2.22rem, 16dp 2.96rem,
+ * 24dp 4.44rem, 32dp 5.93rem, 40dp 7.41rem, 48dp 8.89rem, 64dp 11.85rem.
+ * The base section sets html to 1vh; a page drawn on a fixed 1920x1080 stage sets
+ * html{font-size:10.8px} instead, and the stage's scaling does the rest.
+ *
+ * Colour, dark theme (the default)            light theme (body.light)
+ *   background            #000 (OLED: off)      #F5F5F5
+ *   surface-container     #1E1F20               #F0F4F9
+ *   surface-container-hi  #282A2C               #E9EEF6
+ *   surface-container-top #333537               #DDE3EA
+ *   surface-variant       #444746               #E1E3E1
+ *   on-surface            #E3E3E3               #1F1F1F
+ *   on-surface-variant    #C4C7C5               #444746
+ *   outline               #8E918F               #747775
+ *   outline-variant       #444746               #C4C7C5
+ *   inverse-surface       #E3E3E3  (focused)    #303030
+ *   inverse-on-surface    #303030               #F2F2F2
+ *   focused list text     #131314               #FFFFFF
+ *   primary               #A8C7FA               #0B57D0
+ *   primary-container     #0842A0               #D3E3FD
+ *   inverse-primary       #0B57D0               #A8C7FA
+ *   secondary             #7FCFFF               #00639B
+ *   secondary-container   #004A77 (at .4)       #C2E7FF
+ *   on-secondary-cont.    #C2E7FF               #001D35
+ *   tertiary (good)       #6DD58C               #146C2E
+ *   error (bad)           #F2B8B5               #B3261E
+ *   warning (not in kit)  #FFB74D               #B45309
+ *
+ * State, on every component: .focus is focused (light fill, scaled up),
+ * .on is selected (secondary-container tint), .dim is disabled (40%).
+ *
+ * Motion: .2s cubic-bezier(.2,0,0,1) for occasional actions; repeated list
+ * focus uses .12s transforms with immediate text and fill changes. Large
+ * elements animate only transform and opacity to avoid per-frame repainting.
+ *
+ * Elevation, dark: 1 = 0 1px 2px rgba(0,0,0,.3), 0 1px 3px 1px rgba(0,0,0,.15);
+ * 2 = 0 1px 2px rgba(0,0,0,.3), 0 2px 6px 2px rgba(0,0,0,.15);
+ * 3 = 0 1px 3px rgba(0,0,0,.3), 0 4px 8px 3px rgba(0,0,0,.15).
+ */
+
+/* The type scale, at 2x the kit's sp for 1080 lines. */
+.gt-display-l{font-size:10.56rem;line-height:11.85rem;font-weight:400;letter-spacing:-.004em}
+.gt-display-m{font-size:8.33rem;line-height:9.63rem;font-weight:400}
+.gt-display-s{font-size:6.67rem;line-height:8.15rem;font-weight:400}
+.gt-headline-l{font-size:5.93rem;line-height:7.41rem;font-weight:400}
+.gt-headline-m{font-size:5.19rem;line-height:6.67rem;font-weight:400}
+.gt-headline-s{font-size:4.44rem;line-height:5.93rem;font-weight:400}
+.gt-title-l{font-size:4.07rem;line-height:5.19rem;font-weight:400}
+.gt-title-m{font-size:2.96rem;line-height:4.44rem;font-weight:500;letter-spacing:.009em}
+.gt-title-s{font-size:2.59rem;line-height:3.7rem;font-weight:500;letter-spacing:.007em}
+.gt-body-l{font-size:2.96rem;line-height:4.44rem;font-weight:400;letter-spacing:.016em}
+.gt-body-m{font-size:2.59rem;line-height:3.7rem;font-weight:400;letter-spacing:.018em}
+.gt-body-s{font-size:2.22rem;line-height:2.96rem;font-weight:400;letter-spacing:.017em}
+.gt-label-l{font-size:2.59rem;line-height:3.7rem;font-weight:500;letter-spacing:.007em}
+.gt-label-m{font-size:2.22rem;line-height:2.96rem;font-weight:500;letter-spacing:.021em}
+.gt-label-s{font-size:2.04rem;line-height:2.96rem;font-weight:500;letter-spacing:.009em}
+
+.gt-muted{color:#C4C7C5}
+.gt-good{color:#6DD58C}
+.gt-bad{color:#F2B8B5}
+.gt-warn{color:#FFB74D}
+.light .gt-muted{color:#444746}
+.light .gt-good{color:#146C2E}
+.light .gt-bad{color:#B3261E}
+.light .gt-warn{color:#B45309}
+
+/* @section fonts */
+/* Roboto, the kit's face, cut to Latin (Spanish included). WOFF rather than
+   WOFF2: every TV browser reads it, and at this subset it is the smaller. */
+@font-face{font-family:'Roboto';src:url('/assets/fonts/Roboto-Regular.woff') format('woff');font-weight:400;font-display:swap}
+@font-face{font-family:'Roboto';src:url('/assets/fonts/Roboto-Medium.woff') format('woff');font-weight:500;font-display:swap}
+
+/* @section reset */
+*{margin:0;padding:0;box-sizing:border-box}
+
+/* @section base */
+html{font-size:1vh}
+html,body{background:#000}
+body{font-family:'Roboto',sans-serif;font-size:2.96rem;line-height:1.5;color:#E3E3E3;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+body.light,html.light{background:#F5F5F5;color:#1F1F1F}
+/* Kept in the shared base so page transitions and components both obey it.
+   Older TV browsers ignore the unsupported media query. */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{-webkit-transition:none!important;transition:none!important;
+    -webkit-animation:none!important;animation:none!important}
+}
+
+/* @section button */
+/* Buttons: filled, outline, icon and long (a title with a subtitle). 40dp
+   tall, a pill; focus fills them light and grows them 10%. */
+.gt-btn,.gt-icon-btn,.gt-long{display:inline-block;position:relative;border:0;font-family:inherit;cursor:pointer;
+  -webkit-transition:-webkit-transform .2s cubic-bezier(.2,0,0,1),background-color .2s,color .2s;
+  transition:transform .2s cubic-bezier(.2,0,0,1),background-color .2s,color .2s}
+.gt-btn{height:7.41rem;line-height:7.41rem;padding:0 2.96rem;border-radius:7.41rem;white-space:nowrap;
+  font-size:2.59rem;font-weight:500;letter-spacing:.007em;text-align:center;
+  background:rgba(68,71,70,.8);color:rgba(227,227,227,.8)}
+.gt-btn .gt-ic{display:inline-block;width:3.33rem;height:3.33rem;margin:0 1.11rem 0 -.74rem;vertical-align:-.7rem}
+.gt-btn.outline{background:transparent;box-shadow:inset 0 0 0 .28rem rgba(196,199,197,.4)}
+.gt-icon-btn{width:7.41rem;height:7.41rem;border-radius:50%;text-align:center;line-height:7.41rem;font-size:3.33rem;
+  background:rgba(68,71,70,.8);color:rgba(227,227,227,.8)}
+.gt-icon-btn.outline{background:transparent;box-shadow:inset 0 0 0 .28rem rgba(196,199,197,.4)}
+.gt-long{display:block;min-height:7.41rem;padding:1.48rem 2.96rem;border-radius:1.48rem;text-align:left;
+  background:rgba(68,71,70,.8);color:#E3E3E3}
+.gt-long .gt-long-title{display:block;font-size:2.96rem;line-height:4.44rem;font-weight:500;letter-spacing:.009em}
+.gt-long .gt-long-sub{display:block;font-size:2.22rem;line-height:2.96rem;opacity:.8}
+
+.gt-btn.focus,.gt-icon-btn.focus{background:#E3E3E3;color:#303030;-webkit-transform:scale(1.1);transform:scale(1.1)}
+.gt-btn.outline.focus,.gt-icon-btn.outline.focus{box-shadow:inset 0 0 0 .3rem #8E918F}
+.gt-long.focus{background:#E3E3E3;color:#303030;-webkit-transform:scale(1.05);transform:scale(1.05)}
+.gt-btn.dim,.gt-icon-btn.dim,.gt-long.dim{background:rgba(68,71,70,.4);color:rgba(227,227,227,.4)}
+.gt-btn.outline.dim,.gt-icon-btn.outline.dim{background:transparent;box-shadow:inset 0 0 0 .28rem rgba(196,199,197,.2)}
+
+.light .gt-btn,.light .gt-icon-btn,.light .gt-long{background:rgba(225,227,225,.9);color:#1F1F1F}
+.light .gt-btn.outline,.light .gt-icon-btn.outline{background:transparent;box-shadow:inset 0 0 0 .28rem #747775}
+.light .gt-btn.focus,.light .gt-icon-btn.focus,.light .gt-long.focus{background:#303030;color:#F2F2F2}
+
+/* @section list */
+/* List items: an optional icon, a title over a subtitle, and a trailing
+   value, action or control. Focus fills the row light and grows it 5%. A
+   dense row is 40dp, a standard one 48dp (64dp with a subtitle). */
+.gt-item{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;
+  position:relative;min-height:8.89rem;padding:2.22rem 2.96rem;border-radius:1.48rem;color:#E3E3E3;
+  -webkit-transition:-webkit-transform .12s cubic-bezier(.2,0,0,1);
+  transition:transform .12s cubic-bezier(.2,0,0,1)}
+.gt-item.dense{min-height:7.41rem;padding:1.48rem 2.22rem}
+.gt-item-icon{-webkit-flex:0 0 auto;flex:0 0 auto;width:4.44rem;height:4.44rem;margin:0 2.22rem 0 .74rem;
+  text-align:center;line-height:4.44rem;font-size:3.7rem}
+.gt-item-text{-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0}
+.gt-item-title{display:block;font-size:2.96rem;line-height:4.44rem;font-weight:500;letter-spacing:.009em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gt-item.dense .gt-item-title{font-size:2.59rem;line-height:3.7rem}
+.gt-item-sub{display:block;font-size:2.22rem;line-height:2.96rem;opacity:.8}
+.gt-item-trail{-webkit-flex:0 0 auto;flex:0 0 auto;margin-left:2.96rem;font-size:2.59rem;font-weight:500;color:#8E918F;white-space:nowrap}
+
+/* A trailing value that carries a meaning keeps its colour (the tokens section). */
+.gt-item-trail.gt-good{color:#6DD58C}
+.gt-item-trail.gt-bad{color:#F2B8B5}
+.gt-item-trail.gt-warn{color:#FFB74D}
+.gt-item.focus .gt-item-trail.gt-good{color:#146C2E}
+.gt-item.focus .gt-item-trail.gt-bad{color:#B3261E}
+.gt-item.focus .gt-item-trail.gt-warn{color:#B45309}
+.gt-item.on{background:rgba(0,74,119,.4);color:#C2E7FF}
+.gt-item.on .gt-item-trail{color:#7FCFFF}
+.gt-item.focus{background:#E3E3E3;color:#131314;-webkit-transform:scale(1.05);transform:scale(1.05)}
+.gt-item.focus .gt-item-trail{color:#444746}
+.gt-item.dim{opacity:.4}
+
+/* Separators: a header, a section header in capitals, a rule. */
+.gt-list-header{font-size:4.07rem;line-height:5.19rem;padding:0 2.96rem;color:#E3E3E3}
+.gt-section-header{font-size:2.22rem;line-height:2.96rem;font-weight:500;letter-spacing:.1em;text-transform:uppercase;
+  padding:2.22rem 2.96rem .74rem;color:#C4C7C5}
+.gt-divider{height:1px;margin:1.48rem 2.96rem;background:#444746}
+
+.light .gt-item{color:#1F1F1F}
+.light .gt-item.on{background:#C2E7FF;color:#001D35}
+.light .gt-item.focus{background:#303030;color:#FFFFFF}
+.light .gt-item.focus .gt-item-trail{color:#C4C7C5}
+.light .gt-list-header{color:#1F1F1F}
+.light .gt-section-header{color:#444746}
+.light .gt-divider{background:#C4C7C5}
+
+/* @section tabs */
+/* Tab row: pills 32dp tall. The tab in view is selected (.on); a tab the
+   remote is on is focused. Inside a row that does not have the focus
+   (.gt-tabs.idle), the other tabs recede. */
+.gt-tabs{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;white-space:nowrap}
+.gt-tab{display:inline-block;-webkit-flex:0 0 auto;flex:0 0 auto;position:relative;height:5.93rem;line-height:5.93rem;
+  padding:0 2.96rem;border-radius:2.96rem;font-size:2.59rem;font-weight:500;letter-spacing:.007em;color:#C4C7C5;cursor:pointer;
+  -webkit-transition:background-color .2s,color .2s,opacity .2s;transition:background-color .2s,color .2s,opacity .2s}
+.gt-tabs.idle .gt-tab:not(.on):not(.focus){opacity:.4}
+.gt-tab.on{background:rgba(0,74,119,.4);color:#C2E7FF}
+.gt-tab.focus{background:#E3E3E3;color:#303030;
+  box-shadow:0 1px 2px rgba(0,0,0,.3),0 2px 6px 2px rgba(0,0,0,.15)}
+
+.light .gt-tab{color:#444746}
+.light .gt-tab.on{background:#C2E7FF;color:#001D35}
+.light .gt-tab.focus{background:#303030;color:#F2F2F2}
+
+/* @section card */
+/* Cards: an image with its text under it (standard), on a strip inside the
+   card (classic) or over a scrim on the image (compact); .wide puts the text
+   beside the image. Focus grows the image 10% and draws a 3dp border, which
+   fades in on its own layer so the shadow is never repainted. */
+.gt-card{display:inline-block;position:relative;vertical-align:top;color:#E3E3E3;
+  -webkit-transition:-webkit-transform .2s cubic-bezier(.2,0,0,1);transition:transform .2s cubic-bezier(.2,0,0,1)}
+.gt-card-media{position:relative;border-radius:1.48rem;background:#333537;overflow:hidden}
+.gt-card-media img{display:block;width:100%;height:100%;object-fit:cover}
+.gt-card-media::after{content:'';position:absolute;top:0;left:0;right:0;bottom:0;border-radius:1.48rem;
+  box-shadow:inset 0 0 0 .56rem #E3E3E3;opacity:0;-webkit-transition:opacity .2s;transition:opacity .2s}
+.gt-card-body{padding:1.48rem 0 0;text-align:center}
+.gt-card-title{display:block;font-size:2.96rem;line-height:4.44rem;font-weight:500;letter-spacing:.009em;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gt-card-sub{display:block;font-size:2.22rem;line-height:2.96rem;color:#C4C7C5}
+
+.gt-card.classic{border-radius:1.48rem;background:#333537;overflow:hidden}
+.gt-card.classic .gt-card-media{border-radius:0}
+.gt-card.classic .gt-card-body{padding:1.48rem 2.22rem;text-align:left;background:#444746}
+.gt-card.compact .gt-card-body{position:absolute;left:0;right:0;bottom:0;padding:4.44rem 2.22rem 1.48rem;text-align:left;
+  border-radius:0 0 1.48rem 1.48rem;background:-webkit-linear-gradient(top,transparent,rgba(0,0,0,.8));
+  background:linear-gradient(to bottom,transparent,rgba(0,0,0,.8))}
+.gt-card.wide{display:-webkit-box;display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center}
+.gt-card.wide .gt-card-body{padding:0 0 0 2.96rem;text-align:left}
+
+.gt-card.focus{-webkit-transform:scale(1.1);transform:scale(1.1);z-index:1}
+.gt-card.focus .gt-card-media::after{opacity:1}
+.gt-card.dim{opacity:.4}
+
+.light .gt-card{color:#1F1F1F}
+.light .gt-card-media{background:#DDE3EA}
+.light .gt-card-media::after{box-shadow:inset 0 0 0 .56rem #303030}
+.light .gt-card-sub{color:#444746}
+
+/* @section controls */
+/* Switch, checkbox and radio. .on is checked. Inside a focused row, whose
+   fill is light, they take the kit's "on surface" colours. */
+.gt-switch{display:inline-block;position:relative;width:7.41rem;height:4.44rem;border-radius:4.44rem;vertical-align:middle;
+  background:#444746;box-shadow:inset 0 0 0 .37rem #8E918F;-webkit-transition:background-color .2s;transition:background-color .2s}
+.gt-switch::after{content:'';position:absolute;top:1.11rem;left:1.11rem;width:2.22rem;height:2.22rem;border-radius:50%;background:#8E918F;
+  -webkit-transition:-webkit-transform .2s cubic-bezier(.2,0,0,1),background-color .2s;transition:transform .2s cubic-bezier(.2,0,0,1),background-color .2s}
+.gt-switch.on{background:#A8C7FA;box-shadow:none}
+.gt-switch.on::after{background:#0842A0;-webkit-transform:translateX(2.96rem) scale(1.33);transform:translateX(2.96rem) scale(1.33)}
+.focus .gt-switch{background:#C4C7C5;box-shadow:inset 0 0 0 .37rem #5E5E5E}
+.focus .gt-switch::after{background:#5E5E5E}
+.focus .gt-switch.on{background:#0B57D0;box-shadow:none}
+.focus .gt-switch.on::after{background:#D3E3FD}
+
+.gt-check,.gt-radio{display:inline-block;position:relative;width:3.33rem;height:3.33rem;vertical-align:middle;
+  box-shadow:inset 0 0 0 .37rem #C4C7C5}
+.gt-check{border-radius:.37rem}
+.gt-radio{border-radius:50%}
+.gt-check.on{background:#A8C7FA;box-shadow:none}
+.gt-check.on::after{content:'';position:absolute;left:1.15rem;top:.45rem;width:.8rem;height:1.6rem;
+  border:solid #062E6F;border-width:0 .37rem .37rem 0;-webkit-transform:rotate(45deg);transform:rotate(45deg)}
+.gt-radio.on{box-shadow:inset 0 0 0 .37rem #A8C7FA}
+.gt-radio.on::after{content:'';position:absolute;top:.83rem;left:.83rem;width:1.67rem;height:1.67rem;border-radius:50%;background:#A8C7FA}
+.focus .gt-check,.focus .gt-radio{box-shadow:inset 0 0 0 .37rem #444746}
+.focus .gt-check.on{background:#0B57D0;box-shadow:none}
+.focus .gt-check.on::after{border-color:#FFFFFF}
+.focus .gt-radio.on{box-shadow:inset 0 0 0 .37rem #0B57D0}
+.focus .gt-radio.on::after{background:#0B57D0}
+.dim .gt-switch,.gt-switch.dim,.dim .gt-check,.gt-check.dim,.dim .gt-radio,.gt-radio.dim{opacity:.38}
+
+/* @section chip */
+/* Chips (a choice or filter, 36dp) and tags (a small label: NEW, ROOT, a
+   version). */
+.gt-chip{display:inline-block;position:relative;height:6.67rem;line-height:6.67rem;padding:0 2.96rem;border-radius:1.48rem;background:transparent;border:0;font-family:inherit;cursor:pointer;outline:0;
+  font-size:2.59rem;font-weight:500;letter-spacing:.007em;white-space:nowrap;color:#C4C7C5;
+  box-shadow:inset 0 0 0 .19rem #8E918F;
+  -webkit-transition:-webkit-transform .2s cubic-bezier(.2,0,0,1),background-color .2s,color .2s;
+  transition:transform .2s cubic-bezier(.2,0,0,1),background-color .2s,color .2s}
+.gt-chip.on{background:rgba(0,74,119,.4);color:#C2E7FF;box-shadow:none}
+.gt-chip.focus{background:#E3E3E3;color:#303030;box-shadow:none;-webkit-transform:scale(1.1);transform:scale(1.1)}
+.gt-chip.dim{opacity:.4}
+
+.gt-tag{display:inline-block;height:3.7rem;line-height:3.7rem;padding:0 1.11rem;border-radius:.74rem;vertical-align:middle;
+  font-size:2.04rem;font-weight:500;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;
+  background:#6DD58C;color:#0A3818}
+.gt-tag.outline{background:transparent;color:inherit;box-shadow:inset 0 0 0 .19rem currentColor}
+.gt-tag.warn{background:#FFB74D;color:#3E2400}
+
+.light .gt-chip{color:#444746;box-shadow:inset 0 0 0 .19rem #747775}
+.light .gt-chip.on{background:#C2E7FF;color:#001D35}
+.light .gt-chip.focus{background:#303030;color:#F2F2F2}
+.light .gt-tag{background:#146C2E;color:#FFFFFF}
+.light .gt-tag.warn{background:#B45309;color:#FFFFFF}
+
+/* @section overlay */
+/* What sits over a screen: a scrim, a dialog on it, and a snackbar (a short
+   message that answers a press). A page shows each by adding .show. */
+.gt-scrim{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);opacity:0;visibility:hidden;
+  -webkit-transition:opacity .2s,visibility .2s;transition:opacity .2s,visibility .2s}
+.gt-scrim.show{opacity:1;visibility:visible}
+.gt-dialog{position:relative;width:103.7rem;max-width:90%;margin:0 auto;padding:4.44rem;border-radius:5.19rem;
+  background:#282A2C;color:#E3E3E3;box-shadow:0 1px 3px rgba(0,0,0,.3),0 4px 8px 3px rgba(0,0,0,.15)}
+.gt-dialog-title{font-size:4.44rem;line-height:5.93rem;margin-bottom:2.96rem}
+.gt-dialog-body{font-size:2.59rem;line-height:3.7rem;letter-spacing:.018em;color:#C4C7C5}
+.gt-dialog-actions{margin-top:4.44rem;text-align:right}
+.gt-dialog-actions .gt-btn{margin-left:1.48rem}
+
+.gt-snackbar{display:inline-block;padding:2.22rem 2.96rem;border-radius:1.48rem;font-size:2.59rem;line-height:3.7rem;
+  background:#E3E3E3;color:#303030;box-shadow:0 1px 3px rgba(0,0,0,.3),0 4px 8px 3px rgba(0,0,0,.15);
+  opacity:0;-webkit-transform:translateY(1.48rem);transform:translateY(1.48rem);
+  -webkit-transition:opacity .2s,-webkit-transform .2s cubic-bezier(.2,0,0,1);transition:opacity .2s,transform .2s cubic-bezier(.2,0,0,1)}
+.gt-snackbar.show{opacity:1;-webkit-transform:none;transform:none}
+
+.light .gt-dialog{background:#E9EEF6;color:#1F1F1F}
+.light .gt-dialog-body{color:#444746}
+.light .gt-snackbar{background:#303030;color:#F2F2F2}
+
+/* @section drawer */
+/* Modal drawer, the kit's Direction=Right (Figma node 4498:31400): a panel
+   280dp wide, 24dp in from the right, top and bottom, on a scrim (.gt-scrim,
+   the overlay section). A header, then list items (the list section) in
+   .gt-drawer-view, which a page scrolls by moving the .gt-drawer-list in it.
+   .more fades the bottom edge when items go on below it. The drawer slides in
+   from the right when the scrim is shown. The kit's other directions are not
+   built. */
+.gt-drawer{position:absolute;top:4.44rem;right:4.44rem;bottom:4.44rem;width:51.85rem;padding:3.7rem;overflow:hidden;
+  display:-webkit-box;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;
+  border-radius:2.96rem;background:#1E1F20;color:#E3E3E3;
+  box-shadow:0 1px 3px rgba(0,0,0,.3),0 4px 8px 3px rgba(0,0,0,.15);
+  -webkit-transform:translateX(7.41rem);transform:translateX(7.41rem);
+  -webkit-transition:-webkit-transform .2s cubic-bezier(.2,0,0,1);transition:transform .2s cubic-bezier(.2,0,0,1)}
+.show>.gt-drawer{-webkit-transform:none;transform:none}
+.gt-drawer .gt-list-header{-webkit-flex:0 0 auto;flex:0 0 auto;padding:1.48rem 2.96rem 2.96rem}
+/* Room beside and above the list for the focused item, which grows 5%. */
+.gt-drawer-view{-webkit-flex:1 1 auto;flex:1 1 auto;min-height:0;position:relative;overflow:hidden;margin:0 -1.48rem;padding:0 1.48rem}
+.gt-drawer-list{-webkit-transition:-webkit-transform .12s cubic-bezier(.2,0,0,1);transition:transform .12s cubic-bezier(.2,0,0,1)}
+.gt-drawer .gt-item{margin-bottom:.74rem}
+.gt-drawer::after{content:'';position:absolute;left:0;right:0;bottom:0;height:7.41rem;pointer-events:none;opacity:0;
+  background:-webkit-linear-gradient(top,rgba(30,31,32,0),#1E1F20);background:linear-gradient(180deg,rgba(30,31,32,0),#1E1F20);
+  -webkit-transition:opacity .2s;transition:opacity .2s}
+.gt-drawer.more::after{opacity:1}
+
+.light .gt-drawer{background:#F0F4F9;color:#1F1F1F}
+.light .gt-drawer::after{background:-webkit-linear-gradient(top,rgba(240,244,249,0),#F0F4F9);background:linear-gradient(180deg,rgba(240,244,249,0),#F0F4F9)}
+
+/* @section progress */
+/* Progress: a 4dp track with a bar whose width the page sets; .busy, for
+   work of unknown length, sweeps the bar instead. Spinner for a wait. */
+.gt-progress{position:relative;height:.74rem;border-radius:.74rem;background:#444746;overflow:hidden}
+.gt-progress-bar{height:100%;width:0;border-radius:.74rem;background:#A8C7FA;
+  -webkit-transition:width .3s cubic-bezier(.2,0,0,1);transition:width .3s cubic-bezier(.2,0,0,1)}
+.gt-progress.busy .gt-progress-bar{width:30%;-webkit-animation:gt-sweep 1.4s ease-in-out infinite;animation:gt-sweep 1.4s ease-in-out infinite}
+@-webkit-keyframes gt-sweep{from{-webkit-transform:translateX(-100%)}to{-webkit-transform:translateX(340%)}}
+@keyframes gt-sweep{from{transform:translateX(-100%)}to{transform:translateX(340%)}}
+
+.gt-spinner{display:inline-block;width:8.89rem;height:8.89rem;border-radius:50%;
+  border:.74rem solid #444746;border-top-color:#A8C7FA;
+  -webkit-animation:gt-spin 1s linear infinite;animation:gt-spin 1s linear infinite}
+@-webkit-keyframes gt-spin{to{-webkit-transform:rotate(360deg)}}
+@keyframes gt-spin{to{transform:rotate(360deg)}}
+
+.light .gt-progress{background:#C4C7C5}
+.light .gt-progress-bar{background:#0B57D0}
+.light .gt-spinner{border-color:#C4C7C5;border-top-color:#0B57D0}
+
+/* @section carousel */
+/* The featured carousel, the kit's Immersive FC (Figma node 8686:20648, drawn
+   at 2x): the art fills the top right, 1516x856 of the 1920x1080 screen, and
+   a radial scrim fades it into the black from its top right corner. The text
+   sits on the black; the rows start under it. */
+.gt-carousel{position:absolute;left:0;top:0;width:1920px;height:856px}
+/* A faint bloom of colour behind the text. */
+.gt-carousel .bloom{position:absolute;right:0;top:0;width:1516px;height:856px}
+/* The title's art, or a recent app's snapshot. */
+.gt-carousel .back{position:absolute;right:0;top:0;width:1516px;height:856px;background-size:cover;background-position:center;opacity:0}
+.slide .gt-carousel .back{-webkit-transition:opacity .18s ease;transition:opacity .18s ease}
+/* A gradient over the picture, not a mask on it: a mask is redrawn off screen on every frame of the fade.
+   The kit's scrim as Figma has it: a skewed radial gradient from the top right corner, .1 black there and solid
+   at 70.74%, as an SVG the size of the art (758 x 426.37 dp, stretched), in black where the kit has #131314. */
+.gt-carousel .back:after{content:"";position:absolute;left:0;top:0;right:0;bottom:0;background:url("data:image/svg+xml;utf8,<svg viewBox='0 0 758 426.37' xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none'><defs><radialGradient id='g' gradientUnits='userSpaceOnUse' cx='0' cy='0' r='10' gradientTransform='matrix(-72.041 42.637 -72.041 -39.558 720.41 0)'><stop stop-color='%23000' stop-opacity='.1' offset='0'/><stop stop-color='%23000' offset='.7074'/></radialGradient></defs><rect width='100%' height='100%' fill='url(%23g)'/></svg>");background-size:100% 100%}
+.gt-carousel .back.on{opacity:1}
+.gt-carousel .back.off{-webkit-transition:none;transition:none}
+.gt-carousel-plate{position:absolute;right:96px;top:132px;font-size:24px;color:#8E918F;white-space:nowrap;z-index:3}
+.gt-carousel-plate.none{display:none}
+/* The carousel's page dots: one for each spotlight title, the one shown lit. The kit centres them 98dp under the middle of the screen. */
+.gt-carousel-dots{position:absolute;right:96px;top:730px;z-index:3;font-size:0}
+/* Fixed slots keep the row still; the active pill grows on its own layer. */
+.gt-carousel-dots i{position:relative;display:inline-block;width:32px;height:12px;margin-left:10px}
+.gt-carousel-dots i:before,.gt-carousel-dots i:after{content:"";position:absolute;top:0;height:12px;border-radius:6px}
+.gt-carousel-dots i:before{left:10px;width:12px;background:rgba(255,255,255,.3)}
+.gt-carousel-dots i:after{left:0;width:32px;background:#E3E3E3;opacity:0;-webkit-transform:scaleX(.375);transform:scaleX(.375);
+  -webkit-transition:opacity .16s,-webkit-transform .16s cubic-bezier(.2,0,0,1);transition:opacity .16s,transform .16s cubic-bezier(.2,0,0,1)}
+.gt-carousel-dots i.on:before{opacity:0}
+.gt-carousel-dots i.on:after{opacity:1;-webkit-transform:scaleX(1);transform:scaleX(1)}
+
+/* The text ends at y 670, 98px above the rows; a longer one grows upward. The kit's button is left out: the tile in focus is what OK opens. */
+.gt-carousel-content{position:absolute;left:96px;bottom:186px;width:968px;height:420px;z-index:3;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;
+  -webkit-justify-content:flex-end;justify-content:flex-end}
+/* A faint line glyph stands in for artwork on inputs and channels. */
+.gt-carousel-icon{position:absolute;right:240px;top:150px;width:300px;height:300px;color:#fff;opacity:0;-webkit-transition:opacity .5s ease;transition:opacity .5s ease}
+.gt-carousel-icon.on{opacity:.16}
+/* The kit's carousel type at 2x: a label line (12/16), the title (headline large, 32/40) and a body (16/24). */
+.gt-carousel .eyebrow{font-size:24px;line-height:32px;font-weight:500;letter-spacing:.02em;color:#C4C7C5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gt-carousel .title{font-size:64px;line-height:80px;font-weight:400;letter-spacing:0;margin:8px 0 40px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* A longer title is set smaller, on up to two lines, so it is whole and its descenders are not clipped. */
+.gt-carousel .title.mid{font-size:56px;line-height:68px}
+.gt-carousel .title.long{font-size:48px;line-height:1.22;white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.gt-carousel .title.two{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+/* The facts line sits between the title and the overview; with nothing after it, it is the body. */
+.gt-carousel .line{font-size:28px;line-height:40px;font-weight:400;color:#C4C7C5;max-width:968px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.gt-carousel .line:last-child{font-size:32px;line-height:48px}
+.gt-carousel .desc{font-size:32px;line-height:48px;color:#C4C7C5;max-width:968px;margin-top:12px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
+
+/* @section boot */
+/* The boot screen, over the page until its first render: four colours of the
+   kit's palette drifting over black, the nativeTv mark and the kit's busy bar.
+   Only transforms move. hideBoot fades it and then takes it out of the page,
+   so nothing animates under the rows. */
+.gt-boot{position:absolute;left:0;top:0;width:1920px;height:1080px;z-index:20;background:#000;overflow:hidden;
+  -webkit-transition:opacity .6s;transition:opacity .6s}
+.gt-boot.gone{opacity:0;pointer-events:none}
+.gt-boot .sw{position:absolute;width:1100px;height:1100px;border-radius:50%;opacity:.55;will-change:transform}
+.gt-boot .s1{left:-200px;top:-300px;background:radial-gradient(circle,rgba(168,199,250,.9) 0,rgba(168,199,250,0) 65%);
+  -webkit-animation:boot1 9s ease-in-out infinite alternate;animation:boot1 9s ease-in-out infinite alternate}
+.gt-boot .s2{right:-250px;top:100px;background:radial-gradient(circle,rgba(242,184,181,.85) 0,rgba(242,184,181,0) 65%);
+  -webkit-animation:boot2 11s ease-in-out infinite alternate;animation:boot2 11s ease-in-out infinite alternate}
+.gt-boot .s3{left:300px;bottom:-500px;background:radial-gradient(circle,rgba(109,213,140,.8) 0,rgba(109,213,140,0) 65%);
+  -webkit-animation:boot3 10s ease-in-out infinite alternate;animation:boot3 10s ease-in-out infinite alternate}
+.gt-boot .s4{right:250px;bottom:-450px;background:radial-gradient(circle,rgba(255,183,77,.7) 0,rgba(255,183,77,0) 65%);
+  -webkit-animation:boot4 12s ease-in-out infinite alternate;animation:boot4 12s ease-in-out infinite alternate}
+@-webkit-keyframes boot1{to{-webkit-transform:translate(380px,220px) scale(1.15)}}
+@keyframes boot1{to{transform:translate(380px,220px) scale(1.15)}}
+@-webkit-keyframes boot2{to{-webkit-transform:translate(-420px,160px) scale(.9)}}
+@keyframes boot2{to{transform:translate(-420px,160px) scale(.9)}}
+@-webkit-keyframes boot3{to{-webkit-transform:translate(260px,-280px) scale(1.2)}}
+@keyframes boot3{to{transform:translate(260px,-280px) scale(1.2)}}
+@-webkit-keyframes boot4{to{-webkit-transform:translate(-300px,-200px) scale(1.1)}}
+@keyframes boot4{to{transform:translate(-300px,-200px) scale(1.1)}}
+.gt-boot .mid{position:absolute;left:0;top:0;right:0;bottom:0;display:-webkit-flex;display:flex;-webkit-flex-direction:column;flex-direction:column;
+  -webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center}
+.gt-boot svg{width:150px;height:150px;margin-bottom:40px}
+.gt-boot path{fill:none;stroke:#E3E3E3;stroke-width:40;stroke-linecap:round;stroke-linejoin:round}
+.gt-boot .gt-progress{width:240px}
+
+/* @section field */
+/* Filled text field, 3816:24942; active outline from the same component set. */
+.gt-field-label{display:block;font-size:2.59rem;line-height:3.7rem;font-weight:500;color:#C4C7C5;margin-bottom:1.11rem}
+.gt-field-box{display:block;width:100%;height:8.89rem;padding:2.22rem 2.96rem;border:1px solid #8E918F;border-radius:1.48rem;
+  background:#303030;color:#E3E3E3;font:500 2.96rem/4.44rem 'Roboto',sans-serif;letter-spacing:.009em;outline:0}
+.gt-field.active .gt-field-box{border:2px solid #A8C7FA}
+.gt-field-support{display:block;min-height:2.96rem;margin-top:1.11rem;font-size:2.22rem;line-height:2.96rem;color:#C4C7C5}
+.light .gt-field-label,.light .gt-field-support{color:#444746}
+.light .gt-field-box{background:#E9EEF6;color:#1F1F1F;border-color:#747775}
+.light .gt-field.active .gt-field-box{border-color:#0B57D0}
+
+/* @section keyboard */
+/* Text fields' QWERTY example, 8736:20050, at the kit's dp/rem scale. */
+.gt-keyboard{width:66.296296rem;padding:1.851852rem 2.222222rem 2.037037rem;background:#131314;
+  border-radius:1.48rem 1.48rem 0 0}
+.gt-key-row{display:-webkit-flex;display:flex;margin-bottom:1.111111rem}
+.gt-key-row:last-child{margin-bottom:0}
+.gt-key{display:-webkit-flex;display:flex;-webkit-align-items:center;align-items:center;-webkit-justify-content:center;justify-content:center;
+  -webkit-flex:0 0 auto;flex:0 0 auto;width:5.185185rem;height:5.925926rem;margin-right:1.111111rem;padding:0;border:0;border-radius:.740741rem;
+  background:#282A2C;color:#fff;font:500 2.962963rem 'Roboto',sans-serif;cursor:pointer;outline:0}
+.gt-key:last-child{margin-right:0}
+.gt-key img{display:block;-webkit-transform:scale(2);transform:scale(2);pointer-events:none}
+.gt-key.space{width:17.777778rem}
+.gt-key.done{width:11.481481rem;background:#0842A0}
+.gt-key.symbols{font-size:1.666667rem}
+.gt-key.focus{background:#fff;color:#131314}
+.gt-key.focus img{-webkit-filter:brightness(0);filter:brightness(0)}
+.gt-key.done.focus{background:#A8C7FA}

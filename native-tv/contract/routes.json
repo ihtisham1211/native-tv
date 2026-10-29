@@ -1,0 +1,832 @@
+{
+  "schemaVersion": 1,
+  "baselineOwner": "native",
+  "source": "native-tv/src/daemon/http_frontdoor.cpp",
+  "authClasses": {
+    "public": "No credential is required.",
+    "token": "For /api routes, Bearer or ?k is accepted when a token is configured; an unset token leaves the route open, and a request from the TV loopback address is accepted. Route notes call out stronger per-action checks.",
+    "loopback-TV": "The request must originate from 127.0.0.1 or ::1, except the setup demo mode. The route also passes through the general /api token gate.",
+    "handoff-code": "The phone must present the active one-time code generated on the TV; it expires after ten minutes or when setup ends."
+  },
+  "routes": [
+    {
+      "paths": ["/", "/index.html"],
+      "methods": ["GET", "HEAD"],
+      "auth": "public",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": null, "unit": "not enforced"},
+      "owner": "native",
+      "notes": "The daemon assembles the phone dashboard from native-tv/web and serves it with the legacy cache and gzip behavior. On the secondary phone listener, an active native handoff validates its local one-time code and assembles the phone page from packaged Google TV assets; without native state, requests continue to the Node fallback listener."
+    },
+    {
+      "paths": ["/assets/*"],
+      "methods": ["GET", "HEAD"],
+      "auth": "public",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon serves existing contained assets from the configured root, the Google TV pages with their parts inlined. A missing asset is the 404 that Node ends its request handler with."
+    },
+    {
+      "paths": ["/assets/google-tv/*"],
+      "methods": ["GET", "HEAD"],
+      "auth": "public",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon serves the TV pages from the packaged Google TV assets, inlining the sections each page names in data-sections, so the TV gets one response; the native setup handoff assembles its phone page from the same assets."
+    },
+    {
+      "paths": ["/assets/dashboard.html", "/assets/setup.html", "/assets/home.html"],
+      "methods": ["GET", "HEAD"],
+      "auth": "public",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon preserves the legacy compatibility redirects to the current TV page paths."
+    },
+    {
+      "paths": ["/mqtt"],
+      "methods": ["POST"],
+      "auth": "handoff-code",
+      "csrf": "JSON content type; a random handoff code in the query string is required; no Origin comparison",
+      "bodyLimit": {"max": 4096, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "The native secondary listener validates the locally generated ten-minute one-time code, assembles the phone page from packaged assets, validates and atomically saves MQTT/device settings, consumes the code and requests the existing supervised restart. Node retains its page assembly and fallback listener for legacy setup and rollback; with no Node (TVWEB_NODE_FREE=1) the listener answers the expired-link page instead of forwarding. The main listener does not serve the path: it answers the same 404 as any unknown path."
+    },
+    {
+      "paths": ["/icons/{appId}.png"],
+      "methods": ["GET", "HEAD"],
+      "auth": "public",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon's optional icon listener on the configured server port plus two, disabled unless iconServer is enabled. The main listener does not serve the path: it answers the same 404 as any unknown path."
+    },
+    {
+      "paths": ["/api/caps"],
+      "methods": ["ANY"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Native capabilities, network origin and TV-only token disclosure; Node keeps its copy for rollback."
+    },
+    {
+      "paths": ["/api/screensaver"],
+      "methods": ["GET", "HEAD"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon builds the list from LG's stock manifest type, the webOS major version, the staged marker files, the packaged QML assets and the config flags (service/screensaver_policy). Other methods get a 405 JSON error; Node answered every method with the list, and no client sends another."
+    },
+    {
+      "paths": ["/api/update"],
+      "methods": ["GET", "HEAD"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The shared server-status response, built in the daemon from config, the ad-block, devtools, Home layout, screen saver and history managers and the NTP and syslog forwarders. The daemon block reports the daemon's own uptime, pid, port and resident size; the JavaScript heap fields are null. Other methods get a 405 JSON error; Node answered every method."
+    },
+    {
+      "paths": ["/api/tvapp"],
+      "methods": ["GET", "HEAD"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Runs the packaged dashboard-app/install-app.sh status through the daemon (service TvAppManager) and adds writable. Refused while a package installs. The control actions tvAppInstall and tvAppRemove and the boot-time refresh or retire run through the same manager. Other methods get a 405 JSON error; Node answered every method."
+    },
+    {
+      "paths": ["/api/privacy"],
+      "methods": ["ANY"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The native projection reads consent flags and firmware agreement mappings, avoids starting on-demand ACR and ad-manager services, includes ad-block and TV-update state, and caches the legacy dashboard shape for 20 seconds. Node retains its handler as the route rollback path."
+    },
+    {
+      "paths": ["/api/servicemenu"],
+      "methods": ["GET", "HEAD"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon reports factory-menu app presence, lock support, current lock value and writable state from the local filesystem and settingsservice. Other methods retain the Node fallback."
+    },
+    {
+      "paths": ["/api/servicemenu"],
+      "methods": ["non-GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Methods other than GET and HEAD get a 405 JSON error. Node answered every method with the read-only body, and no client sends another."
+    },
+    {
+      "paths": ["/api/oledcare"],
+      "methods": ["GET", "HEAD"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon detects OLED panels, reads panel usage, compensation and refresher status, protection state and picture settings, and projects the legacy response. Results are cached for 30 seconds and invalidated by OLED protection, refresher, screen shift and logo dimming writes. If panel detection has an unavailable model-property service and no cached result, it forwards to Node to preserve the detector retry behavior. Other methods retain the Node fallback."
+    },
+    {
+      "paths": ["/api/oledcare"],
+      "methods": ["non-GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Methods other than GET and HEAD get a 405 JSON error. Node answered every method with the read-only body, and no client sends another."
+    },
+    {
+      "paths": ["/api/game/fps"],
+      "methods": ["GET", "HEAD"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon streams Game Optimizer getVRRInfo from the bound input while polled, returns a reading only for the HDMI input on screen and stops after 15 seconds idle. Other methods retain the Node fallback."
+    },
+    {
+      "paths": ["/api/game/fps"],
+      "methods": ["non-GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Methods other than GET and HEAD get a 405 JSON error. Node answered every method with the read-only body, and no client sends another."
+    },
+    {
+      "paths": ["/api/lgsettings"],
+      "methods": ["GET", "HEAD"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon returns LG settings rows, TV-described choices and ranges, active HDMI status, category dimensions and the HDMI input-name map. Category settings and descriptions use the legacy two-minute cache. Other methods retain the Node fallback."
+    },
+    {
+      "paths": ["/api/lgsettings"],
+      "methods": ["non-GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Methods other than GET and HEAD get a 405 JSON error. Node answered every method with the read-only body, and no client sends another."
+    },
+    {
+      "paths": ["/api/game"],
+      "methods": ["GET", "HEAD"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon collects Game Optimizer settings and LG descriptions, retaining the legacy two-minute settings cache and response shape; picture mode is read fresh. Other methods use the Node fallback."
+    },
+    {
+      "paths": ["/api/game"],
+      "methods": ["non-GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Methods other than GET and HEAD get a 405 JSON error. Node answered every method with the read-only body, and no client sends another."
+    },
+    {
+      "paths": ["/api/prometheus/metrics"],
+      "methods": ["GET", "HEAD"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "When Prometheus is enabled, the daemon renders the legacy exposition format from the native system snapshot and a secret-guarded Node enrichment response for PicCap, syslog, NTP and screen-time totals. When disabled it returns 404; other methods retain the Node fallback."
+    },
+    {
+      "paths": ["/api/history"],
+      "methods": ["GET", "HEAD", "POST"],
+      "auth": "token",
+      "csrf": "POST requires JSON, a TV-loopback peer and same-origin Origin/Host when Origin is present; controls must be enabled",
+      "bodyLimit": {"max": 1024, "unit": "bytes"},
+      "owner": "native",
+      "notes": "In managed native-front-door mode, GET and HEAD read monthly files and the daemon's live segment; Node supplies installed-app display titles only. TV-loopback POST controls enabled state and Clear. Other methods and legacy startup retain the Node fallback."
+    },
+    {
+      "paths": ["/api/stats"],
+      "methods": ["ANY"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "GET and HEAD collect the system snapshot, five-second system CPU window and network-rate delta in the daemon, then pass them to Node over the secret-guarded loopback enrichment endpoint for Luna and optional settings fields. reader=publish is loopback-only and uses independent daemon CPU/network baselines for Home Assistant. With TVWEB_NATIVE_STATS=1 the daemon's own collector (daemon/stats_collector) answers, including fast=1 (what is known, marked loading, while the first full read runs), with=settings and the PicCap row, and Node is not asked; without the flag Node's enrichment endpoint is used and fast=1 stays on Node. Other methods are a plain 405."
+    },
+    {
+      "paths": ["/api/cpu"],
+      "methods": ["ANY"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "GET and HEAD use the native five-second process CPU sampler in the daemon, coalescing concurrent reads. Other methods retain the Node fallback; Node keeps its implementation for rollback."
+    },
+    {
+      "paths": ["/api/logs"],
+      "methods": ["ANY"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "GET and HEAD parse system, nativeTv and requested kernel logs in the daemon, including cursors, rotation, filtering and optional redaction. Other methods retain the Node fallback; Node keeps its implementation for rollback."
+    },
+    {
+      "paths": ["/api/processes"],
+      "methods": ["ANY"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "GET and HEAD collect process memory directly through the native metrics library; all=1 or all=true returns every process. Other methods retain the legacy Node fallback. Node keeps its implementation for rollback."
+    },
+    {
+      "paths": ["/api/hdmi"],
+      "methods": ["ANY"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "not enforced"},
+      "owner": "native",
+      "notes": "GET and HEAD combine native HDMI procfs facts with the input-to-receiver map and current input/foreground state from Luna. Other methods retain the Node fallback; Node keeps its implementation for rollback."
+    },
+    {
+      "paths": ["/api/setup"],
+      "methods": ["GET"],
+      "auth": "loopback-TV",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon builds setup state from native config, marker files, interface state and Luna. A secret-guarded loopback Node context supplies live MQTT status, cached hostname and first-setup identity; the active native handoff URL takes precedence over the legacy Node fallback URL. ?demo retains the dry-run response."
+    },
+    {
+      "paths": ["/api/setup"],
+      "methods": ["POST"],
+      "auth": "loopback-TV",
+      "csrf": "application/json content type and loopback origin; no Origin/Host comparison",
+      "bodyLimit": {"max": 1024, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "The daemon dispatches the legacy browser actions for network, Always Ready, completion and phone handoff with the same loopback and demo behavior. Node retains its route when native front-door mode is disabled and for rollback."
+    },
+    {
+      "paths": ["/api/setup/network"],
+      "methods": ["POST"],
+      "auth": "loopback-TV",
+      "csrf": "JSON content type and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 1024, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Native setup network action writes the existing config format atomically and requests a supervised server restart. It checks install state before writing; demo mode returns without persistent changes."
+    },
+    {
+      "paths": ["/api/setup/done"],
+      "methods": ["POST"],
+      "auth": "loopback-TV",
+      "csrf": "JSON content type and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 1024, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Native setup completion removes .setup-pending; emulated setup returns demo success without deleting it. The GET /api/setup state route is also native-owned."
+    },
+    {
+      "paths": ["/api/setup/always-ready"],
+      "methods": ["POST"],
+      "auth": "loopback-TV",
+      "csrf": "JSON content type and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 1024, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Native setup action updates general/alwaysOn through Luna; requires allowControl outside emulated setup, which returns demo success without calling Luna."
+    },
+    {
+      "paths": ["/api/setup/handoff", "/api/setup/handoff-stop"],
+      "methods": ["POST"],
+      "auth": "loopback-TV",
+      "csrf": "JSON content type; loopback only, no Origin/Host comparison",
+      "bodyLimit": {"max": 1024, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Native setup endpoints start or stop the daemon's ten-minute one-time code state and require allowControl outside demo mode. Node keeps its separate listener only for the legacy browser setup route and rollback. Emulated setup returns a demo URL/result without opening a listener."
+    },
+    {
+      "paths": ["/api/ssh"],
+      "methods": ["non-POST"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "All non-POST methods return status. Without a configured token, key comments and options are redacted and changes are disabled. Node remains the rollback handler."
+    },
+    {
+      "paths": ["/api/ssh"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "POST uses JSON body guard and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "Mutations additionally require a configured token and allowControl. Public-key parsing, SHA256 fingerprints, atomic 0600 file replacement, and password-after-reboot reporting preserve the legacy route; Node remains the rollback handler."
+    },
+    {
+      "paths": ["/api/screentime"],
+      "methods": ["non-POST"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon reads settings and watch totals from native config/history; the secret-guarded Node bridge enriches app titles. HEAD suppresses the response body."
+    },
+    {
+      "paths": ["/api/screentime"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "POST uses JSON body guard and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "When controls are enabled, the daemon validates the JSON body, same-origin and size guards, patches the existing config.json screenTime section under the shared config lock, applies the merged settings to native enforcement, and asks Node to reload its in-memory config. When controls are disabled it forwards the original POST to Node for the established localized refusal response."
+    },
+    {
+      "paths": ["/api/apps/catalog"],
+      "methods": ["GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "In managed mode the daemon fetches HTTPS catalog pages with libcurl, validates and merges package entries, adds installed-app state and caches repository results. It preserves stale rows on partial fetch failure. The app-install Host and allowControl guards forward to Node for the existing refusal response; standalone mode retains the Node implementation. Managed package selection is delegated to the daemon catalog."
+    },
+    {
+      "paths": ["/api/apps/install/status"],
+      "methods": ["GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon applies the app-install Host and allowControl gates, then serves writable and sideload policy fields with the latest snapshot from its in-memory cache. Node publishes state transitions and coalesced download progress through the secret-protected installer-job bridge. Until Node startup recovery publishes an initial snapshot, status forwards to Node; standalone mode keeps the Node route. With TVWEB_NATIVE_INSTALL=1 the daemon's install job coordinator (install_jobs) runs the job itself and Node is not asked; Node's coordinator remains for the default and standalone modes."
+    },
+    {
+      "paths": ["/api/apps/install/fetch"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "Managed mode requires an allowed installer Host and allowControl. The daemon enforces the JSON and same-origin guards, selects the package from its native catalog cache, then starts the install job. With TVWEB_NATIVE_INSTALL=1 the daemon's own coordinator (install_jobs) runs it; otherwise Node's coordinator does, through a secret-protected private bridge. Standalone and controls-disabled operation retain the Node public route. The package download, staging transport, inspection, SHA-256, package-ID policy, Luna install and elevation execution use the managed native boundaries documented with the install workflow. With TVWEB_NATIVE_INSTALL=1 the daemon's install job coordinator (install_jobs) runs the job itself and Node is not asked; Node's coordinator remains for the default and standalone modes."
+    },
+    {
+      "paths": ["/api/apps/install/url"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "In managed mode the daemon enforces the installer Host, controls and sideload gates, JSON and same-origin checks, URL and optional SHA-256 validation, then starts the install job: the daemon's coordinator with TVWEB_NATIVE_INSTALL=1, Node's through a secret-protected private bridge otherwise. The package download streams through native libcurl. Standalone and controls-disabled operation retain the Node route. With TVWEB_NATIVE_INSTALL=1 the daemon's install job coordinator (install_jobs) runs the job itself and Node is not asked; Node's coordinator remains for the default and standalone modes."
+    },
+    {
+      "paths": ["/api/apps/install/confirm", "/api/apps/install/cancel"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "Managed mode applies the installer Host, controls, JSON and same-origin guards in the daemon. When the native status snapshot is ready, the daemon also rejects stale job IDs and confirmation/cancellation states before forwarding to Node's secret-protected private bridge; Node revalidates to protect against races and retains confirmation policy and job transitions; with TVWEB_NATIVE_INSTALL=1 the daemon's coordinator revalidates and owns the transitions instead. Before the snapshot is ready, the daemon forwards without the cached-state gate. Standalone and controls-disabled requests retain Node's public handlers. With TVWEB_NATIVE_INSTALL=1 the daemon's install job coordinator (install_jobs) runs the job itself and Node is not asked; Node's coordinator remains for the default and standalone modes."
+    },
+    {
+      "paths": ["/api/apps/install/repos"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "In managed mode the daemon owns repository add/remove validation, GitHub URL normalization, the ten-repository limit, catalog-shape verification, config.json persistence, catalog-cache invalidation, and Node config reload. The Node route remains for standalone/startup fallback; an accepted native write is not retried through Node if config reload fails. The route requires an allowed Host and the installer sideload gate."
+    },
+    {
+      "paths": ["/api/apps/install/sideload"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "The daemon checks the app-install Host allow-list and controls policy, atomically patches apps.sideload in config.json, then asks Node to reload config so the Node-owned URL installer sees the setting immediately and the native upload route reads the updated config. A failed reload is reported after persistence. The Node route remains the standalone fallback."
+    },
+    {
+      "paths": ["/api/apps/install/upload"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "Exact application/octet-stream content type; same-origin Origin/Host comparison when Origin is present; Content-Length required",
+      "bodyLimit": {"max": 536870912, "unit": "bytes"},
+      "owner": "native",
+      "notes": "In managed mode the daemon enforces the installer Host, controls, sideload, exact octet-stream, same-origin, declared-size and 512 MiB guards, then streams directly into a mode-0600 staging file with backpressure and periodic upload-hold refresh. A secret-protected Node bridge reserves/checks free space and starts the existing verification, preview and confirmation coordinator (the daemon's own with TVWEB_NATIVE_INSTALL=1, which also reads the staged file in place). Node keeps the complete upload handler for standalone/startup fallback. With TVWEB_NATIVE_INSTALL=1 the daemon's install job coordinator (install_jobs) runs the job itself and Node is not asked; Node's coordinator remains for the default and standalone modes."
+    },
+    {
+      "paths": ["/api/apps"],
+      "methods": ["GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon projects installed apps, system tiles, saved browser pages, hidden-state files and remote-key choices from native Luna/filesystem data on JavaScript-filter and webOS 11 native-filter firmware. The tile-hiding flags, services, preloading, Quick Access and Home screen sections are built in the daemon from the same Luna and file reads Node used."
+    },
+    {
+      "paths": ["/api/apps/icon"],
+      "methods": ["GET", "HEAD"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon resolves app-declared icons only within the installed app directory, rejects escaping symlinks, and preserves ETag/cache and HEAD behavior. Node retains the route as a fallback."
+    },
+    {
+      "paths": [
+        "/api/apps/add-page", "/api/apps/remove-page", "/api/apps/edit-page",
+        "/api/apps/rename"
+      ],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "The daemon validates saved-page URLs and titles, verifies edits/removals still target a browser bookmark, serializes launch-point operations, and atomically preserves original titles in saved_page_titles.json. Node retains the route as the startup fallback."
+    },
+    {
+      "paths": [
+        "/api/apps/uninstall"
+      ],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "In managed mode the daemon owns protected-ID/control checks, app close, appInstallService/remove with dev/remove fallback, listApps polling and the public response; removal commands use shared command policy. It sends a secret-protected Node state event to retain the existing SAM refresh and installed-app telemetry invalidation. Node keeps the public route as startup/standalone fallback."
+    },
+    {
+      "paths": [
+        "/api/apps/hide", "/api/apps/unhide",
+        "/api/apps/unhide-all", "/api/apps/tile-hiding"
+      ],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "The daemon owns the managed public hide, unhide, unhide-all and tile-hiding routes, including app tile state persistence, overrides, bind mounts and SAM refresh through command policy. Node retains standalone/startup fallback. Controls-disabled and HBC hide/unhide refusals use the Node response, and hidden sets above the native SAM visibility limit use the Node coordinator."
+    },
+    {
+      "paths": ["/api/services"],
+      "methods": ["GET", "HEAD"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon returns the legacy service catalogue, disabled list and running state. It probes the existing systemd/upstart manager with bounded child calls and detects on-demand processes from procfs."
+    },
+    {
+      "paths": ["/api/services/toggle"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "The daemon atomically persists the disabled list, refreshes the boot hook, applies runtime stubs, and stops or starts the selected service through the shared command-policy resource lock and audit. With TVWEB_NATIVE_SERVICES=1 the daemon also retires old list entries, rewrites the boot hook, binds the stubs and stops a switched-off service found running at start and every five minutes (daemon/services_keeper); otherwise Node's module does."
+    },
+    {
+      "paths": ["/api/homescreen"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "Requires allowControl. The daemon runs the part, restore and allow actions through HomeScreenManager and the input action through the native Home input writer, then refreshes the CEC tile titles on webOS 9. Node keeps the same handler as the rollback path."
+    },
+    {
+      "paths": ["/api/home"],
+      "methods": ["GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon serves status from home.json and current TV state, with nativeHome (whether LG's Home was given back because the native client kept failing or its probe refused, and why) and nativeClient (the last probe verdict). with=catalogue composes the native catalogue; with=catalogue,channels also returns the full channel list. Node retains standalone fallback."
+    },
+    {
+      "paths": ["/api/home/now"],
+      "methods": ["GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon remembers the latest non-Home foreground app through the shared native application-state subscription. It returns the matching HDMI device names, Live TV channel/current programme, or app title. If native has not observed a source yet, or is running standalone, it forwards to Node."
+    },
+    {
+      "paths": ["/api/home/picture"],
+      "methods": ["GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The native front door serves Live TV, HDMI and observed app picture details with a ten-second cache. HDMI signal facts come from the mapped receiver status and DRM packet. App details use the latest MAIN VDEC videooutput signal while persisted Home picture tracking is enabled; unobserved apps and disabled tracking retain the Node fallback. Node remains the standalone fallback."
+    },
+    {
+      "paths": ["/api/home/discover", "/api/home/image"],
+      "methods": ["GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon serves the cached daily TMDB and YouTube discovery feed immediately, refreshes stale data in the background, retries partial rows after ten minutes, and keeps stale rows on individual source failures. The image proxy enforces the TMDB/YouTube host and path allow-list, uses the Node-compatible MD5 disk cache, keeps two downloads active, and promotes hero/focused requests. Node retains standalone fallback."
+    },
+    {
+      "paths": ["/api/home/details", "/api/home/search", "/api/home/netflix"],
+      "methods": ["GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Native owns on-demand title details and search with the bounded persistent cache and stale fallback. Netflix lookup uses the exact Wikidata entity and P1874 and never sends the TMDB key to Wikidata. Node keeps standalone fallback."
+    },
+    {
+      "paths": ["/api/home/recents", "/api/home/recents/image"],
+      "methods": ["GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon reads the webOS recent-app list, excludes the Home apps, deduplicates entries, and serves only image paths returned for currently listed apps. Screenshot reads reject symlink final components and are capped at 16 MiB. Node remains the standalone fallback."
+    },
+    {
+      "paths": ["/api/home/catalogue"],
+      "methods": ["GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon serves both the TV view and general catalogue, including selected channels when Live is enabled. It records the current Live TV channel for Last opened sorting in native recent-history storage. Managed foreground recency uses the native state subscription; Node retains standalone fallback and Home lifecycle handling."
+    },
+    {
+      "paths": ["/api/home/wallpaper"],
+      "methods": ["GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon reads one allow-listed uploaded wallpaper slot with a size bound and ETag. Node keeps the standalone fallback."
+    },
+    {
+      "paths": ["/api/home/icon"],
+      "methods": ["GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon uses the native app-icon resolver, preserving appinfo icon selection, path containment, ETag and cache headers. Node retains the standalone fallback route."
+    },
+    {
+      "paths": ["/api/home/channels"],
+      "methods": ["GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon projects webOS API-adapter channels and caches a successful catalogue for 30 seconds. The Node route remains for standalone mode and startup fallback."
+    },
+    {
+      "paths": ["/api/home/guide"],
+      "methods": ["GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon reads the selected channels from home.json, returns currently airing programmes, and caches the result for 60 seconds. Node retains the standalone and startup-fallback route."
+    },
+    {
+      "paths": ["/api/home/layout"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present; requires allowControl unless from TV loopback",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "The daemon applies layout mutations under the home.json lock, updates layoutVersion, refreshes picture tracking and clears recent-history rows whose sort changed away from Last opened. Node retains standalone fallback."
+    },
+    {
+      "paths": ["/api/home/start-layout"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present; requires allowControl unless from TV loopback",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "The daemon persists hideLgHomeAtStart and, when the staged Home app is mounted, applies or restores the webOS 9 start layout through HomeScreenManager. It restores home.json if the layout operation fails. Node retains standalone fallback."
+    },
+    {
+      "paths": ["/api/home/startup"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present; requires allowControl unless from TV loopback",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "The daemon validates and persists openOnPowerOn, synchronizes LG Home auto-launch, and refreshes the persisted/configd startup notice. Node retains standalone fallback."
+    },
+    {
+      "paths": ["/api/home/enable", "/api/home/disable"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present; requires allowControl unless from TV loopback",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "The daemon sequences Home takeover with enabled-state persistence, startup notice and auto-launch synchronization. Enable runs the native client's probe first and refuses with the exit class in the error; enable and disable start the crash watch over. Node retains standalone fallback."
+    },
+    {
+      "paths": ["/api/home/open"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present; requires allowControl unless from TV loopback",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "The daemon opens listed apps, HDMI devices and channels, AnimeMania titles, YouTube videos and Netflix titles. Netflix uses the native Wikidata P1874 result and existing contentTarget format. LG Home escape releases the managed takeover and launches LG Home natively; a secret-guarded Node bridge updates the remaining managed escape-state observer. Node retains standalone fallback."
+    },
+    {
+      "paths": ["/api/home/profile"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present; requires allowControl unless from TV loopback",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "The daemon applies profile mutations through the native home.json service, preserves localized validation and default profile names, refreshes picture tracking and returns layoutVersion. Node retains standalone fallback."
+    },
+    {
+      "paths": ["/api/home/wallpapers"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present; requires allowControl unless from TV loopback",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "The daemon removes the four uploaded wallpaper slots under the shared upload lock and returns the current status. It preserves the Home firmware and port support check. Node keeps standalone fallback."
+    },
+    {
+      "paths": ["/api/home/recents"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present; requires allowControl unless from TV loopback",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "The daemon validates open/close actions against the current recent list. Close operations stop running native or web apps, confirm exit with retries before removing selected cards, and preserve newly added or Home cards. Node retains standalone and startup-fallback handling."
+    },
+    {
+      "paths": ["/api/home/beat"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "application/json content type and same-origin Origin/Host comparison when Origin is present; requires allowControl unless from TV loopback",
+      "bodyLimit": {"max": null, "unit": "no explicit cap; body is drained"},
+      "owner": "native",
+      "notes": "The daemon answers the web Home view's heartbeat with its build id, enabled flag, wallpapers and layout version. The watchdog that returned to LG's Home when the view stopped beating belongs to the web view and is retired with it; the native Home client has its own lifecycle."
+    },
+    {
+      "paths": ["/api/home/wallpapers/upload"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "Exact image/jpeg content type and same-origin Origin/Host comparison when Origin is present; requires allowControl unless from TV loopback",
+      "bodyLimit": {"max": 5242880, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The daemon requires Content-Length, exact image/jpeg, a supported JPEG of at most 5 MiB, and 5 MiB confirmed free-space reserve. Node keeps the standalone fallback."
+    },
+    {
+      "paths": ["/api/remotekeys"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "Also requires allowControl. JavaScript-filter firmware uses the native compositor-map and filter-chain writer for every key, Alexa included (a filter key there, with no app block). webOS 11 uses native mapping_info, key-action and custom-button reconciliation; AI and Alexa service/block lifecycle actions keep the Node compatibility path. Unsupported firmware and standalone mode keep Node fallback."
+    },
+    {
+      "paths": ["/api/preload/toggle"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {
+        "max": 8192,
+        "unit": "JS string code units"
+      },
+      "owner": "native",
+      "notes": "Requires allowControl; writes the legacy preload.json state and configd setting. Node retains lifecycle reapply and rollback behavior."
+    },
+    {
+      "paths": ["/api/quickaccess"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "Also requires allowControl; validates installed apps and TV inputs before writing."
+    },
+    {
+      "paths": ["/api/settings"],
+      "methods": ["GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Projects config-derived dashboard settings directly; the Home Assistant catalogue is the daemon's own; the MQTT connection status is the daemon's when it owns the bridge (TVWEB_NATIVE_MQTT_PRODUCTION: its own client's standing, or disabled while MQTT is off, or with TVWEB_NODE_FREE=1), and Node's (over the secret-guarded loopback context) otherwise."
+    },
+    {
+      "paths": ["/api/backup/apps"],
+      "methods": ["GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Filters the pending restore-app list against installed developer apps from Luna. Node plans the catalog list; managed-mode save and clear use the secret-guarded native persistence bridge, with Node file persistence retained for standalone fallback."
+    },
+    {
+      "paths": ["/api/backup/saved/list"],
+      "methods": ["GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Lists fixed-name regular daily backups newest-first, excluding symlinks; Node retains the scan for standalone fallback."
+    },
+    {
+      "paths": ["/api/backup/saved"],
+      "methods": ["GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Reads a saved daily backup by fixed name without following symlinks. The companion /api/backup/saved/list route lists the regular files; the daemon also owns managed scheduling, export creation, persistence and seven-file retention, with Node retaining immediate-on-toggle and standalone/startup fallback behavior."
+    },
+    {
+      "paths": ["/api/backup"],
+      "methods": ["GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Builds the version 1 backup from native LG settings, filtered config and installed developer apps; reads the nativeTv Home layout from home.json and the display version from build.json in the daemon."
+    },
+    {
+      "paths": ["/api/backup/apps/clear"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "no explicit CSRF/content-type guard; token gate and allowControl are enforced",
+      "bodyLimit": {"max": 0, "unit": "bytes; request body is ignored"},
+      "owner": "native",
+      "notes": "The daemon checks allowControl and idempotently clears restore-apps.json; Node retains its route for standalone mode."
+    },
+    {
+      "paths": ["/api/settings"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "application/json and same-origin Origin/Host comparison when Origin is present; also requires allowControl",
+      "bodyLimit": {"max": 8192, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "Validates and merges only the dashboard-writable MQTT/device/icon settings under the shared config lock, preserves file-only security keys, checks install/restart readiness, and asks Node to restart. GET is native too, with only runtime status and the catalogue bridged from Node."
+    },
+    {
+      "paths": ["/api/backup"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "application/json and same-origin Origin/Host comparison when Origin is present; also requires allowControl",
+      "bodyLimit": {"max": 65536, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "The daemon enforces the JSON content-type, same-origin and 65,536 UTF-16-code-unit body guards, rejects malformed JSON, refuses during an install, then restores in the legacy order: format and version check, LG settings, restore-app plan and pending list, Home layout through the layout route, and the allow-listed nativeTv settings under the config lock. It answers with the same lg, nativetv, restart, apps and home fields and restarts the server after the response when nativeTv's own settings changed. Node retains the route for standalone mode."
+    },
+    {
+      "paths": ["/api/control"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "application/json and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 4096, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "Native handles volume, volumeStep, mute, screenOff, screenOn, powerOff, powerOn, input, supported rcu navigation keys and Home, playback/media keys, toast notifications, serviceMenuOpen, serviceMenuLock, oledProtection, refresherSchedule, refresherCancel, consent, acr, limitAdTracking, clearAdCookies, resetAdId, adblock/setAdBlock/toggleAdBlock, blockTvUpdates, picture_mode/pictureMode, energySaving, backlight, standbyLight, logoLight, sound_output/soundOutput, launch_app/launchApp, launch_url/launchUrl, close_app/closeApp, and PicCap start/stop; screensaverMode remains Node-coordinated and bridges privileged staging and bind-mount changes to the secret-protected native endpoint; ad-block and update-block actions share the command-policy hosts-table lock and invalidate Node's privacy cache; consent uses the TV's agreement mapping, updates eulaStatus and eulaInfoNetwork together, preserves locked agreements, verifies the selected flag, and invalidates Node's privacy cache; acr writes Live Plus first when that setting exists, selects firmware ACR flags found in /usr/sbin/acr2 with acrAllowed fallback, applies shared-agreement rules, and invalidates Node's privacy cache; limitAdTracking writes the general lmt setting and verifies against the ad manager only when it is already running, so a stopped on-demand service is not started for verification; clearAdCookies refuses to query a stopped on-demand ad manager and runs inactivateCookies through command policy only while the service is active; resetAdId refuses to query a stopped on-demand ad manager, resets the identifier through command policy while active, reads it before and after, and invalidates Node's privacy cache; rcu Home launches com.webos.app.home and falls back to KEY_LEFTMETA input injection when unavailable, while unknown navigation values retain the Node fallback; playback/media preserve the legacy RCU input events and state-aware play/pause behavior; toast uses com.webos.app.home as both the notification source and Luna application id and caps its message at 120 UTF-16 units; serviceMenuOpen launches com.webos.app.factorywin with only ezAdjust or inStart, defaulting to ezAdjust; serviceMenuLock writes svcMenuFlag and verifies it with a read-back; oledProtection detects EPL or the system-property fallback, writes GSR/TPC and verifies the read-back; refresherSchedule/refresherCancel call requestClearPanelNoise with schedule/cancel_schedule, share the OLED panel command lock, and invalidate telemetry after the Luna result; power actions honor allowPower and preserve LG's state-check/retry behavior, PicCap is gated by installation and the webOS 3 minimum and refreshes status after the action, app-title lookup falls back to Node if unavailable, picture mode preserves LG's active settings dimension and Gallery refusal, and sound output retries LG's optical and TV-speaker aliases while waiting for audio routing. Malformed bodies, unsupported output scenarios, disabled power actions, and other actions are replayed to Node with the original body."
+    },
+    {
+      "paths": ["/api/adblock/custom"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "application/json and same-origin Origin/Host comparison when Origin is present; also requires allowControl",
+      "bodyLimit": {"max": 1048576, "unit": "JS string code units"},
+      "owner": "native",
+      "notes": "Native validates and applies uploaded, enabled, disabled and cleared custom host lists through the shared hosts-table store and the command-policy resource lock. Node retains the route as the fallback when the native front door is not active."
+    }
+  ],
+  "routeGuards": [
+    {"pathPrefix": "/api/", "policy": "General API token gate; TV loopback is accepted by authed()."},
+    {"pathPrefix": "/api/home/", "policy": "Delegates to the Home dispatcher; only its enumerated methods/paths are served; others return 404."},
+    {"pathPrefix": "/api/apps/install/", "policy": "Install host and control gate; only enumerated actions are served; others return 404."},
+    {"pathPrefix": "/assets/", "policy": "Public asset lookup through the configured asset directories; unknown files return 404."}
+  ],
+  "redirects": [
+    {"path": "/assets/dashboard.html", "target": "/assets/google-tv/pages/dashboard/index.html"},
+    {"path": "/assets/setup.html", "target": "/assets/google-tv/pages/setup/index.html"},
+    {"path": "/assets/home.html", "target": "/assets/google-tv/pages/home/index.html"}
+  ],
+  "notes": [
+    "The public listener is dual-stack when supported; the temporary phone setup listener is separate and short-lived.",
+    "bodyLimit units reflect current implementation: most JSON handlers count decoded JavaScript string code units, while streamed uploads enforce byte counts.",
+    "A null body limit means the route currently has no explicit body-size cap."
+  ]
+}

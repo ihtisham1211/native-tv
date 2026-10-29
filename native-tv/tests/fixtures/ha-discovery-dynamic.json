@@ -1,0 +1,27 @@
+{
+  "installedApps": [
+    {"id": "netflix", "title": "Streaming", "iconColor": "#AbC"},
+    {"id": "prime.video", "title": "Streaming"},
+    {"id": "z_invalid/id", "title": "Invalid Icon Id"}
+  ],
+  "pictureModes": [
+    {"value": "cinema"},
+    {"value": "hdrGame"},
+    {"value": "dolbyHdrCinemaBright"}
+  ],
+  "soundOutputs": [
+    "tv_speaker", "external_optical", "external_arc", "wisa_speaker", "custom_output"
+  ],
+  "iconBaseUrl": "http://tv.local/icons/",
+  "lgRows": [
+    {
+      "id": "soundMode", "type": "choice", "value": "aiSound",
+      "choices": [
+        {"value": "standard", "label": "Standard"},
+        {"value": "aiSound", "label": "AI Sound Pro"}
+      ]
+    },
+    {"id": "audioBalance", "type": "number", "value": 3, "min": -25, "max": 25},
+    {"id": "simplinkEnable", "type": "switch", "on": true}
+  ]
+}
