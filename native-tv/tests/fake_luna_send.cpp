@@ -1302,7 +1302,7 @@ int main(int argc, char **argv) {
         apps.add(gallery);
         Json protectedApp = Json::object();
         protectedApp.set("id", Json::text("com.tvweb.dashboard"));
-        protectedApp.set("title", Json::text("nativeTv"));
+        protectedApp.set("title", Json::text("Native Tv"));
         protectedApp.set("removable", Json::flag(true));
         protectedApp.set("folderPath", Json::text(
             "/media/developer/apps/com.tvweb.dashboard"));

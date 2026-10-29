@@ -16,7 +16,7 @@ GlWindow::GlWindow(bool windowed) {
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 0);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 0);
-    window_ = SDL_CreateWindow("nativeTv Native", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+    window_ = SDL_CreateWindow("Native Tv Native", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                windowed ? 1280 : 1920, windowed ? 720 : 1080,
                                SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
     if (window_)

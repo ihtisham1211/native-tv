@@ -83,7 +83,7 @@
   }
 
   // docs/logo/nativetv.svg without its tile.
-  var MARK = '<svg class="mark" viewBox="140 128 232 266" role="img" aria-label="nativeTv" translate="no"><path d="M168 362 V154 M168 254 Q168 154 258 154 Q344 154 344 254 V362" fill="none" stroke="currentColor" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/><circle cx="256" cy="362" r="24" fill="currentColor"/></svg>';
+  var MARK = '<svg class="mark" viewBox="140 128 232 266" role="img" aria-label="Native Tv" translate="no"><path d="M168 362 V154 M168 254 Q168 154 258 154 Q344 154 344 254 V362" fill="none" stroke="currentColor" stroke-width="44" stroke-linecap="round" stroke-linejoin="round"/><circle cx="256" cy="362" r="24" fill="currentColor"/></svg>';
 
   function show(name) {
     screenRevision++;

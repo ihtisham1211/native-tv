@@ -1,5 +1,5 @@
 /*
- * nativeTv Home: tabs, a featured carousel and rows of cards, laid out as
+ * Native Tv Home: tabs, a featured carousel and rows of cards, laid out as
  * Google TV's home. It reads /api/home/*; the order of the rows' tiles is
  * arranged on the dashboards. Strict ES5, as every page the TV's own browser
  * shows.
@@ -795,7 +795,7 @@
   }
 
   function emptyNote(key) {
-    if (key === 'live') return data.sources.channels === null ? t('home.row.noTuner', 'This TV has no channels tuned') : t('home.row.addChannels', 'Add channels in nativeTv’s Home settings');
+    if (key === 'live') return data.sources.channels === null ? t('home.row.noTuner', 'This TV has no channels tuned') : t('home.row.addChannels', 'Add channels in Native Tv’s Home settings');
     return t('home.tv.empty', 'Nothing here yet');
   }
 

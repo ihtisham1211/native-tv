@@ -1,6 +1,6 @@
 # Experimental features
 
-Four features are experimental and off by default. Three are turned on under **Server** → **Advanced** → **Experimental features**, and nativeTv Home on its own **Home** tab.
+Four features are experimental and off by default. Three are turned on under **Server** → **Advanced** → **Experimental features**, and Native Tv Home on its own **Home** tab.
 
 ## Hiding home screen system apps
 
@@ -10,17 +10,17 @@ Hides built-in LG apps, such as Gallery, Music and Sports, from the Home screen 
 
 Replaces LG's screen saver with one of the dashboard's own, chosen on the **Screensaver** tab. It is experimental only on webOS 12 and later, where it has not been tried, and where the Screensaver tab itself also has the switch, above the list. On webOS 11 and earlier, custom screen savers work without turning anything on.
 
-On webOS 10 and 11 they were experimental too, until TVs had run them. Switching to one there no longer restarts the app manager: since 0.98.1 it rereads the screen saver app alone, which held through switching, standby and restarts on a C5 (webOS 10.3.1), a C2 (webOS 10.3) and, from 0.102.2, a G3 (webOS 11.2). If the app manager does not take the switch that way, the switch is undone and LG's screen saver kept, rather than the app manager restarted; at start-up, likewise. nativeTv never restarts the app manager for a screen saver.
+On webOS 10 and 11 they were experimental too, until TVs had run them. Switching to one there no longer restarts the app manager: since 0.98.1 it rereads the screen saver app alone, which held through switching, standby and restarts on a C5 (webOS 10.3.1), a C2 (webOS 10.3) and, from 0.102.2, a G3 (webOS 11.2). If the app manager does not take the switch that way, the switch is undone and LG's screen saver kept, rather than the app manager restarted; at start-up, likewise. Native Tv never restarts the app manager for a screen saver.
 
 ## Home screen layout on webOS 10
 
 Switches off parts of LG's Home screen, chosen on the **Apps** tab under **Home screen layout**, which also has the switch, with its warning. On webOS 9 it works without turning anything on.
 
-webOS 10's home app keeps its layout on the TV's read-only system and looks nowhere else for it, so nativeTv lays its own over LG's with an overlay mount and restarts the home app to read it. The mount does not survive a restart of the TV, so it is put back when nativeTv starts, and LG's Home screen can show for a moment before that. It has been tried through nativeTv on a C2 with webOS 10.3.1, and on a few other webOS 10 TVs outside it. **Put back LG's Home screen**, or switching it off, takes the overlay away and brings LG's Home screen back. It does not restart the app manager, so the problem below does not apply to it.
+webOS 10's home app keeps its layout on the TV's read-only system and looks nowhere else for it, so Native Tv lays its own over LG's with an overlay mount and restarts the home app to read it. The mount does not survive a restart of the TV, so it is put back when Native Tv starts, and LG's Home screen can show for a moment before that. It has been tried through Native Tv on a C2 with webOS 10.3.1, and on a few other webOS 10 TVs outside it. **Put back LG's Home screen**, or switching it off, takes the overlay away and brings LG's Home screen back. It does not restart the app manager, so the problem below does not apply to it.
 
-## nativeTv Home
+## Native Tv Home
 
-A home screen of nativeTv's own in place of LG's, switched on from its own [Home tab](dashboard/home.md) rather than under Advanced. It is offered on webOS 9, where it has been tried (a G3 and a C2 with webOS 9.2.2), and on webOS 10 (a G5 with webOS 10.3.1); on webOS 11 only with `"allowExperimentalHome": true` in `config.json`. While on, it is laid over LG's Home app in its place, which switching off takes away; no TV setting is changed. A view that stops answering, and a server that stops or keeps failing, each give LG's Home its place back.
+A home screen of Native Tv's own in place of LG's, switched on from its own [Home tab](dashboard/home.md) rather than under Advanced. It is offered on webOS 9, where it has been tried (a G3 and a C2 with webOS 9.2.2), and on webOS 10 (a G5 with webOS 10.3.1); on webOS 11 only with `"allowExperimentalHome": true` in `config.json`. While on, it is laid over LG's Home app in its place, which switching off takes away; no TV setting is changed. A view that stops answering, and a server that stops or keeps failing, each give LG's Home its place back.
 
 ## Why the first two are experimental
 

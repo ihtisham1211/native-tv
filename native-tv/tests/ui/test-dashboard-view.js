@@ -237,7 +237,7 @@ vm.runInNewContext(script + '\n;' + testPagingSnippet, sandbox);
 
 (function testSelfUpdaterRemovalAndFirmwareControl() {
   assert.strictEqual(sandbox.TABS.some(function (tab) { return tab.key === 'update'; }), false,
-    'the nativeTv self-updater tab is removed');
+    'the Native Tv self-updater tab is removed');
   var rows = sandbox.privacyRows({ ok: true, tvUpdates: { blocked: true } });
   var firmware = rows.filter(function (r) { return r.label === 'Block TV software updates'; })[0];
   assert.ok(firmware, 'the LG firmware update control remains in Privacy');

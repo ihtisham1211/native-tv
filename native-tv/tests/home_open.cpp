@@ -59,7 +59,7 @@ int main() {
     // Only what the catalogue lists can be opened.
     plan = planHomeOpen("app", "com.example.unknown", apps, devices, channels);
     assert(plan.handled && !plan.ok);
-    assert(plan.error == "that is not on nativeTv Home");
+    assert(plan.error == "that is not on Native Tv Home");
 
     // An app tile for LG's Home escape stays on Node.
     plan = planHomeOpen("app", "lg-home", apps, devices, channels);
@@ -101,7 +101,7 @@ int main() {
     assert(plan.ok && plan.launchParams["path"].string() == "/browse");
     plan = planHomeOpen("title", "0", apps, devices, channels, "movie");
     assert(plan.handled && !plan.ok);
-    assert(plan.error == "that is not on nativeTv Home");
+    assert(plan.error == "that is not on Native Tv Home");
 
     // YouTube IDs are constrained before constructing the player URL.
     plan = planHomeOpen("youtube", "abcdefghijk", apps, devices, channels);
@@ -150,7 +150,7 @@ int main() {
     plan = planHomeOpen("ch", "channel-1", apps, devices, Json());
     assert(plan.handled && !plan.ok);
 
-    // An opened row is recorded only while nativeTv Home is on and the row
+    // An opened row is recorded only while Native Tv Home is on and the row
     // sorts by Last opened.
     Json document = Json::object();
     document.set("enabled", Json::flag(true));

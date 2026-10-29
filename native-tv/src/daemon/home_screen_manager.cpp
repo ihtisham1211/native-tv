@@ -222,7 +222,7 @@ class HomeScreenState {
 
     Json setPart(const std::string &id, bool shown) {
         if (startsWith(version, "9.") && nativeTvHomeOn9())
-            return failure("nativeTv Home is in LG's Home's place. Switch it off on the Home tab to change LG's Home screen.");
+            return failure("Native Tv Home is in LG's Home's place. Switch it off on the Home tab to change LG's Home screen.");
         if (supported9()) return setPart9(id, shown);
         if (supported10()) return setPart10(id, shown);
         return failure("This TV's Home screen cannot be changed from here");
@@ -619,7 +619,7 @@ class HomeScreenState {
 
     Json setPart9(const std::string &id, bool shown) {
         if (nativeTvHomeOn9())
-            return failure("nativeTv Home is in LG's Home's place. Switch it off on the Home tab to change LG's Home screen.");
+            return failure("Native Tv Home is in LG's Home's place. Switch it off on the Home tab to change LG's Home screen.");
         size_t index = 0;
         while (index < 4 && id != kWebos9Ids[index]) ++index;
         if (index == 4) return failure("There is no such part of the Home screen");

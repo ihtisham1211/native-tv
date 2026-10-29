@@ -1,7 +1,7 @@
 // The token, q(), t(), the activity pips, write leases and the fetch wrapper.
 
 /* t() is the string helper: a key, the English, and the values for its
-   {placeholders}. nativeTv is English only, so the English is what comes
+   {placeholders}. Native Tv is English only, so the English is what comes
    back; the key names the string, so the same words are used wherever it
    appears, and scripts/check-strings.py catches the ones that drift apart. */
 function t(key, english, vars) {

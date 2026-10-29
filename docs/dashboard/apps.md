@@ -1,6 +1,6 @@
 # Apps and home screen launcher
 
-The **Apps** section has three tabs. **Installed**, `/?tab=apps`, is for removing apps, the web pages saved to the Home screen, and the memory LG's background apps and services take up. **Catalogue**, `/?tab=catalogue`, is for installing apps from the Homebrew Channel, other catalogues, a URL or a file. **Home screen**, `/?tab=homescreen`, is for what LG's Home screen shows and what the remote's keys do. [nativeTv Home](home.md) has a fourth tab where the TV offers it.
+The **Apps** section has three tabs. **Installed**, `/?tab=apps`, is for removing apps, the web pages saved to the Home screen, and the memory LG's background apps and services take up. **Catalogue**, `/?tab=catalogue`, is for installing apps from the Homebrew Channel, other catalogues, a URL or a file. **Home screen**, `/?tab=homescreen`, is for what LG's Home screen shows and what the remote's keys do. [Native Tv Home](home.md) has a fourth tab where the TV offers it.
 
 ![Apps tab in three groups: installed applications and saved web pages under Apps, the Home screen layout with its inputs and parts, Quick Access and hidden system apps under Home screen and remote, and apps kept ready and background services under Background](../screenshots/apps.png)
 
@@ -57,7 +57,7 @@ Switches parts of LG's Home screen off, for a Home screen with only the apps and
 * **App tiles**: the row of apps and inputs.
 * **Recent Input and Device Functions**: the last input used, and cards for editing the app list, the TV guide, the user guide and Home Hub.
 
-At least one part stays. A change takes a few seconds, while the Home screen starts again, and lasts through restarts and power cuts. While [nativeTv Home](home.md) is on, LG's Home screen is not changed here; the layout set here is kept, and is what LG's Home shows when opened from nativeTv Home or once nativeTv Home is switched off. The rows further down, such as Live TV and LG Channels, come from LG's servers and stay.
+At least one part stays. A change takes a few seconds, while the Home screen starts again, and lasts through restarts and power cuts. While [Native Tv Home](home.md) is on, LG's Home screen is not changed here; the layout set here is kept, and is what LG's Home shows when opened from Native Tv Home or once Native Tv Home is switched off. The rows further down, such as Live TV and LG Channels, come from LG's servers and stay.
 
 **Inputs on Home** shows each HDMI input as a tile, dimmed while it is not on Home; choosing one adds or removes the Home screen's tile for it, named as the TV names the input. The input tiles go before the apps, in HDMI order; adding one moves any input tiles moved elsewhere back to the front, and starts the Home screen again to show it. It is LG's own tile for the input, so it can be moved or removed on the TV like any other.
 
@@ -65,7 +65,7 @@ On webOS 9, highlighting an input tile shows its HDMI port and the CEC device
 names, including devices behind a receiver, or the TV's own name for the input
 where no device gives one. Long names scroll in LG's title area. Titles are
 read again when the Home screen opens and shortly after the TV switches on,
-never while it is in standby. Only input tiles added by nativeTv are updated;
+never while it is in standby. Only input tiles added by Native Tv are updated;
 a failed discovery keeps the last good title.
 
 **Put back LG's Home screen** shows every part again and takes off the input tiles added here; ones added on the TV stay. The TV app has the same switches.
@@ -90,15 +90,15 @@ Sets what a key on the remote does: **As LG has it**, **Nothing**, **Input switc
 
 The list is what the TV handles, not what any one remote has. A Magic Remote has no Guide, Info or color keys, and a plain IR remote no Netflix or Prime Video button, while the TV handles all of them because other remotes send them. LG also ships the same key handling to many countries, so a UK TV names Hulu and Sling TV; once the TV has reported its country, keys only sold on remotes elsewhere (Hulu and Sling TV in the US, BBC iPlayer and Freeview Play in the UK) are folded away under **Buttons on remotes sold elsewhere**, unless already changed. Look at the remote before setting a key: a key it cannot send does nothing when set, and does no harm either.
 
-A change applies straight away, on whatever is on screen, and lasts across reboots, working before the server has started. Setting every key back to **As LG has it** gives every key back to the TV; `tvwebctl restore-keys`, which uninstalling from the Homebrew Channel runs, also takes nativeTv's filter out of the TV's key handling.
+A change applies straight away, on whatever is on screen, and lasts across reboots, working before the server has started. Setting every key back to **As LG has it** gives every key back to the TV; `tvwebctl restore-keys`, which uninstalling from the Homebrew Channel runs, also takes Native Tv's filter out of the TV's key handling.
 
 A key set here is taken before any app sees it, so it wins over an app's own use of that key. YouTube uses **Guide** for its own guide, and Live TV and the HDMI inputs use the color keys for their banners and teletext: with such a key set here, those apps no longer get it, whatever is on screen, until the key is **As LG has it** again. There is no per-app setting. How it works is in [Remote keys through the compositor's filter chain](../IMPLEMENTATION.md#remote-keys-through-the-compositors-filter-chain).
 
 On webOS 11 (LG's webOS 26) LG handles keys differently. The streaming buttons, Apps, Guide, Home Hub (the house in a circle on an MR25 Magic Remote), the **AI** and **Alexa** buttons and the **?** button can be changed, the **?** button separately when pressed and when held; Input, the color keys, Search, Info, Home and **123** cannot, and are not listed. A streaming button set to **Nothing** shows LG's short notice instead of opening an app, and the **?** button cannot be set to **Nothing**. Media controls are not offered there, since LG's handling of these keys only opens apps. Guide set here still opens the guide of Live TV or an HDMI input while one is on screen. LG puts its own streaming buttons back each time the TV is switched off or on; the server sets them again within a few seconds. A streaming button pressed to switch the TV on still opens LG's app.
 
-The **AI** button is answered by LG's voice assistant itself, which no setting changes, so setting it here switches the voice assistant off: voice search, the AI assistant and the microphone stop working until the button is **As LG has it** again, which switches it back on, as uninstalling does. nativeTv then opens what was chosen about a second after the press. After the TV restarts, the button does nothing until the server has started.
+The **AI** button is answered by LG's voice assistant itself, which no setting changes, so setting it here switches the voice assistant off: voice search, the AI assistant and the microphone stop working until the button is **As LG has it** again, which switches it back on, as uninstalling does. Native Tv then opens what was chosen about a second after the press. After the TV restarts, the button does nothing until the server has started.
 
-The **Alexa** button set here keeps Alexa from opening until it is **As LG has it** again; LG's voice assistant is left as it is. nativeTv opens what was chosen right after the press, and for 4 s from it no notice is shown on the TV, so that Amazon's "Alexa is loading" does not appear; a notice anything else sends in those seconds is not shown either. How it works is in [webOS 11: LG's own values](../IMPLEMENTATION.md#webos-11-lgs-own-values).
+The **Alexa** button set here keeps Alexa from opening until it is **As LG has it** again; LG's voice assistant is left as it is. Native Tv opens what was chosen right after the press, and for 4 s from it no notice is shown on the TV, so that Amazon's "Alexa is loading" does not appear; a notice anything else sends in those seconds is not shown either. How it works is in [webOS 11: LG's own values](../IMPLEMENTATION.md#webos-11-lgs-own-values).
 
 ### Hide home screen system apps
 
@@ -128,6 +128,6 @@ Stops background services that most TVs don't need, such as the connected-car li
 
 ## Notes
 
-* Live TV, Settings, Home, the HDMI inputs, the Homebrew Channel and nativeTv itself are protected: they can't be hidden or uninstalled.
+* Live TV, Settings, Home, the HDMI inputs, the Homebrew Channel and Native Tv itself are protected: they can't be hidden or uninstalled.
 * Everything on this tab also works from the TV app, except saved web pages and installing from a URL or a file, which are in the browser dashboard only.
 * Apps that check they were installed from the LG store may refuse to run when installed another way, and apps built for a newer webOS than the TV runs may not launch.

@@ -262,7 +262,7 @@ becomes the remote shell's own `argv`:
 
 ## Server release deployment
 
-The dashboard no longer checks for or installs nativeTv server releases. Deploy a release from a checkout with `native-tv/lifecycle/deploy.sh`, or install the Homebrew Channel package. A TV that still has an updater from an older release can use it to install the first release without that feature; `scripts/check-upgrade.js` keeps this transition path covered. Current releases do not ship a nativeTv self-updater. See [Updating](managing.md#updating).
+The dashboard no longer checks for or installs Native Tv server releases. Deploy a release from a checkout with `native-tv/lifecycle/deploy.sh`, or install the Homebrew Channel package. A TV that still has an updater from an older release can use it to install the first release without that feature; `scripts/check-upgrade.js` keeps this transition path covered. Current releases do not ship a Native Tv self-updater. See [Updating](managing.md#updating).
 
 ## Fonts
 
@@ -534,7 +534,7 @@ client first because the process is about to go down with the system.
 powered on, such as `remoteKey`, `wakeOnWiFi`, `alwaysOn`, or
 `rebootByOnRegular`, and `power/getPowerOnTime` answers `uptime`, since boot,
 and `ontime`, since the TV last powered on and 0 in standby, as strings of
-seconds. nativeTv reads both at start, logs
+seconds. Native Tv reads both at start, logs
 `power: on by rebootByOnRegular, up 12 s`, and reads them again after each power
 transition, never for a request. `/api/stats` gives them under `powerState` as
 `onReason` and `onTime`, null on a TV without the methods, with the times moved
@@ -633,7 +633,7 @@ TV in Game mode that opens the Game Dashboard (`com.webos.app.quicksettings`,
 logged as `NL_GAMEDASHBOARD_ENTERED` with `"entered_by":"HotKey"`) on every
 write. So the filter, `remotekeys-filter.js` in `/var/lib/tvweb/`, is the same
 file whatever is mapped, and it is put first in the chain once, when the first
-key is set. The mappings go in a configd value of nativeTv's own,
+key is set. The mappings go in a configd value of Native Tv's own,
 `nativetv.remoteKeys` (`{ "keys": { "blue": "com.webos.app.hdmi2" } }`, an
 empty string for nothing), which the filter subscribes to in `init()` with
 `lunaCall.subscribe`, as LG's filters do; a change reaches it within a second,
@@ -708,8 +708,8 @@ change applies at once with nothing reloaded:
   `other.customLongPress`, written as `{ id, type: "app", params: {} }`. A type
   LG does not know opens Accessibility, so it has no **Nothing**.
 
-These are LG's values, not nativeTv's, so what each held before the first
-change is kept in `/var/lib/tvweb/remotekeys-lg.json`, with what nativeTv last
+These are LG's values, not Native Tv's, so what each held before the first
+change is kept in `/var/lib/tvweb/remotekeys-lg.json`, with what Native Tv last
 wrote over it, and **As LG has it** writes it back. A value found different from
 both is one LG has sent since, and becomes the value to put back.
 
@@ -726,7 +726,7 @@ minutes after it, and the server checks at its start and every 30 minutes,
 writing nothing while all is in place. The microcontroller's copy is not changed, so a streaming
 button pressed to switch the TV on opens LG's app.
 `tvwebctl restore-keys` writes LG's values back and deletes both files. The
-other keys nativeTv offers elsewhere (Input, the color keys, Search, Info) are
+other keys Native Tv offers elsewhere (Input, the color keys, Search, Info) are
 not offered: their handling on webOS 11 ignores these values, as does that of
 Home and **123**. Home Hub, the AI button and the ? button are offered only
 there, and left out of the JavaScript filter, whose file is
@@ -747,7 +747,7 @@ leave running. Each press opens what was chosen, once within half a second;
 **Nothing** opens nothing. With the service running its voice screen, and its
 terms while they are not accepted, opened over the app; with it off, the app
 opened within a second of the press and nothing of LG's did.
-`remotekeys-lg.json` records that nativeTv switched the service off, so
+`remotekeys-lg.json` records that Native Tv switched the service off, so
 **As LG has it** and `tvwebctl restore-keys` switch it back on.
 
 The Alexa button goes from LG's filters to Amazon's adapter,
@@ -959,11 +959,11 @@ into rotating it on every pass.
 
 ## Forwarding the logs to syslog
 
-nativeTv can send the logs the Tools tab shows to a syslog server: RFC 5424
+Native Tv can send the logs the Tools tab shows to a syslog server: RFC 5424
 over UDP, one datagram a line, as Alloy's `loki.source.syslog` (with
 `syslog_format = "rfc5424"`), rsyslog, syslog-ng and Vector take it. It is off
 until `server` is set in `config.json`, and changed settings take effect at
-nativeTv's next start:
+Native Tv's next start:
 
 ```json
 "syslog": {
@@ -981,8 +981,8 @@ nativeTv's next start:
 `dmesg` every 30 seconds.
 
 Forwarding follows the files rather than wrapping `console.log`, so lines
-nativeTv never wrote through console go too: libuv's assertions, and the crash
-handler's last lines once the watchdog has restarted nativeTv. Every 5
+Native Tv never wrote through console go too: libuv's assertions, and the crash
+handler's last lines once the watchdog has restarted Native Tv. Every 5
 seconds a timer reads what each file gained since the last poll, with the
 Tools tab's cursor reads and parsers, so what leaves the TV is what the tab
 shows. A read takes at most 64 KB and the next poll carries on: the loop is
@@ -1003,7 +1003,7 @@ Where a start begins:
   a start that dies first leaves none and the next sends them.
 * At any start after that, a watchdog restart included, each is sent from its
   end at the time, so a restart does not send the last 512 KB again.
-* nativeTv's own log is always sent from its end.
+* Native Tv's own log is always sent from its end.
 
 Lines wait, unread, until there is a hostname to send as, the clock reads
 2026 or later, and the syslog server's address has resolved.
@@ -1013,8 +1013,8 @@ structured data and no BOM:
 
 | Field | Value |
 | :--- | :--- |
-| PRI | facility × 8 + severity. System lines carry both as text in their third field, such as `user.info`. nativeTv lines are `daemon`, with the severity from their `[INFO]`, `[WARN]`, `[ERR]` or `[DBG]` tag. Kernel lines carry the whole priority in the `<6>` that `dmesg -r` puts first: `kern` for the kernel's own, and its own facility for a line userspace wrote to `/dev/kmsg`. |
-| TIMESTAMP | the line's own time. A line dated before 2026, written before the clock synced, is dated by boot time plus its uptime instead. A nativeTv line without a time of its own takes the time of the line before it, or the time it was read when it is the first of a read. Kernel lines are always dated by their uptime. |
+| PRI | facility × 8 + severity. System lines carry both as text in their third field, such as `user.info`. Native Tv lines are `daemon`, with the severity from their `[INFO]`, `[WARN]`, `[ERR]` or `[DBG]` tag. Kernel lines carry the whole priority in the `<6>` that `dmesg -r` puts first: `kern` for the kernel's own, and its own facility for a line userspace wrote to `/dev/kmsg`. |
+| TIMESTAMP | the line's own time. A line dated before 2026, written before the clock synced, is dated by boot time plus its uptime instead. A Native Tv line without a time of its own takes the time of the line before it, or the time it was read when it is the first of a read. Kernel lines are always dated by their uptime. |
 | HOSTNAME | `hostname` from the config, or else the device name the server logs as `device detected`, with spaces as `-`. The system's hostname is not used. |
 | APP-NAME | the process the Tools tab shows for the line; `kernel` for every kernel line |
 | MSGID | the source: `system`, `nativetv` or `kernel` |
@@ -1029,7 +1029,7 @@ NL_PICTURE_PERIODIC_REPORT` lines, as the Tools tab's copy and export do.
 The syslog server's address is looked up at start and again after a send
 fails, never for each send, and the socket is `udp4` or `udp6` to match the
 address the lookup gives. A failed send is dropped and counted, not queued, as
-UDP syslog is everywhere. nativeTv logs one line when forwarding starts and
+UDP syslog is everywhere. Native Tv logs one line when forwarding starts and
 one at each change of error state. `nativetv_syslog_messages_total` and
 `nativetv_syslog_errors_total` on the [Prometheus endpoint](PROMETHEUS.md)
 count what was sent and what was dropped.
@@ -1040,7 +1040,7 @@ count what was sent and what was dropped.
 
 The time service, `com.webos.service.systemservice`, takes time from named
 sources and registers no `ntp` source. With a server set in `config.json`,
-nativeTv asks it for the time over SNTP (RFC 4330) and hands the answer to
+Native Tv asks it for the time over SNTP (RFC 4330) and hands the answer to
 `clock/setTime` as an `sdp` time. The service then sets the clock, its source
 and `timeValid` as it does for LG's own sync, and the ad blocker's
 [wait for the clock](#cold-boot-clock-synchronization-nextlgsdpcom) ends.
@@ -1070,7 +1070,7 @@ A time within a second of the clock is left alone, except for the first answer
 of each start, which is always handed over.
 
 `clock/setTime` takes whole seconds. Each call carries the monotonic time of
-the server's answer, and the service adds the time since then. nativeTv logs
+the server's answer, and the service adds the time since then. Native Tv logs
 one line when it starts, one each time it sets the clock, and one at each
 change of error state.
 
@@ -1157,16 +1157,16 @@ TV-RESEARCH.md has how this was found.
 
 `service/backup` makes a JSON file of the LG settings `lg_settings`
 has rows for, in its promotions, sound, devices and hdmi sections, and of an
-allowlist of nativeTv's own settings. A restore reads the TV's rows first and
+allowlist of Native Tv's own settings. A restore reads the TV's rows first and
 sets, through `lgsettings.set`, only those this TV has, that differ, whose
 value it offers (its choices and ranges are narrowed per TV) and that LG does
-not grey out now. The nativeTv part goes through the same allowlist and
+not grey out now. The Native Tv part goes through the same allowlist and
 `writeSettings`, and a change restarts the server, as saving settings from the
 dashboard does. `POST /api/backup` is held to the same checks as
 `POST /api/settings`: controls allowed, JSON, and from the dashboard's own origin.
 
 A backup lists the developer apps, those whose `folderPath` in `listApps` is
-under `/media/developer/apps/`, less the Homebrew Channel and nativeTv's own.
+under `/media/developer/apps/`, less the Homebrew Channel and Native Tv's own.
 A restore installs none: those the TV lacks and the catalog has go to
 `/var/lib/tvweb/restore-apps.json`, which survives the restart a restore may
 make, and the Apps tab installs them one at a time as catalog installs with
@@ -1310,21 +1310,21 @@ overlay and the layout is one recognised from #612's dumps, and only once
 feature off, or `tvwebctl restore-home` before uninstalling, deletes the webOS
 9 file or takes the webOS 10 overlay away, and restarts the home app.
 
-## nativeTv Home
+## Native Tv Home
 
-`home_orchestrator` and the `home_*_manager` modules run a home screen of nativeTv's own in place of LG's, opt-in
+`home_orchestrator` and the `home_*_manager` modules run a home screen of Native Tv's own in place of LG's, opt-in
 from the dashboard's Home tab (webOS 9; webOS 10 and 11 with `allowExperimentalHome`). The screens are the native client's
 (`nativetv-tv`, the app `com.tvweb.native`). LG's Home's place is held by a small web app with no screen, whose files are
 `assets/home-app/index.html` and its icons: it asks sam to open the client at its Home screen, and is black until the client is in
 front. The page `assets/google-tv/pages/home/index.html` is still in the tree, and nothing opens it.
 
-Where nativeTv Home cannot start, the server starts without it and
+Where Native Tv Home cannot start, the server starts without it and
 logs why, rather than not starting at all (on a G5 a missing Home module had
 kept the dashboard and MQTT down, #865). The daemon then runs
 `nativetv-daemon --release-home`, as the boot hook does when sam refuses the
-takeover, since the boot hook may already have put nativeTv Home in LG's
+takeover, since the boot hook may already have put Native Tv Home in LG's
 Home's place with no server to serve it. The Home routes are not served, and uninstalling from the Homebrew Channel
-keeps the server, since it cannot tell whether nativeTv Home holds LG's
+keeps the server, since it cannot tell whether Native Tv Home holds LG's
 Home's place.
 
 Switched on, that app runs under LG's Home's own id. `home_takeover_stager`
@@ -1343,7 +1343,7 @@ does not report the home category, LG's Home is put back and the switch fails.
 Everything on the TV that means Home opens that id: the
 Home button (surface-manager, `hotKey`), Back out of the last app (sam's
 `last_input_handler`), waking on Home (`bootManager`), so all of them open
-nativeTv Home, with nothing to correct afterwards and no setting changed
+Native Tv Home, with nothing to correct afterwards and no setting changed
 ([research](development/TV-RESEARCH.md#replacing-lgs-home-under-its-id-webos-922-g3)).
 The staged files are rewritten at every server start, so a new release reaches
 the page without a remount; the view reloads itself when the server's build
@@ -1363,27 +1363,27 @@ The boot hook (`50-tvweb.sh`) mounts it again about 25 s into a cold start
 started by then; the server does the same at its start, for a hook that did
 not run. Until then anything that opens Home opens LG's. With LG's
 `homeAutoLaunch` on, bootd opens LG's Home about 14 s into every power-on, so
-while nativeTv Home is on the server switches it off, keeping the owner's
+while Native Tv Home is on the server switches it off, keeping the owner's
 value as `lgAutoLaunch` in `home.json` and putting it back on switching off.
 bootd then opens the last input instead. Where it was on, the hook launches
-nativeTv Home once mounted, if the power-on reason is one bootd opens Home
+Native Tv Home once mounted, if the power-on reason is one bootd opens Home
 for and the app bootd logged as foreground (`/var/log/bootd.log`) is an input
 still in front; it then starts the server without its 5 s wait, as the page
-shows the nativeTv mark until the server answers. Switched back on before
+shows the Native Tv mark until the server answers. Switched back on before
 it had powered off, the TV wakes from Active Standby without a boot, so the
-server opens nativeTv Home instead, 1.5 s after the wake, while the first
+server opens Native Tv Home instead, 1.5 s after the wake, while the first
 input is still in front. A source choice, standby, switch-off or server stop
 cancels that launch, including while the power-on reason is being read.
 Auto launch is held off only after a successful takeover; a refused takeover
 puts its saved value back. Switching off waits for any pending settings work
 before restoring it, and an already-off value needs no write or snapshot.
 With Quick Start+ on, a power-on resumes the TV with the mount in place, and bootd opens
-nativeTv Home only while auto launch is on, so there the owner's value is
+Native Tv Home only while auto launch is on, so there the owner's value is
 put back; Quick Start+ is read at server start and at each switch on or off,
 and an unreadable value, as just after a wake, changes nothing. Where the owner chooses **Hide LG's Home while the TV
 starts** (`hideLgHomeAtStart` in `home.json`, off by default, since it outlives
-nativeTv), LG's layout files in `/mnt/lg/cmn_data/manifest` hold an empty
-layout while nativeTv Home has the place, which LG's Home reads when it
+Native Tv), LG's layout files in `/mnt/lg/cmn_data/manifest` hold an empty
+layout while Native Tv Home has the place, which LG's Home reads when it
 starts 5 s into boot and draws as a black screen. A home.json without the key
 takes it as chosen where an earlier build left that layout. The files
 there before, LG's or the Home screen layout feature's, are kept in
@@ -1400,7 +1400,7 @@ filters, press and release, and the filter asks sam for LG's Home's type; while
 it is not yet `web` it shows `starting` as a toast, and once it is, it opens
 Home and leaves later presses to LG's filters for the rest of the boot. A
 `genericTimer` set in the filter's `init()` ends the hold 90 s after the filter
-loads, so a TV where nativeTv no longer runs, with `starting` left in
+loads, so a TV where Native Tv no longer runs, with `starting` left in
 configd, still reaches LG's Home; the compositor's clock cannot be used, as it
 jumps from 2023 when the TV sets it.
 Every release clears `starting`, including both SSH recovery commands, so a
@@ -1411,11 +1411,11 @@ The ways back to LG's Home (its tile, holding Home, read from `/dev/input` by
 the remote-button worker, and the native client failing, below) unmount and open LG's Home;
 the last does not come back by itself. The next app in front, or a
 short press of Home on LG's Home, mounts it again. The app in front comes from
-the live state's `application` group, which nativeTv Home starts itself
+the live state's `application` group, which Native Tv Home starts itself
 while it is on, as the MQTT bridge starts the groups only with a broker. The stub waits on
 black; being LG's Home's app, it cannot open LG's Home itself, so the server does, when the client has failed.
 `tvwebctl stop`, and the watchdog after a third restart in ten minutes, run
-`nativetv-daemon --release-home`, which unmounts without switching nativeTv
+`nativetv-daemon --release-home`, which unmounts without switching Native Tv
 Home off, so the server takes the place again when it runs.
 A failed layout restore retains its backup and reports failure for a later retry.
 
@@ -1478,7 +1478,7 @@ recorded, and a row going back to its own order is forgotten.
 Back on the view opens its Recent apps panel. LG's own is a view inside LG's
 Home with no way in from outside, so `home_recent_apps` reads the same
 list, `com.webos.service.recent/listRecents`. Removing a card stops its app on
-webOS 9.2 but not on webOS 10.3, so nativeTv first stops the selected apps:
+webOS 9.2 but not on webOS 10.3, so Native Tv first stops the selected apps:
 `closeByAppId` for native apps, WebAppMgr's `killApp` for web apps. It checks
 that they have left `running` before removing their cards with `removeRecent`;
 a refused or unconfirmed stop keeps the cards for retry. Close all acts only

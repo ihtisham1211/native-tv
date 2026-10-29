@@ -19,7 +19,7 @@
 
   const TAB_NAMES = {
     control: 'Control', metrics: 'Metrics', apps: 'Apps', catalogue: 'Catalogue', homescreen: 'Home screen',
-    home: 'nativeTv Home', oledcare: 'OLED care', game: 'Game mode', servicemenu: 'Service menu',
+    home: 'Native Tv Home', oledcare: 'OLED care', game: 'Game mode', servicemenu: 'Service menu',
     screensaver: 'Screen savers', privacy: 'Privacy', advanced: 'Advanced',
     mqtt: 'Home Assistant', server: 'Server and backup', tools: 'Tools and logs'
   };

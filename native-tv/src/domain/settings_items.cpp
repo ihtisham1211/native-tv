@@ -116,7 +116,7 @@ std::vector<SettingGroup> settingGroups() {
          say::msg("tv.settings.group.saver.desc", "Choose and try the screen saver."), "eye"},
         {"home", say::msg("tv.settings.group.home", "Home"),
          say::msg("tv.settings.group.home.desc",
-                  "nativeTv Home: whether it replaces LG's, and how it looks."),
+                  "Native Tv Home: whether it replaces LG's, and how it looks."),
          "home"},
         {"privacy", say::msg("tv.settings.group.privacy", "Privacy"),
          say::msg("tv.settings.group.privacy.desc", "Ads, trackers and the data the TV shares."),

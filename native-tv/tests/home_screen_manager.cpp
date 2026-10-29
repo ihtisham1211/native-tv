@@ -252,14 +252,14 @@ void testWebos9() {
         check(!last["ok"].boolean() && !last["error"].string().empty(), "the last part stays");
         check(has(readFile(rig.layoutFile()), "type=\"AppList\""), "the layout still shows the apps");
     }
-    {   // While nativeTv Home has LG's Home's place, its layout is not changed.
+    {   // While Native Tv Home has LG's Home's place, its layout is not changed.
         Rig rig("9.2.2");
         rig.seed9();
         check(rig.manager->setPart("quickCards", false)["ok"].boolean(), "hidden");
         const std::string starting = std::string("<home>") + kTakeoverMark + "</home>";
         writeFile(rig.layoutFile(), starting);
         const Json held = rig.manager->setPart("banner", true);
-        check(!held["ok"].boolean() && has(held["error"].string(), "nativeTv Home"), "refused");
+        check(!held["ok"].boolean() && has(held["error"].string(), "Native Tv Home"), "refused");
         check(readFile(rig.layoutFile()) == starting, "its layout is left in place");
     }
     {   // Putting LG's Home screen back removes only the layout written here.
@@ -315,7 +315,7 @@ void testStartLayout() {
         Rig rig("9.2.2");
         rig.seed9();
         check(rig.manager->startLayout(true)["ok"].boolean(), "blank");
-        check(has(rig.manager->setPart("quickCards", false)["error"].string(), "nativeTv Home"), "refused");
+        check(has(rig.manager->setPart("quickCards", false)["error"].string(), "Native Tv Home"), "refused");
     }
 }
 

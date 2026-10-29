@@ -36,7 +36,7 @@ how LG's software works.
 ## Pull requests
 
 Open with a plain-language summary of what changes for the people using
-nativeTv, then a `## Technical details` section for larger changes. Third person,
+Native Tv, then a `## Technical details` section for larger changes. Third person,
 short, no process commentary.
 
 Every pull request has a **Testing** section: the TV and webOS version the change

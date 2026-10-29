@@ -8,7 +8,7 @@ namespace daemon {
 class Logger;
 class LunaClient;
 
-// Applies the boot policy for opening nativeTv Home over the input selected
+// Applies the boot policy for opening Native Tv Home over the input selected
 // by webOS. This runs as a short-lived, background boot-hook operation.
 class HomeBootManager {
   public:

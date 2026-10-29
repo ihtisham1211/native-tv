@@ -1,5 +1,5 @@
 /*
- * nativeTv Home's quick settings: the kit's modal drawer (google-tv/shared,
+ * Native Tv Home's quick settings: the kit's modal drawer (google-tv/shared,
  * the drawer section), opened from the gear in the bar. The main list has the
  * TV's volume, picture mode, OLED light, sound output, input and sleep timer,
  * the screensaver and Screen off, and Home's own settings. What the TV is on

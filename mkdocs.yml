@@ -1,4 +1,4 @@
-site_name: nativeTv
+site_name: Native Tv
 site_description: A dashboard, privacy controls and Home Assistant bridge for rooted LG webOS TVs.
 site_url: https://ihtisham1211.github.io/nativeTv/
 repo_url: https://github.com/ihtisham1211/nativeTv
@@ -52,7 +52,7 @@ nav:
       - Service menu: dashboard/service-menu.md
       - Server: dashboard/server.md
       - Tools: dashboard/tools.md
-  - nativeTv apps:
+  - Native Tv apps:
       - The TV app: apps/tv-app.md
       - Android wrapper: apps/android.md
   - Smart Home & Lighting:

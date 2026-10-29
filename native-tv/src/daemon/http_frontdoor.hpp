@@ -133,7 +133,7 @@ class HttpFrontDoor {
     // sequence, the wake open, auto launch following the screen), or null unless
     // TVWEB_NATIVE_HOME_ORCH=1.
     HomeOrchestrator *homeOrchestrator() const;
-    // Whether nativeTv Home is offered here: the webOS version and the native
+    // Whether Native Tv Home is offered here: the webOS version and the native
     // client's probe. `probe` false uses a verdict the probe already gave (or
     // runs it when there is none); true runs it again.
     Json homeSupported(bool probe) const;
@@ -317,7 +317,7 @@ class HttpFrontDoor {
     void handleHomeStartupPost(HttpExchange &exchange) const;
     bool updateHomeStartingNotice(const Json &home) const;
     HomeProbeGate *homeProbeGate() const;
-    // nativeTv Home gave LG's Home back (crash loop or probe) and stays out of it.
+    // Native Tv Home gave LG's Home back (crash loop or probe) and stays out of it.
     bool homeHalted() const;
     bool syncHomeEarlyService(bool hasStartingNotice,
                               std::string *error = nullptr) const;

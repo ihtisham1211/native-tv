@@ -42,7 +42,7 @@ Json homeStatusSupported(const std::string &version, bool allowExperimental) {
     result.set("webos", version.empty() ? Json() : Json::text(version));
     result.set("reason", Json::text(say::msg(
         "srv.home.untested",
-        "nativeTv Home has been tried only on webOS 9 and 10. This TV runs webOS {version}.",
+        "Native Tv Home has been tried only on webOS 9 and 10. This TV runs webOS {version}.",
         variables)));
     return result;
 }

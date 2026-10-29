@@ -324,7 +324,7 @@ async function saveBackup() {
     const b = await r.json();
     if (!r.ok || b.format !== 'nativetv-backup') throw new Error(b.error || r.status);
     downloadBackupFile(b);
-    backupMessage(t('server.backup.saved', 'Saved {count} LG settings and nativeTv’s own.', { count: Object.keys(b.lg || {}).length }));
+    backupMessage(t('server.backup.saved', 'Saved {count} LG settings and Native Tv’s own.', { count: Object.keys(b.lg || {}).length }));
   } catch (e) {
     backupMessage(t('server.backup.saveFailed', 'Could not make a backup — {error}', { error: e.message }));
   }
@@ -341,7 +341,7 @@ async function restoreBackup(input) {
 
 async function restoreBackupData(b) {
   if (!b || b.format !== 'nativetv-backup') {
-    return backupMessage(t('server.backup.notBackup', 'That file is not a nativeTv backup'));
+    return backupMessage(t('server.backup.notBackup', 'That file is not a Native Tv backup'));
   }
   const from = (b.from && b.from.model) || t('server.backup.unknownTv', 'an unknown TV');
   const when = b.created ? new Date(b.created).toLocaleString() : '?';
@@ -361,7 +361,7 @@ async function restoreBackupData(b) {
     const apps = d.apps || {};
     if ((apps.toInstall || []).length) text += ' ' + t('server.backup.appsToInstall', '{count} apps from the backup can be installed from the Apps tab.', { count: apps.toInstall.length });
     if ((apps.manual || []).length) text += ' ' + t('server.backup.appsManual', 'Not in the Homebrew Channel catalog, to install by hand: {names}.', { names: apps.manual.map(a => a.title).join(', ') });
-    if (d.restart) text += ' ' + t('server.backup.restarting', 'nativeTv restarts to apply its own settings.');
+    if (d.restart) text += ' ' + t('server.backup.restarting', 'Native Tv restarts to apply its own settings.');
     backupMessage(text);
   } catch (e) {
     backupMessage(t('server.backup.restoreFailed', 'Could not restore — {error}', { error: e.message }));

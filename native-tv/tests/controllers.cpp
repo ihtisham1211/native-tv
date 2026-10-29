@@ -153,7 +153,7 @@ int main() {
               "The startup splash covers the screen in Home's ink");
         check(splashScene.nodes.size() == 5 &&
                   imageNode(splashScene, "local:icons/material/mark.svg"),
-              "The splash renders its nativeTv mark, its dot and three breathing dots");
+              "The splash renders its Native Tv mark, its dot and three breathing dots");
         splash.key(Key::Back);
         check(splash.screenName() == "splash", "Remote keys do not dismiss startup splash");
         splash.active(false);
@@ -547,7 +547,7 @@ int main() {
         check(beating.snapshot()["silent"].boolean(),
               "Three silent beats raise the not-answering banner");
         run(beating, beatClock, 400);
-        check(beating.shows("nativeTv is not answering"), "The banner names the problem");
+        check(beating.shows("Native Tv is not answering"), "The banner names the problem");
         reply(beating, "beat", R"({"ok":true,"build":"two","layoutVersion":"2"})");
         check(!beating.snapshot()["silent"].boolean(), "An answer takes the banner away");
 

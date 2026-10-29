@@ -88,7 +88,7 @@ int main() {
         check(formatSyslogMessage(nativetv, options) ==
                   "<28>1 2026-10-08T12:30:00.000Z Living-Room-TV mqtt - nativetv - "
                   "mqtt: connection dropped, retrying",
-              "nativeTv logs use daemon facility and parsed process tag");
+              "Native Tv logs use daemon facility and parsed process tag");
 
         const Json kernel = first(parseKernelLogs(
             "<3>[   42.250000] usb 1-1: device descriptor read/64, error -71", boot));

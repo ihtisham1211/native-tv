@@ -1,10 +1,10 @@
 {
   "id": "com.tvweb.dashboard",
   "version": "2.0.0",
-  "vendor": "nativeTv",
+  "vendor": "Native Tv",
   "type": "native",
   "main": "nativetv-tv",
-  "title": "nativeTv",
+  "title": "Native Tv",
   "icon": "assets/icon80.png",
   "largeIcon": "assets/icon130.png",
   "iconColor": "#000000",

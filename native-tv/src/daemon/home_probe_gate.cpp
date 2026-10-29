@@ -95,32 +95,32 @@ std::string reasonOf(const Json &verdict) {
     const std::string name = verdict["class"].string();
     if (name == "missing")
         return say::msg("srv.home.probe.missing",
-                        "The nativeTv app is not installed on this TV, so nativeTv Home cannot take LG's Home's place.");
+                        "The Native Tv app is not installed on this TV, so Native Tv Home cannot take LG's Home's place.");
     if (name == "timeout")
         return say::msg("srv.home.probe.timeout",
-                        "The nativeTv app's start-up check did not finish in time, so nativeTv Home cannot take LG's Home's place.");
+                        "The Native Tv app's start-up check did not finish in time, so Native Tv Home cannot take LG's Home's place.");
     if (name == "display")
         return say::msg("srv.home.probe.display",
-                        "The nativeTv app could not reach this TV's display (check exit {code}), so nativeTv Home cannot take LG's Home's place.",
+                        "The Native Tv app could not reach this TV's display (check exit {code}), so Native Tv Home cannot take LG's Home's place.",
                         variables);
     if (name == "context")
         return say::msg("srv.home.probe.context",
-                        "The nativeTv app could not open a graphics window on this TV (check exit {code}), so nativeTv Home cannot take LG's Home's place.",
+                        "The Native Tv app could not open a graphics window on this TV (check exit {code}), so Native Tv Home cannot take LG's Home's place.",
                         variables);
     if (name == "gl")
         return say::msg("srv.home.probe.gl",
-                        "This TV's graphics driver cannot run the nativeTv app (check exit {code}), so nativeTv Home cannot take LG's Home's place.",
+                        "This TV's graphics driver cannot run the Native Tv app (check exit {code}), so Native Tv Home cannot take LG's Home's place.",
                         variables);
     if (name == "readback")
         return say::msg("srv.home.probe.readback",
-                        "This TV's graphics driver drew the nativeTv app's check frame wrongly (check exit {code}), so nativeTv Home cannot take LG's Home's place.",
+                        "This TV's graphics driver drew the Native Tv app's check frame wrongly (check exit {code}), so Native Tv Home cannot take LG's Home's place.",
                         variables);
     if (name == "crashed")
         return say::msg("srv.home.probe.crashed",
-                        "The nativeTv app crashed in its start-up check (signal {code}), so nativeTv Home cannot take LG's Home's place.",
+                        "The Native Tv app crashed in its start-up check (signal {code}), so Native Tv Home cannot take LG's Home's place.",
                         variables);
     return say::msg("srv.home.probe.failed",
-                    "The nativeTv app's start-up check failed (exit {code}), so nativeTv Home cannot take LG's Home's place.",
+                    "The Native Tv app's start-up check failed (exit {code}), so Native Tv Home cannot take LG's Home's place.",
                     variables);
 }
 } // namespace

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Run a local Prometheus server to scrape one or more nativeTv TVs.
+# Run a local Prometheus server to scrape one or more Native Tv TVs.
 #
 # Usage:
 #   ./scripts/run-prometheus.sh <tv-ip> [<tv-ip2> ...]
@@ -16,7 +16,7 @@ set -e
 
 if [ $# -eq 0 ]; then
   echo "Usage: $0 <tv-ip> [<tv-ip2> ...]" >&2
-  echo "  <tv-ip> is the IP of your LG TV running nativeTv." >&2
+  echo "  <tv-ip> is the IP of your LG TV running Native Tv." >&2
   echo "" >&2
   echo "Example:" >&2
   echo "  $0 192.168.1.50 192.168.1.51" >&2

@@ -137,7 +137,7 @@ int main(int argc, char **argv) {
         std::puts(response.dump().c_str());
         return 0;
     } catch (const std::exception &error) {
-        std::fprintf(stderr, "nativeTv service: %s\n", error.what());
+        std::fprintf(stderr, "Native Tv service: %s\n", error.what());
         return 1;
     }
 }

@@ -32,7 +32,7 @@ browser and may use modern JavaScript.
   starts), `state_subscriptions` (live state), `stats_collector`
   (`/api/stats`), `mqtt_*` and `ha_*` (the MQTT client, topics, Home Assistant
   discovery and telemetry), `install_jobs` (installing .ipk packages),
-  `backup_restore`, `home_orchestrator`, `home_crash_breaker`, `home_probe_gate` and `home_*_manager` (nativeTv Home
+  `backup_restore`, `home_orchestrator`, `home_crash_breaker`, `home_probe_gate` and `home_*_manager` (Native Tv Home
   and LG's Home screen), `screensaver_*`, `sam_rescan_manager`,
   `remote_keys_reconciler` and `remote_button_log_watcher` (the remote's
   keys), `services_keeper`, `devtools_firewall`, `retired_files` (files earlier
@@ -60,7 +60,7 @@ browser and may use modern JavaScript.
   `data-sections`, so the TV gets one response.
 - `native-tv/assets/google-tv/pages/` - the pages the TV shows, built on it:
   `dashboard/`, `setup/`, `setup-phone/` (served to the phone by the one-time
-  link), and `home/`, nativeTv Home, laid out as Google TV's home. English
+  link), and `home/`, Native Tv Home, laid out as Google TV's home. English
   only (`shared/common.js`). `native-tv/assets/dashboard-app/` is the TV app
   itself (a native app: the C++ client opened on the dashboard screen, with
   `install-app.sh` for it and the other apps), `native-tv/assets/home-app/` Home's app,
@@ -116,7 +116,7 @@ one-line fix gets one line.
 
 A PR description must be readable at a glance by someone who has not seen
 the code. Open with a plain-language summary of what changes for the people
-using nativeTv: short sentences or a few bullets, no file names, function
+using Native Tv: short sentences or a few bullets, no file names, function
 names or PR numbers. Put the technical detail - the code changes, related PRs,
 config keys, what was left out - under a `## Technical details` heading after
 it.

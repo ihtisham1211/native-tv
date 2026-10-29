@@ -240,7 +240,7 @@ std::string renderPrometheus(const Json &stats, const std::string &version,
                          {"firmware", path(s, {"system", "firmware"})},
                          {"webos", path(s, {"system", "webos"})},
                          {"version", Json::text(version)}})};
-    emit("nativetv_info", "gauge", "Always 1, labelled with the TV model, its firmware and webOS versions, and the nativeTv version.", samples);
+    emit("nativetv_info", "gauge", "Always 1, labelled with the TV model, its firmware and webOS versions, and the Native Tv version.", samples);
 
     double value = 0;
     if (positive(s["btime"], value)) samples = one(value);

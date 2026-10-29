@@ -103,14 +103,14 @@ BackupRestoreOutcome restoreBackup(const BackupRestoreDeps &deps, const Json &ba
     const std::string envelope = service::backupRestoreEnvelopeResult(backup);
     if (envelope == "newer")
         return refuse(say::msg("srv.backup.newer",
-                               "That backup is from a newer nativeTv: update this TV first"));
+                               "That backup is from a newer Native Tv: update this TV first"));
     if (envelope != "valid")
-        return refuse(say::msg("srv.backup.notBackup", "That file is not a nativeTv backup"));
+        return refuse(say::msg("srv.backup.notBackup", "That file is not a Native Tv backup"));
 
     const Json lg = lgSettingsResult(deps, backup);
     const Json apps = appsResult(deps, backup);
 
-    // The layout is checked and trimmed by nativeTv Home as the dashboard's is.
+    // The layout is checked and trimmed by Native Tv Home as the dashboard's is.
     const Json layout = backup["home"];
     Json homeAnswer;
     if (deps.restoreHome && (layout.isObject() || layout.isArray()))
@@ -129,7 +129,7 @@ BackupRestoreOutcome restoreBackup(const BackupRestoreDeps &deps, const Json &ba
         variables.set("error", Json::text(writeError));
         body.set("error", Json::text(say::msg(
             "srv.backup.saveFailed",
-            "Could not save nativeTv\xE2\x80\x99" "s own settings: {error}", variables)));
+            "Could not save Native Tv\xE2\x80\x99" "s own settings: {error}", variables)));
     }
     body.set("lg", lg);
     body.set("nativetv", changed);

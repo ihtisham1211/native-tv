@@ -265,13 +265,13 @@ void apps(Rows &rows, const Json &data) {
     if (hs["parts"].size()) {
         head(rows, say::msg("apps.home", "Home screen layout"));
         if (data["nativeTvHome"].boolean())
-            row(rows, say::msg("tv.apps.nativeTvHome", "nativeTv Home is on"), "", Command(),
+            row(rows, say::msg("tv.apps.nativeTvHome", "Native Tv Home is on"), "", Command(),
                 say::msg("apps.nativeTvHomeNote",
-                         "nativeTv Home is switched on, so this applies only to LG’s Home, seen "
-                         "from its tile, by holding Home, or while nativeTv starts.") +
+                         "Native Tv Home is switched on, so this applies only to LG’s Home, seen "
+                         "from its tile, by holding Home, or while Native Tv starts.") +
                     " " +
                     say::msg("tv.apps.nativeTvHomeWhere",
-                             "nativeTv Home is arranged in its own Home section."));
+                             "Native Tv Home is arranged in its own Home section."));
         if (locked)
             row(rows, say::msg("apps.home.exp.title", "Experimental on this TV"),
                 say::msg("common.off", "Off"), Command(),
@@ -324,10 +324,10 @@ void apps(Rows &rows, const Json &data) {
     if (data["systemTiles"].size()) {
         head(rows, say::msg("tv.apps.head.hideHomeScreenSystem", "Hide Home Screen System Apps"));
         if (data["nativeTvHome"].boolean())
-            row(rows, say::msg("tv.apps.nativeTvHome", "nativeTv Home is on"), "", Command(),
+            row(rows, say::msg("tv.apps.nativeTvHome", "Native Tv Home is on"), "", Command(),
                 say::msg("tv.apps.nativeTvHomeTilesNote",
-                         "nativeTv Home is switched on. Apps hidden here are hidden on it too; its "
-                         "Home section hides others on nativeTv Home only."));
+                         "Native Tv Home is switched on. Apps hidden here are hidden on it too; its "
+                         "Home section hides others on Native Tv Home only."));
         bool enabled = data["tileHidingEnabled"].boolean(), held = data["tileHidingHeld"].boolean();
         std::string note =
             data["tileHidingOverridden"].boolean()
@@ -469,7 +469,7 @@ void options(Rows &rows, const Json &data, const Json &caps) {
                   say::msg("adv.stayConnected", "Stay connected when off"),
                   say::msg("tv.options.stayConnected.hint",
                            "Keeps the TV on the network while it is switched off, apart from five "
-                           "hours each night, so nativeTv and Home Assistant keep working. The "
+                           "hours each night, so Native Tv and Home Assistant keep working. The "
                            "screen stays dark. Uses about 12 W on an LG C2."));
         switchRow(
             rows, data, "alwaysReadyScreen", say::msg("adv.alwaysReady", "Always Ready"),
@@ -487,7 +487,7 @@ void options(Rows &rows, const Json &data, const Json &caps) {
                 control("alwaysReadyOffStart", Json::numeric((hour + 1) % 24)),
                 say::msg("tv.options.nightlyPowerDown.hint",
                          "For five hours every night, LG lets a switched-off TV sleep fully. It is "
-                         "offline then, so nativeTv and Home Assistant cannot reach it. LG fixes "
+                         "offline then, so Native Tv and Home Assistant cannot reach it. LG fixes "
                          "the length; choose hours when the TV is not used."),
                 pressAction(say::msg("tv.options.nightlyPowerDown.press",
                                      "Press OK to move it an hour later")));
@@ -533,7 +533,7 @@ void options(Rows &rows, const Json &data, const Json &caps) {
                     " " +
                     say::msg(
                         "tv.options.timer.hint",
-                        "The time and days are set from nativeTv in a browser, under Advanced."),
+                        "The time and days are set from Native Tv in a browser, under Advanced."),
                 "", enabled ? 1 : 0);
         }
     }
@@ -721,7 +721,7 @@ void saver(Rows &rows, const Json &data) {
                 ? control("setWebos10ScreensaversAllowed", Json::flag(!allowed), !allowed)
                 : Command(),
             say::msg("ss.exp.desc",
-                     "They have not been tried on this webOS version. Before nativeTv 0.98.1, on "
+                     "They have not been tried on this webOS version. Before Native Tv 0.98.1, on "
                      "webOS 10, using one sometimes left the picture, the sound and HDMI control "
                      "off until the TV was unplugged."),
             "", allowed ? 1 : 0);
@@ -731,7 +731,7 @@ void saver(Rows &rows, const Json &data) {
             say::msg("apps.service.active", "Active"), Command(),
             say::msg("ss.external.active",
                      "A third-party homebrew screen saver is currently active on the TV. Selecting "
-                     "a nativeTv screen saver will replace it."));
+                     "a Native Tv screen saver will replace it."));
     for (const auto &mode : data["modes"].items())
         if (mode["available"].boolean() || mode["active"].boolean()) {
             bool stock = mode["id"].string() == "stock";
@@ -958,8 +958,8 @@ void privacy(Rows &rows, const Json &data, const std::string &sub) {
                 !custom["enabled"].boolean()
                     ? say::msg("tv.privacy.custom.off", "Off, {n} names kept", v)
                 : custom["mode"].string() == "add"
-                    ? say::msg("tv.privacy.custom.add", "{n} names, with nativeTv’s", v)
-                    : say::msg("tv.privacy.custom.replace", "{n} names, instead of nativeTv’s", v),
+                    ? say::msg("tv.privacy.custom.add", "{n} names, with Native Tv’s", v)
+                    : say::msg("tv.privacy.custom.replace", "{n} names, instead of Native Tv’s", v),
                 Command(),
                 say::msg("tv.privacy.custom.hint",
                          "Changed or removed in the browser dashboard: Privacy, then Advanced."));
@@ -974,7 +974,7 @@ void privacy(Rows &rows, const Json &data, const std::string &sub) {
             control("blockTvUpdates", Json::flag(!blocked)),
             say::msg(
                 "tv.privacy.blockTvUpdates.hint",
-                "Stops LG installing its firmware updates, which may remove root access. nativeTv "
+                "Stops LG installing its firmware updates, which may remove root access. Native Tv "
                 "releases are installed through server deployment or the Homebrew Channel."),
             "", blocked ? 1 : 0);
     }
@@ -1094,7 +1094,7 @@ void homeSettings(Rows &rows, const Json &data, const std::string &sub) {
             row(rows, say::msg("home.ch.allAdded", "Every channel is on Home."));
         return;
     }
-    head(rows, say::msg("home.title", "nativeTv Home"));
+    head(rows, say::msg("home.title", "Native Tv Home"));
     if (data["supported"].valid() && !data["supported"]["ok"].boolean() &&
         !data["enabled"].boolean()) {
         row(rows, say::msg("home.unavailable", "Not available on this TV"), "", Command(),
@@ -1102,14 +1102,14 @@ void homeSettings(Rows &rows, const Json &data, const std::string &sub) {
         return;
     }
     bool enabled = data["enabled"].boolean();
-    row(rows, say::msg("home.title", "nativeTv Home"), on(enabled),
+    row(rows, say::msg("home.title", "Native Tv Home"), on(enabled),
         writable
             ? post(enabled ? Operation::DisableHome : Operation::EnableHome, Json::object(), true)
             : Command(),
         enabled
             ? say::msg("home.isOnDesc", "It opens in LG’s Home’s place: with the Home and Back "
                                         "buttons, and when the TV wakes on Home.")
-            : say::msg("home.isOffDesc", "Nothing of LG’s is changed: nativeTv Home is laid over "
+            : say::msg("home.isOffDesc", "Nothing of LG’s is changed: Native Tv Home is laid over "
                                          "LG’s Home while on, and switching off takes it away."),
         "", enabled ? 1 : 0);
     if (data["hideLgHomeAtStartAvailable"].boolean(true))
@@ -1121,20 +1121,20 @@ void homeSettings(Rows &rows, const Json &data, const std::string &sub) {
                             !data["hideLgHomeAtStart"].boolean())
                      : Command(),
             say::msg("home.hideLgDesc",
-                     "For about 25 seconds after a cold start, until nativeTv Home takes its "
-                     "place, LG’s Home opens as a black screen instead of its own. If nativeTv "
+                     "For about 25 seconds after a cold start, until Native Tv Home takes its "
+                     "place, LG’s Home opens as a black screen instead of its own. If Native Tv "
                      "stops running, for example after a firmware update removes root, LG’s Home "
                      "stays black until it is put back over SSH."),
             "", data["hideLgHomeAtStart"].boolean() ? 1 : 0);
     row(rows, say::msg("home.startup", "Power-on screen"),
-        data["openOnPowerOn"].boolean() ? say::msg("home.startupNativeTv", "nativeTv Home")
+        data["openOnPowerOn"].boolean() ? say::msg("home.startupNativeTv", "Native Tv Home")
                                         : say::msg("home.startupLg", "Follow LG setting"),
         writable && enabled
             ? post(Operation::SetHomeStartup,
                    fields({{"openOnPowerOn", Json::flag(!data["openOnPowerOn"].boolean())}}))
             : Command(),
         say::msg("home.startupDesc",
-                 "Choose nativeTv Home to skip LG Home and open it when ready, or follow LG's "
+                 "Choose Native Tv Home to skip LG Home and open it when ready, or follow LG's "
                  "power-on setting. Full shutdown still needs time to start. Choosing another app "
                  "or input cancels the automatic opening."),
         "", data["openOnPowerOn"].boolean() ? 1 : 0);
@@ -1155,7 +1155,7 @@ void homeSettings(Rows &rows, const Json &data, const std::string &sub) {
          true},
         {"showLive", say::msg("home.showLive", "Show Live"),
          say::msg("home.showLiveDesc",
-                  "Show the Live tab, with the channels added to nativeTv Home. Off by default. "
+                  "Show the Live tab, with the channels added to Native Tv Home. Off by default. "
                   "Switching off leaves the whole tab out; the added channels are kept."),
          false},
         {"showLgHome", say::msg("home.showLgHome", "Show the LG Home tile"),
@@ -1165,7 +1165,7 @@ void homeSettings(Rows &rows, const Json &data, const std::string &sub) {
          true},
         {"picture", say::msg("home.picture", "Picture details"),
          say::msg("home.pictureDesc",
-                  "In the top right of nativeTv Home: the resolution, refresh rate and HDR of what "
+                  "In the top right of Native Tv Home: the resolution, refresh rate and HDR of what "
                   "was last on, and the picture mode and brightness it gets."),
          false}};
     for (const auto &setting : switches) {
@@ -1182,7 +1182,7 @@ void homeSettings(Rows &rows, const Json &data, const std::string &sub) {
                         fields({{"clockFormat", Json::text(twelve ? "24h" : "12h")}}))
                  : Command(),
         say::msg("home.clockFormatDesc",
-                 "Choose 12-hour time with AM/PM or 24-hour time on nativeTv Home."),
+                 "Choose 12-hour time with AM/PM or 24-hour time on Native Tv Home."),
         say::msg("tv.settings.change", "Change"));
     row(rows, say::msg("home.profile", "Profile"), "", navigate("profiles"),
         say::msg("home.profile.tvHint",
@@ -1207,7 +1207,7 @@ void homeSettings(Rows &rows, const Json &data, const std::string &sub) {
                                                     : fields({{"text", next["text"]},
                                                               {"accent", next["accent"]}})}}))
                      : Command(),
-            say::msg("home.colours.tvHint", "The text and accent on nativeTv Home. Any colour can "
+            say::msg("home.colours.tvHint", "The text and accent on Native Tv Home. Any colour can "
                                             "be picked on the browser dashboard’s Home tab."),
             say::msg("tv.settings.change", "Change"));
     }
@@ -1231,7 +1231,7 @@ void homeSettings(Rows &rows, const Json &data, const std::string &sub) {
                      : Command(),
             recent
                 ? say::msg("home.sortRecentDesc",
-                           "The tile opened last comes first, whether it was opened from nativeTv "
+                           "The tile opened last comes first, whether it was opened from Native Tv "
                            "Home or not. Tiles not yet opened follow in this row’s own order.")
                 : say::msg("tv.home.sort.hint", "As arranged on the browser dashboard’s Home tab."),
             say::msg("tv.settings.change", "Change"));
@@ -1255,7 +1255,7 @@ void homeSettings(Rows &rows, const Json &data, const std::string &sub) {
                     ? post(Operation::SetHomeLayout, fields({{"hidden", fields({{kind, hidden}})}}))
                     : Command(),
                 say::msg("tv.home.tile.hint",
-                         "Hold OK on nativeTv Home to change the order of tiles."),
+                         "Hold OK on Native Tv Home to change the order of tiles."),
                 "", wasHidden ? 0 : 1);
         }
     }
@@ -1369,8 +1369,8 @@ void settings(Rows &rows, const Json &data) {
     row(rows, say::msg("theme", "Theme"), say::msg("theme.dark", "Dark"), navigate("theme"),
         say::msg("tv.appearance.theme.hint", "Switches the dashboard interface between Dark (true "
                                              "black for OLED) and Light theme."));
-    row(rows, say::msg("home.title", "nativeTv Home"), say::msg("tv.settings.open", "Open"),
-        navigate("home"), say::msg("tv.settings.openHome", "Open nativeTv Home on the TV."),
+    row(rows, say::msg("home.title", "Native Tv Home"), say::msg("tv.settings.open", "Open"),
+        navigate("home"), say::msg("tv.settings.openHome", "Open Native Tv Home on the TV."),
         say::msg("tv.settings.open", "Open"));
 }
 } // namespace

@@ -246,7 +246,7 @@ bool inlineAssetParts(const std::string &root, std::string &html, std::string &m
 std::string missingAssetsPage(const std::string &missing) {
     return "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
            "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
-           "<title>nativeTv &middot; dashboard assets missing</title></head><body>"
+           "<title>Native Tv &middot; dashboard assets missing</title></head><body>"
            "<h1>Dashboard assets are missing</h1><p><code>" + missing +
            "</code> was not found. The server is running normally, but it has no dashboard to serve.</p>"
            "</body></html>";

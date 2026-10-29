@@ -35,7 +35,7 @@ HomeOpenPlan planHomeOpen(const std::string &kind, const std::string &id,
 // HomeContent service returns the same P1874 link data as the public endpoint.
 void resolveHomeNetflixOpen(HomeOpenPlan &plan, const Json &lookup);
 
-// An opened row is recorded only while nativeTv Home is on and the row sorts
+// An opened row is recorded only while Native Tv Home is on and the row sorts
 // by Last opened.
 bool homeOpenStampWanted(const Json &document, const std::string &row);
 

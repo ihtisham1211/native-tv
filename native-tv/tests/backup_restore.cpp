@@ -80,13 +80,13 @@ int main() {
                                      "{\"format\":\"nativetv-backup\"}"}) {
                 const BackupRestoreOutcome out = restoreBackup(s.deps(), Json::parse(text));
                 check(out.status == 400 && !out.body["ok"].boolean(), "refused");
-                check(out.body["error"].string() == "That file is not a nativeTv backup", "not a backup");
+                check(out.body["error"].string() == "That file is not a Native Tv backup", "not a backup");
             }
             const BackupRestoreOutcome newer = restoreBackup(
                 s.deps(), Json::parse("{\"format\":\"nativetv-backup\",\"version\":2}"));
             check(newer.status == 400 &&
                   newer.body["error"].string() ==
-                      "That backup is from a newer nativeTv: update this TV first", "newer");
+                      "That backup is from a newer Native Tv: update this TV first", "newer");
             check(s.log.empty(), "nothing written for a refused file");
         }
         {   // The whole restore, in order, with the answer the legacy route gave.
@@ -96,10 +96,10 @@ int main() {
                                  "\"home\":{\"rows\":[\"app\"]},\"nativetv\":{\"ntp\":{\"server\":\"x\"}}"));
             check(out.status == 200 && out.body["ok"].boolean(), "ok");
             check(s.log == (std::vector<std::string>{"lg", "plan", "save:1@1700000000000", "home", "config"}),
-                  "order: LG, apps, pending list, Home, nativeTv");
+                  "order: LG, apps, pending list, Home, Native Tv");
             check(s.lgAsked["soundMode"].string() == "movie", "LG settings passed on");
             check(s.apps.size() == 1 && s.layoutAsked["rows"].size() == 1, "apps and layout passed on");
-            check(s.sectionAsked["ntp"]["server"].string() == "x", "nativeTv section passed on");
+            check(s.sectionAsked["ntp"]["server"].string() == "x", "Native Tv section passed on");
             check(out.body["lg"]["applied"][0].string() == "soundMode" &&
                   out.body["lg"]["unchanged"].number() == 1, "LG result");
             check(out.body["lg"].keys() ==
@@ -162,13 +162,13 @@ int main() {
                   "planner down", "planner failure");
             check(s.apps.size() == 0, "bare apps are an empty list");
         }
-        {   // nativeTv's settings not saving, and the Home layout not restoring.
+        {   // Native Tv's settings not saving, and the Home layout not restoring.
             Services s;
             s.configWrites = false;
             const BackupRestoreOutcome out = restoreBackup(s.deps(), backup());
             check(out.status == 400 && !out.body["ok"].boolean() && !out.restart, "config failure");
             check(out.body["error"].string() ==
-                  "Could not save nativeTv\xE2\x80\x99s own settings: disk full", "config error text");
+                  "Could not save Native Tv\xE2\x80\x99s own settings: disk full", "config error text");
             check(out.body["nativetv"].size() == 0 && !out.body["restart"].boolean(), "nothing changed");
             check(out.body.keys()[1] == "error", "error follows ok");
 

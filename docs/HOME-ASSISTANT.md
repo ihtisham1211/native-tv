@@ -2,7 +2,7 @@
 
 [Home Assistant](https://www.home-assistant.io/) is a popular, open-source home automation platform designed with a local-first philosophy, prioritizing privacy, reliability, and full control over your smart home ecosystem.
 
-nativeTv bridges your rooted LG webOS TV directly into Home Assistant, transforming the TV into a fully integrated smart home device:
+Native Tv bridges your rooted LG webOS TV directly into Home Assistant, transforming the TV into a fully integrated smart home device:
 
 * **Comprehensive Telemetry & Readings**: Exposes real-time system metrics (SoC temperature, CPU and memory load), HDMI link and video signal diagnostics (resolution, frame rate, HDR/Dolby Vision, VRR, ALLM), OLED panel health (cumulative hours, pixel refresher countdowns, cycle history), and active apps.
 * **Bi-directional Control**: Provides complete local control from your Home Assistant dashboard and automations — power states, input switching, volume and mute, playback controls, picture presets, screen blanking, and launching apps.
@@ -14,19 +14,19 @@ Every entity published by the bridge is detailed in [Entities](HOME-ASSISTANT-EN
 
 ## Why MQTT?
 
-Home Assistant connects to local devices and bridges using standard communication protocols. nativeTv uses **MQTT** (Message Queuing Telemetry Transport), an industry-standard, lightweight, event-driven messaging protocol designed for IoT and home automation.
+Home Assistant connects to local devices and bridges using standard communication protocols. Native Tv uses **MQTT** (Message Queuing Telemetry Transport), an industry-standard, lightweight, event-driven messaging protocol designed for IoT and home automation.
 
 In this setup:
 
 1. **The TV as Publisher & Subscriber**: The TV publishes state updates (such as power state, active input, or volume) whenever they change, and subscribes to command topics to receive actions from Home Assistant. Readings that drift rather than change, such as CPU load, network rate and temperature, are published every 30 seconds by default; the **Telemetry interval** on the MQTT tab sets it, and an interval saved earlier stays as it was.
 2. **The MQTT Broker**: Communication flows through an **MQTT broker** — a lightweight server on your local network that relays messages between devices. The standard choice for Home Assistant is the official [Mosquitto broker add-on](https://github.com/home-assistant/addons/tree/master/mosquitto), which can be installed with a single click.
-3. **Automatic MQTT Discovery**: nativeTv follows Home Assistant's **MQTT Discovery** standard. As soon as the TV connects to the broker, it publishes configuration payloads that automatically register the TV and all its sensors, switches, buttons, and select menus. No manual YAML configuration is required.
+3. **Automatic MQTT Discovery**: Native Tv follows Home Assistant's **MQTT Discovery** standard. As soon as the TV connects to the broker, it publishes configuration payloads that automatically register the TV and all its sensors, switches, buttons, and select menus. No manual YAML configuration is required.
 
 ---
 
 ## Setup & Configuration
 
-Connecting nativeTv to Home Assistant takes only a few minutes.
+Connecting Native Tv to Home Assistant takes only a few minutes.
 
 ### Prerequisites
 
@@ -145,7 +145,7 @@ See the README for a config example and the `deploy.sh` per-IP config lookup.
 
 ## App icons for launchers
 
-nativeTv can share the TV's app icons with other devices on the network, so a dashboard or a launcher elsewhere can show the TV's apps as tiles. Home Assistant does not draw them by itself: the **Launch App** entity keeps its one icon and lists apps by name. The icons' addresses arrive as attributes of that entity, for a dashboard card or another app to use.
+Native Tv can share the TV's app icons with other devices on the network, so a dashboard or a launcher elsewhere can show the TV's apps as tiles. Home Assistant does not draw them by itself: the **Launch App** entity keeps its one icon and lists apps by name. The icons' addresses arrive as attributes of that entity, for a dashboard card or another app to use.
 
 ### Switching it on
 

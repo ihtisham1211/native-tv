@@ -130,7 +130,7 @@ void HomeOrchestrator::start() {
             result = failure("the TV did not take the Home key's starting notice");
         }
     }
-    if (result["ok"].boolean()) say("home: nativeTv Home is in LG's Home's place");
+    if (result["ok"].boolean()) say("home: Native Tv Home is in LG's Home's place");
     else sayError("home: could not take LG's Home's place: " + result["error"].string());
     syncAutoLaunch();
 }
@@ -201,7 +201,7 @@ bool HomeOrchestrator::cleanLegacy() {
 bool HomeOrchestrator::finishLegacy() {
     const bool hadSnapshot = deps_.config()["snapshot"].isObject();
     if (deps_.homeKeyApp() == kLegacyApp && !deps_.clearHomeKey()) {
-        sayError("home: the Home key still opens the old nativeTv Home app");
+        sayError("home: the Home key still opens the old Native Tv Home app");
         return false;
     }
     if (hadSnapshot) {
@@ -264,7 +264,7 @@ void HomeOrchestrator::removeLegacyApp() {
             std::lock_guard<std::mutex> lock(mutex_);
             legacyPending_ = false;
         }
-        say("home: the old nativeTv Home app removed");
+        say("home: the old Native Tv Home app removed");
     }
 }
 
@@ -303,7 +303,7 @@ void HomeOrchestrator::onScreen(bool active) {
  * Switched back on before the TV had powered off, it wakes from Active Standby
  * without a boot, so the boot hook does not run, and with auto launch held off
  * bootd opens the last input (a G3, webOS 9.2.2, off and on 6 s apart). Where
- * the owner had auto launch on, nativeTv Home is opened over that input, as
+ * the owner had auto launch on, Native Tv Home is opened over that input, as
  * bootd would have opened it.
  */
 void HomeOrchestrator::onPowerState(const std::string &raw) {
@@ -369,8 +369,8 @@ void HomeOrchestrator::fireWake(unsigned long long token) {
         input = foreground_;
         cancelWakeLocked();
     }
-    say("home: opening nativeTv Home over " + input + " after a wake by " + reason);
-    if (!deps_.launch(kLgHome)) sayError("home: could not open nativeTv Home after the wake");
+    say("home: opening Native Tv Home over " + input + " after a wake by " + reason);
+    if (!deps_.launch(kLgHome)) sayError("home: could not open Native Tv Home after the wake");
 }
 
 // LG's Home auto launch follows the screen; one at a time, and one more when
@@ -495,13 +495,13 @@ void HomeOrchestrator::countExit(const std::string &why) {
     variables.set("seconds", Json::text(std::to_string(breaker_.windowMs() / 1000)));
     giveBack("crashLoop",
              say::msg("srv.home.crashLoop",
-                      "nativeTv's Home screen stopped {count} times within {seconds} seconds.", variables));
+                      "Native Tv's Home screen stopped {count} times within {seconds} seconds.", variables));
 }
 
 /*
  * LG's Home back in its place, as when the server stops: home.json still says
  * Home is on, so the next start takes the place again, and until then the
- * ways back to nativeTv Home (the escape's return, a wake) find it halted.
+ * ways back to Native Tv Home (the escape's return, a wake) find it halted.
  */
 void HomeOrchestrator::giveBack(const std::string &cause, const std::string &reason) {
     {
@@ -514,7 +514,7 @@ void HomeOrchestrator::giveBack(const std::string &cause, const std::string &rea
         cancelStubLocked();
         cancelWakeLocked();
     }
-    sayError("home: " + reason + " LG's Home is back until nativeTv restarts or Home is switched on again");
+    sayError("home: " + reason + " LG's Home is back until Native Tv restarts or Home is switched on again");
     // ponytail: one try; if the TV refuses, LG's Home stays covered until
     // `tvwebctl restore-nativetv-home` or a restart (the log above says so).
     if (deps_.release && deps_.mounted()) {

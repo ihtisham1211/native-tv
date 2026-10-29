@@ -87,13 +87,13 @@ int main() {
 
     // appinfo.json asks for a 1920x1080 canvas so a 4K panel scales it.
     for (const std::string &id : ids)
-        write(root + "/" + id + "/appinfo.json", "{\"id\":\"" + id + "\",\"title\":\"nativeTv\"}");
+        write(root + "/" + id + "/appinfo.json", "{\"id\":\"" + id + "\",\"title\":\"Native Tv\"}");
     check(syncLauncherAppinfo(root) == ids, "appinfo.json without a resolution is updated");
     bool kept = true;
     for (const std::string &id : ids) {
         const Json info = Json::parse(read(root + "/" + id + "/appinfo.json"));
         kept = kept && info["resolution"].string() == "1920x1080" &&
-               info["title"].string() == "nativeTv" && info["id"].string() == id;
+               info["title"].string() == "Native Tv" && info["id"].string() == id;
     }
     check(kept, "resolution is 1920x1080 and the other fields are kept");
     check(syncLauncherAppinfo(root).empty(), "a second run changes nothing");

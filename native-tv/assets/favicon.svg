@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- nativeTv: an n whose arch is a screen's rounded corner, with the pixel it draws. -->
+  <!-- Native Tv: an n whose arch is a screen's rounded corner, with the pixel it draws. -->
   <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5df08a"/><stop offset="1" stop-color="#1fb653"/></linearGradient></defs>
   <rect width="512" height="512" rx="112" fill="url(#bg)"/>
   <rect x="1.5" y="1.5" width="509" height="509" rx="110.5" fill="none" stroke="#fff" stroke-opacity=".25" stroke-width="3"/>

@@ -1,8 +1,8 @@
-/* Written by nativeTv: the remote keys set on its Apps tab, read from the
+/* Written by Native Tv: the remote keys set on its Apps tab, read from the
  * configd value nativetv.remoteKeys. First in com.webos.surfacemanager.keyFilters,
  * so a key set there never reaches LG's filters. */
 var nativeTvKeyIds = {};
-// nativeTv Home: the toast for Home until it is in place, and whether it is.
+// Native Tv Home: the toast for Home until it is in place, and whether it is.
 var nativeTvStarting = "";
 var nativeTvHomeReady = false;
 var nativeTvHoldingHome = false;
@@ -51,7 +51,7 @@ function nativeTvKeysChanged(payload) {
         for (var name in set) {
             if (set.hasOwnProperty(name) && codes[name] !== undefined && typeof set[name] === "string") ids[codes[name]] = set[name];
         }
-        // Home, only while nativeTv Home sets it.
+        // Home, only while Native Tv Home sets it.
         if (typeof value.home === "string" && value.home) ids[Qt.Key_Super_L] = value.home;
         nativeTvKeyIds = ids;
         nativeTvStarting = typeof value.starting === "string" ? value.starting : "";
@@ -67,7 +67,7 @@ function nativeTvKeysChanged(payload) {
 }
 
 // The first config read of a compositor start, which is before anything of
-// nativeTv's own runs: asks the Homebrew Channel's service to run its
+// Native Tv's own runs: asks the Homebrew Channel's service to run its
 // startup script now rather than when LG's launcher asks it for its preview,
 // some 20 s later (docs/development/TV-RESEARCH.md). The script runs once per
 // boot whoever asks first, and the boot hook shows the starting notice: shown
@@ -96,7 +96,7 @@ function nativeTvEarlyStart() {
     nativeTvStartTries(15);
 }
 
-// Where nativeTv Home opens at power-on (the boot hook's own conditions: the
+// Where Native Tv Home opens at power-on (the boot hook's own conditions: the
 // power-on reason is one LG opens Home for), the splash app is opened at once,
 // and again when the input the TV starts on comes to the front over it, until
 // the hook opens Home. Any other app first, or 90 s, and it is not opened again.
@@ -148,7 +148,7 @@ function nativeTvMedia(name) {
     if (nativeTvMediaCodes.hasOwnProperty(name)) nativeTvSendKey(nativeTvMediaCodes[name]);
 }
 
-// Opens Home once the app manager runs nativeTv Home under its id, and
+// Opens Home once the app manager runs Native Tv Home under its id, and
 // says it is starting until then. The key has been kept from LG's filters.
 function nativeTvHomePressed() {
     lunaCall.send("com.webos.applicationManager", "/getAppInfo", JSON.stringify({ "id": "com.webos.app.home" }), function (payload) {

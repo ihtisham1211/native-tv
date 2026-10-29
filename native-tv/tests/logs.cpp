@@ -66,7 +66,7 @@ int main() {
                   nativetv[size_t(2)]["mono"].number() == 13642.0 &&
                   nativetv[size_t(2)]["proc"].string() == "tvweb" &&
                   nativetv[size_t(3)]["mono"].number() == 13642.0,
-              "nativeTv log tags, continuation lines and legacy entries");
+              "Native Tv log tags, continuation lines and legacy entries");
 
         const Json kernel = parseKernelLogs(
             "<3>[   42.250000] usb 1-1: descriptor read failed\n"

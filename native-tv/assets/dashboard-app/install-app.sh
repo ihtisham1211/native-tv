@@ -15,7 +15,7 @@
 
 ACTION=${1:-install}
 SRC=${2:-/var/lib/tvweb/assets/dashboard-app}
-# The same script installs nativeTv Home's app (assets/home-app) and the splash
+# The same script installs Native Tv Home's app (assets/home-app) and the splash
 # (assets/splash-app), named by the app's own appinfo.json. Only the dashboard's
 # app gives way to the Homebrew Channel's tile: the others have no other.
 ID=$(sed -n 's/^ *"id": *"\([^"]*\)".*/\1/p' "$SRC/appinfo.json" 2>/dev/null | head -n 1)

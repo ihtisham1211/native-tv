@@ -1,4 +1,4 @@
-<!-- A plain-language summary first: what changes for the people using nativeTv.
+<!-- A plain-language summary first: what changes for the people using Native Tv.
      Short sentences or a few bullets, no file or function names. -->
 
 ## Technical details

@@ -1,4 +1,4 @@
-// The Home tab: nativeTv Home, a home screen of nativeTv's own in place of LG's.
+// The Home tab: Native Tv Home, a home screen of Native Tv's own in place of LG's.
 
 let homeStatus = null;
 let homeCat = null;      // what the TV's Home lists: apps, devices, picked channels, order
@@ -10,7 +10,7 @@ let homeSaving = false;
 let homeLoadRevision = 0;
 let homeWallTimer = null;
 let homeWallUploading = false;
-// null until the server says; false on a TV nativeTv Home is not offered on.
+// null until the server says; false on a TV Native Tv Home is not offered on.
 let homeAvailable = null;
 
 const HOME_ROWS = {
@@ -36,7 +36,7 @@ async function homePost(path, body) {
   return r;
 }
 
-// The tab, as Game's, only where the server offers nativeTv Home.
+// The tab, as Game's, only where the server offers Native Tv Home.
 function setHomeAvailable(st) {
   homeAvailable = st.available !== false;
   if (q('tab-btn-home')) q('tab-btn-home').hidden = !homeAvailable;
@@ -72,20 +72,20 @@ function renderHome() {
   if (!st || !state) return;
   if (st.restorePending) {
     state.textContent = t('home.restorePending', 'LG Home restoration is incomplete');
-    desc.textContent = t('home.restoreRetry', 'Retry restoring LG Home before switching nativeTv Home on again.');
+    desc.textContent = t('home.restoreRetry', 'Retry restoring LG Home before switching Native Tv Home on again.');
   } else if (!st.supported.ok) {
     state.textContent = t('home.unavailable', 'Not available on this TV');
     desc.textContent = st.supported.reason || '';
   } else if (st.enabled) {
-    state.textContent = t('home.isOn', 'nativeTv Home is the TV’s Home');
+    state.textContent = t('home.isOn', 'Native Tv Home is the TV’s Home');
     desc.textContent = st.lgHomeOpen
-      ? t('home.isOnLgOpen', 'LG’s Home is open for now. nativeTv Home comes back when something else is opened, or Home is pressed.')
+      ? t('home.isOnLgOpen', 'LG’s Home is open for now. Native Tv Home comes back when something else is opened, or Home is pressed.')
       : st.active
         ? t('home.isOnDesc', 'It opens in LG’s Home’s place: with the Home and Back buttons, and when the TV wakes on Home.')
         : t('home.isOnPending', 'Switched on, but LG’s Home is still in its place. Switching off and on again tries once more.');
   } else {
     state.textContent = t('home.isOff', 'LG’s Home is the TV’s Home');
-    desc.textContent = t('home.isOffDesc', 'Nothing of LG’s is changed: nativeTv Home is laid over LG’s Home while on, and switching off takes it away.');
+    desc.textContent = t('home.isOffDesc', 'Nothing of LG’s is changed: Native Tv Home is laid over LG’s Home while on, and switching off takes it away.');
   }
   const more = q('home-more');
   if (more) more.hidden = !st.supported.ok;
@@ -94,7 +94,7 @@ function renderHome() {
   const startup = q('home-startup');
   if (startup) {
     const on = st.openOnPowerOn === true;
-    updateToggle(startup, { cls: on ? 'good' : 'idle', label: on ? t('home.startupNativeTv', 'nativeTv Home') : t('home.startupLg', 'Follow LG setting') });
+    updateToggle(startup, { cls: on ? 'good' : 'idle', label: on ? t('home.startupNativeTv', 'Native Tv Home') : t('home.startupLg', 'Follow LG setting') });
     startup.setAttribute('aria-pressed', String(on));
     startup.disabled = !homeWritable() || !st.enabled;
   }
@@ -150,7 +150,7 @@ function renderHome() {
     btn.className = 'pill ' + (armed ? 'warn' : st.enabled ? 'good' : 'idle');
     btn.textContent = armed
       ? (wantOn ? t('home.confirmOn', 'Press again to switch on') : t('home.confirmOff', 'Press again to use LG Home'))
-      : (st.restorePending ? t('home.retryRestore', 'Retry restoring LG Home') : wantOn ? t('home.switchOn', 'Use nativeTv Home') : t('home.switchOff', 'Use LG Home'));
+      : (st.restorePending ? t('home.retryRestore', 'Retry restoring LG Home') : wantOn ? t('home.switchOn', 'Use Native Tv Home') : t('home.switchOff', 'Use LG Home'));
   }
   const hist = q('home-history-note');
   if (hist) hist.hidden = st.history;
@@ -208,7 +208,7 @@ function renderHomeProfiles() {
 
 const HOME_LOOK_NAMES = () => ({
   warm: t('home.colours.warm', 'Warm'),
-  nativetv: t('home.colours.nativetv', 'nativeTv'),
+  nativetv: t('home.colours.nativetv', 'Native Tv'),
   white: t('home.colours.white', 'White'),
   ice: t('home.colours.ice', 'Ice'),
   rose: t('home.colours.rose', 'Rose'),
@@ -223,7 +223,7 @@ function homeLookNow() {
   return presets.find(p => p.text === c.text && p.accent === c.accent) || null;
 }
 
-// Each preset as a small nativeTv Home: the clock in its text, a row's name in the quieter shade, the accent's mark.
+// Each preset as a small Native Tv Home: the clock in its text, a row's name in the quieter shade, the accent's mark.
 function renderHomeColours() {
   const box = q('home-looks');
   if (!box || !homeStatus) return;
@@ -307,7 +307,7 @@ function homeSortRow(kind, usable) {
   return `<div class="prot-row">
     <div class="prot-main"><div class="prot-title"><label for="home-sort-${kind}">${esc(t('home.sort', 'Order'))}</label></div>
       <div class="prot-desc">${esc(sort === 'recent'
-        ? t('home.sortRecentDesc', 'The tile opened last comes first, whether it was opened from nativeTv Home or not. Tiles not yet opened follow in this row’s own order.')
+        ? t('home.sortRecentDesc', 'The tile opened last comes first, whether it was opened from Native Tv Home or not. Tiles not yet opened follow in this row’s own order.')
         : t('home.sortCustomDesc', 'As arranged here.'))}</div></div>
     <div class="prot-status"><select id="home-sort-${kind}" class="pill-sel" ${usable ? '' : 'disabled'} onchange="homeSetSort('${kind}', this.value)">
       <option value="custom"${sort === 'custom' ? ' selected' : ''}>${esc(t('home.sortCustom', 'Your order'))}</option>
@@ -532,7 +532,7 @@ async function homeUploadWall() {
       img.onerror = () => reject(new Error(t('home.wall.unreadable', 'The image could not be opened.')));
       img.src = url;
     });
-    // nativeTv Home is drawn at 1920 x 1080; the server refuses anything larger.
+    // Native Tv Home is drawn at 1920 x 1080; the server refuses anything larger.
     const scale = Math.min(1, 1920 / img.naturalWidth, 1080 / img.naturalHeight);
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));

@@ -10,7 +10,7 @@ The **Advanced** tab of the **Settings** section, `/?tab=advanced`, surfaces sys
 
 Switched off, an LG TV sleeps within a couple of minutes, and the dashboard and Home Assistant bridge sleep with it. On TVs that have LG's Always-on setting, **Stay connected when off** keeps the TV on the network with the screen dark instead: the dashboard keeps answering, Home Assistant keeps its readings and controls, and either can switch the TV back on.
 
-The cost is power. On an OLED42C24LA it draws about 12 W while off (11.9 to 12.5 W measured), against almost nothing in normal standby. nativeTv running makes effectively no difference: with it stopped, the draw was the same.
+The cost is power. On an OLED42C24LA it draws about 12 W while off (11.9 to 12.5 W measured), against almost nothing in normal standby. Native Tv running makes effectively no difference: with it stopped, the draw was the same.
 
 LG added this low-power awake state with its 2022 TVs (webOS 7). Older TVs can only stay awake in the state they pass through while switching off, which drew about 37 W on an OLED65B8SLC (webOS 4), so they are not offered the switch.
 
@@ -50,7 +50,7 @@ Limits on how long the screen is on each day, under **Advanced &rarr; Screen tim
 * **Bedtime:** two times between which the TV is kept off. A window that ends earlier than it starts runs past midnight.
 * **App and input limits:** minutes a day for one app or input, picked from those watched in the last 30 days.
 
-The TV shows a toast five minutes before a limit and another when it is reached. A minute later it does what is chosen for that limit: for the daily limit and bedtime, switch the TV off, turn the screen off or only warn; for an app or input, go to Home, switch the TV off, turn the screen off or only warn. webOS 3 to 5 have no Home screen of their own, only LG's ribbon over what is playing, so there an app's limit switches the TV off instead of going to Home. A TV switched back on after its limit, or during bedtime, gets the same toast and minute again, except where the limit switched it off: then the toast is followed by the screen going off, and the TV switches off 5 minutes later, which leaves time to change the limit in nativeTv. Only warn shows each toast once a day.
+The TV shows a toast five minutes before a limit and another when it is reached. A minute later it does what is chosen for that limit: for the daily limit and bedtime, switch the TV off, turn the screen off or only warn; for an app or input, go to Home, switch the TV off, turn the screen off or only warn. webOS 3 to 5 have no Home screen of their own, only LG's ribbon over what is playing, so there an app's limit switches the TV off instead of going to Home. A TV switched back on after its limit, or during bedtime, gets the same toast and minute again, except where the limit switched it off: then the toast is followed by the screen going off, and the TV switches off 5 minutes later, which leaves time to change the limit in Native Tv. Only warn shows each toast once a day.
 
 The limits are counted by [watch time](metrics.md#watch-time), so they apply only while it is on in the Server tab, and once the TV's clock is set. Time with the screen off or LG's screen saver showing is not counted, and nothing is done while it is off. Switching the TV off needs `allowPower`, which is on unless `config.json` turns it off. A limit set in `config.json` (`screenTime`) that is not in a list is kept and shown.
 
@@ -58,7 +58,7 @@ The limits are counted by [watch time](metrics.md#watch-time), so they apply onl
 
 ![System updates: Block TV software updates, set to Blocked](../screenshots/advanced-updates.png)
 
-* **Block TV software updates:** Stops the TV installing LG's system updates, which can take away the access nativeTv runs with. Homebrew app catalog updates are unaffected.
+* **Block TV software updates:** Stops the TV installing LG's system updates, which can take away the access Native Tv runs with. Homebrew app catalog updates are unaffected.
 
 ## Display and ambient light
 

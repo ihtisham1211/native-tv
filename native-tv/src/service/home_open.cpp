@@ -87,7 +87,7 @@ HomeOpenPlan planHomeOpen(const std::string &kind, const std::string &id,
     plan.handled = homeOpenHandledKind(kind, id);
     if (!plan.handled) return plan;
     plan.error = say::msg("srv.home.unknownTile",
-                          "that is not on nativeTv Home");
+                          "that is not on Native Tv Home");
 
     if (kind == "app") {
         const Json hit = findListed(apps, id);

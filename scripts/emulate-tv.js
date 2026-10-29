@@ -1,13 +1,13 @@
 #!/usr/bin/env node
 /*
- * scripts/emulate-tv.js - Runs nativeTv locally on macOS/Linux in a virtual TV environment.
+ * scripts/emulate-tv.js - Runs Native Tv locally on macOS/Linux in a virtual TV environment.
  *
  * Runs the native daemon as it runs on a TV with no Node (TVWEB_NODE_FREE=1), on a
- * stand-in luna-send, a fixed system snapshot and a seeded nativeTv Home, allowing
+ * stand-in luna-send, a fixed system snapshot and a seeded Native Tv Home, allowing
  * developers to preview and interact with:
  *   - The Web Dashboard:      http://localhost:8080/
  *   - The TV App Dashboard:   http://localhost:8080/assets/google-tv/pages/dashboard/index.html
- *   - nativeTv Home:        http://localhost:8080/assets/google-tv/pages/home/index.html
+ *   - Native Tv Home:        http://localhost:8080/assets/google-tv/pages/home/index.html
  *
  * Usage:
  *   node scripts/emulate-tv.js [--port 8080] [--model c2|b8|c3] [--open]
@@ -169,7 +169,7 @@ async function main() {
     token: ''
   }, null, 2));
 
-  // Seed nativeTv Home config as enabled
+  // Seed Native Tv Home config as enabled
   const homeCfg = {
     enabled: true,
     rows: ['app', 'dev', 'ch'],
@@ -197,7 +197,7 @@ async function main() {
   fs.writeFileSync(path.join(dataDir, 'home.json'), JSON.stringify(homeCfg, null, 2));
 
   console.log(`\n======================================================`);
-  console.log(`  📺 Starting nativeTv TV Emulator`);
+  console.log(`  📺 Starting Native Tv TV Emulator`);
   console.log(`  TV Model: ${profile.name}`);
   console.log(`  Local Port: ${chosenPort}`);
   console.log(`======================================================\n`);
@@ -264,7 +264,7 @@ async function main() {
   console.log(`\n✨ TV Emulator is READY! Open these in your browser:\n`);
   console.log(`  🌐 Web Dashboard:      ${base}/`);
   console.log(`  📺 TV App Dashboard:   ${base}/assets/google-tv/pages/dashboard/index.html`);
-  console.log(`  🏠 nativeTv Home:    ${base}/assets/google-tv/pages/home/index.html`);
+  console.log(`  🏠 Native Tv Home:    ${base}/assets/google-tv/pages/home/index.html`);
   console.log(`\n  (Press Ctrl+C to stop the emulator)\n`);
 
   if (autoOpen) {

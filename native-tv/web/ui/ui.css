@@ -1,4 +1,4 @@
-/* nativeTv dashboard: components and layout, on Material Design 3. Colours, type,
+/* Native Tv dashboard: components and layout, on Material Design 3. Colours, type,
    shape and motion tokens come from theme.css.
 
    Motion rule: only transform and opacity animate on anything bigger than a
@@ -572,7 +572,7 @@ input[type=file]::file-selector-button { margin-right: 12px; padding: 0 20px; he
 .sys-tile.sys-changed .rk-name { color: var(--c-warning); }
 @media (max-width: 599px) { .rk-grid.qa-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 
-/* nativeTv Home */
+/* Native Tv Home */
 #home-more { display: contents; }
 #home-rows { margin-top: 12px; }
 .home-row { padding: 4px 0; border-top: 1px solid color-mix(in srgb, var(--c-outline-variant) 55%, transparent); }

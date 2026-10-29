@@ -1,7 +1,7 @@
-== nativeTv Home
-toggle  nativeTv Home = On [on] -> Turn off (confirms) <home>
+== Native Tv Home
+toggle  Native Tv Home = On [on] -> Turn off (confirms) <home>
 toggle  Hide LG’s Home while the TV starts = Off [off] -> Turn on (confirms) <home>
-toggle  Power-on screen = nativeTv Home [on] -> Turn off <power>
+toggle  Power-on screen = Native Tv Home [on] -> Turn off <power>
 == Appearance
 toggle  Show app names = On [on] -> Turn off <home>
 toggle  Show inputs = On [on] -> Turn off <hdmi>

@@ -332,7 +332,7 @@ function optionRows(d) {
         t('adv.quickBoot.desc', 'Switching off puts the TV into a light sleep rather than shutting it down, so it comes back on faster. LG calls this Quick Start+.')));
     if (d.alwaysReady !== undefined)
       r.push(toggle(t('adv.stayConnected', 'Stay connected when off'), d.alwaysReady, 'alwaysReady',
-        t('tv.options.stayConnected.hint', 'Keeps the TV on the network while it is switched off, apart from five hours each night, so nativeTv and Home Assistant keep working. The screen stays dark. Uses about 12 W on an LG C2.')));
+        t('tv.options.stayConnected.hint', 'Keeps the TV on the network while it is switched off, apart from five hours each night, so Native Tv and Home Assistant keep working. The screen stays dark. Uses about 12 W on an LG C2.')));
     if (d.alwaysReadyScreen !== undefined)
       r.push(toggle(t('adv.alwaysReady', 'Always Ready'), d.alwaysReadyScreen, 'alwaysReadyScreen',
         t('tv.options.alwaysReady.hint', 'Switched off with the remote, the TV shows LG\'s Always Ready screen, such as a clock or artwork, instead of going dark, from the next time it is switched off. Uses about 30 W on an LG C2, close to what it uses when on. Home turns the TV back on from the clock; the power button switches it fully off.')));
@@ -341,7 +341,7 @@ function optionRows(d) {
       r.push({ label: t('adv.nightlyOff', 'Nightly power-down'), value: d.alwaysReadyOff.start + '–' + d.alwaysReadyOff.end,
                cls: 'act', act: 'arOff', start: d.alwaysReadyOff.start,
                press: t('tv.options.nightlyPowerDown.press', 'Press OK to move it an hour later'),
-               hint: t('tv.options.nightlyPowerDown.hint', 'For five hours every night, LG lets a switched-off TV sleep fully. It is offline then, so nativeTv and Home Assistant cannot reach it. LG fixes the length; choose hours when the TV is not used.') });
+               hint: t('tv.options.nightlyPowerDown.hint', 'For five hours every night, LG lets a switched-off TV sleep fully. It is offline then, so Native Tv and Home Assistant cannot reach it. LG fixes the length; choose hours when the TV is not used.') });
     if (d.wakeOnLan !== undefined)
       r.push(toggle(t('adv.wol', 'Wake-on-LAN'), d.wakeOnLan, 'wakeOnLan',
         t('tv.options.wol.hint', 'Lets Home Assistant, a phone or another device on the network switch the TV on from standby. Requires Quick Boot (Quick Start+) to keep the network connection responsive while off. LG calls this Mobile TV On.')));
@@ -425,8 +425,8 @@ function timerRow(tm, which, label) {
   return { label: label, value: tm.enabled ? when : t('tv.options.timer.off', 'Off ({when})', { when: when }), cls: 'act', act: 'powerTimer', which: which, on: !!tm.enabled,
            press: tm.enabled ? t('tv.press.turnOff', 'Press OK to turn off') : t('tv.press.turnOn', 'Press OK to turn on'),
            hint: which === 'on'
-             ? t('adv.onTimer.desc', 'Switches the TV on at this time, once or on the days picked.') + ' ' + t('tv.options.timer.hint', 'The time and days are set from nativeTv in a browser, under Advanced.')
-             : t('adv.offTimer.desc', 'Switches the TV off at this time, once or on the days picked.') + ' ' + t('tv.options.timer.hint', 'The time and days are set from nativeTv in a browser, under Advanced.') };
+             ? t('adv.onTimer.desc', 'Switches the TV on at this time, once or on the days picked.') + ' ' + t('tv.options.timer.hint', 'The time and days are set from Native Tv in a browser, under Advanced.')
+             : t('adv.offTimer.desc', 'Switches the TV off at this time, once or on the days picked.') + ' ' + t('tv.options.timer.hint', 'The time and days are set from Native Tv in a browser, under Advanced.') };
 }
 
 function appearanceRows() {
@@ -566,11 +566,11 @@ function saverRows(d) {
              value: ssOn ? t('common.on', 'On') : t('common.off', 'Off'), cls: ssOn ? 'on' : 'off',
              act: d.writable ? 'saverAllow' : null, on: ssOn,
              press: ssOn ? t('tv.saver.allow.off', 'Press OK to switch off') : t('tv.saver.allow.on', 'Press OK to switch on (experimental)'),
-             hint: t('ss.exp.desc', 'They have not been tried on this webOS version. Before nativeTv 0.98.1, on webOS 10, using one sometimes left the picture, the sound and HDMI control off until the TV was unplugged.') });
+             hint: t('ss.exp.desc', 'They have not been tried on this webOS version. Before Native Tv 0.98.1, on webOS 10, using one sometimes left the picture, the sound and HDMI control off until the TV was unplugged.') });
   }
   if (d.external && d.external.active) {
     r.push({ label: t('tv.saver.external', 'Homebrew screen saver'), value: t('apps.service.active', 'Active'), cls: 'warn',
-             hint: t('ss.external.active', 'A third-party homebrew screen saver is currently active on the TV. Selecting a nativeTv screen saver will replace it.') });
+             hint: t('ss.external.active', 'A third-party homebrew screen saver is currently active on the TV. Selecting a Native Tv screen saver will replace it.') });
   }
   d.modes.filter(function (m) { return m.available || (d.held && m.active); }).forEach(function (m) {
     r.push({ label: m.label, value: m.active ? t('ss.inUse', 'In use') : '', cls: m.active ? 'on' : '',
@@ -608,7 +608,7 @@ function saverRows(d) {
 }
 
 /*
- * nativeTv Home: a home screen of nativeTv's own in place of LG's. Before
+ * Native Tv Home: a home screen of Native Tv's own in place of LG's. Before
  * its app is on the TV the section offers to add it; after, everything the
  * browser dashboard's Home tab changes is here too, editing the same layout.
  */
@@ -628,7 +628,7 @@ function homeItemTitle(kind, id) {
 
 function homeRows(d) {
   homeData = d;
-  var r = [head(t('home.title', 'nativeTv Home'))];
+  var r = [head(t('home.title', 'Native Tv Home'))];
   if (!d || d.ok === false || !d.supported) return r;
   if (!d.supported.ok && !d.enabled && !d.restorePending) {
     r.push({ label: t('home.unavailable', 'Not available on this TV'), value: '',
@@ -636,26 +636,26 @@ function homeRows(d) {
     return r;
   }
   var can = d.writable !== false;
-  r.push({ label: d.restorePending ? t('home.retryRestore', 'Retry restoring LG Home') : t('home.title', 'nativeTv Home'),
+  r.push({ label: d.restorePending ? t('home.retryRestore', 'Retry restoring LG Home') : t('home.title', 'Native Tv Home'),
            value: d.restorePending ? t('home.restorePending', 'LG Home restoration is incomplete') : d.enabled ? t('common.on', 'On') : t('common.off', 'Off'), cls: d.enabled ? 'on' : 'off',
            act: can ? 'homeSwitch' : null, on: d.enabled || d.restorePending,
-           press: d.enabled ? t('tv.home.switch.off', 'Press OK to use LG Home again') : t('tv.home.switch.on', 'Press OK to use nativeTv Home'),
-           hint: d.restorePending ? t('home.restoreRetry', 'Retry restoring LG Home before switching nativeTv Home on again.')
+           press: d.enabled ? t('tv.home.switch.off', 'Press OK to use LG Home again') : t('tv.home.switch.on', 'Press OK to use Native Tv Home'),
+           hint: d.restorePending ? t('home.restoreRetry', 'Retry restoring LG Home before switching Native Tv Home on again.')
                  : d.enabled ? t('home.isOnDesc', 'It opens in LG\u2019s Home\u2019s place: with the Home and Back buttons, and when the TV wakes on Home.')
-                 : t('home.isOffDesc', 'Nothing of LG\u2019s is changed: nativeTv Home is laid over LG\u2019s Home while on, and switching off takes it away.') });
+                 : t('home.isOffDesc', 'Nothing of LG\u2019s is changed: Native Tv Home is laid over LG\u2019s Home while on, and switching off takes it away.') });
   if (d.supported.ok && d.hideLgHomeAtStartAvailable !== false) {
     r.push({ label: t('home.hideLg', 'Hide LG\u2019s Home while the TV starts'),
              value: d.hideLgHomeAtStart ? t('common.on', 'On') : t('common.off', 'Off'), cls: d.hideLgHomeAtStart ? 'on' : 'off',
              act: can ? 'homeHideLg' : null, on: !!d.hideLgHomeAtStart,
              press: d.hideLgHomeAtStart ? t('tv.press.switchOff', 'Press OK to switch off') : t('tv.home.hideLg.on', 'Press OK, then again, to hide it'),
-             hint: t('home.hideLgDesc', 'For about 25 seconds after a cold start, until nativeTv Home takes its place, LG\u2019s Home opens as a black screen instead of its own. If nativeTv stops running, for example after a firmware update removes root, LG\u2019s Home stays black until it is put back over SSH.') });
+             hint: t('home.hideLgDesc', 'For about 25 seconds after a cold start, until Native Tv Home takes its place, LG\u2019s Home opens as a black screen instead of its own. If Native Tv stops running, for example after a firmware update removes root, LG\u2019s Home stays black until it is put back over SSH.') });
   }
   if (d.supported.ok && d.layout) {
     r.push({ label: t('home.startup', 'Power-on screen'),
-             value: d.openOnPowerOn ? t('home.startupNativeTv', 'nativeTv Home') : t('home.startupLg', 'Follow LG setting'), cls: d.openOnPowerOn ? 'on' : 'off',
+             value: d.openOnPowerOn ? t('home.startupNativeTv', 'Native Tv Home') : t('home.startupLg', 'Follow LG setting'), cls: d.openOnPowerOn ? 'on' : 'off',
              act: can && d.enabled ? 'homeStartup' : null, on: !!d.openOnPowerOn,
              press: d.openOnPowerOn ? t('tv.press.switchOff', 'Press OK to switch off') : t('tv.press.switchOn', 'Press OK to switch on'),
-             hint: t('home.startupDesc', 'Choose nativeTv Home to skip LG Home and open it when ready, or follow LG\'s power-on setting. Full shutdown still needs time to start. Choosing another app or input cancels the automatic opening.') });
+             hint: t('home.startupDesc', 'Choose Native Tv Home to skip LG Home and open it when ready, or follow LG\'s power-on setting. Full shutdown still needs time to start. Choosing another app or input cancels the automatic opening.') });
     var namesOn = d.layout.appNames !== false;
     r.push({ label: t('home.appNames', 'Show app names'),
              value: namesOn ? t('common.on', 'On') : t('common.off', 'Off'), cls: namesOn ? 'on' : 'off',
@@ -666,7 +666,7 @@ function homeRows(d) {
     r.push({ label: t('home.clockFormat', 'Clock format'),
              value: twelve ? t('home.clock12', '12-hour') : t('home.clock24', '24-hour'),
              act: can ? 'homeClockFormat' : null, clockFormat: twelve ? '12h' : '24h',
-             hint: t('home.clockFormatDesc', 'Choose 12-hour time with AM/PM or 24-hour time on nativeTv Home.') });
+             hint: t('home.clockFormatDesc', 'Choose 12-hour time with AM/PM or 24-hour time on Native Tv Home.') });
     var inputsOn = d.layout.showInputs !== false;
     r.push({ label: t('home.showInputs', 'Show inputs'),
              value: inputsOn ? t('common.on', 'On') : t('common.off', 'Off'), cls: inputsOn ? 'on' : 'off',
@@ -678,7 +678,7 @@ function homeRows(d) {
              value: liveOn ? t('common.on', 'On') : t('common.off', 'Off'), cls: liveOn ? 'on' : 'off',
              act: can ? 'homeShowLive' : null, on: liveOn,
              press: liveOn ? t('tv.press.switchOff', 'Press OK to switch off') : t('tv.press.switchOn', 'Press OK to switch on'),
-             hint: t('home.showLiveDesc', 'Show the Live tab, with the channels added to nativeTv Home. Off by default. Switching off leaves the whole tab out; the added channels are kept.') });
+             hint: t('home.showLiveDesc', 'Show the Live tab, with the channels added to Native Tv Home. Off by default. Switching off leaves the whole tab out; the added channels are kept.') });
     var lgTileOn = d.layout.showLgHome !== false;
     r.push({ label: t('home.showLgHome', 'Show the LG Home tile'),
              value: lgTileOn ? t('common.on', 'On') : t('common.off', 'Off'), cls: lgTileOn ? 'on' : 'off',
@@ -690,7 +690,7 @@ function homeRows(d) {
              value: picOn ? t('common.on', 'On') : t('common.off', 'Off'), cls: picOn ? 'on' : 'off',
              act: can ? 'homePicture' : null, on: picOn,
              press: picOn ? t('tv.press.switchOff', 'Press OK to switch off') : t('tv.press.switchOn', 'Press OK to switch on'),
-             hint: t('home.pictureDesc', 'In the top right of nativeTv Home: the resolution, refresh rate and HDR of what was last on, and the picture mode and brightness it gets.') });
+             hint: t('home.pictureDesc', 'In the top right of Native Tv Home: the resolution, refresh rate and HDR of what was last on, and the picture mode and brightness it gets.') });
     // OK steps to the next profile, or adds one where the TV has only its own. The rows and settings below change the one in use.
     var profiles = d.profiles || [], profNow = 0;
     for (var qi = 0; qi < profiles.length; qi++) if (profiles[qi].active) profNow = qi;
@@ -705,7 +705,7 @@ function homeRows(d) {
     var presets = d.colourPresets || [], cur = d.layout.colours, at = cur ? -1 : 0;
     for (var pi = 0; pi < presets.length; pi++) if (cur && presets[pi].text === cur.text && presets[pi].accent === cur.accent) at = pi;
     if (presets.length) {
-      var lookNames = { warm: t('home.colours.warm', 'Warm'), nativetv: t('home.colours.nativetv', 'nativeTv'),
+      var lookNames = { warm: t('home.colours.warm', 'Warm'), nativetv: t('home.colours.nativetv', 'Native Tv'),
                         white: t('home.colours.white', 'White'), ice: t('home.colours.ice', 'Ice'),
                         rose: t('home.colours.rose', 'Rose'), lilac: t('home.colours.lilac', 'Lilac') };
       var nextLook = presets[(at + 1) % presets.length];
@@ -713,12 +713,12 @@ function homeRows(d) {
                value: at === -1 ? t('home.colours.custom', 'Custom') : lookNames[presets[at].id] || presets[at].id, cls: 'act',
                act: can ? 'homeColours' : null, key: nextLook,
                press: t('tv.home.colours.press', 'Press OK for {name}', { name: lookNames[nextLook.id] || nextLook.id }),
-               hint: t('home.colours.tvHint', 'The text and accent on nativeTv Home. Any colour can be picked on the browser dashboard’s Home tab.') });
+               hint: t('home.colours.tvHint', 'The text and accent on Native Tv Home. Any colour can be picked on the browser dashboard’s Home tab.') });
     }
   }
-  // Opening Home opens nativeTv Home only while it has LG's Home's place.
+  // Opening Home opens Native Tv Home only while it has LG's Home's place.
   if (d.enabled && d.active) {
-    r.push({ label: t('tv.home.open', 'Open nativeTv Home'), value: '\u2192', cls: 'act', act: 'homeOpen',
+    r.push({ label: t('tv.home.open', 'Open Native Tv Home'), value: '\u2192', cls: 'act', act: 'homeOpen',
              press: t('tv.home.open.press', 'Press OK to open it'),
              hint: t('tv.home.open.hint', 'Its tiles are ordered and hidden below, or on the browser dashboard’s Home tab.') });
   }
@@ -734,7 +734,7 @@ function homeRows(d) {
       return { label: t('home.sort', 'Order'), value: recent ? t('home.sortRecent', 'Last opened') : t('home.sortCustom', 'Your order'),
                cls: 'act', act: can ? 'homeSort' : null, key: kind, on: recent,
                press: recent ? t('tv.home.sort.custom', 'Press OK for your own order') : t('tv.home.sort.recent', 'Press OK to put the tile opened last first'),
-               hint: recent ? t('home.sortRecentDesc', 'The tile opened last comes first, whether it was opened from nativeTv Home or not. Tiles not yet opened follow in this row\u2019s own order.')
+               hint: recent ? t('home.sortRecentDesc', 'The tile opened last comes first, whether it was opened from Native Tv Home or not. Tiles not yet opened follow in this row\u2019s own order.')
                             : t('tv.home.sort.hint', 'As arranged on the browser dashboard’s Home tab.') };
     };
     lay.rows.forEach(function (kind) {
@@ -747,7 +747,7 @@ function homeRows(d) {
           if (title === null) return;
           r.push({ label: title, value: t('home.ch.onHome', 'On Home'), cls: 'on', act: can ? 'homeChannel' : null, key: id, on: true,
                    press: t('tv.home.ch.remove', 'Press OK to remove it'),
-                   hint: t('tv.home.ch.order.hint', 'Hold OK on nativeTv Home to change the order of channels.') });
+                   hint: t('tv.home.ch.order.hint', 'Hold OK on Native Tv Home to change the order of channels.') });
         });
         r.push({ label: t('home.ch.addTitle', 'Add channels'), value: t('tv.apps.install.browse', 'Browse'), cls: 'act',
                  act: hasChannels ? 'open' : null, key: 'homeChannels',
@@ -766,7 +766,7 @@ function homeRows(d) {
                  cls: lg ? '' : hidden ? 'off' : 'on', act: can && !lg ? 'homeTile' : null, key: id, kind: kind, on: !hidden,
                  press: hidden ? t('tv.home.tile.show', 'Press OK to show it') : t('tv.home.tile.hide', 'Press OK to hide it'),
                  hint: lg ? t('tv.home.lgTile.hint', 'The way back to LG\u2019s Home, so it always shows.')
-                          : t('tv.home.tile.hint', 'Hold OK on nativeTv Home to change the order of tiles.') });
+                          : t('tv.home.tile.hint', 'Hold OK on Native Tv Home to change the order of tiles.') });
       });
     });
     var walls = d.wallpapers || {};
@@ -781,7 +781,7 @@ function homeRows(d) {
   return r;
 }
 
-// The TV's channels not yet on nativeTv Home. Adding one takes it off this list; the Home tab lists those added.
+// The TV's channels not yet on Native Tv Home. Adding one takes it off this list; the Home tab lists those added.
 function homeChannelRows(d) {
   // Each change reloads this list, and the next one is made from what it loaded.
   homeData = d;
@@ -860,9 +860,9 @@ function appsRows(d) {
   if (hs && hs.parts) {
     r.push(head(t('apps.home', 'Home screen layout')));
     if (d.nativeTvHome) {
-      r.push({ label: t('tv.apps.nativeTvHome', 'nativeTv Home is on'), value: '',
-               hint: t('apps.nativeTvHomeNote', 'nativeTv Home is switched on, so this applies only to LG\u2019s Home, seen from its tile, by holding Home, or while nativeTv starts.') + ' ' +
-                     t('tv.apps.nativeTvHomeWhere', 'nativeTv Home is arranged in its own Home section.') });
+      r.push({ label: t('tv.apps.nativeTvHome', 'Native Tv Home is on'), value: '',
+               hint: t('apps.nativeTvHomeNote', 'Native Tv Home is switched on, so this applies only to LG\u2019s Home, seen from its tile, by holding Home, or while Native Tv starts.') + ' ' +
+                     t('tv.apps.nativeTvHomeWhere', 'Native Tv Home is arranged in its own Home section.') });
     }
     // Experimental on webOS 10: switched on from the dashboard in a browser,
     // where its warning is.
@@ -935,8 +935,8 @@ function appsRows(d) {
   if (sys.length > 0) {
     r.push(head(t('tv.apps.head.hideHomeScreenSystem', 'Hide Home Screen System Apps')));
     if (d.nativeTvHome) {
-      r.push({ label: t('tv.apps.nativeTvHome', 'nativeTv Home is on'), value: '',
-               hint: t('tv.apps.nativeTvHomeTilesNote', 'nativeTv Home is switched on. Apps hidden here are hidden on it too; its Home section hides others on nativeTv Home only.') });
+      r.push({ label: t('tv.apps.nativeTvHome', 'Native Tv Home is on'), value: '',
+               hint: t('tv.apps.nativeTvHomeTilesNote', 'Native Tv Home is switched on. Apps hidden here are hidden on it too; its Home section hides others on Native Tv Home only.') });
     }
     var tileHidingEnabled = !!d.tileHidingEnabled;
     var tilesHeld = !!d.tileHidingHeld;
@@ -1079,8 +1079,8 @@ function privacyRows(d) {
                value: !ab.custom.enabled
                  ? t('tv.privacy.custom.off', 'Off, {n} names kept', { n: ab.custom.count })
                  : ab.custom.mode === 'add'
-                 ? t('tv.privacy.custom.add', '{n} names, with nativeTv’s', { n: ab.custom.count })
-                 : t('tv.privacy.custom.replace', '{n} names, instead of nativeTv’s', { n: ab.custom.count }),
+                 ? t('tv.privacy.custom.add', '{n} names, with Native Tv’s', { n: ab.custom.count })
+                 : t('tv.privacy.custom.replace', '{n} names, instead of Native Tv’s', { n: ab.custom.count }),
                cls: 'st note',
                hint: t('tv.privacy.custom.hint', 'Changed or removed in the browser dashboard: Privacy, then Advanced.') });
     }
@@ -1092,7 +1092,7 @@ function privacyRows(d) {
              value: d.tvUpdates.blocked ? t('server.tvUpdates.blocked', 'Blocked') : t('server.tvUpdates.allowed', 'Allowed'),
              cls: d.tvUpdates.blocked ? 'on' : 'off', act: 'tvupd', on: d.tvUpdates.blocked,
              press: d.tvUpdates.blocked ? t('tv.update.allow.press', 'Press OK to allow updates') : t('tv.update.block.press', 'Press OK to block updates'),
-             hint: t('tv.privacy.blockTvUpdates.hint', 'Stops LG installing its firmware updates, which may remove root access. nativeTv releases are installed through server deployment or the Homebrew Channel.') });
+             hint: t('tv.privacy.blockTvUpdates.hint', 'Stops LG installing its firmware updates, which may remove root access. Native Tv releases are installed through server deployment or the Homebrew Channel.') });
   }
 
   // LG's own settings from lgsettings.js; only those the TV has come back.
@@ -1590,7 +1590,7 @@ function previewRows(pv) {
   }
   if (pv.isScreensaver) {
     r.push({ label: t('tv.apps.install.pv.screensaver', 'Screen saver'), value: t('common.replaces', 'Replaces ours'), cls: 'warn', key: 'pv:screensaver',
-             hint: t('apps.install.screensaver.warn', 'This app installs a custom screen saver, which will replace nativeTv’s own screen savers.') });
+             hint: t('apps.install.screensaver.warn', 'This app installs a custom screen saver, which will replace Native Tv’s own screen savers.') });
   }
   if (pv.freeBytes !== null && pv.freeBytes !== undefined) {
     r.push({ label: t('tv.apps.install.pv.space', 'Free space'), value: fmtMb(pv.freeBytes), key: 'pv:space',
@@ -2387,7 +2387,7 @@ function activate() {
       r.value = t('apps.service.updating', 'Updating\u2026');
       render();
       return sendPost(r.on ? '/api/home/disable' : '/api/home/enable', {},
-                      r.on ? t('tv.home.off', 'LG\u2019s Home is the TV\u2019s Home again') : t('tv.home.on', 'nativeTv Home is now the TV\u2019s Home'));
+                      r.on ? t('tv.home.off', 'LG\u2019s Home is the TV\u2019s Home again') : t('tv.home.on', 'Native Tv Home is now the TV\u2019s Home'));
     case 'homeHideLg':
       if (!r.on && confirmFirst(r, t('home.hideLgConfirm', 'Press again to hide it'))) return;
       r.value = t('apps.service.updating', 'Updating\u2026');
@@ -2440,7 +2440,7 @@ function activate() {
         r.origPress = r.press;
         r.value = t('tv.confirm', 'Confirm?');
         r.press = t('tv.saver.allow.again', 'Press OK again to switch on');
-        flash(t('ss.exp.desc', 'They have not been tried on this webOS version. Before nativeTv 0.98.1, on webOS 10, using one sometimes left the picture, the sound and HDMI control off until the TV was unplugged.'));
+        flash(t('ss.exp.desc', 'They have not been tried on this webOS version. Before Native Tv 0.98.1, on webOS 10, using one sometimes left the picture, the sound and HDMI control off until the TV was unplugged.'));
         render();
         setTimeout(function () {
           if (r.confirming) { r.confirming = false; r.value = r.origValue; r.press = r.origPress; render(); }

@@ -77,7 +77,7 @@ async function loadScreensavers() {
      restart its app manager to move between them, and nothing answers until it
      is back. Say so before, and hold the controls while it happens. */
   const extNote = (d.external && d.external.active)
-    ? (t('ss.external.active', 'A third-party homebrew screen saver is currently active on the TV. Selecting a nativeTv screen saver will replace it.') + ' ')
+    ? (t('ss.external.active', 'A third-party homebrew screen saver is currently active on the TV. Selecting a Native Tv screen saver will replace it.') + ' ')
     : '';
   q('ss-note').textContent = extNote + (!d.writable
     ? t('ss.controlsOff', 'Controls are disabled in config.json, so the screen saver cannot be changed from here.')
@@ -108,7 +108,7 @@ function renderSsExperimental(d) {
   q('ss-exp-title').textContent = on
     ? t('ss.exp.onTitle', 'Custom screen savers: on (experimental)')
     : t('ss.exp.title', 'Custom screen savers are experimental on this TV');
-  q('ss-exp-desc').textContent = t('ss.exp.desc', 'They have not been tried on this webOS version. Before nativeTv 0.98.1, on webOS 10, using one sometimes left the picture, the sound and HDMI control off until the TV was unplugged.');
+  q('ss-exp-desc').textContent = t('ss.exp.desc', 'They have not been tried on this webOS version. Before Native Tv 0.98.1, on webOS 10, using one sometimes left the picture, the sound and HDMI control off until the TV was unplugged.');
   updateToggle('ss-exp-btn', {
     cls: on ? 'good' : 'idle',
     label: on ? t('common.on', 'On') : t('common.off', 'Off'),
@@ -120,7 +120,7 @@ function renderSsExperimental(d) {
 async function toggleSsExperimental() {
   const b = q('ss-exp-btn');
   const turnOn = !b.dataset.on;
-  if (turnOn && !confirm(t('ss.exp.confirm', 'Switch on custom screen savers?\n\nThey have not been tried on this webOS version. Before nativeTv 0.98.1, on webOS 10, using one sometimes left the picture, the sound and HDMI control off until the TV was unplugged. Unplugging the TV for a minute puts it right.'))) return;
+  if (turnOn && !confirm(t('ss.exp.confirm', 'Switch on custom screen savers?\n\nThey have not been tried on this webOS version. Before Native Tv 0.98.1, on webOS 10, using one sometimes left the picture, the sound and HDMI control off until the TV was unplugged. Unplugging the TV for a minute puts it right.'))) return;
   b.disabled = true;
   await sendCommand('setWebos10ScreensaversAllowed', turnOn);
   loadScreensavers();

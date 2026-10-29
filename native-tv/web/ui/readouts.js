@@ -209,7 +209,7 @@ async function tick() {
                     (d.capabilities ? d.capabilities.oled === true : (/oled/i.test(model) || !!(d.oled && d.oled.panel_hours !== undefined)));
     const brand = isOled ? t('header.brand.oled', 'LG OLED TV') : t('header.brand', 'LG TV');
     if (q('brand')) q('brand').textContent = brand;
-    const want = model ? 'nativeTv · ' + model : 'nativeTv';
+    const want = model ? 'Native Tv · ' + model : 'Native Tv';
     if (document.title !== want) document.title = want;
     // Panel state first: without it, a blanked screen still reads as though
     // something were being displayed.

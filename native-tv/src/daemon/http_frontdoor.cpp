@@ -7592,7 +7592,7 @@ bool HttpFrontDoor::updateHomeStartingNotice(const Json &home) const {
     const bool enabled = home["enabled"].boolean();
     const std::string starting = enabled
         ? say::msg("srv.home.startingToast",
-                   "nativeTv Home is starting. It opens in a few seconds.")
+                   "Native Tv Home is starting. It opens in a few seconds.")
         : std::string();
     const bool splash = !starting.empty() &&
         (home["openOnPowerOn"].boolean() ||
@@ -7868,7 +7868,7 @@ void HttpFrontDoor::handleHomeEnablePost(HttpExchange &exchange) const {
     if (previous["restorePending"].boolean()) {
         failure(say::msg(
                     "srv.home.restoreFirst",
-                    "LG's Home is not fully back yet; switch nativeTv Home off again first"),
+                    "LG's Home is not fully back yet; switch Native Tv Home off again first"),
                 200);
         return;
     }
@@ -7882,7 +7882,7 @@ void HttpFrontDoor::handleHomeEnablePost(HttpExchange &exchange) const {
         blankStartLayout, policyContext);
     if (!takeover["ok"].boolean()) {
         std::string message = say::msg(
-            "srv.home.setFailed", "the TV would not make nativeTv Home its Home");
+            "srv.home.setFailed", "the TV would not make Native Tv Home its Home");
         if (takeover["error"].isString())
             message += " (" + takeover["error"].string() + ")";
         failure(message, 200);
@@ -7932,7 +7932,7 @@ void HttpFrontDoor::handleHomeEnablePost(HttpExchange &exchange) const {
     // The crash watch starts over: a Home given back after the client kept
     // failing is wanted again.
     if (HomeOrchestrator *orchestrator = homeOrchestrator()) orchestrator->rearm();
-    if (logger_) logger_->info("home: nativeTv Home switched on");
+    if (logger_) logger_->info("home: Native Tv Home switched on");
     Json response = Json::object();
     response.set("ok", Json::flag(true));
     respond(200, response);
@@ -8043,7 +8043,7 @@ void HttpFrontDoor::handleHomeDisablePost(HttpExchange &exchange) const {
                                        : ": " + earlyServiceError));
 
     if (HomeOrchestrator *orchestrator = homeOrchestrator()) orchestrator->rearm();
-    if (logger_) logger_->info("home: nativeTv Home switched off");
+    if (logger_) logger_->info("home: Native Tv Home switched off");
     Json response = Json::object();
     response.set("ok", Json::flag(true));
     respond(200, response);
@@ -10142,7 +10142,7 @@ void HttpFrontDoor::setRemoteKey(HttpExchange &exchange) const {
 
         // The AI button is consumed before evdev. Own voiceconductor's
         // disabled-list entry and service state alongside its app mapping,
-        // restoring it only when this record says nativeTv switched it off.
+        // restoring it only when this record says Native Tv switched it off.
         const std::string voiceService = "voiceconductor";
         Json serviceOwners = writes.lgRecord["services"];
         if (!serviceOwners.isObject()) serviceOwners = Json::object();
@@ -10253,8 +10253,8 @@ void HttpFrontDoor::setRemoteKey(HttpExchange &exchange) const {
         }
 
         // Alexa is opened by a system adapter rather than the native key map.
-        // Keep the adapter blocked while nativeTv owns that key, and restore
-        // it only when this daemon's LG record says nativeTv blocked it.
+        // Keep the adapter blocked while Native Tv owns that key, and restore
+        // it only when this daemon's LG record says Native Tv blocked it.
         const std::string alexaApp = "amazon.alexa.view";
         Json blockRecord = writes.lgRecord["blocks"];
         if (!blockRecord.isObject()) blockRecord = Json::object();
@@ -14555,7 +14555,7 @@ void HttpFrontDoor::setNativeBackupConfig(HttpExchange &exchange) const {
     if (!ConfigStore(configPath_).patchBackupSettings(patch, &error, &changed)) {
         if (logger_)
             logger_->warning("backup config: " + error);
-        sendSetupError(exchange, 500, "could not save nativeTv settings");
+        sendSetupError(exchange, 500, "could not save Native Tv settings");
         return;
     }
     Json result = Json::object();
@@ -16594,7 +16594,7 @@ Json HttpFrontDoor::returnNativeTvHomeFromRemoteInput() const {
         home["hideLgHomeAtStart"].boolean(), controlPolicyContext(config_));
     if (!takeover["ok"].boolean())
         return failed(takeover["error"].string(
-            "could not take nativeTv Home's place again"));
+            "could not take Native Tv Home's place again"));
 
     std::string bridgeError;
     const bool nodeSynchronized =
@@ -16665,7 +16665,7 @@ Json HttpFrontDoor::returnNativeTvHomeAfterForegroundChange(
     if (!takeover["ok"].boolean()) {
         homeEscapeActive_->store(true, std::memory_order_release);
         return failed(takeover["error"].string(
-            "could not take nativeTv Home's place after leaving LG Home"));
+            "could not take Native Tv Home's place after leaving LG Home"));
     }
 
     std::string bridgeError;
@@ -16884,7 +16884,7 @@ void HttpFrontDoor::handleHomeOpenPost(HttpExchange &exchange) const {
         }
     }
 
-    // Recorded only for a row set to Last opened, and only while nativeTv
+    // Recorded only for a row set to Last opened, and only while Native Tv
     // Home is on.
     JsonFile homeFile(dataFilePath(dataRoot_, "home.json"));
     const Json document =

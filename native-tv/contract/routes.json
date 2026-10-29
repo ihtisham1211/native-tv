@@ -241,7 +241,7 @@
       "csrf": "not applicable",
       "bodyLimit": {"max": 0, "unit": "bytes"},
       "owner": "native",
-      "notes": "GET and HEAD parse system, nativeTv and requested kernel logs in the daemon, including cursors, rotation, filtering and optional redaction. Other methods retain the Node fallback; Node keeps its implementation for rollback."
+      "notes": "GET and HEAD parse system, Native Tv and requested kernel logs in the daemon, including cursors, rotation, filtering and optional redaction. Other methods retain the Node fallback; Node keeps its implementation for rollback."
     },
     {
       "paths": ["/api/processes"],
@@ -765,7 +765,7 @@
       "csrf": "not applicable",
       "bodyLimit": {"max": 0, "unit": "bytes"},
       "owner": "native",
-      "notes": "Builds the version 1 backup from native LG settings, filtered config and installed developer apps; reads the nativeTv Home layout from home.json and the display version from build.json in the daemon."
+      "notes": "Builds the version 1 backup from native LG settings, filtered config and installed developer apps; reads the Native Tv Home layout from home.json and the display version from build.json in the daemon."
     },
     {
       "paths": ["/api/backup/apps/clear"],
@@ -792,7 +792,7 @@
       "csrf": "application/json and same-origin Origin/Host comparison when Origin is present; also requires allowControl",
       "bodyLimit": {"max": 65536, "unit": "JS string code units"},
       "owner": "native",
-      "notes": "The daemon enforces the JSON content-type, same-origin and 65,536 UTF-16-code-unit body guards, rejects malformed JSON, refuses during an install, then restores in the legacy order: format and version check, LG settings, restore-app plan and pending list, Home layout through the layout route, and the allow-listed nativeTv settings under the config lock. It answers with the same lg, nativetv, restart, apps and home fields and restarts the server after the response when nativeTv's own settings changed. Node retains the route for standalone mode."
+      "notes": "The daemon enforces the JSON content-type, same-origin and 65,536 UTF-16-code-unit body guards, rejects malformed JSON, refuses during an install, then restores in the legacy order: format and version check, LG settings, restore-app plan and pending list, Home layout through the layout route, and the allow-listed Native Tv settings under the config lock. It answers with the same lg, nativetv, restart, apps and home fields and restarts the server after the response when Native Tv's own settings changed. Node retains the route for standalone mode."
     },
     {
       "paths": ["/api/control"],

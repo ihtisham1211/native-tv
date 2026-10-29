@@ -1,6 +1,6 @@
 ---
 name: Feature request
-about: An idea for nativeTv
+about: An idea for Native Tv
 labels: enhancement
 ---
 

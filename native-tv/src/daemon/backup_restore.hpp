@@ -21,7 +21,7 @@ struct BackupRestoreDeps {
     std::function<bool(std::string &error)> clearPendingApps;
     // The Home layout, answered as the dashboard's layout route answers.
     std::function<Json(const Json &layout)> restoreHome;
-    // nativeTv's own settings; changed gets the keys written ("section.key").
+    // Native Tv's own settings; changed gets the keys written ("section.key").
     std::function<bool(const Json &section, Json &changed, std::string &error)> writeConfig;
     std::function<void(const std::string &warning)> warn;
     std::function<long long()> nowMs;
@@ -30,7 +30,7 @@ struct BackupRestoreDeps {
 struct BackupRestoreOutcome {
     int status = 200;
     Json body;
-    // nativeTv's own settings changed: they take effect when it restarts.
+    // Native Tv's own settings changed: they take effect when it restarts.
     bool restart = false;
 };
 

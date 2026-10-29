@@ -1,6 +1,6 @@
 # Android wrapper
 
-nativeTv ships no Android app. The dashboard is a web page, so a phone app can
+Native Tv ships no Android app. The dashboard is a web page, so a phone app can
 show it in a full-screen WebView and add what a page cannot do, such as a list
 of TVs and Wake-on-LAN. The dashboard recognises such a wrapper by the names
 below; an app that uses them gets the navigation described here.

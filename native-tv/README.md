@@ -1,11 +1,11 @@
 # Native TV application
 
-nativeTv's native TV client uses SDL2 for the window and input, and OpenGL ES 2
+Native Tv's native TV client uses SDL2 for the window and input, and OpenGL ES 2
 for drawing. Home, content views, the keyboard, profiles, quick settings, setup
 and TV dashboard tabs live here. The phone/browser dashboard remains a web app
 with its canonical sources in `web/`.
 
-The native client is under development. Its data adapter calls the nativeTv
+The native client is under development. Its data adapter calls the Native Tv
 daemon, the server that runs on the TV, over loopback. The Node server it
 replaced is gone; [ARCHITECTURE.md](ARCHITECTURE.md) defines the module boundaries. The developer
 app is `com.tvweb.native`; deployment does not replace LG Home or enable Home
@@ -171,7 +171,7 @@ extracted into generated client/runtime packages. CivetWeb's upstream
 `LICENSE.md` and notices for staged SDK libraries are also included in the
 server runtime package. Cross-building both the client and service with the
 webOSbrew SDK confirms the current SONAMEs; runtime staging verifies their
-dependency closure and notices. nativeTv
+dependency closure and notices. Native Tv
 self-update and rollback were removed; releases are
 installed through deployment or the Homebrew Channel package. Homebrew app
 catalog updates remain available. Manual installation includes the runtime.

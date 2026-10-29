@@ -2,7 +2,7 @@
 
 Automatic content recognition (ACR) is how an LG TV works out what is being
 watched on it. This page sets out what LG and its advertising arm say the data
-is for, what the firmware on the tested TVs shows, and which nativeTv
+is for, what the firmware on the tested TVs shows, and which Native Tv
 controls act on it. Claims are LG's own unless marked otherwise.
 
 ## Who receives it
@@ -83,7 +83,7 @@ for; the Privacy tab lists each under a descriptive name:
 Which flag the ACR client, `acr2`, reads differs by firmware. On a C9
 (webOS 4.10.2, firmware 05.50.00) it names `acrOnAllowed`, the master
 consent, and not `acrAllowed`.
-nativeTv's ACR switch sets the TV's Live Plus setting and whichever of the
+Native Tv's ACR switch sets the TV's Live Plus setting and whichever of the
 two flags the client on the TV names, or `acrAllowed` where it names
 neither. Withdrawing the master consent withdraws the agreements it rests on,
 and with them any other flag resting on those agreements. Which flag starts

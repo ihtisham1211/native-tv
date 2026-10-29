@@ -1,7 +1,7 @@
 # Installing from the Homebrew Channel
 
-1. Open the Homebrew Channel, find **nativeTv**, and install it.
-2. Open **nativeTv** from the home screen. The first launch puts the server in place, which takes a few seconds.
+1. Open the Homebrew Channel, find **Native Tv**, and install it.
+2. Open **Native Tv** from the home screen. The first launch puts the server in place, which takes a few seconds.
 3. Setup asks whether phones and computers on the network may use the dashboard, and whether to connect Home Assistant. Broker details are typed on a phone, which scans a code from the TV. Both can be changed later in the **Settings** tab.
 
 An install from the Homebrew Channel differs from one made with `deploy.sh` in a few ways:

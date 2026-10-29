@@ -1,6 +1,6 @@
 # Third-party notices
 
-nativeTv is MIT licensed ([LICENSE](LICENSE)). It includes, links to or was
+Native Tv is MIT licensed ([LICENSE](LICENSE)). It includes, links to or was
 built from the components below. Each keeps its own licence; the text sits at
 the path given, or is the licence named by its SPDX id at the address given.
 
@@ -43,6 +43,6 @@ The TV pages and the TV client take their sizes, colours and type scale from
 Google's TV Design Kit. No file of the kit is included; the values were
 re-created in `native-tv/design/` and `native-tv/assets/google-tv/`. Google,
 Android TV, Google TV and Material Design are trademarks of Google LLC. LG and
-webOS are trademarks of LG Electronics. nativeTv is not affiliated with either.
+webOS are trademarks of LG Electronics. Native Tv is not affiliated with either.
 
 The project the code descends from is credited in the [README](README.md#credits).

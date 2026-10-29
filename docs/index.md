@@ -1,6 +1,6 @@
-<p align="center"><img src="logo/nativetv-512.png" width="112" alt="nativeTv logo: an n whose arch is a screen corner, with a green pixel"></p>
+<p align="center"><img src="logo/nativetv-512.png" width="112" alt="Native Tv logo: an n whose arch is a screen corner, with a green pixel"></p>
 
-# nativeTv
+# Native Tv
 
 **Own the glass.** A dashboard, privacy controls and Home Assistant bridge for rooted LG webOS TVs.
 
@@ -8,16 +8,16 @@
 >
 > ## The TV belongs to its owner.
 >
-> nativeTv is for owners who do not want a network-connected appliance used as
+> Native Tv is for owners who do not want a network-connected appliance used as
 > a platform for advertising, telemetry and vendor-controlled experiences. It
 > brings control, visibility and automation back to the device: ways to remove
 > ads, withdraw from agreements and services that monetise the owner's data,
 > and a simpler TV, with customisation and local smart-home integration.
 >
-> nativeTv itself is local and transparent, and needs no cloud service. It
+> Native Tv itself is local and transparent, and needs no cloud service. It
 > collects no data, shows no ads and has no dark patterns.
 
-**nativeTv** is a server that runs directly on a rooted LG webOS TV, providing both a live browser dashboard and a dashboard app.
+**Native Tv** is a server that runs directly on a rooted LG webOS TV, providing both a live browser dashboard and a dashboard app.
 
 Use it for remote control, app installation and removal, OLED panel care, privacy controls, service menu access, and hardware telemetry. It also includes an MQTT bridge for integrating the TV with Home Assistant and other smart-home software.
 
@@ -89,7 +89,7 @@ MIT. See [LICENSE](https://github.com/ihtisham1211/nativeTv/blob/main/LICENSE).
 
 ## Credits
 
-nativeTv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by Rory Gallagher, released under the MIT licence; his copyright notice is kept in [LICENSE](https://github.com/ihtisham1211/nativeTv/blob/main/LICENSE). Bundled third-party work, with its licence ([THIRD-PARTY-NOTICES.md](https://github.com/ihtisham1211/nativeTv/blob/main/THIRD-PARTY-NOTICES.md) has the texts):
+Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by Rory Gallagher, released under the MIT licence; his copyright notice is kept in [LICENSE](https://github.com/ihtisham1211/nativeTv/blob/main/LICENSE). Bundled third-party work, with its licence ([THIRD-PARTY-NOTICES.md](https://github.com/ihtisham1211/nativeTv/blob/main/THIRD-PARTY-NOTICES.md) has the texts):
 
 * [CivetWeb](https://github.com/civetweb/civetweb): the HTTP server (MIT)
 * [json-c](https://github.com/json-c/json-c): JSON, from the webOSbrew SDK (MIT)

@@ -350,13 +350,13 @@ bool restoreJavaScriptRemoteKeys(CommandPolicyExecutor &policy,
                 chainWriteReply) ||
             !chainWriteReply.response["returnValue"].boolean()) {
             error = chainWriteReply.error.empty()
-                ? "configd did not remove the nativeTv remote-key filter"
+                ? "configd did not remove the Native Tv remote-key filter"
                 : chainWriteReply.error;
             return false;
         }
     }
     if (unlink(filterPath.c_str()) != 0 && errno != ENOENT) {
-        error = "could not remove the nativeTv remote-key filter file";
+        error = "could not remove the Native Tv remote-key filter file";
         return false;
     }
     return true;
@@ -1134,7 +1134,7 @@ int main(int argc, char **argv) {
             if (!result["ok"].isBoolean() || !result["ok"].boolean())
                 throw std::runtime_error(result["error"].isString()
                     ? result["error"].string()
-                    : "could not restore nativeTv Home");
+                    : "could not restore Native Tv Home");
             return 0;
         }
 
@@ -1145,7 +1145,7 @@ int main(int argc, char **argv) {
                     JsonFile(dataDirectory() + "/home.json", 256 * 1024).load();
                 if (!homeSettings.found || !homeSettings.value.isObject() ||
                     !homeSettings.value["enabled"].boolean()) {
-                    logger.info("Home takeover skipped: nativeTv Home is disabled");
+                    logger.info("Home takeover skipped: Native Tv Home is disabled");
                     return 3;
                 }
                 if (!homeScreenManager->supportsTakeover(
@@ -2498,7 +2498,7 @@ int main(int argc, char **argv) {
         logger.info("resident runtime stopped");
         return 0;
     } catch (const std::exception &error) {
-        std::fprintf(stderr, "nativeTv daemon: %s\n", error.what());
+        std::fprintf(stderr, "Native Tv daemon: %s\n", error.what());
         return 2;
     }
 }

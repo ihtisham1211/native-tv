@@ -98,7 +98,7 @@ int main() {
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
 #endif
-    SDL_Window *window = SDL_CreateWindow("nativeTv renderer test", 0, 0, kWindow, kWindow,
+    SDL_Window *window = SDL_CreateWindow("Native Tv renderer test", 0, 0, kWindow, kWindow,
                                           SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN);
     SDL_GLContext context = window ? SDL_GL_CreateContext(window) : nullptr;
     if (!context) {

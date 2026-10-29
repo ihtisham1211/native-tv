@@ -4,18 +4,18 @@
 
 The ambient lighting server processes the video stream and controls addressable LED light strips (such as WLED, WS2812B, SK6812, Philips Hue, or Nanoleaf) mounted behind the TV, creating synchronized "Ambilight"-style bias lighting that extends the colors and brightness of the picture onto the wall in real time.
 
-nativeTv integrates with PicCap to provide one-tap power control from the web dashboard, instant status readouts, and automated switching in Home Assistant.
+Native Tv integrates with PicCap to provide one-tap power control from the web dashboard, instant status readouts, and automated switching in Home Assistant.
 
 ---
 
-## How nativeTv supports PicCap
+## How Native Tv supports PicCap
 
 ### Zero-overhead detection
 
-PicCap is optional. nativeTv inspects the TV filesystem for PicCap's application directory (`/media/developer/apps/usr/palm/applications/org.webosbrew.piccap`):
+PicCap is optional. Native Tv inspects the TV filesystem for PicCap's application directory (`/media/developer/apps/usr/palm/applications/org.webosbrew.piccap`):
 
-* **If PicCap is not installed or the TV runs webOS 2:** nativeTv never queries Luna for PicCap, starts no timers, and sends no network requests. PicCap requires webOS 3 or newer; querying its service on webOS 2 stalls the Luna bus and causes watchdog resets (#746).
-* **If PicCap is installed (webOS 3+):** nativeTv queries PicCap's background Luna service (`org.webosbrew.piccap.service/status`) to check whether capture is active.
+* **If PicCap is not installed or the TV runs webOS 2:** Native Tv never queries Luna for PicCap, starts no timers, and sends no network requests. PicCap requires webOS 3 or newer; querying its service on webOS 2 stalls the Luna bus and causes watchdog resets (#746).
+* **If PicCap is installed (webOS 3+):** Native Tv queries PicCap's background Luna service (`org.webosbrew.piccap.service/status`) to check whether capture is active.
 
 ### The toggle in Advanced Controls
 
@@ -28,7 +28,7 @@ This allows toggling ambient lighting instantly from any phone, tablet, or brows
 
 ### Home Assistant integration
 
-When PicCap is answering on the TV, nativeTv discovers a **PicCap Capture** switch in Home Assistant (`switch.<tv_name>_piccap`) under the **Controls & Media** category:
+When PicCap is answering on the TV, Native Tv discovers a **PicCap Capture** switch in Home Assistant (`switch.<tv_name>_piccap`) under the **Controls & Media** category:
 
 * **State topic:** `<topicPrefix>/state/piccap/power` publishes `ON` or `OFF` (retained).
 * **Command topic:** `<topicPrefix>/command/piccap/power` accepts `ON` or `OFF` (requires `allowControl: true`).
@@ -60,7 +60,7 @@ Because PicCap captures from the TV's video hardware, content protection (HDCP/D
 
 Continuous screen capture consumes SoC processing cycles and network bandwidth. Keeping capture running when it is not needed can cause unnecessary TV heating or frame pacing jitter during competitive gaming.
 
-With nativeTv, capture can remain stopped until needed—for instance, turning it on only after sunset or during movie nights, and switching it off during bright daytime viewing or gaming.
+With Native Tv, capture can remain stopped until needed—for instance, turning it on only after sunset or during movie nights, and switching it off during bright daytime viewing or gaming.
 
 ---
 
@@ -87,18 +87,18 @@ Open PicCap from the TV's app launcher with your remote to configure its initial
 4. **Resolution and Framerate:**
    * Resolution: Set to a low resolution such as **160&times;90** or **320&times;180**. Because Hyperion only needs average color values for LED edge zones, high resolution is unnecessary and wastes TV CPU.
    * Frame rate: Set to **25–30 fps**. This provides fluid backlight transitions while keeping CPU utilization under 5%.
-5. **Autostart:** Enable if you want PicCap to start automatically when the TV boots, or leave disabled if you prefer nativeTv or Home Assistant automations to control when capture runs.
+5. **Autostart:** Enable if you want PicCap to start automatically when the TV boots, or leave disabled if you prefer Native Tv or Home Assistant automations to control when capture runs.
 6. Click **Save** and test the capture to verify that Hyperion receives the feed.
 
 ---
 
-## Using PicCap with nativeTv
+## Using PicCap with Native Tv
 
-Once PicCap is installed and configured, nativeTv automatically detects it on the next check.
+Once PicCap is installed and configured, Native Tv automatically detects it on the next check.
 
 ### In the Web Dashboard
 
-1. Open the nativeTv dashboard in any browser.
+1. Open the Native Tv dashboard in any browser.
 2. Go to the **Advanced** tab (`/?tab=advanced`).
 3. Scroll down to **Ambient light**.
 4. Click the **PicCap capture** button to toggle capture on or off.
@@ -169,5 +169,5 @@ In `config.json`, the following settings govern PicCap:
 
 | Key | Default | Description |
 | :--- | :--- | :--- |
-| `piccap.pollIntervalMs` | `30000` | How often (in milliseconds) nativeTv queries PicCap's service for Home Assistant state updates while MQTT is connected (minimum `1000`, maximum `600000`). |
+| `piccap.pollIntervalMs` | `30000` | How often (in milliseconds) Native Tv queries PicCap's service for Home Assistant state updates while MQTT is connected (minimum `1000`, maximum `600000`). |
 | `mqtt.entities.disabled` | `[]` | Add `"piccap"` to this list to permanently disable the Home Assistant entity and stop all background polling for PicCap. |

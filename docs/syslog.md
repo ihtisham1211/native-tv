@@ -1,6 +1,6 @@
 # Log forwarding (syslog)
 
-nativeTv can send the logs shown on the [Tools tab](dashboard/tools.md) to a log server on the local network, so they can be kept and searched alongside the logs of other devices.
+Native Tv can send the logs shown on the [Tools tab](dashboard/tools.md) to a log server on the local network, so they can be kept and searched alongside the logs of other devices.
 
 This is for networks that already run a log server, such as Grafana Loki (through Alloy), rsyslog, syslog-ng or Vector. Without one, there is nothing to set up: the Tools tab shows the logs on its own.
 
@@ -25,7 +25,7 @@ Log forwarding is set up in `/var/lib/tvweb/config.json` on the TV, followed by 
 * **server**: the log server's name or address. Empty turns forwarding off.
 * **port**: where it listens, 514 unless it says otherwise.
 * **hostname**: the name the TV's lines arrive under. Empty uses the TV's device name.
-* **sources**: which logs to send. `system` is the TV's own log, `nativetv` is nativeTv's, and `kernel` is the TV's kernel log, which means reading it every 30 seconds, so it is off unless listed.
+* **sources**: which logs to send. `system` is the TV's own log, `nativetv` is Native Tv's, and `kernel` is the TV's kernel log, which means reading it every 30 seconds, so it is off unless listed.
 * **redact**: removes addresses, credentials and postcodes, as the Tools tab's copy and export do. The TV's own logs include the owner's postcode, so this stays on unless there is a reason to turn it off.
 
 Lines go as standard syslog (RFC 5424) over UDP, one line each. With Alloy, `loki.source.syslog` with `syslog_format = "rfc5424"` takes them.

@@ -389,7 +389,7 @@ function renderPreview(pv) {
     : t('apps.install.cpu', 'Its programs are built for a different processor than this TV\'s and may not run.');
   q('inst-screensaver').hidden = !pv.isScreensaver;
   q('inst-screensaver').textContent = pv.isScreensaver
-    ? t('apps.install.screensaver.warn', 'This app installs a custom screen saver, which will replace nativeTv’s own screen savers.') : '';
+    ? t('apps.install.screensaver.warn', 'This app installs a custom screen saver, which will replace Native Tv’s own screen savers.') : '';
   q('inst-space').textContent = pv.freeBytes === null || pv.freeBytes === undefined ? ''
     : t('apps.install.space', 'Free space: {free}. Needed: about {need}.', { free: fmtMb(pv.freeBytes), need: fmtMb(pv.needBytes) });
   const showHash = pv.source !== 'catalog' && !!pv.sha256;

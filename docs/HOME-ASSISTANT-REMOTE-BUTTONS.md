@@ -15,7 +15,7 @@ Because it is exposed as an `event` entity rather than a `sensor`, every press f
 </div>
 
 > [!NOTE]
-> - **Server Must Be Running**: Remote button event detection requires the nativeTv background server to be running on the TV. It does not run while the TV is powered off or in deep standby.
+> - **Server Must Be Running**: Remote button event detection requires the Native Tv background server to be running on the TV. It does not run while the TV is powered off or in deep standby.
 > - **Cold-Boot / Start-up Delay**: Following a cold-boot or power-on, the server starts up via the webosbrew `init.d` script (`50-tvweb`). Remote button presses sent before the server completes its start-up sequence will not be captured.
 > - **Standby with Quick Start+**: When Quick Start+ is enabled in LG settings, the TV enters a low-power suspend state rather than a full system shutdown, allowing the background service to be ready immediately when the TV wakes.
 > - **Preventing Power-On Ghost Triggers**: When the TV powers off, the event entity transitions to `unavailable`. In Home Assistant automations, always add `not_from: [unknown, unavailable]` and `not_to: [unknown, unavailable]` to state triggers so the transition back to available does not re-fire the last recorded event.
@@ -162,7 +162,7 @@ mode: restart
 ## Automation Tips & Gotchas
 
 ### 1. Preventing Power-On Ghost Triggers
-When the TV powers off or enters deep standby, the nativeTv background server stops and Home Assistant marks `event.lg_tv_remote_button` as `unavailable`.
+When the TV powers off or enters deep standby, the Native Tv background server stops and Home Assistant marks `event.lg_tv_remote_button` as `unavailable`.
 
 When the TV powers back on, Home Assistant transitions the entity from `unavailable` back to its restored state—which still retains the attributes of whichever button was last pressed (even if hours or days ago).
 
@@ -192,7 +192,7 @@ mode: restart
 For smart lights (such as LIFX or Philips Hue), also specify `transition: 0` in the `light.turn_on` action data so colors and brightness snap instantly rather than slowly fading.
 
 ### 3. Controlling from Multiple LG TVs
-If you have multiple LG TVs running nativeTv (e.g. an OLED B8 and an OLED C2), you can list all their remote event entities under a single trigger:
+If you have multiple LG TVs running Native Tv (e.g. an OLED B8 and an OLED C2), you can list all their remote event entities under a single trigger:
 
 ```yaml
 trigger:

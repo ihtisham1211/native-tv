@@ -170,7 +170,7 @@ def main():
                 port, token, {"kind": "app", "id": "com.example.unknown"})
             assert status == 400
             assert json.loads(body.decode("utf-8")) == {
-                "ok": False, "error": "that is not on nativeTv Home"}
+                "ok": False, "error": "that is not on Native Tv Home"}
 
             # A device opens its HDMI input, stamping the tile's own id.
             status, _, body = post(
@@ -193,7 +193,7 @@ def main():
             status, _, body = post(port, token, {"kind": "dev", "id": "hdmi3"})
             assert status == 400
             assert json.loads(body.decode("utf-8"))["error"] == \
-                "that is not on nativeTv Home"
+                "that is not on Native Tv Home"
 
             # A channel tunes through the API adapter.
             status, _, body = post(port, token, {"kind": "ch", "id": "channel-1"})

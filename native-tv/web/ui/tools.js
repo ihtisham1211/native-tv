@@ -220,7 +220,7 @@ function renderToolsLogs() {
     const fullTimeTip = esc(e.ts + (uptime ? ' (' + uptime + ')' : ''));
     const lvl = levelShort(e.level);
     const displayMsg = e.msg;
-    // nativeTv lines start with their process ("mqtt: ..."), which the
+    // Native Tv lines start with their process ("mqtt: ..."), which the
     // Process column already shows.
     const rowMsg = e.proc && displayMsg && displayMsg.indexOf(e.proc + ': ') === 0
       ? displayMsg.slice(e.proc.length + 2) : displayMsg;
@@ -464,7 +464,7 @@ async function copyToolsRaw(idx, btn) {
 function downloadToolsLogs() {
   const filtered = getFilteredEntries();
   if (!filtered.length) return;
-  const header = `# nativeTv & webOS System Logs\n# Exported: ${new Date().toISOString()}\n# Entries: ${filtered.length}\n# Private details hidden: ${toolsRedact ? 'yes' : 'no'}\n\n`;
+  const header = `# Native Tv & webOS System Logs\n# Exported: ${new Date().toISOString()}\n# Entries: ${filtered.length}\n# Private details hidden: ${toolsRedact ? 'yes' : 'no'}\n\n`;
   const lines = filtered.map(logLine);
   const content = header + lines.join('\n');
   const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -543,10 +543,10 @@ async function loadLogForwarding() {
     if (!s) {
       el.innerHTML = esc(t('tools.fwd.off', 'These logs are not sent anywhere else. A log server on the network can be set up to receive them.')) + ' ' + link;
     } else {
-      const sourceNames = { system: t('tools.src.system', 'System'), nativetv: t('tools.src.nativetv', 'nativeTv'), kernel: t('tools.src.kernel', 'Kernel') };
+      const sourceNames = { system: t('tools.src.system', 'System'), nativetv: t('tools.src.nativetv', 'Native Tv'), kernel: t('tools.src.kernel', 'Kernel') };
       const sent = Object.keys(s.messages || {}).reduce((n, k) => n + (s.messages[k] || 0), 0);
       const where = s.port && s.port !== 514 ? hostPort(s.server, s.port) : s.server;
-      el.innerHTML = esc(t('tools.fwd.on', 'Also sent to the log server {server}: {sources}, {redact}. {sent} sent since nativeTv started{failed}.', {
+      el.innerHTML = esc(t('tools.fwd.on', 'Also sent to the log server {server}: {sources}, {redact}. {sent} sent since Native Tv started{failed}.', {
         server: where,
         sources: s.sources.map(k => sourceNames[k] || k).join(', '),
         redact: s.redact ? t('tools.fwd.redacted', 'with personal details removed') : t('tools.fwd.unredacted', 'including personal details'),

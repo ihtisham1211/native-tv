@@ -3,7 +3,7 @@
 Text shown on the dashboards is written in English where it is used, with a key
 next to it. The key names the string, so the same words are used wherever it
 appears, and `scripts/check-strings.py` catches the ones that drift apart.
-nativeTv is English only: there are no translations.
+Native Tv is English only: there are no translations.
 
 `scripts/check-strings.py` enforces what follows, and runs in CI.
 

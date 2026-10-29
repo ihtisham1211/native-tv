@@ -310,7 +310,7 @@ let adblockReconnectTimer = null;
 
 /*
  * Custom ad blocking: the owner's hosts list, kept on the TV. It can be
- * switched off without deleting it, and is used added to nativeTv's list or
+ * switched off without deleting it, and is used added to Native Tv's list or
  * in place of it. Each action says how it went in the row itself, as the
  * page's error bar is out of sight this far down.
  */
@@ -333,8 +333,8 @@ function customHostsStatus(cu, mode) {
   if (mode === 'off') return t('pv.adblock.custom.offNote', 'Nothing is blocked while the blocker is off.');
   const vars = { n: cu.count, own: cu.ownCount, shared: cu.shared };
   let text = cu.mode === 'add'
-    ? t('pv.adblock.custom.addDetail', 'The file’s {n} names are blocked as well as nativeTv’s {own} for this tier. In both: {shared}.', vars)
-    : t('pv.adblock.custom.replaceDetail', 'Only the file’s {n} names are blocked, not nativeTv’s {own} for this tier. In both: {shared}.', vars);
+    ? t('pv.adblock.custom.addDetail', 'The file’s {n} names are blocked as well as Native Tv’s {own} for this tier. In both: {shared}.', vars)
+    : t('pv.adblock.custom.replaceDetail', 'Only the file’s {n} names are blocked, not Native Tv’s {own} for this tier. In both: {shared}.', vars);
   // The ad blocker's own count: blocked software updates are a separate setting.
   return text + ' ' + t('pv.adblock.custom.total', 'The ad blocker blocks {n} names.', { n: cu.blocked });
 }
@@ -353,7 +353,7 @@ function renderCustomHosts(cu, mode) {
   q('abc-mode').value = cu ? cu.mode : customHostsMode;
   if (cu && cu.enabled && cu.mode === 'replace' && mode !== 'off') {
     q('adblock-detail').textContent = t('pv.adblock.custom.replacing',
-      'Blocks the names in your hosts file and none of nativeTv’s, on either tier.');
+      'Blocks the names in your hosts file and none of Native Tv’s, on either tier.');
   }
   const el = q('abc-detail');
   el.textContent = customHostsNote ? customHostsNote.text : customHostsStatus(cu, mode);

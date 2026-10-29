@@ -65,7 +65,7 @@ int main() {
         "{\"id\":\"com.webos.app.gallery\",\"title\":\"Gallery\",\"systemApp\":true,"
         "\"removable\":false,\"folderPath\":\"/usr/palm/applications/com.webos.app.gallery\"},"
         "{\"id\":\"org.example.store\",\"title\":\"Store Copy\",\"folderPath\":\"/media/cryptofs/apps/org.example.store\",\"removable\":false},"
-        "{\"id\":\"com.tvweb.dashboard\",\"title\":\"nativeTv\",\"removable\":true,"
+        "{\"id\":\"com.tvweb.dashboard\",\"title\":\"Native Tv\",\"removable\":true,"
         "\"folderPath\":\"/media/developer/apps/com.tvweb.dashboard\"},"
         "{\"id\":\"org.example:encoded\",\"title\":\"Encoded\",\"removable\":true,"
         "\"folderPath\":\"/media/developer/apps/org.example:encoded\"}]}");

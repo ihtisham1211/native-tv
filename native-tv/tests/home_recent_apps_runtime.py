@@ -95,7 +95,7 @@ def main():
              "cardSnapShotFilePath": str(screenshots / "linked.png")},
             {"appId": "com.webos.app.home", "title": "LG Home",
              "cardSnapShotFilePath": str(screenshots / "first.PNG")},
-            {"appId": "com.tvweb.native", "title": "nativeTv Home",
+            {"appId": "com.tvweb.native", "title": "Native Tv Home",
              "cardSnapShotFilePath": str(screenshots / "first.PNG")},
             {"title": "Missing app id"}
         ]

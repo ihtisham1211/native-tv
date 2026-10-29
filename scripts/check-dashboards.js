@@ -1112,7 +1112,7 @@ async function visitHomePreferences(browser, base, problems) {
     await page.waitForFunction(() => document.getElementById('home-app-names').getAttribute('aria-pressed') === 'false');
     if (layout.appNames !== false) problems.push('Home preferences: the browser did not save icons-only');
     await page.getByRole('button', { name: 'Power-on screen', exact: true }).click();
-    await page.waitForFunction(() => document.getElementById('home-startup').textContent === 'nativeTv Home');
+    await page.waitForFunction(() => document.getElementById('home-startup').textContent === 'Native Tv Home');
     if (!openOnPowerOn) problems.push('Home preferences: the browser did not save the power-on choice');
     await page.getByRole('button', { name: 'Clock format', exact: true }).click();
     await page.waitForFunction(() => document.getElementById('home-clock').textContent === '12-hour');
@@ -1199,7 +1199,7 @@ async function visitHomeClock(browser, base, problems) {
   } finally { await page.close(); }
 }
 
-// The Inputs row and the LG Home tile can each be left out of nativeTv Home.
+// The Inputs row and the LG Home tile can each be left out of Native Tv Home.
 async function visitHomeVisibility(browser, base, problems) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   page.on('pageerror', e => problems.push('Home visibility: ' + e.message));
@@ -1296,7 +1296,7 @@ async function visitHomeVisibility(browser, base, problems) {
   } finally { await page.close(); }
 }
 
-// nativeTv Home: tabs, the featured carousel, rows, and Back's levels.
+// Native Tv Home: tabs, the featured carousel, rows, and Back's levels.
 async function visitHomeTv(browser, base, problems) {
   const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
   page.on('pageerror', e => problems.push('Home TV view: ' + e.message));
@@ -1798,7 +1798,7 @@ async function visitHomePointer(browser, base, problems) {
   } finally { await page.close(); }
 }
 
-// Moving on nativeTv Home patches only the tiles whose focus changed and
+// Moving on Native Tv Home patches only the tiles whose focus changed and
 // the rows that gained or lost the selection; a key press never rebuilds the
 // rows or touches every tile in them.
 async function visitHomeRendering(browser, base, problems) {
@@ -2169,7 +2169,7 @@ async function visitHomeGuideRefresh(browser, base, problems) {
   } finally { await page.close(); }
 }
 
-// Each row's Order: shown by nativeTv Home, set on the Home tab and the TV app's Home section.
+// Each row's Order: shown by Native Tv Home, set on the Home tab and the TV app's Home section.
 async function visitHomeOrder(browser, base, problems) {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
   page.on('pageerror', e => problems.push('Home order: ' + e.message));
@@ -2394,7 +2394,7 @@ async function visitHomeUploads(browser, base, problems) {
   } finally { await context.close(); }
 }
 
-// Where nativeTv Home is not offered its tab is left out; where it is on, the Apps tab says what LG's settings reach.
+// Where Native Tv Home is not offered its tab is left out; where it is on, the Apps tab says what LG's settings reach.
 async function visitHomeAvailability(browser, base, problems) {
   for (const st of [{ available: false, enabled: false }, { available: true, enabled: true }]) {
     const page = await browser.newPage();
@@ -2412,7 +2412,7 @@ async function visitHomeAvailability(browser, base, problems) {
       if (hidden === st.available) problems.push('Home availability: tab ' + (hidden ? 'hidden' : 'shown') + ' with available ' + st.available);
       if (!st.available && await page.evaluate(() => activeTab) !== 'control') problems.push('Home availability: an unavailable Home tab stayed open');
       const notes = await page.locator('[data-nativetv-home-note]:not([hidden])').count();
-      if (notes !== (st.enabled ? 2 : 0)) problems.push('Home availability: ' + notes + ' Apps tab notes with nativeTv Home ' + (st.enabled ? 'on' : 'off'));
+      if (notes !== (st.enabled ? 2 : 0)) problems.push('Home availability: ' + notes + ' Apps tab notes with Native Tv Home ' + (st.enabled ? 'on' : 'off'));
     } finally { await page.close(); }
   }
 }

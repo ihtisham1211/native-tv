@@ -47,7 +47,7 @@ std::vector<MenuRow> setupRows(const std::string &step, const Json &state) {
                  post(Operation::Setup,
                       fields({{"action", Json::text("alwaysReady")}, {"on", Json::flag(true)}}))},
                 {"No, let it sleep", "",
-                 "nativeTv and Home Assistant wait until the TV is on again.", "",
+                 "Native Tv and Home Assistant wait until the TV is on again.", "",
                  post(Operation::Setup,
                       fields({{"action", Json::text("alwaysReady")}, {"on", Json::flag(false)}}))}};
     return {

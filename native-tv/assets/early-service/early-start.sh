@@ -4,7 +4,7 @@
 # cold start; the first call that got through, at about 21.6 s, was the third),
 # so the filter calls every second until about 33 s and this runs once per boot:
 # the first run takes the lock, the rest find it. Takes no input from the call.
-# Starts the services hook, and the boot hook while nativeTv Home is on
+# Starts the services hook, and the boot hook while Native Tv Home is on
 # (early-home), which startup.sh would only run at 43-48 s; each hook runs once
 # per boot whoever starts it first. Detached: the bus gives this script no
 # reply to wait for.

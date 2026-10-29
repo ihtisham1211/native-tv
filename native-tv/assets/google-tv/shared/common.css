@@ -2,7 +2,7 @@
  * Keep each reusable rule here; page-specific rules belong beside its HTML. */
 /* @section tokens */
 /*
- * nativeTv's TV design system, after Google's TV Design Kit (Material "TV
+ * Native Tv's TV design system, after Google's TV Design Kit (Material "TV
  * Compose", Figma file uB6lquieLC37hjDX0hEo1o). Shared by the pages the TV's
  * own browser shows; the server inlines these files into each page.
  *
@@ -400,7 +400,7 @@ body.light,html.light{background:#F5F5F5;color:#1F1F1F}
 
 /* @section boot */
 /* The boot screen, over the page until its first render: four colours of the
-   kit's palette drifting over black, the nativeTv mark and the kit's busy bar.
+   kit's palette drifting over black, the Native Tv mark and the kit's busy bar.
    Only transforms move. hideBoot fades it and then takes it out of the page,
    so nothing animates under the rows. */
 .gt-boot{position:absolute;left:0;top:0;width:1920px;height:1080px;z-index:20;background:#000;overflow:hidden;

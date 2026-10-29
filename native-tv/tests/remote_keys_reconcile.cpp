@@ -213,7 +213,7 @@ int main() {
         wrote = false;
         check(frontDoor.reconcileNativeRemoteKeys(wrote, error),
               "LG restoration failed: " + error);
-        check(wrote, "clearing the nativeTv map did not restore LG settings");
+        check(wrote, "clearing the Native Tv map did not restore LG settings");
         check(wroteMappingTo(details, "netflix"),
               "LG's original mapping was not restored");
         const Json disabledAfterRestore = readJson(data + "/disabled_services.json");

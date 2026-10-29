@@ -2,9 +2,9 @@
 
 The dashboard can also run directly on the TV's home screen, driven by the remote, for when there is no phone or laptop to hand.
 
-It is drawn by the nativeTv client in the style of Google TV: a dark page with one accent colour, cards that lift and glow when they are focused, and a top bar with the profile, the tabs and the clock. The pages below are its own screens, not web pages.
+It is drawn by the Native Tv client in the style of Google TV: a dark page with one accent colour, cards that lift and glow when they are focused, and a top bar with the profile, the tabs and the clock. The pages below are its own screens, not web pages.
 
-![The nativeTv TV app showing live hardware metrics, temperatures, and storage health on true black](../screenshots/tv-app.png)
+![The Native Tv TV app showing live hardware metrics, temperatures, and storage health on true black](../screenshots/tv-app.png)
 
 *The TV app's Metrics view, showing SoC temperature, CPU load, memory, swap, eMMC storage wear, and TV model.*
 
@@ -33,14 +33,14 @@ Opening the TV app on a fresh install starts an on-screen setup wizard to config
 
 1. **Web dashboard access**: Choose between opening the web dashboard to devices across your home network or keeping it private to this TV only (`127.0.0.1`).
 2. **Home Assistant integration**: Connect your TV to Home Assistant via MQTT. The TV displays a QR code to scan with your phone, allowing you to enter MQTT broker details easily without typing credentials on the remote. Beside the code is an on-screen keyboard for typing the broker's address, port, user and password with the remote instead, one field after another; Back returns to the previous field, and the TV shows when the broker has connected.
-3. **Active Standby (Always-on)**: On TVs with Always Ready support (such as LG C2 or G2), choose whether nativeTv and Home Assistant remain connected with the screen off so the TV can be controlled and turned back on over the network.
+3. **Active Standby (Always-on)**: On TVs with Always Ready support (such as LG C2 or G2), choose whether Native Tv and Home Assistant remain connected with the screen off so the TV can be controlled and turned back on over the network.
 4. **Summary**: Review your setup and open the dashboard with a single click.
 
 A row of dots at the bottom of each page shows how far along the wizard is, and a line of key hints sits under it. Left or Back returns to the previous step, as it always did; Back on the welcome page leaves setup, which then starts again the next time the app opens. When the app is opened from **Settings** to connect Home Assistant, only the phone link and the keyboard appear and Back returns to Settings.
 
 All choices made during setup can be changed at any time from the TV app's **Settings** or the web dashboard.
 
-![Welcome screen of the nativeTv TV app setup wizard](../screenshots/tv-app-setup-welcome.png)
+![Welcome screen of the Native Tv TV app setup wizard](../screenshots/tv-app-setup-welcome.png)
 
 *The setup wizard welcome screen.*
 
@@ -79,9 +79,9 @@ The **Apps** section lists the apps installed from outside LG's store, each with
 
 *The Apps view, showing Homebrew Channel catalog browsing and system app hiding.*
 
-### nativeTv Home
+### Native Tv Home
 
-The **Home** section sets up [nativeTv Home](../dashboard/home.md) from the TV, as the browser dashboard's Home tab does, and is left out on a TV nativeTv Home is not offered on. It has the on/off switch (a second press confirms), a way to open nativeTv Home while it is on, the order of its rows, then a section for each row in that order: each row's Order (Your order or Last opened), apps and inputs each shown or hidden, and the channels added, each removed with OK, with **Add channels** listing the TV's channels not yet on Home. Then whether wallpapers are uploaded (they are uploaded from the browser dashboard), and **Reset the layout**. Moving tiles within a row is done on nativeTv Home itself, by holding OK.
+The **Home** section sets up [Native Tv Home](../dashboard/home.md) from the TV, as the browser dashboard's Home tab does, and is left out on a TV Native Tv Home is not offered on. It has the on/off switch (a second press confirms), a way to open Native Tv Home while it is on, the order of its rows, then a section for each row in that order: each row's Order (Your order or Last opened), apps and inputs each shown or hidden, and the channels added, each removed with OK, with **Add channels** listing the TV's channels not yet on Home. Then whether wallpapers are uploaded (they are uploaded from the browser dashboard), and **Reset the layout**. Moving tiles within a row is done on Native Tv Home itself, by holding OK.
 
 ### Sleep timer and power
 
@@ -89,7 +89,7 @@ The **System** section has the sleep timer under **Timers**: each press of OK mo
 
 ### Adding and removing the app
 
-A first install of nativeTv adds the app to the TV's home screen; updating an existing install leaves the home screen alone. The app is the nativeTv client itself, opened on the dashboard screen, and it is brought up to date with the server at each start of the server.
+A first install of Native Tv adds the app to the TV's home screen; updating an existing install leaves the home screen alone. The app is the Native Tv client itself, opened on the dashboard screen, and it is brought up to date with the server at each start of the server.
 
 The app can be added or removed at any time:
 

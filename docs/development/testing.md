@@ -23,7 +23,7 @@ something is wrong, and Home Assistant and the TV's own browser fail quietly.
 | `check-route-manifest.js`, `check-test-matrix.js` | A route in `native-tv/contract/routes.json` the daemon does not answer or answers without its guards, and a legacy suite that `native-tv/contract/test-migration.json` does not account for. Run by `native-tv.yml`. |
 | CTest: `native-csrf-policy`, the UI suites | A mutating route without its CSRF defences; the dashboard's scripts and the boot hook's launch decision, run on the host (`native-tv/tests/ui/`). |
 | Package build | The Homebrew Channel `.ipk` still builds, and passes the Homebrew Channel's own compatibility check for webOS 4 and later. |
-| Native tests | Each part of the daemon, and the daemon as a whole against a stand-in `luna-send` and MQTT broker (`native-tv/tests/daemon_runtime.py`), with a TV that answers, one that answers late, wrongly or not at all, MQTT disabled and a nativeTv Home file missing, checking that the dashboard keeps answering and telemetry keeps flowing. |
+| Native tests | Each part of the daemon, and the daemon as a whole against a stand-in `luna-send` and MQTT broker (`native-tv/tests/daemon_runtime.py`), with a TV that answers, one that answers late, wrongly or not at all, MQTT disabled and a Native Tv Home file missing, checking that the dashboard keeps answering and telemetry keeps flowing. |
 
 ## Running the suites
 
@@ -282,7 +282,7 @@ root) ports `test-samrescan.js`: the blocked-list nudge put back exactly and ser
 retried, one app reread with a block and a release (refused, lost and repeated releases), the waits for sam,
 and the restart that follows when sam does not catch up. `native-home-screen-manager`
 (`tests/home_screen_manager.cpp`) ports `test-homescreen.js` and `test-homescreen-webos10.js` for what the
-manager owns: the webOS 9 parts written as a marked layout, the last part kept, the nativeTv Home
+manager owns: the webOS 9 parts written as a marked layout, the last part kept, the Native Tv Home
 layout left alone, restore removing only what was written here, the empty starting layout, the recorded input
 tiles, the webOS 10 overlay behind the experimental switch with its row heights, a reapply after a TV
 restart, and the home app found by its arguments on a restart (children of the test). The input tiles'
@@ -374,7 +374,7 @@ previews, confirms with root, installs and cancels a second upload with no reque
 installer.
 
 `native-home-orchestrator` runs what the Node release's `home.js` still did around the daemon's Home routes
-(`TVWEB_NATIVE_HOME_ORCH=1`): the start-up sequence, the wake from standby that opens nativeTv Home
+(`TVWEB_NATIVE_HOME_ORCH=1`): the start-up sequence, the wake from standby that opens Native Tv Home
 over the input LG put in front, and LG's auto launch following the screen. 43 scenarios recorded from
 `home.js` on a virtual clock by `native-tv/tests/tools/gen-home-orchestrator.js` (the calls made to the
 TV, in order, and the config left; run it again after changing the scenarios; a switch-off is recorded
@@ -631,7 +631,7 @@ Publishing a release runs [`homebrew-channel.yml`](https://github.com/ihtisham12
 attaches it and the Homebrew Channel manifest to the release, and records the
 package's sha256 in the manifest.
 
-A release's notes open with a short summary for people using nativeTv, one
+A release's notes open with a short summary for people using Native Tv, one
 to three plain lines, then a `## Details` heading with the full notes and their
 pull requests. The Server tab and TV app
 show only the summary, so it leaves out changes to the docs and the code
@@ -674,7 +674,7 @@ pip install homeassistant
 
 ## Local TV emulation
 
-`scripts/emulate-tv.js` runs the host build of the daemon as on a TV with no Node (`TVWEB_NODE_FREE=1`), on the build's stand-in `luna-send`, a fixed system snapshot and a seeded nativeTv Home. It serves the web dashboard, the TV pages and the API on a computer, for development without a TV; build first with `python3 native-tv/build.py --service-only`.
+`scripts/emulate-tv.js` runs the host build of the daemon as on a TV with no Node (`TVWEB_NODE_FREE=1`), on the build's stand-in `luna-send`, a fixed system snapshot and a seeded Native Tv Home. It serves the web dashboard, the TV pages and the API on a computer, for development without a TV; build first with `python3 native-tv/build.py --service-only`.
 
 ```bash
 node scripts/emulate-tv.js [--port 8080] [--model c2|b8|c3] [--open]
@@ -683,7 +683,7 @@ node scripts/emulate-tv.js [--port 8080] [--model c2|b8|c3] [--open]
 ## Home content on a TV
 
 On 2026-10-25, the deployed content views were checked on an OLED65B3PUA,
-webOS 10.3.2, firmware 33.31.75, through the developer-installed nativeTv
+webOS 10.3.2, firmware 33.31.75, through the developer-installed Native Tv
 app navigated to the Home page. Its on-device Chromium 120 rendered at
 1920 × 1080. CDP dispatched remote key codes and keyboard input; captures
 covered Home, Lupin details, search results, Stranger Things details and

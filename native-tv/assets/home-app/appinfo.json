@@ -4,7 +4,7 @@
   "vendor": "tvweb",
   "type": "web",
   "main": "index.html",
-  "title": "nativeTv Home",
+  "title": "Native Tv Home",
   "icon": "assets/icon80.png",
   "largeIcon": "assets/icon130.png",
   "iconColor": "#000000",

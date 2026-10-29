@@ -752,7 +752,7 @@ void ScreenTimeEnforcer::afterSwitchedOff(const service::ScreenTimeDue &due,
         return;
     }
     pendingTold_ = true;
-    toast(due.text + " The screen goes off now, and the TV switches off in 5 minutes unless the limit is changed in nativeTv.");
+    toast(due.text + " The screen goes off now, and the TV switches off in 5 minutes unless the limit is changed in Native Tv.");
     blankSoon(timings_.blank);
 }
 

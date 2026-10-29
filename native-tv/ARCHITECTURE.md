@@ -91,7 +91,7 @@ flowchart TD
     overrides.
   - `HomeTakeoverLifecycleManager` sequences LG Home's overlay, saved layout and
     SAM verification; `HomeRestoreManager` owns the standalone Home disable flow;
-    `HomeOrchestrator` runs nativeTv Home's start, wake and LG auto-launch
+    `HomeOrchestrator` runs Native Tv Home's start, wake and LG auto-launch
     handling, and watches the native client that the Home stub (a web app
     mounted over LG's Home, with no screen) starts: `HomeProbeGate` runs the
     client's `--probe` before the takeover is offered or taken, and

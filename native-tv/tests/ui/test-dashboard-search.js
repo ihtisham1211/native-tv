@@ -109,7 +109,7 @@ var systemLogsSec = {
   tab: 'tools',
   tabTitle: 'Tools',
   aliases: ['logs', 'syslog', 'dmesg'],
-  searchText: 'System logs Logs from the TV, nativeTv and hardware'
+  searchText: 'System logs Logs from the TV, Native Tv and hardware'
 };
 
 // Test GSR search
