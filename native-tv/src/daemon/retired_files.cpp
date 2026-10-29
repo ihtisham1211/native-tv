@@ -41,9 +41,7 @@ const char *const kFiles[] = {
     "lib/retired.js", "lib/routes.js", "lib/samrescan.js", "lib/say.js",
     "lib/screensavers.js", "lib/screentime.js", "lib/services.js", "lib/sshkeys.js",
     "lib/state.js", "lib/syslog.js", "lib/telemetry.js", "lib/timers.js", "lib/topics.js",
-    "lib/util.js", "lib/version.js",
-    // The binaries before the project was renamed; the new ones sit beside them.
-    "native/glasshouse-daemon", "native/glasshouse-service"};
+    "lib/util.js", "lib/version.js"};
 // Emptied by the removals above; removed only if nothing else is in them.
 const char *const kFolders[] = {"assets/i18n", "assets/google-tv/components",
                                 "assets/google-tv/pages/kit", "lib"};

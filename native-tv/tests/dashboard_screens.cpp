@@ -6,6 +6,7 @@
 #include "ui/application.hpp"
 #include "ui/kit/widgets.hpp"
 #include <cstdio>
+#include <cmath>
 #include <cstdlib>
 #include <fstream>
 #include <map>
@@ -688,6 +689,52 @@ void catalog() {
     failed.key(Key::Ok);
     check(failing.count("catalog:list") == listed + 1, "OK tries again");
 }
+// ---- Idle dimming: every screen, not only Home -------------------------------------------------
+
+// The OLED must not hold a still picture: thirty quiet seconds dim the screen, and the first key
+// only wakes it.
+bool dimmed(Application &app, float expected) {
+    const Scene &scene = app.frame();
+    if (scene.nodes.empty())
+        return expected == 0;
+    const Node &last = scene.nodes.back();
+    bool veil = last.rect.w == 1920 && last.rect.h == 1080 && last.color.r == 0 &&
+                last.color.g == 0 && last.color.b == 0 && last.color.a > .002f;
+    return expected == 0 ? !veil : veil && std::fabs(last.color.a - expected) < .01f;
+}
+void idle() {
+    {
+        FakeTransport transport;
+        Application app(transport, "live");
+        reply(app, "live:stats", fixture("stats-c4-webos9.json"));
+        uint32_t clock = run(app, 16, 1500);
+        app.key(Key::Right);
+        check(app.snapshot()["focus"].number() == 1, "Live: a key moves the focus");
+        clock = run(app, clock, 29000);
+        check(!app.snapshot()["idle"].boolean() && dimmed(app, 0),
+              "Live is not dimmed before thirty seconds without a key");
+        clock = run(app, clock, 4000);
+        check(app.snapshot()["idle"].boolean() && dimmed(app, .66f),
+              "Live dims to two thirds black after thirty seconds without a key");
+        app.key(Key::Right);
+        check(app.snapshot()["focus"].number() == 1 && !app.snapshot()["idle"].boolean(),
+              "The first key after the dim only wakes the screen");
+        clock = run(app, clock, 400);
+        check(dimmed(app, 0), "The dim lifts on the first key");
+        app.key(Key::Right);
+        check(app.snapshot()["focus"].number() == 2, "The next key acts");
+        run(app, clock, 31000);
+        check(app.snapshot()["idle"].boolean(), "A key restarts the thirty seconds");
+    }
+    for (const char *route : {"dashboard", "catalog", "setup:welcome"}) {
+        FakeTransport transport;
+        Application app(transport, route);
+        run(app, 16, 33000);
+        check(app.snapshot()["idle"].boolean() && dimmed(app, .66f),
+              (std::string(route) + " dims after thirty seconds without a key").c_str());
+    }
+}
+
 } // namespace
 
 int main() {
@@ -697,6 +744,7 @@ int main() {
         live();
         settings();
         catalog();
+        idle();
         std::printf("%d dashboard screen checks passed\n", checks);
         return 0;
     } catch (const std::exception &error) {

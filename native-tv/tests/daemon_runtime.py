@@ -6143,7 +6143,7 @@ class DaemonRuntimeTests(unittest.TestCase):
             nativeTvLog = root / "var" / "lib" / "tvweb" / "tvweb.log"
             nativeTvLog.parent.mkdir(parents=True)
             nativeTvLog.write_text(
-                "2026-10-07T12:00:01.000Z [5.0] [INFO] app: serialNumber: \"301NDXK0C912\" at 192.168.1.12\n")
+                "2026-10-07T12:00:01.000Z [5.0] [INFO] app: serialNumber: \"000EXMP0S001\" at 192.168.1.12\n")
             (processRoot / "statm").write_text("1000 512 0 0")
             (processRoot / "cmdline").write_bytes(b"/usr/bin/fixture-proc\0--test")
             hdmiFixtureRoot = (Path(__file__).resolve().parent /
@@ -8256,7 +8256,7 @@ class DaemonRuntimeTests(unittest.TestCase):
         (systemBin / "sh").symlink_to("/bin/sh")
         world.earlyFlag = world.system / "var/lib/tvweb/early-home"
         world.earlyFlag.parent.mkdir(parents=True)
-        earlyManifest = world.system / "var/luna-service2-dev/manifests.d/com.webos.glasshouse.boot.json"
+        earlyManifest = world.system / "var/luna-service2-dev/manifests.d/com.webos.nativetv.boot.json"
         earlyServiceDir = world.assets / "early-service"
         earlyServiceDir.mkdir(parents=True)
         (earlyServiceDir / "install.sh").write_text(
@@ -8637,7 +8637,7 @@ class DaemonRuntimeTests(unittest.TestCase):
             earlyHomeFlag.parent.mkdir(parents=True)
             earlyManifest = (systemRoot /
                              "var/luna-service2-dev/manifests.d/"
-                             "com.webos.glasshouse.boot.json")
+                             "com.webos.nativetv.boot.json")
             earlyServiceAssets = assets = root / "assets"
             earlyServiceDir = earlyServiceAssets / "early-service"
             earlyServiceDir.mkdir(parents=True)
@@ -8761,7 +8761,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                           if call["uri"] == "com.webos.service.config/setConfigs"]
                 self.assertEqual(len(writes), 2)
                 self.assertEqual(writes[0]["payload"]["configs"][
-                    "glasshouse.remoteKeys"], {
+                    "nativetv.remoteKeys"], {
                         "keys": {"guide": "com.example.guide"},
                         "home": "com.webos.app.home",
                         "starting": "nativeTv Home is starting. It opens in a few seconds.",
@@ -8788,7 +8788,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                 writes = [call for call in calls
                           if call["uri"] == "com.webos.service.config/setConfigs"]
                 self.assertEqual(writes[-1]["payload"]["configs"][
-                    "glasshouse.remoteKeys"], {
+                    "nativetv.remoteKeys"], {
                         "keys": {"guide": "com.example.guide"},
                         "home": "com.webos.app.home",
                         "starting": "nativeTv Home is starting. It opens in a few seconds."
@@ -11054,7 +11054,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                 configWrites = [call["payload"]["configs"] for call in lunaCalls
                                 if call["uri"] == "com.webos.service.config/setConfigs"]
                 self.assertGreaterEqual(len(configWrites), 3)
-                self.assertEqual(configWrites[-3]["glasshouse.remoteKeys"], {
+                self.assertEqual(configWrites[-3]["nativetv.remoteKeys"], {
                     "keys": remoteKeyMap["keys"], "home": "com.webos.app.home",
                     "starting": "Starting nativeTv", "splash": True
                 })
@@ -11075,10 +11075,10 @@ class DaemonRuntimeTests(unittest.TestCase):
                     [call for call in lunaCalls
                      if call["uri"] == "com.webos.applicationManager/blockSystemApp"], [],
                     "the app block belongs to the native filters")
-                keyWrites = [call["payload"]["configs"]["glasshouse.remoteKeys"]
+                keyWrites = [call["payload"]["configs"]["nativetv.remoteKeys"]
                              for call in lunaCalls
                              if call["uri"] == "com.webos.service.config/setConfigs" and
-                             "glasshouse.remoteKeys" in call["payload"]["configs"]]
+                             "nativetv.remoteKeys" in call["payload"]["configs"]]
                 self.assertEqual(keyWrites[-1]["keys"]["alexa"], "org.example.youtube")
 
                 status, body = getCatalogWithHost("unlisted.example")
@@ -11121,7 +11121,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                              for line in details.read_text().splitlines()
                              if json.loads(line)["uri"] ==
                              "com.webos.service.config/setConfigs"]
-            self.assertEqual(restoreWrites[-2]["glasshouse.remoteKeys"], {
+            self.assertEqual(restoreWrites[-2]["nativetv.remoteKeys"], {
                 "keys": {}
             })
             self.assertEqual(restoreWrites[-1][
@@ -11311,7 +11311,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertEqual(settingsWrites[-1]["category"], "other")
                 self.assertEqual(settingsWrites[-1]["settings"]["mapping_info"][0]
                                  ["netflix"]["app_id"], "org.example.youtube")
-                self.assertFalse(any("glasshouse.remoteKeys" in call.get("payload", {})
+                self.assertFalse(any("nativetv.remoteKeys" in call.get("payload", {})
                                      .get("configs", {}) for call in calls
                                      if call["uri"] == "com.webos.service.config/setConfigs"),
                                  "webOS 11 must not write the JavaScript filter map")
@@ -11637,7 +11637,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                 for call in restoreCalls))
             self.assertIn("start voiceconductor.service", systemctlLog.read_text())
             self.assertFalse(any(
-                "glasshouse.remoteKeys" in call.get("payload", {}).get("configs", {})
+                "nativetv.remoteKeys" in call.get("payload", {}).get("configs", {})
                 for call in restoreCalls),
                 "native-filter restore must not install or clear the JavaScript map")
 
@@ -13865,7 +13865,7 @@ class DaemonRuntimeTests(unittest.TestCase):
             earlyHomeFlag.parent.mkdir(parents=True)
             earlyManifest = (systemRoot /
                              "var/luna-service2-dev/manifests.d/"
-                             "com.webos.glasshouse.boot.json")
+                             "com.webos.nativetv.boot.json")
             earlyServiceDir = assets / "early-service"
             earlyServiceDir.mkdir(parents=True)
             earlyServiceLog = root / "early-service.log"
@@ -13896,7 +13896,7 @@ class DaemonRuntimeTests(unittest.TestCase):
             samSchema.parent.mkdir(parents=True)
             samSchema.write_text('{"properties":{"forceBlockSystemApp":{"type":"boolean"}}}\n')
             originalLayout = '<home><!-- original LG layout --></home>\n'
-            takeoverLayout = '<home><!-- glasshouse-home-starting --></home>\n'
+            takeoverLayout = '<home><!-- nativetv-home-starting --></home>\n'
             (layoutDir / "home_layoutShelfView.xml").write_text(originalLayout)
             (layoutDir / "home_layout.xml").write_text(originalLayout)
             fakeHomePid = 2000000000
@@ -14086,7 +14086,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                     "ok": True, "changed": True, "blank": True
                 })
                 self.assertIn(
-                    "<!-- glasshouse-home-starting -->",
+                    "<!-- nativetv-home-starting -->",
                     (layoutDir / "home_layoutShelfView.xml").read_text())
                 self.assertEqual((keptLayout / "home_layoutShelfView.xml").read_text(),
                                  originalLayout)
@@ -14219,7 +14219,7 @@ class DaemonRuntimeTests(unittest.TestCase):
             self.assertEqual(
                 webos11Layout.read_text(), originalLayout,
                 "the webOS 11 takeover must leave LG's layout unchanged")
-            self.assertNotIn("glasshouse-home-starting", webos11Layout.read_text())
+            self.assertNotIn("nativetv-home-starting", webos11Layout.read_text())
 
             release = run_home_operation("--release-home")
             self.assertEqual(release.returncode, 0, release.stdout + release.stderr)
@@ -14248,7 +14248,7 @@ class DaemonRuntimeTests(unittest.TestCase):
             self.assertEqual(takeover9.returncode, 0,
                              takeover9.stdout + takeover9.stderr)
             self.assertIn(
-                "glasshouse-home-starting",
+                "nativetv-home-starting",
                 (layoutDir / "home_layoutShelfView.xml").read_text(),
                 "webOS 9 must apply the saved blank-start option")
             self.assertEqual(
@@ -14336,10 +14336,10 @@ class DaemonRuntimeTests(unittest.TestCase):
             self.assertIn({"homeAutoLaunch": "on",
                            "checkHomeAutoLaunchValue": "user"}, writes)
             self.assertIn({"screenSaverEnabled": False}, writes)
-            mapWrites = [call["payload"]["configs"]["glasshouse.remoteKeys"]
+            mapWrites = [call["payload"]["configs"]["nativetv.remoteKeys"]
                          for call in calls
                          if call["uri"] == "com.webos.service.config/setConfigs" and
-                         "glasshouse.remoteKeys" in call["payload"]["configs"].keys()]
+                         "nativetv.remoteKeys" in call["payload"]["configs"].keys()]
             self.assertEqual(mapWrites, [{"keys": {"guide": "com.example.guide"},
                                           "home": "com.webos.app.home"}])
 
@@ -14691,7 +14691,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertFalse(json.loads(body)["result"]["ok"],
                                  "the final visible Home part must remain")
 
-                takeover = '<home><!-- glasshouse-home-starting --></home>\n'
+                takeover = '<home><!-- nativetv-home-starting --></home>\n'
                 (layoutDir / "home_layoutShelfView.xml").write_text(takeover)
                 status, body = request({"action": "setPart", "id": "banner", "shown": True})
                 self.assertFalse(json.loads(body)["result"]["ok"])

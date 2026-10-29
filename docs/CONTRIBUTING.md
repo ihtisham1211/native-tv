@@ -1,8 +1,8 @@
 # Contributing
 
 The server is a C++14 daemon in `native-tv/`; no Node runs on the TV or in the
-build. The [layout](https://github.com/ihtisham1211/google-tv-lg-web-os/blob/main/CLAUDE.md#code-map)
-and [module boundaries](https://github.com/ihtisham1211/google-tv-lg-web-os/blob/main/native-tv/ARCHITECTURE.md)
+build. The [layout](https://github.com/ihtisham1211/nativeTv/blob/main/CLAUDE.md#code-map)
+and [module boundaries](https://github.com/ihtisham1211/nativeTv/blob/main/native-tv/ARCHITECTURE.md)
 say where a change goes.
 
 ## Building and testing

@@ -1,5 +1,5 @@
 /* Written by nativeTv: the remote keys set on its Apps tab, read from the
- * configd value glasshouse.remoteKeys. First in com.webos.surfacemanager.keyFilters,
+ * configd value nativetv.remoteKeys. First in com.webos.surfacemanager.keyFilters,
  * so a key set there never reaches LG's filters. */
 var nativeTvKeyIds = {};
 // nativeTv Home: the toast for Home until it is in place, and whether it is.
@@ -45,7 +45,7 @@ function nativeTvKeyCodes() {
 function nativeTvKeysChanged(payload) {
     try {
         var r = typeof payload === "string" ? JSON.parse(payload) : payload;
-        var value = (r && r.configs && r.configs["glasshouse.remoteKeys"]) || {};
+        var value = (r && r.configs && r.configs["nativetv.remoteKeys"]) || {};
         var set = value.keys || {};
         var codes = nativeTvKeyCodes(), ids = {};
         for (var name in set) {
@@ -81,7 +81,7 @@ function nativeTvKeysChanged(payload) {
 function nativeTvStartTry() {
     if (nativeTvStartAnswered) return;
     try {
-        lunaCall.send("com.webos.glasshouse.boot", "/start", "{}", function () { nativeTvStartAnswered = true; });
+        lunaCall.send("com.webos.nativetv.boot", "/start", "{}", function () { nativeTvStartAnswered = true; });
     } catch (e) {
         console.warn("nativetv keyfilter: " + e + "; boot hook not asked for");
     }
@@ -176,7 +176,7 @@ function init() {
     }
     try {
         lunaCall.subscribe("com.webos.service.config", "/getConfigs",
-            JSON.stringify({ "configNames": ["glasshouse.remoteKeys"], "subscribe": true }), nativeTvKeysChanged, true);
+            JSON.stringify({ "configNames": ["nativetv.remoteKeys"], "subscribe": true }), nativeTvKeysChanged, true);
     } catch (e) {
         console.warn("nativetv keyfilter: " + e + "; no keys set");
     }

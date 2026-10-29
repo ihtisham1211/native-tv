@@ -82,8 +82,7 @@ for; the Privacy tab lists each under a descriptive name:
 
 Which flag the ACR client, `acr2`, reads differs by firmware. On a C9
 (webOS 4.10.2, firmware 05.50.00) it names `acrOnAllowed`, the master
-consent, and not `acrAllowed`
-([#629](https://github.com/rorygallagher2024/glasshouse/issues/629)).
+consent, and not `acrAllowed`.
 nativeTv's ACR switch sets the TV's Live Plus setting and whichever of the
 two flags the client on the TV names, or `acrAllowed` where it names
 neither. Withdrawing the master consent withdraws the agreements it rests on,

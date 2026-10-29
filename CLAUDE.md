@@ -71,12 +71,13 @@ browser and may use modern JavaScript.
   `FILES` list must name every file the TV needs).
 - `hbc/` and `scripts/build-ipk.py` - the Homebrew Channel package.
 - `native-tv/` otherwise - `ARCHITECTURE.md` defines module boundaries and
-  `HISTORY.md` records the move from Node. `tools/runtime_payload.py` stages the managed
+  `tools/runtime_payload.py` stages the managed
   runtime and its ABI/hash manifest for SSH and Homebrew packages;
   `contract/routes.json` lists every route and its owner.
 - `native-tv/tests/` - C++ unit tests, `daemon_runtime.py` (the daemon against
   a stand-in `luna-send`), `contract/` (route manifest, CSRF policy, test
-  matrix, goldens), `ui/` (the dashboard scripts run on the host) and
+  matrix, goldens), `ui/` (the dashboard scripts run on the host), `e2e/` (the
+  cases that need a real TV, skipped unless `NATIVETV_TV_HOST` is set) and
   `fixtures/tv/`, real stats from a B8 (webOS 4), a CX (webOS 5), a G4 and a C4
   (webOS 9).
 

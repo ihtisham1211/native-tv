@@ -51,7 +51,11 @@ class Renderer : public TextureStore, private BatchHost {
         TextureId id = 0;
         unsigned used = 0;
     };
-    GLuint programs_[kProgramCount] = {}, buffer_ = 0, white_ = 0;
+    GLuint buffer_ = 0, white_ = 0;
+    // Linked programs by variant bits and kind; the debug variants are built on first use.
+    std::map<unsigned, GLuint> programs_;
+    GLuint program(Program kind, bool singleTexture, unsigned debugVariant);
+    std::vector<double> *batchTimes_ = nullptr;
     int width_ = 0, height_ = 0;
     unsigned frame_ = 0;
     size_t bytes_ = 0;
@@ -80,6 +84,8 @@ class Renderer : public TextureStore, private BatchHost {
              std::function<bool(const std::string &)> requestImage);
     ~Renderer();
     void draw(const Scene &scene);
+    // Blocks until the next frame's buffer is free (a clear is the first call that needs it).
+    void acquireBackBuffer();
 
     // TextureStore. Ids are renderer-wide; 0 is never issued.
     TextureId create(int width, int height, TextureFormat format, bool nearest = false) override;
@@ -96,6 +102,9 @@ class Renderer : public TextureStore, private BatchHost {
     const RenderCounters &counters() const {
         return last_;
     }
+    // Measurement (main.cpp, NATIVETV_DEBUG_BENCH): milliseconds per frame of `scene` drawn
+    // `frames` times with a glFinish after each; with `perBatch` also prints each draw's own time.
+    double timeFrames(const Scene &scene, int frames, bool perBatch = false);
 
     // Legacy: encoded bytes keyed by path, decoded on the calling thread.
     bool image(const std::string &path, const std::string &bytes);

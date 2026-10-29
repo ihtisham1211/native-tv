@@ -77,11 +77,9 @@ def main():
         stage_command += " && mv " + shlex.quote(destination + ".next") + " " + shlex.quote(destination)
         stage_command += " && chmod " + mode + " " + shlex.quote(destination)
     subprocess.run([*ssh, stage_command], input=stream.getvalue(), check=True)
-    # The files an earlier layout left in the app's folder: a service binary, the
-    # client before the project was renamed, and the licences that sat in assets/.
+    # The licences that sat in assets/ in an earlier layout.
     subprocess.run([*ssh, "rm -f " + " ".join(shlex.quote(APP + "/" + name) for name in (
-        "glasshouse-service", "glasshouse-tv", "assets/LICENSE-json-c.txt",
-        "assets/LICENSE-Roboto.txt"))], check=True)
+        "assets/LICENSE-json-c.txt", "assets/LICENSE-Roboto.txt"))], check=True)
     print("Staged " + APP_ID)
     if not args.run:
         return

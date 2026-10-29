@@ -1,0 +1,877 @@
+{
+  "version": 1,
+  "app": "com.tvweb.native",
+  "cases": [
+    {
+      "id": "E2E-001",
+      "title": "Client probe",
+      "purpose": "The client opens its window and GLES 2 context, draws a triangle, reads the pixel back and exits 0, as the Home takeover's install gate needs.",
+      "kind": "probe",
+      "screen": "",
+      "env": {},
+      "durationMs": 0,
+      "steps": [
+        "Run on the TV: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 40 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv --probe; echo exit=$?",
+        "Read the exit code and the last JSON line of the output."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "probe": {
+          "ok": true
+        }
+      }
+    },
+    {
+      "id": "E2E-002",
+      "title": "Client probe, GL error forced",
+      "purpose": "The probe reports a GL fault as exit 12 (NATIVETV_PROBE_FAULT=gl-error).",
+      "kind": "probe",
+      "screen": "",
+      "env": {
+        "NATIVETV_PROBE_FAULT": "gl-error"
+      },
+      "durationMs": 0,
+      "steps": [
+        "Run on the TV: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg NATIVETV_PROBE_FAULT=gl-error timeout 40 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv --probe; echo exit=$?",
+        "Read the exit code and the last JSON line of the output."
+      ],
+      "criteria": {
+        "exitCode": 12,
+        "probe": {
+          "ok": false,
+          "stage": "gl"
+        }
+      }
+    },
+    {
+      "id": "E2E-003",
+      "title": "Client probe, wrong pixel forced",
+      "purpose": "The probe reports a frame that did not draw as exit 13 (NATIVETV_PROBE_FAULT=readback).",
+      "kind": "probe",
+      "screen": "",
+      "env": {
+        "NATIVETV_PROBE_FAULT": "readback"
+      },
+      "durationMs": 0,
+      "steps": [
+        "Run on the TV: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg NATIVETV_PROBE_FAULT=readback timeout 40 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv --probe; echo exit=$?",
+        "Read the exit code and the last JSON line of the output."
+      ],
+      "criteria": {
+        "exitCode": 13,
+        "probe": {
+          "ok": false,
+          "stage": "readback"
+        }
+      }
+    },
+    {
+      "id": "E2E-010",
+      "title": "Kit gallery: home",
+      "purpose": "The design gallery screen home draws on the real GPU within the render limits and the client exits 0 with a capture.",
+      "kind": "run",
+      "screen": "kit:home",
+      "script": null,
+      "durationMs": 3000,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 18 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen kit:home --duration-ms 3000 --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 1,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64
+      }
+    },
+    {
+      "id": "E2E-011",
+      "title": "Kit gallery: apps",
+      "purpose": "The design gallery screen apps draws on the real GPU within the render limits and the client exits 0 with a capture.",
+      "kind": "run",
+      "screen": "kit:apps",
+      "script": null,
+      "durationMs": 3000,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 18 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen kit:apps --duration-ms 3000 --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 1,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64
+      }
+    },
+    {
+      "id": "E2E-012",
+      "title": "Kit gallery: live",
+      "purpose": "The design gallery screen live draws on the real GPU within the render limits and the client exits 0 with a capture.",
+      "kind": "run",
+      "screen": "kit:live",
+      "script": null,
+      "durationMs": 3000,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 18 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen kit:live --duration-ms 3000 --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 1,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64
+      }
+    },
+    {
+      "id": "E2E-013",
+      "title": "Kit gallery: settings",
+      "purpose": "The design gallery screen settings draws on the real GPU within the render limits and the client exits 0 with a capture.",
+      "kind": "run",
+      "screen": "kit:settings",
+      "script": null,
+      "durationMs": 3000,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 18 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen kit:settings --duration-ms 3000 --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 1,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64
+      }
+    },
+    {
+      "id": "E2E-014",
+      "title": "Kit gallery: setup",
+      "purpose": "The design gallery screen setup draws on the real GPU within the render limits and the client exits 0 with a capture.",
+      "kind": "run",
+      "screen": "kit:setup",
+      "script": null,
+      "durationMs": 3000,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 18 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen kit:setup --duration-ms 3000 --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 1,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64
+      }
+    },
+    {
+      "id": "E2E-020",
+      "title": "Splash at 60 fps",
+      "purpose": "The splash animates at the display's rate, as the loop's own floor for what the platform gives (the control for every other timing case).",
+      "kind": "run",
+      "screen": "splash",
+      "script": "checkpoints-only.json",
+      "durationMs": 17000,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/checkpoints-only.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 32 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen splash --duration-ms 17000 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "p50Max": 17.0,
+        "p95Max": 16.8,
+        "over33Max": 0,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64,
+        "intervalsMin": 500
+      },
+      "floor": {
+        "p95Max": 20.0,
+        "over33Max": 1
+      }
+    },
+    {
+      "id": "E2E-030",
+      "title": "Home navigation",
+      "purpose": "Scripted keys move the focus through Home's rows and bar; frames come at 60 fps and no interval passes 33 ms.",
+      "kind": "run",
+      "screen": "home",
+      "script": "home-nav.json",
+      "durationMs": 17500,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/home-nav.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 32 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen home --duration-ms 17500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "p50Max": 17.0,
+        "p95Max": 16.8,
+        "over33Max": 0,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64,
+        "intervalsMin": 250
+      },
+      "floor": {
+        "p95Max": 20.0,
+        "over33Max": 3
+      }
+    },
+    {
+      "id": "E2E-031",
+      "title": "Home navigation, 60 s",
+      "purpose": "The same keys four times over 60 s, the run the target is stated for.",
+      "kind": "run",
+      "screen": "home",
+      "script": "home-nav-60s.json",
+      "durationMs": 59000,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/home-nav-60s.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 74 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen home --duration-ms 59000 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "p50Max": 17.0,
+        "p95Max": 16.8,
+        "over33Max": 0,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64,
+        "intervalsMin": 1500
+      },
+      "floor": {
+        "p95Max": 20.0,
+        "over33Max": 6
+      }
+    },
+    {
+      "id": "E2E-032",
+      "title": "Home idle dim",
+      "purpose": "After 30 s without a key the screen dims (the OLED must not hold a still picture), the first key only wakes it, and the next key acts as usual.",
+      "kind": "run",
+      "screen": "home",
+      "script": "home-idle.json",
+      "durationMs": 38500,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/home-idle.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 53 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen home --duration-ms 38500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "capture": true,
+        "checkpoints": [
+          {
+            "name": "awake",
+            "path": "idle",
+            "equals": false
+          },
+          {
+            "name": "before-dim",
+            "path": "idle",
+            "equals": false
+          },
+          {
+            "name": "dimmed",
+            "path": "idle",
+            "equals": true
+          },
+          {
+            "name": "after-first-key",
+            "path": "idle",
+            "equals": false
+          },
+          {
+            "name": "awake-again",
+            "path": "idle",
+            "equals": false
+          }
+        ],
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64
+      }
+    },
+    {
+      "id": "E2E-040",
+      "title": "Live navigation",
+      "purpose": "Keys move the focus over Live's cards while its readings arrive.",
+      "kind": "run",
+      "screen": "live",
+      "script": "live-nav.json",
+      "durationMs": 13500,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/live-nav.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 28 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen live --duration-ms 13500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "p50Max": 17.0,
+        "p95Max": 16.8,
+        "over33Max": 0,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64,
+        "intervalsMin": 150
+      },
+      "floor": {
+        "p95Max": 20.0,
+        "over33Max": 3
+      }
+    },
+    {
+      "id": "E2E-041",
+      "title": "Live idle dim",
+      "purpose": "After 30 s without a key the screen dims (the OLED must not hold a still picture), the first key only wakes it, and the next key acts as usual.",
+      "kind": "run",
+      "screen": "live",
+      "script": "live-idle.json",
+      "durationMs": 38500,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/live-idle.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 53 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen live --duration-ms 38500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "capture": true,
+        "checkpoints": [
+          {
+            "name": "awake",
+            "path": "idle",
+            "equals": false
+          },
+          {
+            "name": "before-dim",
+            "path": "idle",
+            "equals": false
+          },
+          {
+            "name": "dimmed",
+            "path": "idle",
+            "equals": true
+          },
+          {
+            "name": "after-first-key",
+            "path": "idle",
+            "equals": false
+          },
+          {
+            "name": "awake-again",
+            "path": "idle",
+            "equals": false
+          },
+          {
+            "name": "awake",
+            "path": "focus",
+            "equals": 0
+          },
+          {
+            "name": "after-first-key",
+            "path": "focus",
+            "equals": 0
+          },
+          {
+            "name": "second-key",
+            "path": "focus",
+            "equals": 1
+          }
+        ],
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64
+      }
+    },
+    {
+      "id": "E2E-050",
+      "title": "Settings navigation",
+      "purpose": "Keys move through a Settings section and across sections; no OK is pressed.",
+      "kind": "run",
+      "screen": "dashboard:privacy",
+      "script": "settings-nav.json",
+      "durationMs": 16000,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/settings-nav.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 31 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen dashboard:privacy --duration-ms 16000 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "p50Max": 17.0,
+        "p95Max": 16.8,
+        "over33Max": 0,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64,
+        "intervalsMin": 150
+      },
+      "floor": {
+        "p95Max": 20.0,
+        "over33Max": 3
+      }
+    },
+    {
+      "id": "E2E-051",
+      "title": "Settings idle dim",
+      "purpose": "After 30 s without a key the screen dims (the OLED must not hold a still picture), the first key only wakes it, and the next key acts as usual.",
+      "kind": "run",
+      "screen": "dashboard:privacy",
+      "script": "settings-idle.json",
+      "durationMs": 38500,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/settings-idle.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 53 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen dashboard:privacy --duration-ms 38500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "capture": true,
+        "checkpoints": [
+          {
+            "name": "awake",
+            "path": "idle",
+            "equals": false
+          },
+          {
+            "name": "before-dim",
+            "path": "idle",
+            "equals": false
+          },
+          {
+            "name": "dimmed",
+            "path": "idle",
+            "equals": true
+          },
+          {
+            "name": "after-first-key",
+            "path": "idle",
+            "equals": false
+          },
+          {
+            "name": "awake-again",
+            "path": "idle",
+            "equals": false
+          }
+        ],
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64
+      }
+    },
+    {
+      "id": "E2E-052",
+      "title": "Settings sections",
+      "purpose": "Up and Down over the list of Settings sections; no OK is pressed.",
+      "kind": "run",
+      "screen": "dashboard",
+      "script": "settings-groups.json",
+      "durationMs": 9500,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/settings-groups.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 24 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen dashboard --duration-ms 9500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "p50Max": 17.0,
+        "p95Max": 16.8,
+        "over33Max": 0,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64,
+        "intervalsMin": 80
+      },
+      "floor": {
+        "p95Max": 20.0,
+        "over33Max": 3
+      }
+    },
+    {
+      "id": "E2E-060",
+      "title": "Catalog navigation",
+      "purpose": "Keys move over the Homebrew catalogue's grid; no OK is pressed.",
+      "kind": "run",
+      "screen": "catalog",
+      "script": "catalog-nav.json",
+      "durationMs": 13500,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/catalog-nav.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 28 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen catalog --duration-ms 13500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "p50Max": 17.0,
+        "p95Max": 16.8,
+        "over33Max": 0,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64,
+        "intervalsMin": 150
+      },
+      "floor": {
+        "p95Max": 20.0,
+        "over33Max": 3
+      }
+    },
+    {
+      "id": "E2E-061",
+      "title": "Catalog idle dim",
+      "purpose": "After 30 s without a key the screen dims (the OLED must not hold a still picture), the first key only wakes it, and the next key acts as usual.",
+      "kind": "run",
+      "screen": "catalog",
+      "script": "catalog-idle.json",
+      "durationMs": 38500,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/catalog-idle.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 53 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen catalog --duration-ms 38500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "capture": true,
+        "checkpoints": [
+          {
+            "name": "awake",
+            "path": "idle",
+            "equals": false
+          },
+          {
+            "name": "before-dim",
+            "path": "idle",
+            "equals": false
+          },
+          {
+            "name": "dimmed",
+            "path": "idle",
+            "equals": true
+          },
+          {
+            "name": "after-first-key",
+            "path": "idle",
+            "equals": false
+          },
+          {
+            "name": "awake-again",
+            "path": "idle",
+            "equals": false
+          }
+        ],
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64
+      }
+    },
+    {
+      "id": "E2E-070",
+      "title": "Setup welcome navigation",
+      "purpose": "Up and Down on the setup welcome page; nothing is chosen.",
+      "kind": "run",
+      "screen": "setup:welcome",
+      "script": "setup-nav.json",
+      "durationMs": 9500,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/setup-nav.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 24 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen setup:welcome --duration-ms 9500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "p50Max": 17.0,
+        "p95Max": 16.8,
+        "over33Max": 0,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64
+      },
+      "floor": {
+        "p95Max": 20.0,
+        "over33Max": 2
+      }
+    },
+    {
+      "id": "E2E-071",
+      "title": "Setup Home Assistant page",
+      "purpose": "Up and Down on the setup Home Assistant page; nothing is chosen.",
+      "kind": "run",
+      "screen": "setup:ha",
+      "script": "setup-nav.json",
+      "durationMs": 9500,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/setup-nav.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 24 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen setup:ha --duration-ms 9500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "p50Max": 17.0,
+        "p95Max": 16.8,
+        "over33Max": 0,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64
+      },
+      "floor": {
+        "p95Max": 20.0,
+        "over33Max": 2
+      }
+    },
+    {
+      "id": "E2E-072",
+      "title": "Setup summary page",
+      "purpose": "Up and Down on the setup summary page; nothing is chosen.",
+      "kind": "run",
+      "screen": "setup:summary",
+      "script": "setup-nav.json",
+      "durationMs": 9500,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/setup-nav.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 24 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen setup:summary --duration-ms 9500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "p50Max": 17.0,
+        "p95Max": 16.8,
+        "over33Max": 0,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64
+      },
+      "floor": {
+        "p95Max": 20.0,
+        "over33Max": 2
+      }
+    },
+    {
+      "id": "E2E-073",
+      "title": "Setup standby page",
+      "purpose": "Up and Down on the setup standby page; nothing is chosen.",
+      "kind": "run",
+      "screen": "setup:standby",
+      "script": "setup-nav.json",
+      "durationMs": 9500,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/setup-nav.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 24 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen setup:standby --duration-ms 9500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "p50Max": 17.0,
+        "p95Max": 16.8,
+        "over33Max": 0,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64
+      },
+      "floor": {
+        "p95Max": 20.0,
+        "over33Max": 2
+      }
+    },
+    {
+      "id": "E2E-074",
+      "title": "Setup network page",
+      "purpose": "Up and Down on the setup network page; nothing is chosen. (The phone hand-off page is not run: opening it asks the server for a one-time link.)",
+      "kind": "run",
+      "screen": "setup:network",
+      "script": "setup-nav.json",
+      "durationMs": 9500,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/setup-nav.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 24 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen setup:network --duration-ms 9500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "p50Max": 17.0,
+        "p95Max": 16.8,
+        "over33Max": 0,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64
+      },
+      "floor": {
+        "p95Max": 20.0,
+        "over33Max": 2
+      }
+    },
+    {
+      "id": "E2E-075",
+      "title": "Setup idle dim",
+      "purpose": "After 30 s without a key the screen dims (the OLED must not hold a still picture), the first key only wakes it, and the next key acts as usual.",
+      "kind": "run",
+      "screen": "setup:welcome",
+      "script": "setup-idle.json",
+      "durationMs": 38500,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/setup-idle.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 53 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen setup:welcome --duration-ms 38500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "capture": true,
+        "checkpoints": [
+          {
+            "name": "awake",
+            "path": "idle",
+            "equals": false
+          },
+          {
+            "name": "before-dim",
+            "path": "idle",
+            "equals": false
+          },
+          {
+            "name": "dimmed",
+            "path": "idle",
+            "equals": true
+          },
+          {
+            "name": "after-first-key",
+            "path": "idle",
+            "equals": false
+          },
+          {
+            "name": "awake-again",
+            "path": "idle",
+            "equals": false
+          }
+        ],
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64
+      }
+    }
+  ]
+}

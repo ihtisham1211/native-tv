@@ -64,7 +64,7 @@ Object.keys(TABS).forEach(function (key) { panelIds[TABS[key]] = true; });
   assert(source, 'reportNav is in tabs.js');
   vm.runInNewContext(source[0] + '\nreportNav();', sandbox);
   assert.deepStrictEqual(calls, [[false, 'Apps', false]], 'the app is told the tabs are not a drawer');
-  assert(tabsJs.indexOf("GlasshouseApp") !== -1 && tabsJs.indexOf('Glasshouse-Android') !== -1, 'the bridge and its user agent keep their names');
+  assert(tabsJs.indexOf("NativeTvApp") !== -1 && tabsJs.indexOf('NativeTv-Android') !== -1, 'the bridge and user agent an Android wrapper uses');
   console.log('  ok: the Android app is told false, with the section name');
 })();
 

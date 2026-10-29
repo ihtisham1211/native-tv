@@ -6,8 +6,8 @@
 #   ./scripts/run-prometheus.sh <tv-ip> [<tv-ip2> ...]
 #
 # Examples:
-#   ./scripts/run-prometheus.sh 192.168.1.131
-#   ./scripts/run-prometheus.sh 192.168.1.131 192.168.1.134
+#   ./scripts/run-prometheus.sh 192.168.1.50
+#   ./scripts/run-prometheus.sh 192.168.1.50 192.168.1.51
 #
 # If prometheus is not installed, it downloads the standalone binary into
 # ~/.cache/nativetv-prometheus/ (no root or brew required).
@@ -19,7 +19,7 @@ if [ $# -eq 0 ]; then
   echo "  <tv-ip> is the IP of your LG TV running nativeTv." >&2
   echo "" >&2
   echo "Example:" >&2
-  echo "  $0 192.168.1.131 192.168.1.134" >&2
+  echo "  $0 192.168.1.50 192.168.1.51" >&2
   exit 1
 fi
 

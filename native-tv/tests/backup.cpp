@@ -17,82 +17,9 @@ void require(bool condition, const std::string &message) {
     std::fprintf(stderr, "%s\n", message.c_str());
     std::exit(1);
 }
-
-// The Node release wrote the format, the version under "from" and the settings section as
-// "glasshouse"; the daemon still reads them so.
-void readNodeWrittenBackup(const std::string &path) {
-    std::ifstream input(path.c_str(), std::ios::binary);
-    require(input.good(), "could not open Node-written backup");
-    const std::string contents((std::istreambuf_iterator<char>(input)),
-                               std::istreambuf_iterator<char>());
-    const Json backup = Json::parse(contents);
-    require(service::backupRestoreEnvelopeResult(backup) == "valid",
-            "native rejected the Node-written backup envelope");
-    require(backup["from"]["model"].string() == "OLED65C4" &&
-                backup["from"]["glasshouse"].string() == "0.118.0",
-            "native could not read Node-written backup metadata");
-    require(backup["lg"]["homePromotion"].valid() &&
-                !backup["lg"]["homePromotion"].boolean() &&
-                backup["lg"]["soundMode"].string() == "cinema",
-            "native could not read Node-written LG settings");
-    const Json config = service::safeBackupConfig(backup["glasshouse"]);
-    require(config["logging"]["level"].string() == "debug",
-            "native restore config filtering lost a Node-written setting");
-    const Json switchRow = Json::parse(
-        "{\"id\":\"homePromotion\",\"type\":\"switch\",\"on\":true}");
-    const service::LgSettingWrite switchWrite = service::lgSettingsRestoreWrite(
-        "homePromotion", backup["lg"]["homePromotion"], switchRow);
-    const Json choiceRow = Json::parse(
-        "{\"id\":\"soundMode\",\"type\":\"choice\",\"value\":\"standard\","
-        "\"choices\":[{\"value\":\"standard\"},{\"value\":\"cinema\"}]}");
-    const service::LgSettingWrite choiceWrite = service::lgSettingsRestoreWrite(
-        "soundMode", backup["lg"]["soundMode"], choiceRow);
-    require(switchWrite.valid && switchWrite.storedValue.string() == "off" &&
-                choiceWrite.valid && choiceWrite.storedValue.string() == "cinema",
-            "native restore conversion rejected Node-written LG values");
-    require(backup["glasshouse"]["logging"]["level"].string() == "debug" &&
-                backup["home"]["picture"].string() == "movie" &&
-                backup["apps"].isArray() && backup["apps"].size() == 1 &&
-                backup["apps"][0]["id"].string() == "com.example.nodeapp" &&
-                backup["apps"][0]["version"].string() == "2.3.4",
-            "native could not read Node-written nativeTv, Home or app data");
 }
 
-void writeNativeBackup(const std::string &path) {
-    const Json config = Json::parse(
-        "{\"logging\":{\"level\":\"debug\"},"
-        "\"syslog\":{\"server\":\"backup.local\",\"port\":514}}");
-    const Json rows = Json::parse(
-        "[{\"id\":\"homePromotion\",\"type\":\"switch\",\"on\":false},"
-        "{\"id\":\"soundMode\",\"type\":\"choice\",\"value\":\"cinema\"}]");
-    const Json home = Json::parse("{\"picture\":\"movie\",\"rows\":[\"native\"]}");
-    Json apps = Json::array();
-    Json app = Json::object();
-    app.set("id", Json::text("com.example.nativeapp"));
-    app.set("title", Json::text("Native app"));
-    app.set("version", Json::text("3.4.5"));
-    apps.add(app);
-    const Json backup = service::createSettingsBackup(
-        "2026-10-27T12:34:56.789Z", Json::text("OLED65C4"),
-        Json::text("0.118.0"), config, rows, home, apps);
-    std::ofstream output(path.c_str(), std::ios::binary);
-    require(output.good(), "could not create native-written backup");
-    output << backup.dump();
-    output.close();
-    require(output.good(), "could not write native backup file");
-}
-}
-
-int main(int argc, char **argv) {
-    if (argc == 3 && std::string(argv[1]) == "--read-node-backup") {
-        readNodeWrittenBackup(argv[2]);
-        return 0;
-    }
-    if (argc == 3 && std::string(argv[1]) == "--write-native-backup") {
-        writeNativeBackup(argv[2]);
-        return 0;
-    }
-    require(argc == 1, "unknown native-backup-tests arguments");
+int main() {
     require(!service::backupAppAllowed("com.tvweb.splash"),
             "the native startup splash must stay out of user backup imports");
 
@@ -153,17 +80,6 @@ int main(int argc, char **argv) {
             service::backupRestoreEnvelopeResult(Json::parse(
                 "{\"format\":\"nativetv-backup\",\"version\":-1}")) == "valid",
             "the native backup envelope validator changed legacy version handling");
-
-    // A backup made before the project was renamed: the same envelope under the old name.
-    require(service::backupRestoreEnvelopeResult(Json::parse(
-                "{\"format\":\"glasshouse-backup\",\"version\":1}")) == "valid" &&
-            service::backupRestoreEnvelopeResult(Json::parse(
-                "{\"format\":\"glasshouse-backup\",\"version\":2}")) == "newer",
-            "a backup in the format from before the rename is no longer read");
-    require(service::validSavedBackupName("glasshouse-backup-2026-10-26.json") &&
-            !service::validSavedBackupName("glasshouse-backup-2026-10-2.json") &&
-            !service::validSavedBackupName("other-backup-2026-10-26.json"),
-            "daily backup names from before the rename are not recognised");
 
     const Json restoreConfig = service::safeBackupConfig(Json::parse(
         "{\"logging\":{\"level\":\"debug\",\"invalid\":true},"
@@ -332,26 +248,6 @@ int main(int argc, char **argv) {
                 listedBackups[0]["size"].number() ==
                     static_cast<double>(content.size()),
             "saved backup listing did not return its name, date and byte size");
-
-    {   // A file saved before the rename is listed with the new ones, by date.
-        const std::string older = "glasshouse-backup-2026-10-24.json";
-        const std::string newest = "glasshouse-backup-2026-10-27.json";
-        for (const std::string &file : {older, newest}) {
-            std::ofstream output((directory + "/" + file).c_str(), std::ios::binary);
-            output << content;
-        }
-        std::string oldSaved;
-        Json mixed = Json::array();
-        require(service::readSavedBackup(directory, older, oldSaved) && oldSaved == content,
-                "a daily backup saved before the rename cannot be read");
-        require(service::listSavedBackups(directory, mixed) && mixed.size() == 3 &&
-                    mixed[0]["name"].string() == newest && mixed[0]["date"].string() == "2026-10-27" &&
-                    mixed[1]["name"].string() == name && mixed[2]["name"].string() == older &&
-                    mixed[2]["date"].string() == "2026-10-24",
-                "the listing does not order old and new names by date");
-        unlink((directory + "/" + older).c_str());
-        unlink((directory + "/" + newest).c_str());
-    }
 
     const std::string pendingPath = directory + "/restore-apps.json";
     {

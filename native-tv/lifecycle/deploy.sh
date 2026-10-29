@@ -60,7 +60,17 @@ fi
 DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$DIR/.." && pwd)"   # native-tv/
 NATIVE_BUILD="${NATIVE_BUILD:-$ROOT/build-webos}"
-SSH_OPTS=(-i /Users/ihtisham/.ssh/lg_tv_root -o IdentitiesOnly=yes -o UserKnownHostsFile=/Users/ihtisham/.ssh/lg_tv_known_hosts -o BatchMode=yes -o ConnectTimeout=6 -o StrictHostKeyChecking=accept-new)
+# SSH uses the computer's own keys and known_hosts file. A key or known_hosts
+# file of its own for the TV is set in the environment or in
+# ~/.config/nativetv/deploy.env (NATIVETV_DEPLOY_ENV names another file):
+#   NATIVETV_SSH_KEY=~/.ssh/lg_tv_root
+#   NATIVETV_KNOWN_HOSTS=~/.ssh/lg_tv_known_hosts
+DEPLOY_ENV="${NATIVETV_DEPLOY_ENV:-${XDG_CONFIG_HOME:-$HOME/.config}/nativetv/deploy.env}"
+# shellcheck disable=SC1090
+[ -f "$DEPLOY_ENV" ] && . "$DEPLOY_ENV"
+SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=6 -o StrictHostKeyChecking=accept-new)
+[ -n "${NATIVETV_SSH_KEY:-}" ] && SSH_OPTS+=(-i "$NATIVETV_SSH_KEY" -o IdentitiesOnly=yes)
+[ -n "${NATIVETV_KNOWN_HOSTS:-}" ] && SSH_OPTS+=(-o "UserKnownHostsFile=$NATIVETV_KNOWN_HOSTS")
 STAGE=/var/lib/tvweb/.deploy     # on the TV; beside the install so moves are renames
 
 FILES="tvwebctl assets/ui.html assets/favicon.svg \
@@ -188,7 +198,6 @@ chmod +x "\$D/tvwebctl"
 rm -rf "\$D/tvweb.js" "\$D/lib"
 if [ -f "\$D/native/nativetv-service" ] && [ -f "\$D/native/nativetv-daemon" ]; then
   chmod 755 "\$D/native/nativetv-daemon" "\$D/native/nativetv-service" || fail "could not make native runtimes executable"
-  rm -f /media/developer/apps/usr/palm/applications/com.tvweb.native/glasshouse-service
 fi
 if [ -n "$PERSIST" ]; then
   mkdir -p /var/lib/webosbrew/init.d
@@ -201,8 +210,6 @@ fi
 echo "TVWEB_INSTALLED \$(wc -c < "\$D/tvwebctl")"
 cd / && rm -rf "\$S"
 "\$D/tvwebctl" restart
-# The binaries before the project was renamed; the restart stopped the daemon that ran as one.
-rm -f "\$D/native/glasshouse-daemon" "\$D/native/glasshouse-service"
 sleep 4
 "\$D/tvwebctl" status
 tail -6 "\$D/tvweb.log"

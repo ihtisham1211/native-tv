@@ -15,7 +15,7 @@
     "test-apps-route.js": {"fate": "retired", "reason": "injected the screensavers module into the Node route table; /api/apps is native (test_native_apps_list_projection_and_context_fallback)"},
     "test-apps.js": {"fate": "ported", "native": ["ctest:native-app-list", "ctest:native-apps-state", "runtime:test_native_app_tile_hiding_internal_bridge", "runtime:test_native_apps_uninstall_sideload_and_repo_routes", "runtime:test_native_app_tiles_boot_reconciliation", "runtime:test_native_tile_hiding_flag_and_hidden_list"]},
     "test-backup-daily.js": {"fate": "ported", "native": ["ctest:native-backup", "ctest:native-daily-backup-scheduler"]},
-    "test-backup.js": {"fate": "ported", "native": ["ctest:native-backup", "ctest:native-backup-restore", "ctest:native-backup-interop", "runtime:test_native_backup_restore_route", "runtime:test_native_settings_backup_export"]},
+    "test-backup.js": {"fate": "ported", "native": ["ctest:native-backup", "ctest:native-backup-restore", "runtime:test_native_backup_restore_route", "runtime:test_native_settings_backup_export"]},
     "test-children.js": {"fate": "ported", "native": ["ctest:native-child"]},
     "test-controls.js": {"fate": "ported", "native": ["ctest:native-control-command", "ctest:native-command-policy", "runtime:test_native_playback_controls_keep_media_and_input_contracts", "runtime:test_native_power_controls_respect_allow_power", "runtime:test_native_refused_volume_is_noted_in_stats"]},
     "test-dashboard-port.js": {"fate": "ported", "native": ["ctest:native-launcher-sync", "runtime:test_native_dashboard_settings_write_and_restart", "runtime:test_native_server_tab_controls"]},

@@ -178,7 +178,10 @@ TV. Without a token it only lists them, by fingerprint. Its **Delete the key fil
 the next reboot, for a TV whose keys are lost; add a key again straight after.
 
 `deploy.sh` prefers SSH and falls back to telnet automatically, so it keeps
-working throughout. `--telnet` forces the old path if you need it.
+working throughout. `--telnet` forces the old path if you need it. It uses the
+computer's own SSH keys and `known_hosts`; a key or `known_hosts` file of its own for the TV
+is set as `NATIVETV_SSH_KEY` and `NATIVETV_KNOWN_HOSTS`, in the environment or in
+`~/.config/nativetv/deploy.env`.
 
 ---
 

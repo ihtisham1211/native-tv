@@ -54,7 +54,7 @@ nav:
       - Tools: dashboard/tools.md
   - nativeTv apps:
       - The TV app: apps/tv-app.md
-      - Android app: apps/android.md
+      - Android wrapper: apps/android.md
   - Smart Home & Lighting:
       - Home Assistant:
           - Overview: HOME-ASSISTANT.md
@@ -85,10 +85,9 @@ nav:
       - TV research: development/TV-RESEARCH.md
       - Strings: STRINGS.md
 
-# Kept until the Homebrew Channel listing is live (webosbrew/apps-repo#261).
+# Kept until the Homebrew Channel listing is live.
 not_in_nav: |
   /install-homebrew-channel.md
-  /dashboard/tv-app.md
 
 extra_css:
   - stylesheets/extra.css

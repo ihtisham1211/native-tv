@@ -19,10 +19,10 @@ namespace daemon {
 namespace {
 const char *const kHomeId = "com.webos.app.home";
 const char *const kLayoutMark = "<!-- nativetv -->";
-const char *const kTakeoverMark = "<!-- glasshouse-home-starting -->";
+const char *const kTakeoverMark = "<!-- nativetv-home-starting -->";
 const char *const kBlankLayout =
     "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n"
-    "<!-- glasshouse-home-starting -->\n"
+    "<!-- nativetv-home-starting -->\n"
     "<home version=\"2.0\">\n"
     "    <layout type=\"ShelfView\" bgColor=\"#000000\">\n"
     "        <firstPage>\n"

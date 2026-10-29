@@ -3,7 +3,7 @@
  * Soak test against a real TV: how often the server stops answering, and how
  * it comes back from standby.
  *
- *   node scripts/soak.js --tv 192.168.1.134 --broker 192.168.1.125 --hours 8 --cycle 20
+ *   node scripts/soak.js --tv 192.168.1.51 --broker 192.168.1.60 --hours 8 --cycle 20
  *
  * Every 10s it asks the dashboard for its stats and times the answer. With a
  * broker, it also watches MQTT and records any gap in telemetry while the TV

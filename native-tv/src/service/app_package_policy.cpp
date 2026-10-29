@@ -11,8 +11,7 @@ namespace {
 bool selfUpdating(const std::string &id) {
     static const char *const packageIds[] = {
         "org.webosbrew.hbchannel",
-        "io.github.ihtisham1211.nativetv",
-        "io.github.rorygallagher2024.lg-webos-dashboard"
+        "io.github.ihtisham1211.nativetv"
     };
     for (const char *packageId : packageIds) {
         const std::string prefix(packageId);

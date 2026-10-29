@@ -127,8 +127,7 @@ bool validSetting(const std::string &section, const std::string &key,
             if (!value.isArray()) return false;
             for (const Json &source : value.items())
                 if (!source.isString() || (source.string() != "system" &&
-                    source.string() != "nativetv" && source.string() != "glasshouse" &&
-                    source.string() != "kernel"))
+                    source.string() != "nativetv" && source.string() != "kernel"))
                     return false;
             return true;
         }
@@ -293,26 +292,17 @@ Json safeConfig(const Json &config) {
     return result;
 }
 
-// Backups made before the project was renamed hold the same document under the old
-// name: the format string, the daily files' prefix and the nativeTv section's key.
-bool backupFormatKnown(const std::string &format) {
-    return format == "nativetv-backup" || format == "glasshouse-backup";
-}
+const char *const kSavedBackupPrefix = "nativetv-backup-";
 
 // The length of the prefix a saved backup's name starts with, or 0.
 size_t savedBackupPrefixLength(const std::string &name) {
-    for (const char *prefix : {"nativetv-backup-", "glasshouse-backup-"}) {
-        const size_t length = std::strlen(prefix);
-        if (name.compare(0, length, prefix) == 0) return length;
-    }
-    return 0;
+    const size_t length = std::strlen(kSavedBackupPrefix);
+    return name.compare(0, length, kSavedBackupPrefix) == 0 ? length : 0;
 }
 
-// Newest date first; the same day's two names, the renamed one first.
+// Newest date first.
 bool newerSavedBackup(const std::string &left, const std::string &right) {
-    const std::string leftDate = left.substr(savedBackupPrefixLength(left), 10);
-    const std::string rightDate = right.substr(savedBackupPrefixLength(right), 10);
-    return leftDate != rightDate ? leftDate > rightDate : left > right;
+    return left > right;
 }
 
 } // namespace
@@ -353,7 +343,7 @@ Json safeBackupConfig(const Json &config) {
 
 std::string backupRestoreEnvelopeResult(const Json &backup) {
     if (!backup.isObject() || !backup["format"].isString() ||
-        !backupFormatKnown(backup["format"].string()) ||
+        backup["format"].string() != "nativetv-backup" ||
         !backup["version"].isNumber())
         return "notBackup";
     if (backup["version"].number() > kSettingsBackupVersion)
@@ -371,8 +361,7 @@ bool backupAppAllowed(const std::string &id) {
         "inputcommon", "com.webos.app.home", "com.webos.app.firstuse",
         "firstuse", "com.webos.app.eula", "eula",
         "com.webos.app.webapphost", "webapphost", "airplay",
-        "com.webos.app.browser", "io.github.ihtisham1211.nativetv",
-        "io.github.rorygallagher2024.lg-webos-dashboard"
+        "com.webos.app.browser", "io.github.ihtisham1211.nativetv"
     };
     return protectedIds.find(id) == protectedIds.end() &&
            id.find("com.webos.app.input") != 0 &&
@@ -451,7 +440,7 @@ std::string dailyBackupNameDue(bool enabled, const std::string &isoTimestamp) {
     const std::string date = isoTimestamp.substr(0, 10);
     // ISO dates order as text.
     if (date < "2026-01-01") return std::string();
-    return "nativetv-backup-" + date + ".json";
+    return kSavedBackupPrefix + date + ".json";
 }
 
 bool validSavedBackupName(const std::string &name) {

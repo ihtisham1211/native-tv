@@ -10,10 +10,8 @@ namespace nativetv {
 namespace daemon {
 namespace {
 
-// The Homebrew Channel app is listed under the id it had before the project was
-// renamed too: an install made then keeps its pages until the new package replaces it.
 const char *const kLauncherIds[] = {"com.tvweb.dashboard", "com.tvweb.home",
-                                    "io.github.ihtisham1211.nativetv", "io.github.rorygallagher2024.lg-webos-dashboard"};
+                                    "io.github.ihtisham1211.nativetv"};
 
 bool readFile(const std::string &path, std::string &text) {
     std::ifstream in(path.c_str(), std::ios::binary);

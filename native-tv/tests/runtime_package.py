@@ -375,9 +375,6 @@ class InstallerTests(unittest.TestCase):
         self.payload = self.root / "app/payload"
         self.source = self.payload / "tvweb"
         self.install = self.root / "installed"
-        self.old_worker = self.root / "developer/glasshouse-service"
-        self.old_worker.parent.mkdir()
-        self.old_worker.write_bytes(b"obsolete private worker")
         self.source.mkdir(parents=True)
         self.install.mkdir()
         self.put(self.source / "VERSION", "9.1.0\n")
@@ -400,7 +397,6 @@ class InstallerTests(unittest.TestCase):
         script = (ROOT.parent / "hbc/install.sh").read_text()
         script = script.replace("D=/var/lib/tvweb\n", "D=" + str(self.install) + "\n")
         script = script.replace("HOOKDIR=/var/lib/webosbrew/init.d", "HOOKDIR=" + str(self.root / "hooks"))
-        script = script.replace("/media/developer/apps/usr/palm/applications/com.tvweb.native/glasshouse-service", str(self.old_worker))
         self.script = self.payload / "install.sh"
         self.script.write_text(script)
 
@@ -434,7 +430,6 @@ class InstallerTests(unittest.TestCase):
         daemon = self.install / "native/nativetv-daemon"
         self.assertEqual(daemon.read_text(), "new daemon")
         self.assertEqual(stat.S_IMODE(daemon.stat().st_mode), 0o755)
-        self.assertFalse(self.old_worker.exists())
         self.assertEqual((self.install / "native/remotekeys-filter.js").read_text(),
                          "filter source")
         self.assertEqual(stat.S_IMODE(
@@ -455,15 +450,6 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(self.run_install()["action"], "upgraded")
         self.assert_runtime()
         self.assertEqual(before, [(self.install / name).read_bytes() for name in ("config.json", "home.json")])
-
-    def test_upgrade_removes_the_binaries_from_before_the_rename(self):
-        self.existing("9.0.0")
-        for name in ("glasshouse-daemon", "glasshouse-service"):
-            self.put(self.install / "native" / name, "old binary", 0o755)
-        self.assertEqual(self.run_install()["action"], "upgraded")
-        for name in ("glasshouse-daemon", "glasshouse-service"):
-            self.assertFalse((self.install / "native" / name).exists())
-        self.assert_runtime()
 
     def test_upgrade_from_the_node_server_clears_its_files(self):
         # An install from before the daemon was the whole server: its version is in

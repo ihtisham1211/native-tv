@@ -2,7 +2,7 @@ LG OLED65G4 | OLED65G4 · webOS 9.2.0
 processor: 9 % | 4 cores · 1.2 GHz | spark
 memory: 1.5 of 1.9 GB | Swap 522 MB free of 600 MB | bar 0.79
 temperature: 54 °C | Normal | bar 0.60
-network: 76 % link | NETGEAR51-5G · -63 dBm · wlan0 | Down 16.1 KB/s · Up 0.8 KB/s | bar 0.76
+network: 76 % link | ExampleWiFi-5G · -63 dBm · wlan0 | Down 16.1 KB/s · Up 0.8 KB/s | bar 0.76
 uptime: 3h 20m | Since Thursday 06:49 | days .............#
 panel: 3,470 hours | Pixel refresher in 556 h | bar 0.72
 input: Apple TV | HDMI 2 [4K] [60 Hz] [VRR] [ALLM]

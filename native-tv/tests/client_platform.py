@@ -155,11 +155,11 @@ class FrameRate(NeedsGl):
         # the context does not wait for it; never a busy loop and never slow.
         self.assertTrue(6 <= self.median(frames) <= 25, self.median(frames))
 
-    def test_ambient_animation_runs_at_swap_interval_two(self):
+    def test_ambient_animation_runs_at_30_fps(self):
         out, frames = self.frames({"NATIVETV_AMBIENT": "1"})
         self.assertEqual({f["swap"] for f in frames}, {2})
         self.assertIn("ambient=%d " % len(frames), out)
-        # 33 ms from the display, or from the loop's own pacing where interval 2 is missing.
+        # The loop's own pacing: the swap interval stays 1, and "swap" in the log is the pace.
         self.assertTrue(25 <= self.median(frames) <= 50, self.median(frames))
 
 

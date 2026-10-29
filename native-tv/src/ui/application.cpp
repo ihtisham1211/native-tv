@@ -1,6 +1,7 @@
 #include "ui/application.hpp"
 #include "ui/controller_helpers.hpp"
 #include "ui/kit/components.hpp"
+#include "ui/kit/tuning.hpp"
 #include "ui/home_layout.hpp"
 #include "ui/splash.hpp"
 #include <algorithm>
@@ -110,6 +111,7 @@ bool Application::update(uint32_t now) {
         state_.toast.clear();
         dirty_ = true;
     }
+    idleUpdate();
     bool screenBusy = false;
     if (state_.screen == Screen::Home || isRecents()) {
         homeUpdate();
@@ -127,6 +129,33 @@ bool Application::update(uint32_t now) {
                    !screenBusy;
     dirty_ = false;
     return draw;
+}
+// ---- Idle dimming -----------------------------------------------------------------------------
+// The panel is an OLED, so no screen may sit still at full brightness: after ms::idleAfter
+// without a key or click every screen but the splash falls to two thirds black over ms::idleDim.
+// The first input afterwards only wakes it. Home's hero advance and the beat read `idle` too.
+void Application::idleUpdate() {
+    const uint32_t idleAt = flow_.lastKeyAt + static_cast<uint32_t>(kit::motion::ms::idleAfter);
+    if (!flow_.idle && static_cast<int32_t>(now_ - idleAt) >= 0) {
+        flow_.idle = true;
+        motion_.tween("dim", .66, kit::motion::ms::idleDim, kit::easing(kit::motion::ease::inOut));
+    }
+}
+// Input of any kind: true when the screen was dimmed, so that this one only woke it.
+bool Application::wake() {
+    flow_.lastKeyAt = now_;
+    if (!flow_.idle)
+        return false;
+    flow_.idle = false;
+    motion_.tween("dim", 0, kit::motion::ms::idleWake, kit::easing(kit::motion::ease::out));
+    dirty_ = true;
+    return true;
+}
+// Above everything, the toast and the fault banner too: a static banner burns in like the rest.
+void Application::drawIdleDim(kit::Paint &paint) {
+    float dim = static_cast<float>(motion_.value("dim"));
+    if (dim > .002f)
+        paint.scene.shape({0, 0, kit::canvas::width, kit::canvas::height}, {0, 0, 0, dim});
 }
 void Application::attach(kit::Glyphs &glyphs, Pictures &pictures) {
     glyphs_ = &glyphs;
@@ -292,6 +321,7 @@ void Application::buildFrame() {
         scene.popTransform();
         scene.popOpacity();
     }
+    drawIdleDim(paint);
 }
 const Scene &Application::frame() {
     buildFrame();
@@ -339,6 +369,7 @@ std::string Application::screenName() const {
 Json Application::snapshot() const {
     if (screen_) {
         Json value = screen_->snapshot();
+        value.set("idle", Json::flag(flow_.idle));
         value.set("screen", Json::text(screen_->name()));
         value.set("barFocus", Json::flag(barFocus_));
         return value;

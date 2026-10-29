@@ -117,14 +117,6 @@ int main() {
             check(keys == (std::vector<std::string>{"ok", "lg", "nativetv", "restart", "apps", "home"}),
                   "keys in the legacy order");
         }
-        {   // A backup made before the project was renamed: its settings are under "glasshouse".
-            Services s;
-            const BackupRestoreOutcome out = restoreBackup(
-                s.deps(), Json::parse("{\"format\":\"glasshouse-backup\",\"version\":1,"
-                                      "\"glasshouse\":{\"ntp\":{\"server\":\"old\"}}}"));
-            check(out.status == 200 && out.body["ok"].boolean(), "an old backup is accepted");
-            check(s.sectionAsked["ntp"]["server"].string() == "old", "its settings section is read");
-        }
         {   // Nothing to install clears the pending list; nothing changed does not restart.
             Services s;
             s.plan = Json::parse("{\"toInstall\":[],\"manual\":[{\"id\":\"m\"}],\"present\":0,"

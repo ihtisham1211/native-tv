@@ -312,9 +312,6 @@ void drawHome(kit::Paint paint, const Frame &frame) {
                               kit::type::body, kit::color::onSurface2);
     }
     drawTopBar(paint, frame, static_cast<int>(home.tab));
-    float dim = static_cast<float>(motion.value("dim"));
-    if (dim > .002f)
-        scene.shape({0, 0, kit::canvas::width, kit::canvas::height}, {0, 0, 0, dim});
     float fault = static_cast<float>(motion.value("fault"));
     if (fault > .002f)
         banner(paint, fault);

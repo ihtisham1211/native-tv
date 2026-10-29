@@ -1,5 +1,5 @@
 #!/bin/sh
-# Declares (install) or removes (remove) the bus service com.webos.glasshouse.boot,
+# Declares (install) or removes (remove) the bus service com.webos.nativetv.boot,
 # which the compositor's key filter calls. The compositor's role reaches
 # com.webos.* only, so the Homebrew Channel's service is out of its reach and a
 # service of ours under that prefix is not. Declared the way the Homebrew
@@ -12,7 +12,7 @@
 # with "Not permitted to send". The script it runs is a fixed file and reads
 # no input.
 ACTION=${1:-install}
-NAME=com.webos.glasshouse.boot
+NAME=com.webos.nativetv.boot
 SRC=${2:-/var/lib/tvweb/assets/early-service}
 DEV=/var/luna-service2-dev
 SERVICE=$DEV/services.d/$NAME.service

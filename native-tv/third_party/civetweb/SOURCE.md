@@ -6,3 +6,6 @@ The embedded server source is kept in `src/` with its public header in
 Lua and Duktape features that nativeTv does not use. It is built as a static
 library for the daemon. The upstream license and credits are retained beside
 the source; `LICENSE.md` is copied to runtime packages.
+
+`src/third_party/` of the upstream tree (Lua, Duktape and SQLite, which only
+the disabled Lua and Duktape modules include) is not kept.

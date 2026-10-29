@@ -540,6 +540,12 @@ int main() {
             check(f.screen() == "setup:trouble" && f.app.shows("Something went wrong") &&
                       f.app.shows("The dashboard stopped answering"),
                   "A server that never comes back ends in the trouble page after 60 tries");
+            // The page has waited a minute without a key, so it has dimmed: the first OK wakes it.
+            check(f.app.snapshot()["idle"].boolean(), "The trouble page dims like every screen");
+            f.press(Key::Ok);
+            f.advance(300);
+            check(f.screen() == "setup:trouble" && !f.app.snapshot()["idle"].boolean(),
+                  "The first OK after the dim only wakes the page");
             f.press(Key::Ok);
             f.advance(200);
             f.answer("setup:state", setupState(true));

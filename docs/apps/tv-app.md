@@ -8,6 +8,8 @@ It is drawn by the nativeTv client in the style of Google TV: a dark page with o
 
 *The TV app's Metrics view, showing SoC temperature, CPU load, memory, swap, eMMC storage wear, and TV model.*
 
+Because the panel is an OLED, no screen of the app holds still at full brightness: thirty seconds without a key or a click dim it to two thirds black, and the first key or click after that only wakes it. This holds for Home, Live, Settings, the catalogue and the setup pages alike; the TV's own screen saver is left as it is set.
+
 ### Live
 
 The **Live** tab is the TV's own readings as cards: the processor's load with a line of its recent readings, memory and swap, the SoC temperature, the Wi-Fi link and the rate in and out, how long the TV has been up, the panel's hours and when its pixel refresher is due, and the input in front with its resolution, refresh rate, HDR and VRR. It reads the server every four seconds while it is open: numbers count to their new value and the bars grow, instead of jumping. OK reads at once, and Back leaves for Home. A card that has no reading on a TV, such as the thermal sensor on one that has none, shows a dash.

@@ -8,7 +8,7 @@
   const opener = q('global-search-open');
   if (!input || !results) return;
 
-  const FAVORITES_KEY = 'glasshouse_search_favorites';
+  const FAVORITES_KEY = 'nativetv_search_favorites';
   let favorites = readList(FAVORITES_KEY);
   let index = [];
   let lastFocus = null;

@@ -7,8 +7,7 @@ with its canonical sources in `web/`.
 
 The native client is under development. Its data adapter calls the nativeTv
 daemon, the server that runs on the TV, over loopback. The Node server it
-replaced is gone: [HISTORY.md](HISTORY.md) records that move and
-[ARCHITECTURE.md](ARCHITECTURE.md) defines the module boundaries. The developer
+replaced is gone; [ARCHITECTURE.md](ARCHITECTURE.md) defines the module boundaries. The developer
 app is `com.tvweb.native`; deployment does not replace LG Home or enable Home
 takeover.
 
@@ -40,9 +39,9 @@ Host dependencies: CMake 3.16+, a C++14 compiler, pkg-config, SDL2, SDL2_image,
 SDL2_ttf, json-c, zlib, libcurl and OpenGL/GLES2. On macOS:
 
 ```sh
-rtk proxy brew install cmake ninja ccache sdl2_image sdl2_ttf json-c
-rtk proxy python3 native-tv/build.py --out native-tv/build-host-ninja --test
-rtk proxy native-tv/build-host-ninja/nativetv-tv --windowed
+brew install cmake ninja ccache sdl2_image sdl2_ttf json-c
+python3 native-tv/build.py --out native-tv/build-host-ninja --test
+native-tv/build-host-ninja/nativetv-tv --windowed
 ```
 
 `--sanitize --out native-tv/build-sanitize --test` enables address and undefined
@@ -65,7 +64,7 @@ checkout to Ninja. For an optimized sanitized service build, use
 this command:
 
 ```sh
-rtk proxy python3 native-tv/build.py --service-only --sanitize --out native-tv/build-host-sanitize-ninja --test
+python3 native-tv/build.py --service-only --sanitize --out native-tv/build-host-sanitize-ninja --test
 ```
 
 Host test builds shorten SAM's
@@ -75,7 +74,7 @@ timings.
 The service can also build without any SDL/OpenGL dependencies:
 
 ```sh
-rtk proxy python3 native-tv/build.py --service-only --out native-tv/build-service-ninja --test
+python3 native-tv/build.py --service-only --out native-tv/build-service-ninja --test
 ```
 
 This target builds both `nativetv-daemon` and `nativetv-service`. The
@@ -98,7 +97,7 @@ development, build only the target you changed and filter CTest to the matching
 suite. For example:
 
 ```sh
-rtk proxy python3 native-tv/build.py --out native-tv/build-host-ninja \
+python3 native-tv/build.py --out native-tv/build-host-ninja \
   --target native-app-package-inspector-tests \
   --test-filter '^native-app-package-inspector$'
 ```
@@ -113,9 +112,9 @@ separately, so `--test-jobs` can run independent cases in parallel. Filter to
 the runtime group or one case while iterating:
 
 ```sh
-rtk proxy python3 native-tv/build.py --service-only --out native-tv/build-host-ninja \
+python3 native-tv/build.py --service-only --out native-tv/build-host-ninja \
   --target nativetv-daemon --test-filter '^native-daemon-runtime-' --test-jobs 8
-rtk proxy python3 native-tv/tests/daemon_runtime.py \
+python3 native-tv/tests/daemon_runtime.py \
   native-tv/build-host-ninja/nativetv-daemon \
   DaemonRuntimeTests.test_native_last_app_internal_bridge
 ```
@@ -160,11 +159,11 @@ packager uses version and SHA-256 pinned upstream notices recorded in
 `third_party/sdk-runtime-notices/SOURCE.md`.
 
 ```sh
-rtk proxy python3 native-tv/tools/runtime_payload.py --out native-tv/out/runtime/native \
+python3 native-tv/tools/runtime_payload.py --out native-tv/out/runtime/native \
   --archive native-tv/out/nativetv-native-runtime-arm.tar.gz
-rtk proxy python3 native-tv/tools/runtime_payload.py --client \
+python3 native-tv/tools/runtime_payload.py --client \
   --out native-tv/out/runtime/client
-rtk proxy python3 scripts/build-ipk.py --native-build native-tv/build-webos
+python3 scripts/build-ipk.py --native-build native-tv/build-webos
 ```
 
 The json-c notice has one source copy in `third_party/json-c/SOURCE.md` and is
@@ -183,7 +182,7 @@ API responses. Native suites use native fixtures and fake services.
 The read-only hardware API check runs on the TV:
 
 ```sh
-rtk proxy ssh root@TV_ADDRESS node < native-tv/tests/tv-metrics.js
+ssh root@TV_ADDRESS node < native-tv/tests/tv-metrics.js
 ```
 
 For a custom server port, the remote command is `node - PORT` (the TV's own Node,
@@ -192,9 +191,9 @@ which LG ships). The check requires an installed worker and daemon.
 The TV build uses a relocated [webOSbrew native SDK](https://github.com/webosbrew/native-toolchain):
 
 ```sh
-rtk proxy python3 native-tv/build.py --sdk /path/to/arm-webos-linux-gnueabi_sdk-buildroot
-rtk proxy python3 native-tv/deploy.py --tv root@TV_ADDRESS \
-  --identity ~/.ssh/lg_tv_root --known-hosts ~/.ssh/lg_tv_known_hosts --run
+python3 native-tv/build.py --sdk /path/to/arm-webos-linux-gnueabi_sdk-buildroot
+python3 native-tv/deploy.py --tv root@TV_ADDRESS \
+  --identity ~/.ssh/id_ed25519 --known-hosts ~/.ssh/known_hosts --run
 ```
 
 `deploy.py` stages the separate developer app and managed service runtime.

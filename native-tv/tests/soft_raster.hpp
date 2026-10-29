@@ -60,6 +60,8 @@ inline Fragment shade(Program program, const Vertex &v, const float *color, cons
     float cr = color[0], cg = color[1], cb = color[2], ca = color[3];
     if (program == Program::Sdf)
         return {cr, cg, cb, ca * coverage(v)};
+    if (program == Program::Flat)
+        return {cr, cg, cb, ca};
     int slot = std::min(kTextureSlots - 1, static_cast<int>(v.slot + 0.5f));
     float tr = 1, tg = 1, tb = 1, ta = 1;
     auto found = slot < batch.textureCount ? textures.find(batch.textures[slot]) : textures.end();
@@ -80,6 +82,8 @@ inline Fragment shade(Program program, const Vertex &v, const float *color, cons
     }
     if (program == Program::Mask)
         return {cr, cg, cb, ca * ta};
+    if (program == Program::FlatImage)
+        return {tr * cr, tg * cg, tb * cb, ta * ca};
     return {tr * cr, tg * cg, tb * cb, ta * ca * coverage(v)};
 }
 

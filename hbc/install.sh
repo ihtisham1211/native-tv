@@ -91,7 +91,6 @@ sync_native() {
     fi
   done
   chmod 755 "$D/native/nativetv-daemon" "$D/native/nativetv-service" || return 1
-  rm -f /media/developer/apps/usr/palm/applications/com.tvweb.native/glasshouse-service
 }
 
 [ -f "$SRC/VERSION" ] || fail "the app has no server files in it"
@@ -128,7 +127,6 @@ chmod +x "$D/tvwebctl" 2>/dev/null
 rm -rf "$D/tvweb.js" "$D/lib"
 if [ -f "$D/native/nativetv-service" ] && [ -f "$D/native/nativetv-daemon" ]; then
   chmod 755 "$D/native/nativetv-daemon" "$D/native/nativetv-service" || fail "could not make native runtimes executable"
-  rm -f /media/developer/apps/usr/palm/applications/com.tvweb.native/glasshouse-service
 fi
 # ares-package stores plain files as 0666. The server runs as root, so nothing
 # else on the TV may be able to change its code.
@@ -150,6 +148,4 @@ link_hook
 # Before the restart, so the server starting up finds nothing left to retire.
 adopt
 "$D/tvwebctl" restart >/dev/null 2>&1
-# The binaries before the project was renamed; the restart stopped the daemon that ran as one.
-rm -f "$D/native/glasshouse-daemon" "$D/native/glasshouse-service"
 if [ -n "$have" ]; then result upgraded; else result installed; fi

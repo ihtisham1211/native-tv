@@ -156,14 +156,6 @@ int main() {
                   " Room-TV-west app - system - header test") != std::string::npos,
               "Header fields replace whitespace with RFC-safe separators");
 
-        // A config from before the rename names the source "glasshouse".
-        SyslogSettings fromOldConfig;
-        check(readSyslogSettings(Json::parse("{\"syslog\":{\"server\":\"nas\","
-                                             "\"sources\":[\"system\",\"glasshouse\"]}}"),
-                                 fromOldConfig) &&
-                  fromOldConfig.sources == (std::vector<std::string>{"system", "nativetv"}),
-              "The source's name from before the rename is read as nativetv");
-
         std::cout << "native syslog formatting checks passed (" << checks << ")\n";
         return 0;
     } catch (const std::exception &error) {

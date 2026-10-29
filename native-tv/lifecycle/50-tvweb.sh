@@ -9,10 +9,7 @@
 # Deliberately defensive: never block boot, never respawn-loop. If the
 # daemon is missing, this exits quietly.
 
-# Named glasshouse-daemon before the rename: an install the new files have not
-# reached yet still has that one.
 DAEMON_BIN=/var/lib/tvweb/native/nativetv-daemon
-[ -x "$DAEMON_BIN" ] || DAEMON_BIN=/var/lib/tvweb/native/glasshouse-daemon
 [ -x "$DAEMON_BIN" ] || exit 0
 
 export PATH="/bin:/sbin:/usr/bin:/usr/sbin:$PATH"

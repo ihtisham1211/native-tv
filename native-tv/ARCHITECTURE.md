@@ -5,10 +5,9 @@
 `native-tv/` holds the TV application, the server that runs on the TV, the
 phone/browser dashboard's source (under `web/`), the TV pages' assets (under
 `assets/`), the lifecycle scripts (under `lifecycle/`) and all tests. The
-Node server and its test suites are gone; [HISTORY.md](HISTORY.md) records that
-move. The Node release
-is `v0.118.0` (`LAST-NODE-RELEASE`); webOS 4 is the oldest firmware the native
-server supports.
+server was a Node program until October 2026 and is one C++14 daemon, with a
+metrics worker beside it, now; no Node runs on the TV. webOS 4 is the oldest
+firmware the native server supports.
 
 ```mermaid
 flowchart TD
@@ -183,3 +182,12 @@ Integration checks exercise real HTTP responses and GL rendering. TV checks
 cover library ABI, shader compilation/linking, actual drawable size, physical
 remote behavior, foreground/background/relaunch and long-running memory use.
 Frame submission timing is distinct from GPU execution and display latency.
+
+## Decisions
+
+- webOS 4 is the oldest firmware the native server supports.
+- CivetWeb serves HTTP, and libcurl with the SDK's OpenSSL does MQTT TLS.
+- The shell watchdog (`tvwebctl`) stays; the daemon writes the heartbeat it
+  watches.
+- There is no native IPC adapter; the daemon's HTTP API serves its consumers.
+- The phone dashboard's source stays in `native-tv/web/`.

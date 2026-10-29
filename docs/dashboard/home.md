@@ -63,8 +63,7 @@ App video tracking runs while nativeTv Home and **Picture details** are on and t
 The separate native TV client renders the picture plate and recent-app cards
 in OpenGL ES using the existing Home APIs. It preserves the previous video
 source when opened. Source tracking still requires the Home service to be
-enabled; standalone native launch does not enable Home replacement. The move from Node to the native server is in
-[native-tv/HISTORY.md](https://github.com/ihtisham1211/google-tv-lg-web-os/blob/main/native-tv/HISTORY.md).
+enabled; standalone native launch does not enable Home replacement.
 
 The background is black. The browser dashboard can add an image for each time of day (morning 06:00, afternoon 11:00, evening 17:00, night 21:00): choose a **Time of day**, select a JPEG, PNG or WebP file up to 25 MB, then press **Upload image**. The browser fits it within 1920 × 1080 pixels, the size nativeTv Home is drawn at, and prepares a JPEG before sending it to the TV. Images fill the screen and may be cropped. **Remove uploaded images** puts black back. None are included with nativeTv.
 

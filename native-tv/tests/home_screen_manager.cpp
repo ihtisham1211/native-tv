@@ -28,7 +28,7 @@ using namespace nativetv::daemon;
 
 namespace {
 const char kMark[] = "<!-- nativetv -->";
-const char kTakeoverMark[] = "<!-- glasshouse-home-starting -->";
+const char kTakeoverMark[] = "<!-- nativetv-home-starting -->";
 
 // LG's built-in layout, as a C2 (webOS 9.2.2) has it.
 const char kLgLayout9[] =

@@ -21,9 +21,6 @@ BEAT=${TVWEB_BEAT:-/var/run/tvweb.beat}
 RESTARTS=${TVWEB_RESTARTS:-/var/lib/tvweb/tvweb.restarts}
 DAEMON=${TVWEB_DAEMON:-/var/lib/tvweb/native/nativetv-daemon}
 SERVICE=${TVWEB_SERVICE:-/var/lib/tvweb/native/nativetv-service}
-# What the daemon was called before the rename: one still running from an
-# install not restarted since the update is found and stopped under that name.
-LEGACY_DAEMON=${TVWEB_LEGACY_DAEMON:-/var/lib/tvweb/native/glasshouse-daemon}
 CONFIG=${TVWEB_CONFIG:-/var/lib/tvweb/config.json}
 # TVWEB_* overrides for this TV, one NAME=value per line; read at each start.
 NATIVE_ENV=${TVWEB_NATIVE_ENV:-/var/lib/tvweb/native.env}
@@ -63,13 +60,13 @@ app_running() {
   case "$pid" in ''|*[!0-9]*) return 1 ;; esac
   kill -0 "$pid" 2>/dev/null || return 1
   # A pid left over from before a reboot may now belong to something else.
-  tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | grep -qF -e "$DAEMON" -e "$LEGACY_DAEMON"
+  tr '\0' ' ' < "/proc/$pid/cmdline" 2>/dev/null | grep -qF -e "$DAEMON"
 }
 
-# Every daemon of this install, by command line, under either name.
+# Every daemon of this install, by command line.
 daemon_pids() {
   # shellcheck disable=SC2009  # busybox pgrep has no -f, so ps is the only way
-  ps -eo pid,args 2>/dev/null | grep -F -e "$DAEMON --config" -e "$LEGACY_DAEMON --config" | grep -v grep | awk '{print $1}'
+  ps -eo pid,args 2>/dev/null | grep -F -e "$DAEMON --config" | grep -v grep | awk '{print $1}'
 }
 
 stop_app() {
@@ -377,7 +374,7 @@ case "$1" in
   # Before uninstalling: the remote's keys as LG has them.
   restore-keys) restore_remote_keys ;;
   # LG's Home as the TV's Home again, and nativeTv Home switched off.
-  restore-nativetv-home|restore-glasshouse-home) restore_nativetv_home ;;
+  restore-nativetv-home) restore_nativetv_home ;;
   status)
     if [ -f "$PIDFILE" ] && kill -0 "$(cat "$PIDFILE")" 2>/dev/null; then
       echo "running (pid $(cat "$PIDFILE"))"

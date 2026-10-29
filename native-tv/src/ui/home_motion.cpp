@@ -310,11 +310,6 @@ void Application::homeUpdate() {
         rebuildHome();
         homeFocus(true);
     }
-    // The idle dimming: a quiet screen falls to two thirds black; the next key only wakes it.
-    if (!flow_.idle && due(now_, flow_.lastKeyAt + static_cast<uint32_t>(ms::idleAfter))) {
-        flow_.idle = true;
-        motion_.tween("dim", .66, ms::idleDim, easing(ease::inOut));
-    }
     // Hero: what the focused card, or the spotlight, asks for; the change waits for the art.
     bool heroTab = home.tabs[home.tab].key != "apps" && flow_.pendingTab < 0;
     for (const char *name : {"hp", "hk:0", "hk:1"})
@@ -446,17 +441,6 @@ void Application::homeSwapText() {
 }
 
 // ---- Idle, beat -------------------------------------------------------------------------------
-
-// A key or click while dimmed only wakes the screen; true when it was that one.
-bool Application::homeWake() {
-    flow_.lastKeyAt = now_;
-    if (!flow_.idle)
-        return false;
-    flow_.idle = false;
-    motion_.tween("dim", 0, ms::idleWake, easing(ease::out));
-    dirty_ = true;
-    return true;
-}
 
 // The server's heartbeat, as the old Home page sent it: the reply says whether the build, the
 // layout or the wallpapers changed, and three silent beats raise the "not answering" banner.

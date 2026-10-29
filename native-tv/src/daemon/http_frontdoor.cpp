@@ -1217,7 +1217,7 @@ bool setupRead(HttpExchange &exchange, const ServerConfig &config, const std::st
     if (!address.empty()) {
         state.set("address", Json::text(address + ":" + std::to_string(config.port)));
     } else if (demo) {
-        state.set("address", Json::text("192.168.1.131:" + std::to_string(config.port)));
+        state.set("address", Json::text("192.168.1.50:" + std::to_string(config.port)));
     } else {
         state.set("address", Json());
     }
@@ -1234,7 +1234,7 @@ bool setupRead(HttpExchange &exchange, const ServerConfig &config, const std::st
     Json handoff = nativeHandoffUrl.empty() ? context["handoff"]
                                             : Json::text(nativeHandoffUrl);
     if (!handoff.valid() && demo) {
-        const std::string phoneAddress = address.empty() ? "192.168.1.131" : address;
+        const std::string phoneAddress = address.empty() ? "192.168.1.50" : address;
         handoff = Json::text("http://" + phoneAddress + ":" + std::to_string(config.port) +
                              "/?c=demo");
     }
@@ -3227,7 +3227,7 @@ HomeOrchestrator *HttpFrontDoor::homeOrchestrator() const {
             for (const char *file : files) {
                 std::ifstream stream(rootedSystemPath(systemRoot_, std::string("/mnt/lg/cmn_data/manifest/") + file));
                 std::string text((std::istreambuf_iterator<char>(stream)), std::istreambuf_iterator<char>());
-                if (text.find("<!-- glasshouse-home-starting -->") != std::string::npos) return true;
+                if (text.find("<!-- nativetv-home-starting -->") != std::string::npos) return true;
             }
             return access((dataRoot_ + "/home-takeover-lg-layout").c_str(), F_OK) == 0;
         };
@@ -7647,7 +7647,7 @@ bool HttpFrontDoor::updateHomeStartingNotice(const Json &home) const {
     if (!starting.empty() && splash)
         configValue.set("splash", Json::flag(true));
     Json mapConfigs = Json::object();
-    mapConfigs.set("glasshouse.remoteKeys", configValue);
+    mapConfigs.set("nativetv.remoteKeys", configValue);
     const CommandPolicyContext policyContext = controlPolicyContext(config_);
     const auto writeConfigs = [this, &policyContext](
         const Json &configs, const std::string &action) {
@@ -7765,7 +7765,7 @@ bool HttpFrontDoor::syncHomeEarlyService(bool hasStartingNotice,
     if (access(script.c_str(), R_OK) != 0) return true;
     const std::string manifest = rootedSystemPath(
         systemRoot_,
-        "/var/luna-service2-dev/manifests.d/com.webos.glasshouse.boot.json");
+        "/var/luna-service2-dev/manifests.d/com.webos.nativetv.boot.json");
     if (!wanted && access(manifest.c_str(), F_OK) != 0) return true;
 
     const std::string shell = findSystemExecutable(
@@ -9056,7 +9056,7 @@ bool HttpFrontDoor::applyBackgroundServiceState(
 
     const std::string script = assetsRoot_ + "/early-service/install.sh";
     const std::string manifest = rootedSystemPath(
-        systemRoot_, "/var/luna-service2-dev/manifests.d/com.webos.glasshouse.boot.json");
+        systemRoot_, "/var/luna-service2-dev/manifests.d/com.webos.nativetv.boot.json");
     const std::string homeFlag = rootedSystemPath(
         systemRoot_, "/var/lib/tvweb/early-home");
     if (access(script.c_str(), R_OK) == 0) {
@@ -10497,7 +10497,7 @@ void HttpFrontDoor::setRemoteKey(HttpExchange &exchange) const {
     if (hasStarting && document["splash"].boolean())
         configValue.set("splash", Json::flag(true));
     Json mapConfigs = Json::object();
-    mapConfigs.set("glasshouse.remoteKeys", configValue);
+    mapConfigs.set("nativetv.remoteKeys", configValue);
     const CommandPolicyContext policyContext = controlPolicyContext(config_);
     const auto writeConfigs = [this, &policyContext](const Json &configs,
                                                      const std::string &policyAction) {
@@ -13204,7 +13204,7 @@ bool HttpFrontDoor::setupHandoffAction(HttpExchange &exchange,
         if (expectedAction == "handoff") {
             std::string address = localIpv4Address();
             if (address.empty())
-                address = "192.168.1.131";
+                address = "192.168.1.50";
             body = "{\"ok\":true,\"demo\":true,\"url\":\"http://" + address + ":" +
                    std::to_string(config_.port) + "/?c=demo\"}";
         }

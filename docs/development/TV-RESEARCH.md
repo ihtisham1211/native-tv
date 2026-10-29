@@ -666,7 +666,7 @@ app in front. Remote Keys puts its own filter first.
   input device (`LGE RCU` in `/proc/bus/input/devices`, `event0`) acted like
   the remote's Home.
 - **configd takes any name and cannot forget one.** `setConfigs` stores a key
-  it has never heard of (`glasshouse.remoteKeys`) in
+  it has never heard of (`nativetv.remoteKeys`) in
   `/mnt/lg/cmn_data/var/preferences/configd_factory_db.json`, kept across
   reboots. There is no delete method, and setting `null` is ignored.
 
@@ -1594,3 +1594,37 @@ native daemon beside the Node server and comparing every read-only route.
 - `luna-send` prints nothing, with exit status 0, when it gives up after `-w
   2000` on a loaded TV (a Cobalt app held the load average at about 33), so an
   empty reply is a timeout, not an empty answer.
+
+## What the B3's GPU costs (B3, webOS 10.3.2)
+
+Measured on 29 October 2026 on the OLED65B3PUA (PowerVR B-Series BXE-4-32, OpenGL
+ES 3.2 behind a GLES 2 context, 1920x1080, load average 32) by drawing one
+frame again and again with a `glFinish` after each draw
+(`NATIVETV_DEBUG_BENCH`, [testing.md](testing.md)).
+
+- **An empty frame** (clear, finish) takes 1.3 ms.
+- **A full-screen layer** costs 0.9 ms as a blended flat colour or gradient and
+  1 to 1.3 ms as one picture. Eight opaque layers with blending off cost 0.1 ms
+  each, because hidden surface removal shades only the last.
+- **The distance field** (rounded corners, smoothstep edge, ring and inner band)
+  costs 10 ms per full-screen layer, about 5 ns a pixel and eleven times a flat
+  fill. Home drew seven such layers behind the cards, 62 ms of a 73 ms frame.
+  Cheaper edge maths (a linear ramp, an early out inside, mediump) moved it by
+  less than the run-to-run noise of a frame (0.7 ms).
+- **Choosing a texture per pixel** with an `if` chain around `texture2D` makes
+  the compiler sample every slot (it needs the derivatives): the full-screen
+  picture cost 3.4 ms against 1.3 ms for a draw with one texture. Level zero
+  through `texture2DLodEXT`, which the driver offers, lets the chain branch and
+  took another 1.2 ms off a frame of cards.
+- **A draw call** costs 0.03 ms (forty chained draws, 1.2 ms), so more draws are
+  cheap beside the pixels they save. A viewport of half the size costs a quarter.
+- **The swap interval** changed from 2 to 1 gives the first frame afterwards two
+  display periods (34 ms); `eglSwapBuffers` at interval 1 blocks until the display
+  and the loop's own sleep paces a 30 fps ambient frame (intervals 36 ms on average).
+  About once in seven seconds the first GL call of a frame (`glClear`) blocks for
+  21 ms whatever the frame holds (the 2-draw splash does it too), which shows as one
+  35 ms interval.
+- **Wake-ups under the load average of 32** arrive late: swap returns 14 to 19 ms
+  apart at normal priority (p95 18.4 ms), 15 to 18 ms at `nice -10` (17.5 ms); the
+  client raises its own priority and a root jailer permits it.
+

@@ -1,0 +1,1 @@
+[{"at":5000,"checkpoint":"awake"},{"at":29000,"checkpoint":"before-dim"},{"at":34000,"checkpoint":"dimmed"},{"at":35000,"key":"right"},{"at":35010,"checkpoint":"after-first-key"},{"at":36500,"checkpoint":"awake-again"},{"at":36700,"key":"right"},{"at":37500,"checkpoint":"second-key"}]

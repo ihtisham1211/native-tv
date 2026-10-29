@@ -226,8 +226,7 @@ bool isHbcPackage(const std::string &id) {
     if (appIdIsProtected(id)) return true;
     static const char *updating[] = {
         "org.webosbrew.hbchannel",
-        "io.github.ihtisham1211.nativetv",
-        "io.github.rorygallagher2024.lg-webos-dashboard"
+        "io.github.ihtisham1211.nativetv"
     };
     for (const char *base : updating) {
         const std::string prefix = std::string(base) + ".";

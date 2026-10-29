@@ -87,7 +87,7 @@ class Handler(home_fixture.Handler):
             "/api/apps/catalog": CATALOG,
             "/api/game": GAME}
         if url.path == "/api/caps":
-            self.json({"ok": True, "allowPower": True, "origin": "http://192.168.1.68:3000"})
+            self.json({"ok": True, "allowPower": True, "origin": "http://192.168.1.50:3000"})
         elif url.path == "/api/home/catalogue":
             self.json(catalogue())
         elif url.path == "/api/stats":

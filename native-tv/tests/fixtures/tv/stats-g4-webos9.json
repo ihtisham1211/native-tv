@@ -135,7 +135,7 @@
     "tx": 48169914,
     "iface": "wlan0"
   },
-  "mac": "00:51:ed:99:7e:20",
+  "mac": "00:00:5e:00:53:10",
   "emmc": {
     "life": "0-10%",
     "wear": "0-10%",
@@ -181,7 +181,7 @@
     "hasLogo": false
   },
   "gpuMhz": 390,
-  "ssid": "NETGEAR51-5G",
+  "ssid": "ExampleWiFi-5G",
   "dimming": "dynamic",
   "lightSensor": null,
   "backlight": 100,

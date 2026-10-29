@@ -119,7 +119,7 @@ class Application : private ScreenHost {
         int pendingTab = -1;         // tab to show once the old page has left
         uint32_t swapAt = 0, commitAt = 0, textSwapAt = 0, wantSince = 0, lastKeyAt = 0, beatAt = 0,
                  waitFrom = 0;
-        bool idle = false, heroWaiting = false, textPending = false, tabPending = false,
+        bool idle = false /* dimmed: any screen, see idleUpdate() */, heroWaiting = false, textPending = false, tabPending = false,
              waiting = false;
         std::string focusId, wantId;
         Card want;
@@ -161,7 +161,10 @@ class Application : private ScreenHost {
     void homeRetargetPill(bool jump);
     void homeRetargetHero(const Card &card, bool instant);
     void homeSwapText();
-    bool homeWake();
+    // Idle dimming, for every screen but the splash (application.cpp).
+    void idleUpdate();
+    bool wake();
+    void drawIdleDim(kit::Paint &paint);
     void homeBeat(const Response *reply);
     void resolvePictures();
     void buildFrame();

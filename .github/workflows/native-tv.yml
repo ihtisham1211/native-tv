@@ -8,22 +8,11 @@ on:
     paths: ['native-tv/**', '.github/workflows/native-tv.yml']
   workflow_dispatch:
 
-env:
-  # Where the last Node release's tag is fetched from, when the checkout lacks it.
-  NATIVETV_REPO_URL: https://github.com/ihtisham1211/nativeTv.git
-
 jobs:
   native:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Fetch the last Node release fixture tag
-        run: |
-          tag="$(cat native-tv/LAST-NODE-RELEASE)"
-          if ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
-            git fetch --no-tags "$NATIVETV_REPO_URL" \
-              "refs/tags/$tag:refs/tags/$tag"
-          fi
       - name: Native build dependencies
         run: |
           sudo apt-get update

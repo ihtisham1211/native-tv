@@ -5,8 +5,11 @@
 #include <vector>
 
 namespace nativetv {
-// Per-frame limits from the GLES2 budget for the B3 (design/tv NOTES section 6.2).
-constexpr uint32_t kDrawBudget = 15;      // typical frame
+// Per-frame limits from the GLES2 budget for the B3 (design/tv NOTES section 6.2). A draw costs
+// the B3 about 0.03 ms (forty chained draws, measured), a pixel of the distance field about 5 ns
+// against 0.4 ns for a flat one, so the 15 draws of the notes gave way to more: a rounded shape
+// is a flat core plus a distance-field rim, two draws where there was one.
+constexpr uint32_t kDrawBudget = 32;      // typical frame
 constexpr uint32_t kDrawCap = 40;         // never exceed
 constexpr uint32_t kFullScreenLayerBudget = 4;
 constexpr uint32_t kVertexBudget = 8192;
@@ -71,12 +74,31 @@ class Batcher {
         bool clipped;
         Rect clip;
     };
+    // How a filled shape is covered. The distance field costs far more per pixel than a flat
+    // fill, and nearly every pixel of a card or a screen-sized layer is plainly inside the
+    // shape, so the field only runs on a rim around a flat core (Rim), or on all of it when the
+    // shape is too small to split (Field). A square-cornered shape that is big enough has no
+    // edge worth antialiasing and is Plain.
+    struct Cover {
+        enum Kind { Field, Rim, Plain } kind;
+        Rect area; // the quad the field covers, grown by its antialiasing margin
+        Rect core; // Rim: the flat part, inside the shape by more than the margin
+    };
+    Cover coverOf(const Shape &shape) const;
+    bool coreOf(const Shape &shape, float margin, Rect &core) const;
     Batch &place(Program program, const Rect &bounds, bool clipped, const Rect &clip,
                  TextureId texture, float &slot);
+    void quad(Program program, const Rect &rect, bool clipped, const Rect &clip, TextureId texture,
+              const Rect &uvArea, const Rect &uv, const Shape &shape, float outer, float inner,
+              float soft, const Color &color, float alpha);
     bool admit(const Rect &bounds, const Style &style, bool layer, bool &clipped, Rect &clip);
     Shape shapeOf(const Rect &box, const Corners &radii, const Style &style) const;
+    // `core` is a part of `area` the field leaves out (it is drawn flat in `color` when
+    // `paintCore`, left bare otherwise).
     void emitSdf(const Style &style, const Shape &shape, const Rect &area, float outer,
-                 float inner, float soft, const Color &color, bool layer);
+                 float inner, float soft, const Color &color, bool layer, const Rect *core = nullptr,
+                 bool paintCore = false);
+    void emitFill(const Style &style, const Shape &shape, const Color &color);
     void emitGradient(const Style &style, const Shape &shape, const Gradient &gradient);
     void emitImage(const Style &style, const Shape &shape, const Rect &uvArea, const Rect &uv,
                    TextureId texture, const Color &tint);

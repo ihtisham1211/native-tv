@@ -1,4 +1,5 @@
 #include "graphics/batch.hpp"
+#include "graphics/debug.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -8,6 +9,11 @@ namespace {
 constexpr float kFar = 8192;
 constexpr float kInvisible = 1.0f / 512;
 constexpr float kPi = 3.14159265f;
+// Smallest flat core worth the extra quads of a rim, and smallest square-cornered shape drawn
+// without antialiased edges.
+constexpr float kMinCore = 24;
+constexpr float kPlainMin = 24;
+constexpr float kHalfRoot2 = 0.70710678f;
 
 uint8_t byteOf(float value) {
     return static_cast<uint8_t>(std::min(1.f, std::max(0.f, value)) * 255 + 0.5f);
@@ -44,6 +50,21 @@ void setColor(Vertex &v, const Color &c, float alpha) {
 Color mix(const Color &a, const Color &b, float f) {
     return {a.r + (b.r - a.r) * f, a.g + (b.g - a.g) * f, a.b + (b.b - a.b) * f,
             a.a + (b.a - a.a) * f};
+}
+
+// Up to four disjoint rectangles that cover `area` minus `hole` (which lies inside it).
+int frameOf(const Rect &area, const Rect &hole, Rect *out) {
+    int count = 0;
+    float holeRight = hole.x + hole.w, holeBottom = hole.y + hole.h;
+    if (hole.y > area.y)
+        out[count++] = {area.x, area.y, area.w, hole.y - area.y};
+    if (area.y + area.h > holeBottom)
+        out[count++] = {area.x, holeBottom, area.w, area.y + area.h - holeBottom};
+    if (hole.x > area.x)
+        out[count++] = {area.x, hole.y, hole.x - area.x, hole.h};
+    if (area.x + area.w > holeRight)
+        out[count++] = {holeRight, hole.y, area.x + area.w - holeRight, hole.h};
+    return count;
 }
 
 struct Point {
@@ -223,22 +244,75 @@ static void putQuad(Batch &batch, const Rect &area, const Rect &uvArea, const Re
                   color, alpha);
 }
 
+bool Batcher::coreOf(const Shape &shape, float margin, Rect &core) const {
+    if (debugSkip().noCore)
+        return false;
+    float radius = std::max(std::max(shape.radii[0], shape.radii[1]),
+                            std::max(shape.radii[2], shape.radii[3]));
+    // The corner of the core must still be `margin` inside the arc of the largest radius.
+    float inset = std::max(margin, radius * (1 - kHalfRoot2) + kHalfRoot2 * margin);
+    core = {shape.box.x + inset, shape.box.y + inset, shape.box.w - 2 * inset,
+            shape.box.h - 2 * inset};
+    return core.w >= kMinCore && core.h >= kMinCore;
+}
+Batcher::Cover Batcher::coverOf(const Shape &shape) const {
+    Cover cover;
+    float margin = 2 * softness();
+    bool rounded = shape.radii[0] > 0 || shape.radii[1] > 0 || shape.radii[2] > 0 ||
+                   shape.radii[3] > 0;
+    if (!rounded && std::min(shape.box.w, shape.box.h) >= kPlainMin && !debugSkip().noCore) {
+        cover.kind = Cover::Plain;
+        cover.area = cover.core = shape.box;
+        return cover;
+    }
+    cover.area = grow(shape.box, margin);
+    cover.kind = coreOf(shape, margin, cover.core) ? Cover::Rim : Cover::Field;
+    return cover;
+}
+
+void Batcher::quad(Program program, const Rect &rect, bool clipped, const Rect &clip,
+                   TextureId texture, const Rect &uvArea, const Rect &uv, const Shape &shape,
+                   float outer, float inner, float soft, const Color &color, float alpha) {
+    float slot;
+    Batch &batch = place(program, rect, clipped, clip, texture, slot);
+    const float geometry[4] = {shape.centerX, shape.centerY, shape.halfW, shape.halfH};
+    putQuad(batch, rect, uvArea, uv, geometry, shape.radii, outer, inner, soft, slot, color, alpha);
+}
+
 void Batcher::emitSdf(const Style &style, const Shape &shape, const Rect &area, float outer,
-                      float inner, float soft, const Color &color, bool layer) {
+                      float inner, float soft, const Color &color, bool layer, const Rect *core,
+                      bool paintCore) {
     bool clipped;
     Rect clip;
     if (!admit(area, style, layer, clipped, clip))
         return;
-    float slot;
-    Batch &batch = place(Program::Sdf, area, clipped, clip, 0, slot);
-    const float geometry[4] = {shape.centerX, shape.centerY, shape.halfW, shape.halfH};
-    putQuad(batch, area, area, {0, 0, 1, 1}, geometry, shape.radii, outer, inner, soft, 0, color,
-            style.alpha);
+    Rect rim[4] = {area};
+    int count = core ? frameOf(area, *core, rim) : 1;
+    for (int i = 0; i < count; ++i)
+        quad(Program::Sdf, rim[i], clipped, clip, 0, rim[i], {0, 0, 1, 1}, shape, outer, inner, soft,
+             color, style.alpha);
+    if (core && paintCore)
+        quad(Program::Flat, *core, clipped, clip, 0, *core, {0, 0, 1, 1}, shape, 0, 0, 0, color,
+             style.alpha);
+}
+
+void Batcher::emitFill(const Style &style, const Shape &shape, const Color &color) {
+    Cover cover = coverOf(shape);
+    if (cover.kind == Cover::Plain) {
+        bool clipped;
+        Rect clip;
+        if (admit(cover.area, style, true, clipped, clip))
+            quad(Program::Flat, cover.area, clipped, clip, 0, cover.area, {0, 0, 1, 1}, shape, 0, 0,
+                 0, color, style.alpha);
+        return;
+    }
+    emitSdf(style, shape, cover.area, 0, kFar, softness(), color, true,
+            cover.kind == Cover::Rim ? &cover.core : nullptr, true);
 }
 
 void Batcher::emitShadow(const Node &node, const Style &style, const Shape &shape) {
     const Shadow &s = node.shadow;
-    if (s.color.a * style.alpha < kInvisible)
+    if (s.color.a * style.alpha < kInvisible || debugSkip().shadows)
         return;
     Shape moved = shape;
     float spread = s.spread * style.scale, blur = s.blur * style.scale;
@@ -251,22 +325,39 @@ void Batcher::emitShadow(const Node &node, const Style &style, const Shape &shap
         r = std::min(limit, std::max(0.f, r + spread));
     moved.box = {moved.centerX - moved.halfW, moved.centerY - moved.halfH, 2 * moved.halfW,
                  2 * moved.halfH};
-    emitSdf(style, moved, grow(moved.box, blur + 2 * softness()), 0, kFar,
-            std::max(blur, softness()), s.color, false);
+    Rect area = grow(moved.box, blur + 2 * softness());
+    // Under an opaque fill the middle of the shadow is never seen, so it is not drawn.
+    Rect hole;
+    bool opaque = node.kind == Node::Kind::Rectangle && node.gradient.stops < 2 &&
+                  node.color.a * style.alpha >= 0.99f;
+    if (opaque && coreOf(shape, 2 * softness(), hole)) {
+        hole = intersection(hole, area);
+        if (hole.w > 0 && hole.h > 0) {
+            emitSdf(style, moved, area, 0, kFar, std::max(blur, softness()), s.color, false, &hole,
+                    false);
+            return;
+        }
+    }
+    emitSdf(style, moved, area, 0, kFar, std::max(blur, softness()), s.color, false);
 }
 
 void Batcher::emitRing(const Node &node, const Style &style, const Shape &shape) {
     const Ring &ring = node.ring;
-    if (ring.color.a * style.alpha < kInvisible || (ring.inner <= 0 && ring.outer <= 0))
+    if (ring.color.a * style.alpha < kInvisible || (ring.inner <= 0 && ring.outer <= 0) ||
+        debugSkip().rings)
         return;
     float outer = ring.outer * style.scale, inner = ring.inner * style.scale;
+    Rect hole;
+    // Deeper inside than the inner edge the ring has no coverage, so the middle is not drawn.
+    bool hollow = coreOf(shape, inner + 2 * softness(), hole);
     emitSdf(style, shape, grow(shape.box, outer + 2 * softness()), outer, inner, softness(),
-            ring.color, false);
+            ring.color, false, hollow ? &hole : nullptr, false);
 }
 
 void Batcher::emitGradient(const Style &style, const Shape &shape, const Gradient &gradient) {
     float pad = 2 * softness();
-    Rect area = grow(shape.box, pad);
+    Cover cover = coverOf(shape);
+    const Rect &area = cover.area;
     bool clipped;
     Rect clip;
     if (!admit(area, style, true, clipped, clip))
@@ -290,18 +381,19 @@ void Batcher::emitGradient(const Style &style, const Shape &shape, const Gradien
             }
         return gradient.color[last];
     };
-    const float xs[4] = {area.x, area.x + area.w, area.x + area.w, area.x},
-                ys[4] = {area.y, area.y, area.y + area.h, area.y + area.h};
-    Point corners[4];
-    float lowest = 1e9f, highest = -1e9f;
-    for (int i = 0; i < 4; ++i) {
-        corners[i] = {xs[i], ys[i], parameter(xs[i], ys[i])};
-        lowest = std::min(lowest, corners[i].t);
-        highest = std::max(highest, corners[i].t);
-    }
     // Breakpoints are the stops that fall inside the quad; between two of them the colour is
     // linear in t, so vertex colours reproduce it exactly. Stops within the antialiasing margin
     // of the edge are ignored.
+    float lowest = 1e9f, highest = -1e9f;
+    {
+        const float xs[2] = {area.x, area.x + area.w}, ys[2] = {area.y, area.y + area.h};
+        for (float x : xs)
+            for (float y : ys) {
+                float t = parameter(x, y);
+                lowest = std::min(lowest, t);
+                highest = std::max(highest, t);
+            }
+    }
     float margin = pad / length, cuts[Gradient::kMaxStops + 2];
     int cutCount = 0;
     cuts[cutCount++] = -1e9f;
@@ -309,35 +401,66 @@ void Batcher::emitGradient(const Style &style, const Shape &shape, const Gradien
         if (gradient.at[i] > lowest + margin && gradient.at[i] < highest - margin)
             cuts[cutCount++] = gradient.at[i];
     cuts[cutCount++] = 1e9f;
-    float slot;
-    Batch &batch = place(Program::Sdf, area, clipped, clip, 0, slot);
     const float geometry[4] = {shape.centerX, shape.centerY, shape.halfW, shape.halfH};
-    for (int region = 0; region + 1 < cutCount; ++region) {
-        Point lower[8], upper[8];
-        int n = clipByT(corners, 4, lower, cuts[region], true);
-        if (n >= 3)
-            n = clipByT(lower, n, upper, cuts[region + 1], false);
-        if (n < 3)
-            continue;
-        for (int i = 1; i + 1 < n; ++i)
-            for (const Point *p : {&upper[0], &upper[i], &upper[i + 1]})
-                putVertex(batch, p->x, p->y, 0, 0, geometry, shape.radii, 0, kFar, softness(), 0,
-                          colorAt(p->t), style.alpha);
+    auto paint = [&](Program program, const Rect &piece) {
+        float slot;
+        const float xs[4] = {piece.x, piece.x + piece.w, piece.x + piece.w, piece.x},
+                    ys[4] = {piece.y, piece.y, piece.y + piece.h, piece.y + piece.h};
+        Point corners[4];
+        for (int i = 0; i < 4; ++i)
+            corners[i] = {xs[i], ys[i], parameter(xs[i], ys[i])};
+        Batch &batch = place(program, piece, clipped, clip, 0, slot);
+        for (int region = 0; region + 1 < cutCount; ++region) {
+            Point lower[8], upper[8];
+            int n = clipByT(corners, 4, lower, cuts[region], true);
+            if (n >= 3)
+                n = clipByT(lower, n, upper, cuts[region + 1], false);
+            if (n < 3)
+                continue;
+            // The colour is linear across a region, so alpha zero at every corner means none.
+            bool visible = false;
+            for (int i = 0; i < n; ++i)
+                visible = visible || colorAt(upper[i].t).a * style.alpha >= kInvisible;
+            if (!visible)
+                continue;
+            for (int i = 1; i + 1 < n; ++i)
+                for (const Point *p : {&upper[0], &upper[i], &upper[i + 1]})
+                    putVertex(batch, p->x, p->y, 0, 0, geometry, shape.radii, 0, kFar, softness(), 0,
+                              colorAt(p->t), style.alpha);
+        }
+    };
+    if (cover.kind == Cover::Plain) {
+        paint(Program::Flat, area);
+        return;
     }
+    Rect rim[4] = {area};
+    int count = cover.kind == Cover::Rim ? frameOf(area, cover.core, rim) : 1;
+    for (int i = 0; i < count; ++i)
+        paint(Program::Sdf, rim[i]);
+    if (cover.kind == Cover::Rim)
+        paint(Program::Flat, cover.core);
 }
 
 void Batcher::emitImage(const Style &style, const Shape &shape, const Rect &uvArea,
                         const Rect &uv, TextureId texture, const Color &tint) {
-    Rect area = grow(shape.box, 2 * softness());
+    Cover cover = coverOf(shape);
     bool clipped;
     Rect clip;
-    if (!admit(area, style, true, clipped, clip))
+    if (!admit(cover.area, style, true, clipped, clip))
         return;
-    float slot;
-    Batch &batch = place(Program::Image, area, clipped, clip, texture, slot);
-    const float geometry[4] = {shape.centerX, shape.centerY, shape.halfW, shape.halfH};
-    putQuad(batch, area, uvArea, uv, geometry, shape.radii, 0, kFar, softness(), slot, tint,
-            style.alpha);
+    if (cover.kind == Cover::Plain) {
+        quad(Program::FlatImage, cover.area, clipped, clip, texture, uvArea, uv, shape, 0, kFar,
+             softness(), tint, style.alpha);
+        return;
+    }
+    Rect rim[4] = {cover.area};
+    int count = cover.kind == Cover::Rim ? frameOf(cover.area, cover.core, rim) : 1;
+    for (int i = 0; i < count; ++i)
+        quad(Program::Image, rim[i], clipped, clip, texture, uvArea, uv, shape, 0, kFar, softness(),
+             tint, style.alpha);
+    if (cover.kind == Cover::Rim)
+        quad(Program::FlatImage, cover.core, clipped, clip, texture, uvArea, uv, shape, 0, kFar,
+             softness(), tint, style.alpha);
 }
 
 void Batcher::emitMask(const Style &style, const Rect &area, const Rect &uv, TextureId texture,
@@ -392,15 +515,18 @@ void Batcher::add(const Node &node, TextureId texture) {
     if (style.alpha >= kInvisible) {
         Rect box = transform.apply(node.rect);
         Corners radii = node.radii();
+        const DebugSkip &skip = debugSkip();
+        const bool big = skip.any() && box.w * box.h >= 0.8f * width_ * height_;
         switch (node.kind) {
         case Node::Kind::Rectangle: {
             Shape shape = shapeOf(box, radii, style);
             emitShadow(node, style, shape);
-            if (node.gradient.stops >= 2)
-                emitGradient(style, shape, node.gradient);
-            else if (node.color.a * style.alpha >= kInvisible)
-                emitSdf(style, shape, grow(shape.box, 2 * softness()), 0, kFar, softness(),
-                        node.color, true);
+            if (node.gradient.stops >= 2) {
+                if (!skip.gradients && !(big && skip.wallGradients))
+                    emitGradient(style, shape, node.gradient);
+            } else if (node.color.a * style.alpha >= kInvisible && !skip.fills &&
+                       !(big && skip.wallFills))
+                emitFill(style, shape, node.color);
             emitRing(node, style, shape);
             break;
         }
@@ -408,7 +534,8 @@ void Batcher::add(const Node &node, TextureId texture) {
             Shape outline = shapeOf(box, radii, style);
             emitShadow(node, style, outline);
             int width = 0, height = 0;
-            if (texture && host_.textureSize(texture, width, height) && width > 0 && height > 0) {
+            if (texture && host_.textureSize(texture, width, height) && width > 0 && height > 0 &&
+                !skip.images && !(big && skip.wallImages)) {
                 Rect content = box, uv = node.uv;
                 float ratio = (width * uv.w) / (height * uv.h), target = box.w / box.h;
                 if (node.contain) {
@@ -439,7 +566,7 @@ void Batcher::add(const Node &node, TextureId texture) {
             // Legacy string: the renderer rasterised it; the texture is the text's own size and
             // the node rect only clips it.
             int width = 0, height = 0;
-            if (texture && host_.textureSize(texture, width, height)) {
+            if (texture && host_.textureSize(texture, width, height) && !skip.text) {
                 Rect content = {box.x, box.y, width * style.scaleX, height * style.scaleY};
                 Style clipped = style;
                 Rect limit = clipped.clipped ? intersection(box, style.clip) : box;
@@ -457,15 +584,18 @@ void Batcher::add(const Node &node, TextureId texture) {
             across.at[1] = 0.78f;
             Gradient up = Gradient::between(180, {0, 0, 0, 0}, {0, 0, 0, 1});
             up.at[0] = 0.38f;
-            emitGradient(style, shape, across);
-            emitGradient(style, shape, up);
+            if (!skip.gradients) {
+                emitGradient(style, shape, across);
+                emitGradient(style, shape, up);
+            }
             break;
         }
         case Node::Kind::Run:
-            emitRun(node, transform, style);
+            if (!skip.text)
+                emitRun(node, transform, style);
             break;
         case Node::Kind::Mask:
-            if (texture)
+            if (texture && !skip.icons)
                 emitMask(style, box, node.uv, texture, node.color);
             break;
         }

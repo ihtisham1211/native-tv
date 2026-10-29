@@ -18,7 +18,7 @@ struct FrameStats {
 
 struct FrameSummary {
     unsigned frames = 0, ambientFrames = 0, lateFrames = 0;
-    // Intervals between swaps of frames drawn at swap interval 1, in ms.
+    // Intervals between swaps of frames drawn at the interactive pace (1), in ms.
     double p50 = 0, p95 = 0, p99 = 0, max = 0;
     // Means over all frames.
     double buildMs = 0, submitMs = 0;

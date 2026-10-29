@@ -1,10 +1,12 @@
 #include "graphics/renderer.hpp"
+#include "graphics/debug.hpp"
 #include "graphics/shaders.hpp"
 #include "graphics/svg.hpp"
 #include "graphics/text.hpp"
 #include "qrcodegen.hpp"
 #include <SDL_image.h>
 #include <algorithm>
+#include <cmath>
 #include <cstdio>
 #include <stdexcept>
 
@@ -68,18 +70,9 @@ Renderer::Renderer(int width, int height, const std::string &font, const std::st
     if (!fonts_[56])
         throw std::runtime_error(std::string("Font could not be opened: ") + TTF_GetError());
     // Every variant is compiled here, behind the boot cover, never on the first frame that needs it.
-    std::string vertex = vertexSource();
     for (int i = 0; i < kProgramCount; ++i) {
-        programs_[i] = link(vertex, fragmentSource(static_cast<Program>(i)));
-        glUseProgram(programs_[i]);
-        for (int unit = 0; unit < kTextureSlots; ++unit) {
-            std::string name = "u_tex" + std::to_string(unit);
-            GLint sampler = glGetUniformLocation(programs_[i], name.c_str());
-            if (sampler >= 0)
-                glUniform1i(sampler, unit);
-        }
-        glUniform4f(glGetUniformLocation(programs_[i], "u_proj"), 2 / kCanvasWidth,
-                    -2 / kCanvasHeight, -1, 1);
+        program(static_cast<Program>(i), false, 0);
+        program(static_cast<Program>(i), true, 0);
     }
     glGenBuffers(1, &buffer_);
     white_ = create(1, 1, TextureFormat::Rgba8);
@@ -97,8 +90,25 @@ Renderer::~Renderer() {
     for (auto &pair : fonts_)
         TTF_CloseFont(pair.second);
     glDeleteBuffers(1, &buffer_);
-    for (GLuint program : programs_)
-        glDeleteProgram(program);
+    for (auto &built : programs_)
+        glDeleteProgram(built.second);
+}
+
+GLuint Renderer::program(Program kind, bool singleTexture, unsigned debugVariant) {
+    bool textured = kind == Program::Image || kind == Program::FlatImage || kind == Program::Mask;
+    unsigned variant = debugVariant | (singleTexture && textured ? kSingleTexture : 0);
+    GLuint &built = programs_[(variant << 4) | static_cast<unsigned>(kind)];
+    if (built)
+        return built;
+    built = link(vertexSource(), fragmentSource(kind, variant));
+    glUseProgram(built);
+    for (int unit = 0; unit < kTextureSlots; ++unit) {
+        GLint sampler = glGetUniformLocation(built, ("u_tex" + std::to_string(unit)).c_str());
+        if (sampler >= 0)
+            glUniform1i(sampler, unit);
+    }
+    glUniform4f(glGetUniformLocation(built, "u_proj"), 2 / kCanvasWidth, -2 / kCanvasHeight, -1, 1);
+    return built;
 }
 
 TextureId Renderer::create(int width, int height, TextureFormat format, bool nearest) {
@@ -330,10 +340,20 @@ void Renderer::draw(const Scene &scene) {
     current_.batchMs = millisecondsSince(start);
     Uint64 submitStart = SDL_GetPerformanceCounter();
 
+    const DebugSkip &debug = debugSkip();
+    const float viewport = debug.viewport;
+    const unsigned variant = debug.shaderVariant() & ~kSingleTexture;
+    if (debug.noBlend)
+        glDisable(GL_BLEND);
+    else
+        glEnable(GL_BLEND);
     glDisable(GL_SCISSOR_TEST);
-    glViewport(0, 0, width_, height_);
+    glViewport(0, 0, static_cast<GLsizei>(width_ * viewport), static_cast<GLsizei>(height_ * viewport));
     glClearColor(scene.background.r, scene.background.g, scene.background.b, 1);
     glClear(GL_COLOR_BUFFER_BIT);
+    Uint64 traceClear = debug.trace ? SDL_GetPerformanceCounter() : 0, traceBuffer = 0,
+           traceWorst = 0;
+    size_t traceWorstBatch = 0;
     size_t batches = batcher_.batchCount();
     if (batches) {
         staging_.clear();
@@ -347,6 +367,8 @@ void Renderer::draw(const Scene &scene) {
                      staging_.data(), GL_STREAM_DRAW);
         ++current_.uploads;
         current_.uploadBytes += staging_.size() * sizeof(Vertex);
+        if (debug.trace)
+            traceBuffer = SDL_GetPerformanceCounter();
         const GLsizei stride = sizeof(Vertex);
         const size_t offsets[5] = {0, 16, 32, 48, 64};
         for (GLuint attribute = 0; attribute < 5; ++attribute) {
@@ -363,15 +385,15 @@ void Renderer::draw(const Scene &scene) {
             glBindTexture(GL_TEXTURE_2D, white);
             boundTextures[unit] = white;
         }
-        int activeProgram = -1;
+        GLuint activeProgram = 0;
         bool scissorOn = false;
         DeviceRect scissor = {0, 0, 0, 0};
         GLint first = 0;
         for (size_t i = 0; i < batches; ++i) {
             const Batch &batch = batcher_.batch(i);
-            int program = static_cast<int>(batch.program);
+            GLuint program = this->program(batch.program, batch.textureCount <= 1, variant);
             if (program != activeProgram) {
-                glUseProgram(programs_[program]);
+                glUseProgram(program);
                 activeProgram = program;
             }
             for (int slot = 0; slot < batch.textureCount; ++slot) {
@@ -385,7 +407,9 @@ void Renderer::draw(const Scene &scene) {
                 }
             }
             if (batch.clipped) {
-                DeviceRect rect = scissorFor(batch.clip, static_cast<float>(width_) / kCanvasWidth, height_);
+                DeviceRect rect = scissorFor(
+                    batch.clip, viewport * static_cast<float>(width_) / kCanvasWidth,
+                    static_cast<int>(height_ * viewport));
                 if (!scissorOn || rect.x != scissor.x || rect.y != scissor.y ||
                     rect.w != scissor.w || rect.h != scissor.h) {
                     if (!scissorOn)
@@ -401,7 +425,24 @@ void Renderer::draw(const Scene &scene) {
                 ++current_.scissorChanges;
             }
             GLsizei count = static_cast<GLsizei>(batch.vertices.size());
+            Uint64 drawStart = 0;
+            if (batchTimes_) {
+                glFinish();
+                drawStart = SDL_GetPerformanceCounter();
+            }
+            Uint64 traceDraw = debug.trace ? SDL_GetPerformanceCounter() : 0;
             glDrawArrays(GL_TRIANGLES, first, count);
+            if (debug.trace) {
+                Uint64 took = SDL_GetPerformanceCounter() - traceDraw;
+                if (took > traceWorst) {
+                    traceWorst = took;
+                    traceWorstBatch = i;
+                }
+            }
+            if (batchTimes_) {
+                glFinish();
+                (*batchTimes_)[i] += millisecondsSince(drawStart);
+            }
             first += count;
             ++current_.draws;
             current_.vertices += static_cast<uint32_t>(count);
@@ -409,6 +450,8 @@ void Renderer::draw(const Scene &scene) {
         if (scissorOn)
             glDisable(GL_SCISSOR_TEST);
     }
+    if (debug.finish)
+        glFinish();
     trim();
 #ifndef NDEBUG
     GLenum error = glGetError();
@@ -420,8 +463,56 @@ void Renderer::draw(const Scene &scene) {
     current_.fullScreenLayers = batcher_.stats().fullScreenLayers;
     current_.textureBytes = bytes_;
     current_.submitMs = millisecondsSince(submitStart);
+    if (debug.trace && current_.submitMs > 8) {
+        const double tick = 1000.0 / static_cast<double>(SDL_GetPerformanceFrequency());
+        std::fprintf(stderr,
+                     "slow submit %.1f ms: clear %.1f, buffer %.1f, worst draw %.1f (batch %zu of %zu), binds etc. %.1f\n",
+                     current_.submitMs, static_cast<double>(traceClear - submitStart) * tick,
+                     traceBuffer ? static_cast<double>(traceBuffer - traceClear) * tick : 0.0,
+                     static_cast<double>(traceWorst) * tick, traceWorstBatch, batcher_.batchCount(),
+                     current_.submitMs - static_cast<double>(traceClear - submitStart) * tick -
+                         (traceBuffer ? static_cast<double>(traceBuffer - traceClear) * tick : 0.0) -
+                         static_cast<double>(traceWorst) * tick);
+    }
     last_ = current_;
     current_ = RenderCounters();
+}
+
+double Renderer::timeFrames(const Scene &scene, int frames, bool perBatch) {
+    const bool finishBefore = debugSkip().finish;
+    debugSkip().finish = true;
+    draw(scene);
+    draw(scene);
+    std::vector<double> times;
+    if (perBatch)
+        times.assign(batcher_.batchCount(), 0.0);
+    batchTimes_ = perBatch ? &times : nullptr;
+    Uint64 start = SDL_GetPerformanceCounter();
+    for (int i = 0; i < frames; ++i)
+        draw(scene);
+    double total = millisecondsSince(start) / frames;
+    batchTimes_ = nullptr;
+    debugSkip().finish = finishBefore;
+    for (size_t i = 0; i < times.size(); ++i) {
+        const Batch &batch = batcher_.batch(i);
+        double area = 0; // canvas px covered by the triangles, before clipping
+        for (size_t v = 0; v + 2 < batch.vertices.size(); v += 3) {
+            const Vertex &a = batch.vertices[v], &b = batch.vertices[v + 1], &c = batch.vertices[v + 2];
+            area += std::fabs((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)) / 2;
+        }
+        std::fprintf(stderr,
+                     "  batch %2zu program=%d verts=%4zu tex=%d clip=%d area=%7.0f bounds=%.0f,%.0f %.0fx%.0f ms=%.2f\n",
+                     i, static_cast<int>(batch.program), batch.vertices.size(), batch.textureCount,
+                     batch.clipped ? 1 : 0, area, batch.bounds.x, batch.bounds.y, batch.bounds.w,
+                     batch.bounds.h, times[i] / frames);
+    }
+    return total;
+}
+
+void Renderer::acquireBackBuffer() {
+    glDisable(GL_SCISSOR_TEST);
+    glClearColor(0, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
 }
 
 void Renderer::capture(const std::string &path) const {

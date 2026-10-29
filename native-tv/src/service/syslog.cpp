@@ -205,9 +205,7 @@ bool readSyslogSettings(const Json &config, SyslogSettings &settings) {
         const std::vector<Json> values = configuredSources.items();
         for (const std::string &name : allowed) {
             for (const Json &value : values) {
-                // "glasshouse" is the source's name in a config from before the rename.
-                if (value.isString() && (value.string() == name ||
-                                         (name == "nativetv" && value.string() == "glasshouse"))) {
+                if (value.isString() && value.string() == name) {
                     settings.sources.push_back(name);
                     break;
                 }

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Run by the bus when the key filter calls com.webos.glasshouse.boot. The bus is
+# Run by the bus when the key filter calls com.webos.nativetv.boot. The bus is
 # not ready for the call at the filter's first config read (about 17.5 s into a
 # cold start; the first call that got through, at about 21.6 s, was the third),
 # so the filter calls every second until about 33 s and this runs once per boot:

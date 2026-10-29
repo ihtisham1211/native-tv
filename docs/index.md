@@ -6,22 +6,16 @@
 
 > [!NOTE]
 >
-> ## You bought the TV.
+> ## The TV belongs to its owner.
 >
-> **It's your TV and you should control it. You own the glass.**
+> nativeTv is for owners who do not want a network-connected appliance used as
+> a platform for advertising, telemetry and vendor-controlled experiences. It
+> brings control, visibility and automation back to the device: ways to remove
+> ads, withdraw from agreements and services that monetise the owner's data,
+> and a simpler TV, with customisation and local smart-home integration.
 >
-> Designed for those who reject their network-connected home appliances being
-> used as a platform for advertising, telemetry and vendor-controlled
-> experiences, this project brings control, visibility and automation back to
-> the device.
->
-> It offers multiple ways to remove ads, withdraw from agreements and services
-> designed to monetize your data, and make the TV a simpler, more streamlined
-> experience — alongside a wide range of useful features, customisation and
-> local smart-home integration.
->
-> nativeTv itself is local, transparent, and requires no cloud service.
-> No nonsense, no data collection, no ads, no dark patterns. I don't want your data.
+> nativeTv itself is local and transparent, and needs no cloud service. It
+> collects no data, shows no ads and has no dark patterns.
 
 **nativeTv** is a server that runs directly on a rooted LG webOS TV, providing both a live browser dashboard and a dashboard app.
 
@@ -62,7 +56,7 @@ This project is intended to give a rooted webOS TV a useful local control surfac
 
 11. **[Reading all of it on the TV itself](apps/tv-app.md).** An optional app on the home screen puts the same readings and controls on the TV, driven by the remote, for when there is no phone or laptop to hand.
 
-12. **[Managing TVs from Android](apps/android.md).** A phone app that keeps a list of TVs, shows which are online, wakes them with Wake-on-LAN, and opens each one's dashboard full screen.
+12. **[Android wrapper](apps/android.md).** The names a phone app uses to show the dashboard full screen and be recognised by it.
 
 ---
 
@@ -78,24 +72,6 @@ This project is intended to give a rooted webOS TV a useful local control surfac
   <sub>Metrics and Control tabs, shown in dark and light themes.</sub>
 </p>
 
-### Home Assistant
-
-The TV arrives over MQTT Discovery as a single unified device:
-
-<p align="center">
-  <a href="https://github.com/user-attachments/assets/1d76b1a2-68d9-42a4-a497-b107d706b235"><img width="800" alt="Home Assistant MQTT entities" src="https://github.com/user-attachments/assets/1d76b1a2-68d9-42a4-a497-b107d706b235" /></a>
-  <br>
-  <sub>MQTT Discovery entities exposed by the TV.</sub>
-</p>
-
-A custom Home Assistant dashboard for an LG TV:
-
-<p align="center">
-  <a href="https://github.com/user-attachments/assets/737b3106-e8a4-4c6b-ba96-b0bad130b600"><img width="800" alt="Custom dashboard leveraging MQTT data" src="https://github.com/user-attachments/assets/737b3106-e8a4-4c6b-ba96-b0bad130b600" /></a>
-  <br>
-  <sub>A custom Home Assistant dashboard using the TV's MQTT entities.</sub>
-</p>
-
 ---
 
 ## Disclaimer
@@ -105,8 +81,20 @@ A custom Home Assistant dashboard for an LG TV:
 * **Root access and hardware.** This runs custom software with `root` privileges on an embedded TV OS. It is designed to be lightweight and to leave the read-only rootfs untouched, but the author accepts **no responsibility** for damage, bootloops, bricked devices, voided warranties, data loss or panel issues.
 * **Power and control commands.** Reboot, power off, screen blanking and Pixel Refresher scheduling issue low-level `luna-send` calls. Understand what each does before using it.
 * **Trademarks.** An independent, unofficial community project, not affiliated with or endorsed by LG Electronics. webOS is a trademark of LG Electronics.
-* **Fonts.** Bundles [Roboto](https://github.com/googlefonts/roboto-3-classic), cut to Latin as WOFF, under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0); the licence text ships in `native-tv/assets/fonts/`.
+* **Third-party components.** Fonts, icons and libraries keep their own licences, listed in [THIRD-PARTY-NOTICES.md](https://github.com/ihtisham1211/nativeTv/blob/main/THIRD-PARTY-NOTICES.md).
 
 ## License
 
 MIT. See [LICENSE](https://github.com/ihtisham1211/nativeTv/blob/main/LICENSE).
+
+## Credits
+
+nativeTv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by Rory Gallagher, released under the MIT licence; his copyright notice is kept in [LICENSE](https://github.com/ihtisham1211/nativeTv/blob/main/LICENSE). Bundled third-party work, with its licence ([THIRD-PARTY-NOTICES.md](https://github.com/ihtisham1211/nativeTv/blob/main/THIRD-PARTY-NOTICES.md) has the texts):
+
+* [CivetWeb](https://github.com/civetweb/civetweb): the HTTP server (MIT)
+* [json-c](https://github.com/json-c/json-c): JSON, from the webOSbrew SDK (MIT)
+* [NanoSVG](https://github.com/memononen/nanosvg): SVG rendering on the TV (zlib)
+* [QR Code generator](https://www.nayuki.io/page/qr-code-generator-library) by Project Nayuki: the QR codes (MIT)
+* [StevenBlack/hosts](https://github.com/StevenBlack/hosts): the advertising hosts reviewed for the blocker (MIT)
+* [Roboto](https://github.com/googlefonts/roboto-3-classic) and [Figtree](https://github.com/erikdkennedy/figtree): fonts (Apache-2.0, OFL-1.1)
+* [Material Design Icons](https://pictogrammers.com/library/mdi/) and [Material Symbols](https://fonts.google.com/icons): icons (Apache-2.0)

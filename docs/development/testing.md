@@ -44,10 +44,8 @@ daemon on a fixture root with `native-fake-luna-send` as its `luna-send`
 (`NATIVETV_FAKE_LUNA_MODE` picks a scenario, `NATIVETV_FAKE_LUNA_DETAILS`
 logs each call) and drives it over HTTP. Real captured TV data lives in
 `native-tv/tests/fixtures/tv/`: stats from a B8 (webOS 4), a CX (webOS 5), a G4
-and a C4 (webOS 9), and receiver and settings dumps. Expected values that came
-from the Node release are recorded in `native-tv/tests/fixtures/*.json` by the
-generators in `native-tv/tests/tools/`; the generators need that release
-(`native-tv/LAST-NODE-RELEASE`) checked out to run again.
+and a C4 (webOS 9), and receiver and settings dumps. Expected values recorded
+from the former Node server are in `native-tv/tests/fixtures/*.json`.
 
 `node native-tv/tests/ui/run.js [filter]` runs the UI suites.
 
@@ -214,7 +212,7 @@ related CTest cases. For example, the managed app install front door can be
 checked with:
 
 ```sh
-rtk python3 native-tv/build.py --service-only \
+python3 native-tv/build.py --service-only \
   --out native-tv/build-host-ninja \
   --target nativetv-daemon \
   --target native-app-catalog-frontdoor-tests \
@@ -325,8 +323,7 @@ assembled once on its first request, compressed, with missing parts reported and
 `native-ha-golden` (`tests/ha_golden.py`) and `native-prometheus-golden` (`tests/prometheus_golden.py`) hold
 the entity catalogue, the capability filter, the discovery payloads and the Prometheus text to what `ha.js` and
 `prometheus.js` answered when recorded (`tests/fixtures/ha-golden.json`, `prometheus-golden.json`; the recording
-went with the Node server), so they need no Node. The Prometheus golden was recorded with the
-`glasshouse_` names and carries `nativetv_` since the rename; nothing else in it changed. `test-timers.js` is
+went with the Node server), so they need no Node. The Prometheus golden carries the `nativetv_` names. `test-timers.js` is
 `test_native_power_timer_writes` (the days bitmask, a timer that is off only stored, one that is on switched off, changed and on
 again, the Live TV no-channel switch to Home and its absence on webOS 3-5, bad times and days refused); the stored
 settings come from the file in `NATIVETV_FAKE_TIME_SETTINGS_FILE` and a Home app missing from the marker named by
@@ -356,7 +353,7 @@ an install started after the settings save (`test-restart-wait.js`). The debounc
 `test-token-url.js` and `test-home-boot.js` load the shipped sources (`native-tv/web/ui/`,
 `native-tv/assets/google-tv/` and `native-tv/lifecycle/50-tvweb.sh`) and run on the host with
 `node native-tv/tests/ui/run.js`. `test-dashboard-nav.js` holds the phone dashboard's sections and tabs
-against `ui.html` (the 13 panels, five sections, the tab buttons the scripts reveal), the Android app's
+against `ui.html` (the 13 panels, five sections, the tab buttons the scripts reveal), the Android wrapper's
 `navState` call, and the `?theme=` and `data-theme` behaviour.
 
 `native-luna` also covers the urgent call's one extra slot (one key press at a time, ahead of the
@@ -449,12 +446,65 @@ A separately installed ARM IPK also passed normal app-manager launch,
 background/resume, close and cold relaunch on OLED65B3PUA/webOS 10.3.2.
 Up/Right/OK/Back injected through the TV input service also opened and closed
 the native Quick settings drawer; compositor captures verified the result.
-The [native README](https://github.com/ihtisham1211/google-tv-lg-web-os/blob/main/native-tv/README.md) records tested hardware and
+The [native README](https://github.com/ihtisham1211/nativeTv/blob/main/native-tv/README.md) records tested hardware and
 migration limits.
 
 The daemon's remote-key reconcile (`/_internal/remote-keys/apply`, secret-guarded) does the start-up, settings-change, power and half-hourly reapply of the keys, the Home key and the starting message. `test_native_webos11_remote_keys_read_and_write` calls the route (refused without the secret). It also waits past the log
 watcher's 200 ms poll after the AI key is restored and checks the LG record has not come back: `JsonFile::load()` restores a
 missing file from its `.last-good` copy, so a record deleted on purpose now takes the copy with it.
+
+## End-to-end tests on a TV
+
+`native-tv/tests/e2e/` holds the cases that only a real TV can answer: the client's probe, the
+screens on the B3's GPU, frame intervals under scripted keys, and the idle dim. `cases.json` lists
+them (id `E2E-nnn`, title, purpose, screen, key script in `scripts/`, duration, the steps and the
+pass criteria), and `run.py` (Python's standard library only) runs them over ssh.
+
+```
+export NATIVETV_TV_HOST=ADDRESS          # or USER@ADDRESS; the user defaults to root
+export NATIVETV_SSH_KEY=PATH             # optional: the private key (default: ssh's own)
+export NATIVETV_SSH_KNOWN_HOSTS=PATH     # optional: the known-hosts file (default: ssh's own)
+python3 native-tv/tests/e2e/run.py --list
+python3 native-tv/tests/e2e/run.py --show E2E-030   # the case and the commands it runs
+python3 native-tv/tests/e2e/run.py --case E2E-030 --case E2E-041
+python3 native-tv/tests/e2e/run.py --all --report report.md   # .json for the full metrics
+```
+
+Without `NATIVETV_TV_HOST` the run options exit 77, so the CTest entry `native-e2e-tv` shows
+as skipped and nothing runs in CI; `native-e2e-runner` checks the runner and the registry without
+a TV (`run.py --check` does the same by hand). The client on the TV is the one already staged;
+`--stage --allow stage` runs `deploy.py` first, which also stages the managed runtime under
+`/var/lib/tvweb/native`.
+
+A case runs one client through the app's jailer for at most 60 s, as `deploy.py --run` does, one
+at a time under a lock folder in `/tmp`. The runner reads the server's port from the TV and never
+reads or prints the access token. It does not reboot, deploy or restart the daemon, change the
+Home takeover or write a TV setting, and a navigate-only script is refused when it holds OK, Back,
+text, a click or a capture. A case that needs the takeover or a reboot lists it under `requires`
+and runs only with `--allow takeover` or `--allow reboot`; none does yet.
+
+A result is **pass** when every criterion holds, **floor** when only the interval limits are missed
+and the case's `floor` limits (what the platform has been seen to keep) hold, **fail** otherwise,
+and **error** when the case could not run. The exit code is 1 for fail or error. The report has
+the intervals after the first 1.5 s (the screen loading), the longest draw and vertex counts,
+the texture memory, the checkpoints the script took and the size of the capture.
+
+| Id | Case | Screen |
+|---|---|---|
+| E2E-001 to 003 | Client probe: exit 0, and the forced faults, exit 12 (GL error) and 13 (wrong pixel) | |
+| E2E-010 to 014 | Kit gallery: home, apps, live, settings, setup | `kit:` |
+| E2E-020 | Splash at 60 fps, the control for the others | `splash` |
+| E2E-030, 031 | Home navigation, 17 s and 60 s | `home` |
+| E2E-032, 041, 051, 061, 075 | Idle dim after 30 s: the first key only wakes, the next acts | Home, Live, Settings, Catalog, Setup |
+| E2E-040 | Live navigation | `live` |
+| E2E-050, 052 | Settings navigation and the list of sections, no OK | `dashboard:privacy`, `dashboard` |
+| E2E-060 | Catalog navigation, no OK | `catalog` |
+| E2E-070 to 074 | Setup welcome, Home Assistant, summary, standby and network pages, Up and Down only (the phone hand-off page is left out: opening it asks the server for a one-time link) | `setup:` |
+
+The timing criteria are the target of the client's spec: p50 and p95 of the frame intervals at 60 fps
+(17.0 and 16.8 ms), none over 33 ms, at most 40 draws and 8192 vertices a frame and 64 MB of textures.
+On the B3 the splash itself has a p95 near 17 ms, so the floor is 20 ms with a few intervals over 33 ms
+(`glClear` blocks for about 21 ms roughly every seven seconds).
 
 ## Trying a build on a TV
 
@@ -486,12 +536,6 @@ against a test broker. The rollback copied the earlier install's `/var/lib/tvweb
 boot hook back from a tarball taken beforehand and started it; the upgrade ran
 `deploy.sh` over that. `scripts/check-drift.py` also checks that `deploy.sh` ships every
 file.
-
-## Release baselines
-
-The entity stability and upgrade checks read the `v0.118.0` and `v0.80.8` release tags;
-CI fetches either from the upstream repository when the fork does not have it, without
-publishing tags to the fork.
 
 ## Home Assistant
 
@@ -619,7 +663,7 @@ npm install --no-save playwright && npx playwright install chromium
 node scripts/check-dashboards.js
 ```
 
-Scripts that talk to a TV or to GitHub rather than to the tree, and need no change when a release changes: `soak.js` (a soak test against a real TV, with an optional MQTT broker; it carries its own small MQTT client), `footprint.sh` (the daemon's CPU and memory on the TV), `tvmon.py` with `probe_defs.py` and `tvstats.sh` (live SoC and load readings over telnet), `run-prometheus.sh`, `traffic.py` and `profile-home.js` (pasted into the Home page's inspector, and loaded by `check-dashboards.js`). Retired with Node: `check-es5.py` for the server, `check-module-calls.py`, `check-upgrade.js`, `discovery-configs.js` and the two `check-native-ha-*.py` comparisons, which the `native-ha-golden` test replaced.
+Scripts that talk to a TV or to GitHub rather than to the tree, and need no change when a release changes: `soak.js` (a soak test against a real TV, with an optional MQTT broker; it carries its own small MQTT client), `footprint.sh` (the daemon's CPU and memory on the TV), `tvmon.py` with `probe_defs.py` and `tvstats.sh` (live SoC and load readings over telnet), `run-prometheus.sh` and `profile-home.js` (pasted into the Home page's inspector, and loaded by `check-dashboards.js`). Retired with Node: `check-es5.py` for the server, `check-module-calls.py`, `check-upgrade.js`, `discovery-configs.js` and the two `check-native-ha-*.py` comparisons, which the `native-ha-golden` test replaced.
 
 The Home Assistant check needs Python 3.13 and the `homeassistant` package:
 

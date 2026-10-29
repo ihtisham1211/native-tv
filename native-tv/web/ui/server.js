@@ -339,11 +339,8 @@ async function restoreBackup(input) {
   restoreBackupData(b);
 }
 
-// The second is the name from before the project was renamed: those files still restore.
-const BACKUP_FORMATS = ['nativetv-backup', 'glasshouse-backup'];
-
 async function restoreBackupData(b) {
-  if (!b || !BACKUP_FORMATS.includes(b.format)) {
+  if (!b || b.format !== 'nativetv-backup') {
     return backupMessage(t('server.backup.notBackup', 'That file is not a nativeTv backup'));
   }
   const from = (b.from && b.from.model) || t('server.backup.unknownTv', 'an unknown TV');
@@ -404,7 +401,7 @@ async function toggleBackupDaily() {
 async function fetchSavedBackup(name) {
   const r = await fetch(api('/api/backup/saved?name=' + encodeURIComponent(name)), { cache: 'no-store' });
   const b = await r.json();
-  if (!r.ok || !BACKUP_FORMATS.includes(b.format)) throw new Error(b.error || r.status);
+  if (!r.ok || b.format !== 'nativetv-backup') throw new Error(b.error || r.status);
   return b;
 }
 

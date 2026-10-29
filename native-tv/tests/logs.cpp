@@ -84,13 +84,13 @@ int main() {
                   !parseLogCursor("system:x")["system"].valid(),
               "Log cursors and malformed-field handling");
 
-        check(redactLogText("connected to 192.168.1.125:1883 and 127.0.0.1") ==
+        check(redactLogText("connected to 192.168.1.60:1883 and 127.0.0.1") ==
                   "connected to <IP>:1883 and 127.0.0.1",
               "IPv4 redaction preserves loopback");
         check(redactLogText("?k=secret&sources=nativetv") ==
                   "?k=<REDACTED>&sources=nativetv",
               "Query credential redaction");
-        check(redactLogText("serialNumber: \"301NDXK0C912\"") ==
+        check(redactLogText("serialNumber: \"000EXMP0S001\"") ==
                   "serialNumber: \"<SERIAL>\"",
               "Device serial redaction");
         check(redactLogText("wlan0: SSID \"Home_Network\"") ==
@@ -138,7 +138,7 @@ int main() {
         writeFile(systemPath,
                   "2026-10-07T12:00:00.000Z [4.0] user.info system [] system ready\n");
         writeFile(nativeTvPath,
-                  "2026-10-07T12:00:01.000Z [5.0] [INFO] app: serialNumber: \"301NDXK0C912\" at 192.168.1.12\n"
+                  "2026-10-07T12:00:01.000Z [5.0] [INFO] app: serialNumber: \"000EXMP0S001\" at 192.168.1.12\n"
                   "2026-10-07T12:00:02.000Z [6.0] [WARN] mqtt: SSID \"Home_Wifi\"\n");
         writeFile(nativeTvPath + ".1",
                   "2026-10-07T11:59:59.000Z [3.0] [ERR] old: rotated failure\n");
@@ -178,7 +178,7 @@ int main() {
         logQuery.limit.clear();
 
         writeFile(nativeTvPath,
-                  "2026-10-07T12:00:01.000Z [5.0] [INFO] app: serialNumber: \"301NDXK0C912\" at 192.168.1.12\n"
+                  "2026-10-07T12:00:01.000Z [5.0] [INFO] app: serialNumber: \"000EXMP0S001\" at 192.168.1.12\n"
                   "2026-10-07T12:00:02.000Z [6.0] [WARN] mqtt: SSID \"Home_Wifi\"\n"
                   "2026-10-07T12:00:03.000Z [7.0] [INFO] mqtt: connected\n");
         logQuery.since = firstCursor;

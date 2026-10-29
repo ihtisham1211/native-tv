@@ -5,11 +5,11 @@ here is needed to use the project - see [Installing](install.md) and [the dashbo
 
 ---
 
-The C++ TV client under [`native-tv/`](https://github.com/ihtisham1211/google-tv-lg-web-os/blob/main/native-tv/README.md) draws its TV
+The C++ TV client under [`native-tv/`](https://github.com/ihtisham1211/nativeTv/blob/main/native-tv/README.md) draws its TV
 screens with OpenGL ES 2 and SDL2. Its domain/presentation modules use semantic
 operations through an asynchronous service interface; a transitional HTTP
 adapter maps those operations to this server's HTTP API. The
-[native architecture](https://github.com/ihtisham1211/google-tv-lg-web-os/blob/main/native-tv/ARCHITECTURE.md) defines the module
+[native architecture](https://github.com/ihtisham1211/nativeTv/blob/main/native-tv/ARCHITECTURE.md) defines the module
 boundaries. The server itself is the C++ `nativetv-daemon`; no Node runs on the TV.
 
 ## Architecture
@@ -375,8 +375,7 @@ Writing through the service works, but the flag alone does not survive a boot.
 `eulaStatus` is derived from a second record: `eulaInfoNetwork`, LG's agreement
 documents with an accepted flag on each. At boot the firmware rebuilds every
 mapped flag from the accepted documents, so a flag written on its own is
-overwritten by whatever its agreement still says. Reported on a C8 (webOS 4.4.0)
-in [#61](https://github.com/rorygallagher2024/glasshouse/issues/61).
+overwritten by whatever its agreement still says. Seen on a C8 (webOS 4.4.0).
 
 **Both firmwares rebuild.** An earlier note here said a B8 on 4.4.3 did not, on
 the strength of `cookiesAllowed` surviving a reboot. That flag is absent from
@@ -635,7 +634,7 @@ logged as `NL_GAMEDASHBOARD_ENTERED` with `"entered_by":"HotKey"`) on every
 write. So the filter, `remotekeys-filter.js` in `/var/lib/tvweb/`, is the same
 file whatever is mapped, and it is put first in the chain once, when the first
 key is set. The mappings go in a configd value of nativeTv's own,
-`glasshouse.remoteKeys` (`{ "keys": { "blue": "com.webos.app.hdmi2" } }`, an
+`nativetv.remoteKeys` (`{ "keys": { "blue": "com.webos.app.hdmi2" } }`, an
 empty string for nothing), which the filter subscribes to in `init()` with
 `lunaCall.subscribe`, as LG's filters do; a change reaches it within a second,
 with no reload. configd keeps the value across reboots, so the mappings work
@@ -654,7 +653,7 @@ filter names none of them, so they reach LG's filters and the app in front.
 LG's files are never written. configd has no way to
 delete a value, so **As LG has it** on every key leaves the filter in the
 chain, passing every key on, and `tvwebctl restore-keys` takes it out, deletes
-the file and leaves `glasshouse.remoteKeys` as an empty map.
+the file and leaves `nativetv.remoteKeys` as an empty map.
 
 Only keys this TV's own filter files name are offered, found by searching them
 for the symbol (`WebOS.Key_webOS_Disneyplus` is in a C5's `appLaunch.js` and
@@ -1396,7 +1395,7 @@ off, a layout that cannot be put back stays kept aside and the place is still
 taken. The Home key itself is answered
 earlier still, by the remote key filter (`remote_keys_reconciler`), which the
 compositor loads from configd before any startup hook: while
-`glasshouse.remoteKeys` carries `starting`, a Home press is kept from LG's
+`nativetv.remoteKeys` carries `starting`, a Home press is kept from LG's
 filters, press and release, and the filter asks sam for LG's Home's type; while
 it is not yet `web` it shows `starting` as a toast, and once it is, it opens
 Home and leaves later presses to LG's filters for the rest of the boot. A

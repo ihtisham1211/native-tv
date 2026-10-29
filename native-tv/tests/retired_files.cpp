@@ -65,15 +65,14 @@ int main() {
     rmdir((node + "/lib").c_str());
     rmdir(node.c_str());
 
-    // The binaries the project had before it was renamed go; the renamed ones stay.
+    // The server's own binaries are never retired.
     char binariesPattern[] = "/tmp/nativetv-retired-binaries-XXXXXX";
     const std::string binaries = mkdtemp(binariesPattern);
     mkdir((binaries + "/native").c_str(), 0755);
-    for (const char *name : {"glasshouse-daemon", "glasshouse-service", "nativetv-daemon", "nativetv-service"})
-        touch(binaries + "/native/" + name);
-    check(removeRetiredFiles(binaries) == 2, "the daemon and service under their old names go");
-    check(exists(binaries + "/native/nativetv-daemon") && exists(binaries + "/native/nativetv-service"),
-          "and the renamed ones stay");
+    for (const char *name : {"nativetv-daemon", "nativetv-service"}) touch(binaries + "/native/" + name);
+    check(removeRetiredFiles(binaries) == 0 &&
+              exists(binaries + "/native/nativetv-daemon") && exists(binaries + "/native/nativetv-service"),
+          "the daemon and service stay");
     for (const char *name : {"nativetv-daemon", "nativetv-service"}) unlink((binaries + "/native/" + name).c_str());
     rmdir((binaries + "/native").c_str());
     rmdir(binaries.c_str());

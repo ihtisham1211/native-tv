@@ -67,7 +67,6 @@ EOF
 chmod 755 "$DAEMON"
 
 export TVWEB_DAEMON=$DAEMON TVWEB_SERVICE=$DIR/no-service TVWEB_LOG=$DIR/tvweb.log
-export TVWEB_LEGACY_DAEMON=$DIR/glasshouse-daemon
 export TVWEB_PIDFILE=$DIR/tvweb.pid TVWEB_WATCHPID=$DIR/tvwebwatch.pid TVWEB_BEAT=$DIR/tvweb.beat
 export TVWEB_RESTARTS=$DIR/tvweb.restarts TVWEB_CONFIG=$DIR/config.json TVWEB_ASSETS=$DIR/assets
 export TVWEB_NATIVE_ENV=$DIR/native.env
@@ -210,16 +209,6 @@ sleep 1
 alive "$LEGACY" && fail "a restart left the old Node server running"
 LEGACY=
 ok "a restart stops the Node server an earlier release left running"
-
-# --- a daemon still running under the name from before the rename is stopped too
-cp "$DAEMON" "$DIR/glasshouse-daemon"
-"$DIR/glasshouse-daemon" --config "$TVWEB_CONFIG" --heartbeat "$DIR/old.beat" --listen >/dev/null 2>&1 &
-earlier=$!
-wait_for "the stand-in for the renamed daemon" 'ps -eo args | grep -F "$DIR/glasshouse-daemon --config" | grep -v grep | grep -q .' 5
-ctl restart >/dev/null
-sleep 1
-alive "$earlier" && fail "a restart left the daemon under its old name running"
-ok "a restart stops a daemon still running under its name from before the rename"
 
 # --- stop leaves nothing
 daemon=$(pid)

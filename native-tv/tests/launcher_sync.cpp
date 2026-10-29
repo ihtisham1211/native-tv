@@ -130,14 +130,6 @@ int main() {
               access((std::string(NATIVETV_REPO_ROOT) + "/native-tv/assets/dashboard-app/index.html").c_str(), F_OK) != 0,
           "the dashboard tile ships as a native app with no page");
 
-    // The Homebrew Channel app under its id from before the project was renamed is followed too.
-    const std::string earlier = "io.github.rorygallagher2024.lg-webos-dashboard";
-    mkdir((root + "/" + earlier).c_str(), 0755);
-    write(root + "/" + earlier + "/index.html", page);
-    check(syncLauncherPort(8200, root) == (Ids{ids[0], ids[1], ids[2], earlier}) &&
-              has(read(root + "/" + earlier + "/index.html"), "var PORT = 8200;"),
-          "the earlier package's page follows a changed port");
-
     const std::string cleanup = "rm -rf " + root;
     runShell(cleanup);
     if (failures) {

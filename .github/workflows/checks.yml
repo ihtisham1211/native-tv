@@ -9,27 +9,12 @@ on:
   pull_request:
   workflow_dispatch:
 
-env:
-  # Where the release tags the checks compare against are fetched from, when the
-  # checkout lacks them.
-  NATIVETV_REPO_URL: https://github.com/ihtisham1211/nativeTv.git
-
 jobs:
   checks:
     runs-on: ubuntu-latest
     name: Checks
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0   # the release tags, for the entity stability check
-
-      - name: Imported release baselines when absent
-        run: |
-          for tag in v0.118.0 v0.80.8; do
-            if ! git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
-              git fetch --no-tags "$NATIVETV_REPO_URL" "refs/tags/$tag:refs/tags/$tag"
-            fi
-          done
 
       - name: dashboard reaches for no missing element
         run: ./scripts/check-ui-ids.py

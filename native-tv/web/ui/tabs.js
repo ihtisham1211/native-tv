@@ -52,8 +52,8 @@ let activeTab = null;
  * permanent drawer above - so it is told false and shows no menu button of
  * its own. An older app has the bridge without navState and is left alone.
  */
-const appBridge = /Glasshouse-Android\//.test(navigator.userAgent) && window.GlasshouseApp &&
-  typeof window.GlasshouseApp.navState === 'function' ? window.GlasshouseApp : null;
+const appBridge = /NativeTv-Android\//.test(navigator.userAgent) && window.NativeTvApp &&
+  typeof window.NativeTvApp.navState === 'function' ? window.NativeTvApp : null;
 
 function reportNav() {
   if (!appBridge) return;

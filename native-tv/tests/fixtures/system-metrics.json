@@ -16,7 +16,7 @@
     "sys/devices/system/cpu/online": "0-1\n",
     "sys/class/net/eth0/operstate": "down\n",
     "sys/class/net/wlan0/operstate": "up\n",
-    "sys/class/net/wlan0/address": "00:51:ed:99:7e:20\n",
+    "sys/class/net/wlan0/address": "00:00:5e:00:53:10\n",
     "proc/lg/pm/status": "cpu_num: 4\nload: 25 30 15 20\n",
     "proc/lg/pm/current_load": "35\n",
     "proc/lg/pm/frequency": "1200000\n",
@@ -79,7 +79,7 @@
       "iface": "wlan0",
       "rx": 25000000,
       "tx": 10000000,
-      "mac": "00:51:ed:99:7e:20"
+      "mac": "00:00:5e:00:53:10"
     },
     "wifi": {
       "link": 76,

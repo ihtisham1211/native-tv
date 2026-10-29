@@ -2,7 +2,6 @@
 #include "domain/models.hpp"
 #include "ui/kit/geometry.hpp"
 #include <cmath>
-#include <cstdio>
 #include <string>
 
 // What Home's controller and view agree on: how wide a row's items are and the ids of the
@@ -55,14 +54,10 @@ inline float itemGap(const CardRow &) {
     return kit::layout::cardGap;
 }
 inline std::string id(const char *name, size_t row, size_t column) {
-    char text[32];
-    std::snprintf(text, sizeof(text), "%s:%zu.%zu", name, row, column);
-    return text;
+    return std::string(name) + ":" + std::to_string(row) + "." + std::to_string(column);
 }
 inline std::string id(const char *name, size_t index) {
-    char text[32];
-    std::snprintf(text, sizeof(text), "%s:%zu", name, index);
-    return text;
+    return std::string(name) + ":" + std::to_string(index);
 }
 // The pointer's id for an item: "card:<row>:<column>".
 inline std::string hit(size_t row, size_t column) {

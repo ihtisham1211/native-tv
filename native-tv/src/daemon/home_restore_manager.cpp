@@ -221,7 +221,7 @@ bool HomeRestoreManager::restoreStartingNotice(
     }
 
     Json configs = Json::object();
-    configs.set("glasshouse.remoteKeys", mapForConfigd(remoteKeys,
+    configs.set("nativetv.remoteKeys", mapForConfigd(remoteKeys,
                                                         clearLegacyHome));
     Json payload = Json::object();
     payload.set("configs", configs);

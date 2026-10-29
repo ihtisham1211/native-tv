@@ -108,7 +108,7 @@ def item(number):
             "backdrop": "/b%d.jpg" % number}
 
 
-PROFILES = [("main", "Ihtisham", "#5C5AA8"), ("sara", "Sara", "#B05E8A"), ("guest", "Guest", "#117A65")]
+PROFILES = [("main", "Alex", "#5C5AA8"), ("sara", "Sara", "#B05E8A"), ("guest", "Guest", "#117A65")]
 
 
 def stats():

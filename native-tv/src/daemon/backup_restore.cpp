@@ -116,10 +116,7 @@ BackupRestoreOutcome restoreBackup(const BackupRestoreDeps &deps, const Json &ba
     if (deps.restoreHome && (layout.isObject() || layout.isArray()))
         homeAnswer = deps.restoreHome(layout);
 
-    // A backup made before the project was renamed keeps them under "glasshouse".
-    const Json section = backup["nativetv"].isObject()   ? backup["nativetv"]
-                         : backup["glasshouse"].isObject() ? backup["glasshouse"]
-                                                           : Json::object();
+    const Json section = backup["nativetv"].isObject() ? backup["nativetv"] : Json::object();
     Json changed = Json::array();
     std::string writeError;
     const bool written = deps.writeConfig && deps.writeConfig(section, changed, writeError);

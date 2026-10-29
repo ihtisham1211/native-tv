@@ -22,8 +22,7 @@ The deploy replaces server files and keeps the TV's configuration and data.
 To return to an earlier release, check it out and deploy it again.
 
 **Installed from the Homebrew Channel or as an `.ipk`.** Update the package
-through the Homebrew Channel. While the package awaits approval in the official
-repository ([webosbrew/apps-repo#261](https://github.com/webosbrew/apps-repo/pull/261)),
+through the Homebrew Channel once the package is listed there. Until then,
 install the newer `.ipk` from [GitHub releases](https://github.com/ihtisham1211/nativeTv/releases)
 over the existing one with webOS Dev Manager, Homebrew Channel sideload, or
 `ares-install`. The server follows the updated app on launch or reboot,

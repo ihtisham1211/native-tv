@@ -1,4 +1,5 @@
 #include "adapters/http_services.hpp"
+#include "graphics/debug.hpp"
 #include "graphics/glyph_atlas.hpp"
 #include "graphics/icon_atlas.hpp"
 #include "graphics/image_loader.hpp"
@@ -22,6 +23,7 @@
 #include <ctime>
 #include <fstream>
 #include <memory>
+#include <sys/resource.h>
 #include <stdexcept>
 #include <vector>
 
@@ -209,15 +211,69 @@ void prewarm(Renderer &renderer, kit::RunGlyphs &glyphs, GlyphAtlas &atlas, Icon
     }
 }
 
+// NATIVETV_DEBUG_BENCH=MS: once, at MS into the run, draws the current frame repeatedly under
+// the debug switches (graphics/debug.hpp), then synthetic layers, and prints the GPU milliseconds
+// per frame (glFinish after every draw), so each cost can be read off one run on the TV.
+void benchmark(Renderer &renderer, const Scene &scene) {
+    // "x" names nothing: the frame as it is. The first one warms the clocks up.
+    static const char *variants[] = {"x",       "x",      "wall",      "wallimg", "wallgrad",
+                                     "images",  "text",   "shadows",   "rings",   "fills",
+                                     "gradients", "icons", "wall,images,text,shadows,rings,fills,gradients,icons",
+                                     "flat",    "noblend", "half",     "nocore"};
+    const DebugSkip original = debugSkip();
+    for (const char *variant : variants) {
+        debugSkip() = parseDebugSkip(variant);
+        std::fprintf(stderr, "bench %-60s %6.2f ms\n", variant, renderer.timeFrames(scene, 12));
+    }
+    // What one full-screen layer of each kind costs: eight of them, less the empty frame.
+    struct Layer {
+        const char *name;
+        bool rounded, gradient, opaque;
+        const char *skip;
+    };
+    static const Layer layers[] = {{"flat blended", false, false, false, "x"},
+                                   {"flat opaque, blend on", false, false, true, "x"},
+                                   {"flat opaque, blend off", false, false, true, "noblend"},
+                                   {"gradient blended", false, true, false, "x"},
+                                   {"distance field blended", true, false, false, "nocore"},
+                                   {"distance field, blend off", true, false, true, "nocore,noblend"}};
+    debugSkip() = parseDebugSkip("x");
+    Scene empty;
+    empty.background = {0, 0, 0, 1};
+    double base = renderer.timeFrames(empty, 12);
+    std::fprintf(stderr, "bench empty frame %.2f ms\n", base);
+    for (const Layer &layer : layers) {
+        Scene synthetic;
+        synthetic.background = {0, 0, 0, 1};
+        const float alpha = layer.opaque ? 1.f : .5f;
+        for (int i = 0; i < 8; ++i) {
+            Node &node = synthetic.shape({0, 0, 1920, 1080}, {.2f, .3f, .4f, alpha}, layer.rounded ? 12.f : 0);
+            if (layer.gradient)
+                node.gradient = Gradient::between(90, {1, 0, 0, alpha}, {0, 0, 1, alpha});
+        }
+        debugSkip() = parseDebugSkip(layer.skip);
+        double ms = renderer.timeFrames(synthetic, 12);
+        std::fprintf(stderr, "bench layer %-28s %6.2f ms per full-screen layer\n", layer.name,
+                     (ms - base) / 8);
+    }
+    // What a draw costs: forty small shapes in a chain, each overlapping the last, so none can
+    // join another's draw (square corners and round alternate, so neighbours differ in program).
+    debugSkip() = parseDebugSkip("x");
+    Scene chain;
+    chain.background = {0, 0, 0, 1};
+    for (int i = 0; i < 40; ++i)
+        chain.shape({100.f + i * 10, 100, 40, 40}, {.2f, .3f, .4f, .5f}, i % 2 ? 0 : 8);
+    double chained = renderer.timeFrames(chain, 12);
+    std::fprintf(stderr, "bench %zu chained draws %.2f ms, %.3f ms a draw\n",
+                 static_cast<size_t>(renderer.counters().draws), chained,
+                 (chained - base) / renderer.counters().draws);
+    debugSkip() = parseDebugSkip("x");
+    renderer.timeFrames(scene, 4, true);
+    debugSkip() = original;
+}
+
 double millisecondsSince(Uint64 counter) {
     return (SDL_GetPerformanceCounter() - counter) * 1000.0 / SDL_GetPerformanceFrequency();
-}
-// Interval 2 is refused by some drivers and silently clamped to 1 by others
-// (EGL does that past EGL_MAX_SWAP_INTERVAL, Cocoa always), so the loop also
-// sleeps to 30 fps in ambient mode; where the swap already waits, that adds nothing.
-void setSwapInterval(int wanted) {
-    if (SDL_GL_SetSwapInterval(wanted) != 0)
-        SDL_GL_SetSwapInterval(1);
 }
 } // namespace
 int main(int argc, char **argv) {
@@ -227,6 +283,11 @@ int main(int argc, char **argv) {
         if (opts.probe)
             return runProbe(opts.windowed);
         std::setlocale(LC_TIME, "");
+        // The loop wakes on the display's schedule while the TV runs a load average near 30, and
+        // at normal priority the wake-ups come up to several ms late: 16.7 ms frames spread over
+        // 14 to 19 ms (p95 18.4 ms against 17.5 ms at -10). Refused without the privilege, which
+        // costs nothing but that.
+        const bool priorityRaised = setpriority(PRIO_PROCESS, 0, -10) == 0;
         SDL_SetHint("SDL_WEBOS_ACCESS_POLICY_KEYS_BACK", "true");
         SDL_SetHint("SDL_WEBOS_ACCESS_POLICY_KEYS_EXIT", "true");
         GlWindow gl(opts.windowed);
@@ -236,8 +297,9 @@ int main(int argc, char **argv) {
         SDL_StartTextInput();
         installTerminationHandlers();
         const int width = gl.width(), height = gl.height();
-        std::fprintf(stderr, "nativeTv native: %dx%d, %s, %s\n", width, height,
-                     glGetString(GL_RENDERER), glGetString(GL_VERSION));
+        std::fprintf(stderr, "nativeTv native: %dx%d, %s, %s%s\n", width, height,
+                     glGetString(GL_RENDERER), glGetString(GL_VERSION),
+                     priorityRaised ? ", priority raised" : "");
         {
             HttpServices http(opts.server);
             Application app(http, opts.screen);
@@ -299,7 +361,14 @@ int main(int argc, char **argv) {
                 return !replies.empty();
             };
             Uint32 lastNow = 0;
-            int swapInterval = -1; // -1: not set yet
+            const char *benchEnv = std::getenv("NATIVETV_DEBUG_BENCH");
+            const long benchAt = benchEnv ? std::atol(benchEnv) : -1;
+            bool benched = false;
+            // The swap interval is set once. Changing it between ambient and interactive made
+            // the first frame after the change take two display frames on the B3, a hitch on the
+            // first key press after every idle spell, so ambient pacing is the loop's sleep.
+            SDL_GL_SetSwapInterval(fixed ? 0 : 1);
+            int pace = -1; // 2 while ambient, 1 otherwise (0 in a fixed-clock run)
             Uint64 lastSwapAt = 0;
             bool lastSwapMeasurable = false;
             while (!quit && !terminationRequested && app.running()) {
@@ -487,13 +556,16 @@ int main(int argc, char **argv) {
                 const bool lastFrame = stops && now >= stopAt;
                 if ((active || lastFrame) && (draw || lastFrame)) {
                     const int wanted = fixed ? 0 : (ambient ? 2 : 1);
-                    if (wanted != swapInterval) {
-                        setSwapInterval(wanted);
-                        swapInterval = wanted;
-                        lastSwapMeasurable = false;
+                    if (wanted != pace) {
+                        pace = wanted;
+                        lastSwapMeasurable = false; // the pause between paces is not a frame
                     }
                     runs.beginFrame();
                     const Scene &scene = app.frame();
+                    if (benchAt >= 0 && !benched && now >= static_cast<Uint32>(benchAt)) {
+                        benched = true;
+                        benchmark(renderer, scene);
+                    }
                     const double sceneMs = millisecondsSince(frameStart);
                     renderer.draw(scene);
                     const RenderCounters &drawn = renderer.counters();
@@ -517,13 +589,25 @@ int main(int argc, char **argv) {
                     }
                     lastSwapAt = swappedAt;
                     lastSwapMeasurable = true;
+                    // eglSwapBuffers returns before the next buffer is free, and the first GL call
+                    // of the next frame then waits for it (21 ms about every seven seconds on the
+                    // B3), after the clock was read and the keys taken. Waiting here puts that wait
+                    // before they are.
+                    if (!fixed && !lastFrame)
+                        renderer.acquireBackBuffer();
                     ++frames;
                     draw = false;
-                    // Some contexts do not wait for the display; keep the loop from spinning.
+                    // Ambient frames are paced to 30 fps here; the rest of the time the swap waits
+                    // for the display, and where it does not (a headless context) the floor
+                    // keeps the loop from spinning.
                     const double frameMs = wanted == 2 ? kAmbientFrameMs : kMinFrameMs;
                     const double spent = millisecondsSince(frameStart);
-                    if (!fixed && spent < frameMs)
-                        SDL_Delay(static_cast<Uint32>(frameMs - spent + 0.999));
+                    if (!fixed && spent < frameMs) {
+                        // Waiting on events instead of sleeping, so a key press ends the pause.
+                        SDL_Event woken;
+                        if (SDL_WaitEventTimeout(&woken, static_cast<int>(frameMs - spent + 0.999)) == 1)
+                            SDL_PushEvent(&woken);
+                    }
                 } else
                     lastSwapMeasurable = false;
                 std::string screen = app.screenName();

@@ -298,7 +298,7 @@ bool restoreJavaScriptRemoteKeys(CommandPolicyExecutor &policy,
     Json mapValue = Json::object();
     mapValue.set("keys", Json::object());
     Json configs = Json::object();
-    configs.set("glasshouse.remoteKeys", mapValue);
+    configs.set("nativetv.remoteKeys", mapValue);
     Json setPayload = Json::object();
     setPayload.set("configs", configs);
     LunaReply setMapReply;

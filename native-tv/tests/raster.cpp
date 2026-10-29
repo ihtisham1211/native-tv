@@ -1,3 +1,4 @@
+#include "graphics/debug.hpp"
 #include "graphics/svg.hpp"
 #include "graphics/text.hpp"
 #include "render_scenes.hpp"
@@ -172,7 +173,7 @@ void rendererChecks() {
         lowV = std::min(lowV, v.v);
         highV = std::max(highV, v.v);
     }
-    check(std::fabs(lowV - 0.245f) < 1e-3f && std::fabs(highV - 0.755f) < 1e-3f,
+    check(std::fabs(lowV - 0.25f) < 1e-3f && std::fabs(highV - 0.75f) < 1e-3f,
           "Cover fit crops the long side of the texture around its centre");
     imageBatcher.begin(256, 128, 1);
     imageBatcher.add(scene.nodes[1], scene.nodes[1].texture);
@@ -182,7 +183,7 @@ void rendererChecks() {
         minX = std::min(minX, v.x);
         maxX = std::max(maxX, v.x);
     }
-    check(std::fabs(minX - 74) < 0.01f && std::fabs(maxX - 126) < 0.01f,
+    check(std::fabs(minX - 75) < 0.01f && std::fabs(maxX - 125) < 0.01f,
           "Contain fit letterboxes the quad to the texture's aspect");
 
     // Batching. Overlapping primitives keep their order; disjoint ones regroup.
@@ -229,7 +230,7 @@ void rendererChecks() {
         home.add(node, node.texture);
     size_t draws = home.batchCount();
     check(draws >= 5 && draws <= kDrawBudget,
-          ("A typical Home frame batches into at most 15 draws (got " + std::to_string(draws) + ")").c_str());
+          ("A typical Home frame batches into at most the draw budget (got " + std::to_string(draws) + ")").c_str());
     check(home.vertexCount() <= kVertexBudget && home.stats().fullScreenLayers <= kFullScreenLayerBudget,
           "A typical Home frame stays inside the vertex and full-screen layer budgets");
         check(home.stats().culled >= 1 && home.stats().nodes + home.stats().culled == scene.nodes.size(),
@@ -247,6 +248,101 @@ void rendererChecks() {
         worst = std::max(worst, std::fabs(batched.rgb[i] - painted.rgb[i]));
     check(worst < 1e-5f, "Batched draws produce the same picture as painting in scene order");
     golden("home", batched);
+
+    // A shape drawn as a flat core inside a distance-field rim (Batcher::coverOf) paints what one
+    // distance-field quad over the whole shape does: fills, images, gradients, rings, shadows.
+    {
+        const struct {
+            const char *name;
+            void (*build)(Scene &);
+        } shapes[] = {{"fill", scenes::fillScene}, {"ring", scenes::ringScene},
+                      {"shadow", scenes::shadowScene}, {"gradient", scenes::gradientScene},
+                      {"clip", scenes::clipScene}};
+        int worstSmall = 0;
+        for (const auto &entry : shapes) {
+            entry.build(scene);
+            for (float zoom : {1.f, 2.f}) {
+                // Magnified, so cores are big enough to exist.
+                Scene zoomed;
+                zoomed.background = scene.background;
+                for (Node node : scene.nodes) {
+                    node.group = node.group.then({zoom, zoom, 0, 0});
+                    node.clip = {node.clip.x * zoom, node.clip.y * zoom, node.clip.w * zoom, node.clip.h * zoom};
+                    zoomed.nodes.push_back(node);
+                }
+                debugSkip().noCore = false;
+                soft::Framebuffer split = render(zoomed, batcher, int(128 * zoom), int(80 * zoom), 1, {});
+                debugSkip().noCore = true;
+                soft::Framebuffer whole = render(zoomed, batcher, int(128 * zoom), int(80 * zoom), 1, {});
+                debugSkip().noCore = false;
+                int worst = 0;
+                for (size_t i = 0; i < split.rgb.size(); ++i)
+                    worst = std::max(worst, int(std::fabs(split.rgb[i] - whole.rgb[i]) * 255 + 0.5f));
+                worstSmall = std::max(worstSmall, worst);
+            }
+        }
+        // Two levels of 255: a gradient's vertex colours on the whole quad are taken a pixel
+        // beyond the edge, where the split quads take them on it.
+        check(worstSmall <= 2, "A flat core inside a rim paints the same as one field quad");
+        soft::Framebuffer split(240, 135, scene.background), whole(240, 135, scene.background);
+        scenes::homeScene(scene, textures, runs);
+        debugSkip().noCore = false;
+        home.begin(1920, 1080, eighth);
+        for (const auto &node : scene.nodes)
+            home.add(node, node.texture);
+        size_t splitDraws = home.batchCount();
+        soft::draw(split, home, homeStore.table, eighth);
+        debugSkip().noCore = true;
+        home.begin(1920, 1080, eighth);
+        for (const auto &node : scene.nodes)
+            home.add(node, node.texture);
+        size_t wholeDraws = home.batchCount();
+        soft::draw(whole, home, homeStore.table, eighth);
+        debugSkip().noCore = false;
+        int worstHome = 0;
+        for (size_t i = 0; i < split.rgb.size(); ++i)
+            worstHome = std::max(worstHome, int(std::fabs(split.rgb[i] - whole.rgb[i]) * 255 + 0.5f));
+        check(worstHome <= 2 && splitDraws >= wholeDraws,
+              "A Home frame split into cores and rims paints the same as whole field quads");
+    }
+
+    // Screen-sized layers are plain flat draws and the distance field stays on rims: the B3's GPU
+    // pays about eight times more per pixel for the field than for a flat fill.
+    {
+        home.begin(1920, 1080, eighth);
+        for (const auto &node : scene.nodes)
+            home.add(node, node.texture);
+        double field = 0, flat = 0;
+        for (size_t k = 0; k < home.batchCount(); ++k) {
+            const Batch &batch = home.batch(k);
+            double area = 0;
+            for (size_t i = 0; i + 2 < batch.vertices.size(); i += 3) {
+                const Vertex &a = batch.vertices[i], &b = batch.vertices[i + 1], &c = batch.vertices[i + 2];
+                area += std::fabs((b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x)) / 2;
+            }
+            (batch.program == Program::Sdf || batch.program == Program::Image ? field : flat) += area;
+        }
+        // What is left is the focused card's shadow, rings and the small round shapes.
+        check(field < 0.3 * 1920 * 1080 && flat > 4 * field,
+              "The distance field covers rims, not whole cards and layers");
+    }
+    // Where a gradient has no colour left (alpha zero from its last stop on) nothing is drawn.
+    {
+        Scene fade;
+        Node &shade = fade.shape({0, 0, 1920, 1080}, {0, 0, 0, 0});
+        shade.gradient = Gradient::between(180, {0, 0, 0, 1}, {0, 0, 0, 0});
+        shade.gradient.at[1] = 0.25f;
+        Batcher shaded(noTextures);
+        shaded.begin(1920, 1080, 1);
+        shaded.add(shade, 0);
+        float lowest = 1e9f, highest = -1e9f;
+        for (const auto &v : shaded.batch(0).vertices) {
+            lowest = std::min(lowest, v.y);
+            highest = std::max(highest, v.y);
+        }
+        check(shaded.batch(0).program == Program::Flat && lowest == 0 && highest <= 0.25f * 1080 + 0.5f,
+              "A screen-sized gradient is a flat draw that stops where its colour ends");
+    }
 
     // Steady state: rebuilding and re-batching the same frame allocates nothing.
     size_t before = allocations;

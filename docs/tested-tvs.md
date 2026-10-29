@@ -2,9 +2,9 @@
 
 Confirmed on 48 TVs across 33 series so far, running webOS 2.2 through 11 (LG's webOS 26). Other rooted models should work. The oldest, webOS 2 and 3, have fewer of LG's services, so some readings and controls do not appear there.
 
-On webOS 2 (tested on a 55UH600V and a 49LF632V), PicCap is withheld because its native service stalls webOS 2 and triggers a watchdog reboot (`cpuAbnormal`, [#746](https://github.com/rorygallagher2024/glasshouse/issues/746)). Both TVs run nativeTv without trouble.
+On webOS 2 (tested on a 55UH600V and a 49LF632V), PicCap is withheld because its native service stalls webOS 2 and triggers a watchdog reboot (`cpuAbnormal`). Both TVs run nativeTv without trouble.
 
-The reports from webOS 2.2 and 3.x are of the earlier Node release. The native server, which is the only one now, supports webOS 4 and later and has been run on one TV: an OLED65B3PUA on webOS 10.3.2 (firmware 33.31.75), where the dashboard, stats, Home Assistant publication, installs, backup restore, a reboot, an upgrade from the Node release and a rollback to it were checked. Other models and webOS versions are untried with the native server.
+The reports from webOS 2.2 and 3.x are of the earlier Node release. The native server, which is the only one now, supports webOS 4 and later and has been run on one TV: an OLED65B3PUA on webOS 10.3.2 (firmware 33.31.75), where the dashboard, stats, Home Assistant publication, installs, backup restore and a reboot were checked. Other models and webOS versions are untried with the native server.
 
 Versions here are the ones the TV reports itself, as the dashboard shows them; [webOS version numbers](#webos-version-numbers) below gives LG's names for them.
 
@@ -54,7 +54,7 @@ The Luna service names and `/proc/lg` paths this relies on may differ across web
 | Model       | webOS        | Firmware | Panel | Notes                                                          |
 | :---------- | :----------- | :------- | :---- | :------------------------------------------------------------- |
 | 49LF632V-ZC | 2.2.3        | —        | LCD   | Settings service under its older name; earlier Node release (Node 0.10) |
-| 55UH600V-ZA | 2.2.3        | 04.26.35 | LCD   | PicCap withheld on webOS 2 to prevent watchdog reboot ([#746](https://github.com/rorygallagher2024/glasshouse/issues/746)); runs cleanly |
+| 55UH600V-ZA | 2.2.3        | 04.26.35 | LCD   | PicCap withheld on webOS 2 to prevent watchdog reboot; runs cleanly |
 | 43UH610V-ZB | 3.4.3        | 05.70.50 | LCD   | No SoC temp, eMMC wear, or OLED metrics by hardware design     |
 | 55UH6030-UC | 3.4.3        | —        | LCD   |                                                                |
 | 58UH635V    | 3.x          | 05.70.40 | LCD   | no eMMC wear reported                                          |

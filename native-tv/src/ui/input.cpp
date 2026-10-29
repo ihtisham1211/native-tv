@@ -6,12 +6,9 @@ namespace nativetv {
 void Application::key(Key key) {
     if (state_.screen == Screen::Splash)
         return;
-    // The first key after the screen dimmed only wakes it.
-    if (state_.screen == Screen::Home || isRecents()) {
-        if (homeWake())
-            return;
-    } else
-        flow_.lastKeyAt = now_; // coming back to Home does not find it idle
+    // The first key after the screen dimmed only wakes it, on every screen.
+    if (wake())
+        return;
     if (screen_) {
         screenKey(key);
         return;
@@ -128,6 +125,7 @@ void Application::key(Key key) {
     }
 }
 void Application::input(const std::string &text) {
+    wake(); // typing on a dimmed screen wakes it and is still typed
     if (screen_ && screen_->text(*this, text))
         dirty_ = true;
 }
@@ -145,10 +143,8 @@ std::string controllerHit(const ViewState &state, const std::string &id) {
 }
 } // namespace
 void Application::click(float x, float y) {
-    if (state_.screen == Screen::Home || isRecents()) {
-        if (homeWake())
-            return;
-    }
+    if (wake())
+        return;
     Scene visible = scene();
     for (auto it = visible.hits.rbegin(); it != visible.hits.rend(); ++it)
         if (it->rect.contains(x, y)) {

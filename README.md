@@ -6,22 +6,16 @@
 
 > [!NOTE]
 >
-> ## You bought the TV.
+> ## The TV belongs to its owner.
 >
-> **It's your TV and you should control it. You own the glass.**
+> nativeTv is for owners who do not want a network-connected appliance used as
+> a platform for advertising, telemetry and vendor-controlled experiences. It
+> brings control, visibility and automation back to the device: ways to remove
+> ads, withdraw from agreements and services that monetise the owner's data,
+> and a simpler TV, with customisation and local smart-home integration.
 >
-> Designed for those who reject their network-connected home appliances being
-> used as a platform for advertising, telemetry and vendor-controlled
-> experiences, this project brings control, visibility and automation back to
-> the device.
->
-> It offers multiple ways to remove ads, withdraw from agreements and services
-> designed to monetize your data, and make the TV a simpler, more streamlined
-> experience — alongside a wide range of useful features, customisation and
-> local smart-home integration.
->
-> nativeTv itself is local, transparent, and requires no cloud service.
-> No nonsense, no data collection, no ads, no dark patterns. I don't want your data.
+> nativeTv itself is local and transparent, and needs no cloud service. It
+> collects no data, shows no ads and has no dark patterns.
 
 **nativeTv** is a server that runs directly on a rooted LG webOS TV, providing both a live browser dashboard and a dashboard app.
 
@@ -41,7 +35,7 @@ Use it for remote control, app installation and removal, OLED panel care, privac
 ## Quick start
 
 1. Root the TV and install the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel).
-2. Clone this repository on a computer on the same network as the TV.
+2. Clone this repository (`git clone https://github.com/ihtisham1211/nativeTv.git`) on a computer on the same network as the TV.
 3. Run `native-tv/lifecycle/deploy.sh <tv-ip>` from the repository root.
 4. Open `http://<tv-ip>:8080/` in a browser.
 
@@ -77,7 +71,7 @@ This project is intended to give a rooted webOS TV a useful local control surfac
 
 11. **[Reading all of it on the TV itself](https://ihtisham1211.github.io/nativeTv/apps/tv-app/).** An optional app on the home screen puts the same readings and controls on the TV, driven by the remote, for when there is no phone or laptop to hand.
 
-12. **[Managing TVs from Android](https://ihtisham1211.github.io/nativeTv/apps/android/).** A phone app that keeps a list of TVs, shows which are online, wakes them over Wake-on-LAN, and opens each one's dashboard full screen.
+12. **[Android wrapper](https://ihtisham1211.github.io/nativeTv/apps/android/).** The names a phone app uses to show the dashboard full screen and be recognised by it.
 
 ---
 
@@ -95,11 +89,9 @@ This project is intended to give a rooted webOS TV a useful local control surfac
 
 ---
 
-## Android app
+## Android
 
-[Glasshouse for Android](https://github.com/rorygallagher2024/glasshouse-android) keeps a list of TVs, shows which are online and opens each one's dashboard full screen. A TV is added by scanning any QR code on its dashboard, which carries the token as well. See the [Android app documentation](https://ihtisham1211.github.io/nativeTv/apps/android/) for more details.
-
-It is on [Google Play](https://play.google.com/store/apps/details?id=org.glasshouse.android), for Android 10 and later. Problems and suggestions go in the app's [issues](https://github.com/rorygallagher2024/glasshouse-android/issues).
+nativeTv has no Android app of its own. The dashboard works in a phone's browser, and a phone app that wraps it in a full-screen WebView is recognised by the names in the [Android wrapper](https://ihtisham1211.github.io/nativeTv/apps/android/) page.
 
 ---
 
@@ -123,11 +115,9 @@ The dashboard has **no authentication by default**, for frictionless control fro
 
 ---
 
-## Support the project
+## Contributing
 
-nativeTv is free, open-source, and maintained in spare time alongside community contributions. If it provides value to you, donations are much appreciated, helping to offset the personal cost of LLM tokens used for development and webOS research.
-
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Donate-yellow.svg)](https://buymeacoffee.com/rorygallagher2024)
+[Contributing](CONTRIBUTING.md) explains how to build, test and open a pull request. Bugs and ideas go in the [issues](https://github.com/ihtisham1211/nativeTv/issues); security problems follow [SECURITY.md](SECURITY.md). Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ---
 
@@ -138,8 +128,20 @@ nativeTv is free, open-source, and maintained in spare time alongside community 
 * **Root access and hardware.** This runs custom software with `root` privileges on an embedded TV OS. It is designed to be lightweight and to leave the read-only rootfs untouched, but the author accepts **no responsibility** for damage, bootloops, bricked devices, voided warranties, data loss or panel issues.
 * **Power and control commands.** Reboot, power off, screen blanking and Pixel Refresher scheduling issue low-level `luna-send` calls. Understand what each does before using it.
 * **Trademarks.** An independent, unofficial community project, not affiliated with or endorsed by LG Electronics. webOS is a trademark of LG Electronics.
-* **Fonts.** Bundles [Roboto](https://github.com/googlefonts/roboto-3-classic), cut to Latin as WOFF, under the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0); the licence text ships in `native-tv/assets/fonts/`.
+* **Third-party components.** Fonts, icons and libraries keep their own licences, listed in [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+## Credits
+
+nativeTv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by Rory Gallagher, released under the MIT licence; his copyright notice is kept in [LICENSE](LICENSE). Bundled third-party work, with its licence ([THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) has the texts):
+
+* [CivetWeb](https://github.com/civetweb/civetweb): the HTTP server (MIT)
+* [json-c](https://github.com/json-c/json-c): JSON, from the webOSbrew SDK (MIT)
+* [NanoSVG](https://github.com/memononen/nanosvg): SVG rendering on the TV (zlib)
+* [QR Code generator](https://www.nayuki.io/page/qr-code-generator-library) by Project Nayuki: the QR codes (MIT)
+* [StevenBlack/hosts](https://github.com/StevenBlack/hosts): the advertising hosts reviewed for the blocker (MIT)
+* [Roboto](https://github.com/googlefonts/roboto-3-classic) and [Figtree](https://github.com/erikdkennedy/figtree): fonts (Apache-2.0, OFL-1.1)
+* [Material Design Icons](https://pictogrammers.com/library/mdi/) and [Material Symbols](https://fonts.google.com/icons): icons (Apache-2.0)
