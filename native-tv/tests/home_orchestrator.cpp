@@ -1,4 +1,5 @@
 #include "daemon/home_orchestrator.hpp"
+#include "daemon/home_probe_gate.hpp"
 #include "service/home_profiles.hpp"
 #include <algorithm>
 #include <cstdio>
@@ -106,6 +107,8 @@ struct World {
     // The crash watch: wired only where a test asks, so the recorded scenarios run without it.
     bool watch = false;
     int clientListed = 0;          // 1 the app manager lists the client, 0 it does not, -1 it did not say
+    std::string openOutcome = "opened";   // what sam says to the server opening the client: opened, refused,
+                                          // unregistered (refused, and it does not know the app), silent
     bool releaseOk = true;
     Json probeRefusal;             // when set, supported() answers with it
 
@@ -217,6 +220,17 @@ HomeOrchestratorDeps depsFor(World &w) {
         d.clientRunning = [&w]() {
             w.ev("running?");
             return w.clientListed;
+        };
+        d.launchClient = [&w]() {
+            w.ev("open");
+            if (w.openOutcome == "silent") return Json();
+            Json result = Json::object();
+            result.set("ok", Json::flag(w.openOutcome == "opened"));
+            if (w.openOutcome != "opened") {
+                result.set("error", Json::text("Invalid appId"));
+                result.set("unregistered", Json::flag(w.openOutcome == "unregistered"));
+            }
+            return result;
         };
         d.release = [&w]() {
             w.ev("unmount");
@@ -382,7 +396,7 @@ void aLateTimerIsIgnored() {
 
 // ---------------------------------------------------------------- the native client
 
-const char *const kClient = "com.tvweb.native";
+const char *const kClient = kHomeClientApp;
 const char *const kLgHome = "com.webos.app.home";
 
 bool happened(const World &w, const std::string &event) {
@@ -635,6 +649,101 @@ void aStoppedWatchWaitsForNothing() {
     check(w.clock.timers.empty(), "stop() cancels them, so none fires into a destroyed orchestrator");
 }
 
+
+// The owner took the tile off the home screen: sam refuses to open the client, so the stub's
+// launch never works. Found when the server opens the client for the stub, not three graces later.
+void aClientSamRefusesIsGivenUpAtOnce() {
+    for (const char *outcome : {"unregistered", "refused"}) {
+        World w = watched();
+        w.openOutcome = outcome;
+        HomeOrchestrator orchestrator(depsFor(w));
+        orchestrator.onForeground("com.webos.app.hdmi1");
+        orchestrator.onForeground(kLgHome);                 // the Home key
+        w.clock.advance(2499);
+        check(!orchestrator.halted() && !happened(w, "open"), "the stub is given its moment first");
+        w.clock.advance(1);
+        check(orchestrator.halted() && times(w, "open") == 1, std::string(outcome) + ": given back as the refusal comes");
+        check(times(w, "unmount") == 1 && happened(w, "notice:off") && happened(w, "sync:false"),
+              "it unmounts once, clears the notice and puts auto launch back: " + joined(w.events));
+        check(w.document()["enabled"].boolean() && !w.mounted, "Home stays switched on");
+        const Json status = orchestrator.nativeStatus();
+        const bool unregistered = std::string(outcome) == "unregistered";
+        check(status["cause"].string() == "client" &&
+                  status["reason"].string().find(unregistered ? "home screen" : "would not open") != std::string::npos &&
+                  status["crashes"]["recentExits"].number() == 0,
+              "and says why, with no exit counted: " + status.dump());
+        check(w.errors.size() == 1 && w.clock.timers.empty(), "once, with nothing left waiting");
+        // Not again when LG's own Home comes to the front a moment later.
+        orchestrator.onForeground("com.webos.app.hdmi1");
+        orchestrator.onForeground(kLgHome);
+        w.clock.advance(60000);
+        check(times(w, "unmount") == 1 && times(w, "open") == 1, "nothing more is asked or done");
+    }
+}
+
+void aClientThatOpensIsLeftToCome() {
+    // The stub's own launch worked: the client is in front before the server would open it.
+    World quick = watched();
+    HomeOrchestrator fast(depsFor(quick));
+    fast.onForeground(kLgHome);
+    quick.clock.advance(1200);
+    fast.onForeground(kClient);
+    quick.clock.advance(60000);
+    check(!happened(quick, "open") && !fast.halted(), "a client in front in time is not opened again");
+
+    // Opened by the server, and in front before the grace is out: nothing is counted.
+    World w = watched();
+    HomeOrchestrator orchestrator(depsFor(w));
+    orchestrator.onForeground(kLgHome);
+    w.clock.advance(2500);
+    check(times(w, "open") == 1 && !orchestrator.halted(), "opened once, and not refused");
+    w.clock.advance(5000);
+    orchestrator.onForeground(kClient);
+    w.clock.advance(60000);
+    check(!orchestrator.halted() && orchestrator.nativeStatus()["crashes"]["recentExits"].number() == 0,
+          "it came in time");
+
+    // Opened, but it never comes to the front: the grace still ends, 15 s after the stub, in an exit.
+    World late = watched();
+    HomeOrchestrator never(depsFor(late));
+    never.onForeground(kLgHome);
+    late.clock.advance(14999);
+    check(never.nativeStatus()["crashes"]["recentExits"].number() == 0, "not before the grace");
+    late.clock.advance(1);
+    check(never.nativeStatus()["crashes"]["recentExits"].number() == 1, "and then it is one");
+
+    // sam saying nothing is no refusal.
+    World silent = watched();
+    silent.openOutcome = "silent";
+    HomeOrchestrator quiet(depsFor(silent));
+    quiet.onForeground(kLgHome);
+    silent.clock.advance(3000);
+    check(!quiet.halted() && times(silent, "open") == 1, "an unanswered open refuses nothing");
+
+    // Not opened where nothing is watched: LG's Home on purpose, no takeover, Home off.
+    World escaped = watched();
+    escaped.openOutcome = "refused";
+    escaped.escaped = true;
+    HomeOrchestrator onPurpose(depsFor(escaped));
+    onPurpose.onForeground(kLgHome);
+    escaped.clock.advance(5000);
+    World unmounted = watched();
+    unmounted.openOutcome = "refused";
+    unmounted.mounted = false;
+    HomeOrchestrator lgs(depsFor(unmounted));
+    lgs.onForeground(kLgHome);
+    unmounted.clock.advance(5000);
+    World off = watched();
+    off.openOutcome = "refused";
+    off.raw.set("enabled", Json::flag(false));
+    HomeOrchestrator disabled(depsFor(off));
+    disabled.onForeground(kLgHome);
+    off.clock.advance(5000);
+    check(!happened(escaped, "open") && !happened(unmounted, "open") && !happened(off, "open") &&
+              !onPurpose.halted() && !lgs.halted() && !disabled.halted(),
+          "an escape, LG's own Home and Home off are left alone");
+}
+
 void theProbeKeepsLgHomeAtStart() {
     {
         World w = watched();
@@ -648,7 +757,7 @@ void theProbeKeepsLgHomeAtStart() {
               "it gives LG's Home the place, clears the notice and puts auto launch back: " + joined(w.events));
         check(w.document()["enabled"].boolean(), "Home stays switched on, for the next start");
         const Json status = orchestrator.nativeStatus();
-        check(status["halted"].boolean() && status["cause"].string() == "probe" &&
+        check(status["halted"].boolean() && status["cause"].string() == "client" &&
                   status["reason"].string().find("graphics driver") != std::string::npos,
               "the status names the probe: " + status.dump());
         check(w.errors.size() == 1 && w.errors[0].find("check exit 12") != std::string::npos,
@@ -703,6 +812,8 @@ int main(int argc, char **argv) {
         rearmingStartsOver();
         aFailedReleaseIsReported();
         aStoppedWatchWaitsForNothing();
+        aClientSamRefusesIsGivenUpAtOnce();
+        aClientThatOpensIsLeftToCome();
         theProbeKeepsLgHomeAtStart();
     } catch (const std::exception &error) {
         std::fprintf(stderr, "home orchestrator test failed: %s\n", error.what());

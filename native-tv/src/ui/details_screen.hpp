@@ -68,8 +68,6 @@ class DetailsScreen final : public ScreenView {
     bool embedded_;
     bool finished_ = false;
     std::vector<Title> stack_;
-    unsigned openGeneration_ = 0;
-    bool opening_ = false;
     bool overview_ = false;
     size_t overviewPage_ = 0;
     std::vector<std::string> overviewPages_;

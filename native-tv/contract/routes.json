@@ -268,7 +268,7 @@
       "csrf": "not applicable",
       "bodyLimit": {"max": 0, "unit": "bytes"},
       "owner": "native",
-      "notes": "The daemon builds setup state from native config, marker files, interface state and Luna. A secret-guarded loopback Node context supplies live MQTT status, cached hostname and first-setup identity; the active native handoff URL takes precedence over the legacy Node fallback URL. ?demo retains the dry-run response."
+      "notes": "The daemon builds setup state from native config, marker files, interface state and Luna. A secret-guarded loopback Node context supplies live MQTT status, cached hostname and first-setup identity; the active native handoff URL takes precedence over the legacy Node fallback URL. It also names the TV's `model`, from which the TV client suggests the main profile's name (names::tvDefaultName). ?demo retains the dry-run response."
     },
     {
       "paths": ["/api/setup"],

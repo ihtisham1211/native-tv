@@ -17,7 +17,6 @@
 {% endblock %}
 
 {% block extrahead %}
-  {%- if page.meta and page.meta.robots %}<meta name="robots" content="{{ page.meta.robots }}">{% endif %}
   {%- set description = page.meta.description if page.meta and page.meta.description else config.site_description -%}
   {%- set card_title = "Native Tv: open-source LG webOS TV dashboard, privacy controls and Home Assistant bridge" if page.is_homepage else ((page.title | striptags) ~ " - " ~ config.site_name) -%}
   {%- set card_image = config.site_url ~ "assets/social-card.png" -%}

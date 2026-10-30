@@ -111,13 +111,21 @@ def item(number):
 PROFILES = [("main", "Alex", "#5C5AA8"), ("sara", "Sara", "#B05E8A"), ("guest", "Guest", "#117A65")]
 
 
+# What the Quick drawer changes; the fixture keeps it, so a read after a write says what was written.
+SETTINGS = {"volume": 24, "muted": False, "backlight": 70, "sleepTimer": "off", "pictureMode": "cinema",
+            "soundOutput": "tv_speaker"}
+MODES = {"vivid": "Vivid", "normal": "Standard", "cinema": "Cinema", "game": "Game"}
+
+
 def stats():
-    return {"ok": True, "volume": 24, "muted": False, "oled": {"care": True}, "sleepTimer": "off",
+    return {"ok": True, "volume": SETTINGS["volume"], "muted": SETTINGS["muted"], "oled": {"care": True},
+            "sleepTimer": SETTINGS["sleepTimer"], "device": {"id": "lg_tv", "name": "LG OLED65B3PUA", "model": "OLED65B3PUA.DUSQLJR"},
             "audio_output": "TV Speaker",
-            "picture": {"mode": "Cinema", "mode_raw": "cinema", "backlight": 70,
+            "picture": {"mode": MODES.get(SETTINGS["pictureMode"], "Cinema"), "mode_raw": SETTINGS["pictureMode"],
+                        "backlight": SETTINGS["backlight"],
                         "modes": [{"value": "vivid", "label": "Vivid"}, {"value": "normal", "label": "Standard"},
                                   {"value": "cinema", "label": "Cinema"}, {"value": "game", "label": "Game"}]},
-            "sound": {"output": "TV Speaker", "output_raw": "tv_speaker",
+            "sound": {"output": "TV Speaker", "output_raw": SETTINGS["soundOutput"],
                       "outputs": [{"id": "tv_speaker", "name": "TV Speaker"}, {"id": "external_arc", "name": "HDMI ARC"},
                                   {"id": "bt_soundbar", "name": "Bluetooth"}]}}
 
@@ -228,7 +236,18 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
     def do_POST(self):
         size = int(self.headers.get("Content-Length", "0"))
-        self.rfile.read(size)
+        raw = self.rfile.read(size)
+        if self.path == "/api/control":
+            try:
+                body = json.loads(raw or b"{}")
+            except ValueError:
+                body = {}
+            action, value = body.get("action"), body.get("value")
+            keys = {"volume": "volume", "mute": "muted", "backlight": "backlight", "sleepTimer": "sleepTimer",
+                    "pictureMode": "pictureMode", "soundOutput": "soundOutput"}
+            if action in keys:
+                SETTINGS[keys[action]] = value
+            return self.json({"ok": True})
         if self.path == "/api/home/beat":
             self.json({"ok": True, "enabled": True, "build": "fixture@1", "layoutVersion": "1",
                        "wallpapers": {"available": False, "slots": {}, "revision": ""}})
@@ -238,6 +257,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 @contextlib.contextmanager
 def serve(art=None, port=0, profiles=1):
+    SETTINGS.update(volume=24, muted=False, backlight=70, sleepTimer="off", pictureMode="cinema",
+                    soundOutput="tv_speaker")
     Handler.art = art
     Handler.profiles = profiles
     server = http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)

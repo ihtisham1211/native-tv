@@ -13,5 +13,11 @@ namespace daemon {
 // files went. Folders the removals empty go too, and nothing else is touched.
 size_t removeRetiredFiles(const std::string &serverDirectory);
 
+// TV apps earlier releases put on the TV and this one does not: their folders
+// under <appsRoot>/applications and <appsRoot>/packages (appsRoot is
+// /media/developer/apps/usr/palm), removed with everything in them. Returns how
+// many apps went.
+size_t removeRetiredApps(const std::string &appsRoot);
+
 } // namespace daemon
 } // namespace nativetv

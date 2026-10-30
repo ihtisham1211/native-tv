@@ -208,6 +208,45 @@ void knownFollowsTheClientFile() {
     check(!absent.known().valid(), "until the client is installed");
 }
 
+
+// The Native Tv tile is the one app sam is told of: Home needs it known, asked every time.
+void aClientSamDoesNotKnowIsRefused() {
+    ChildProcessRunner runner(quickRunner());
+    const std::string client = standIn("registered", 0);
+    int answer = 1;
+    HomeProbeGate gate(runner, optionsFor(client, root + "/registered-cache.json"), [&answer]() { return answer; });
+    check(gate.verdict(false)["ok"].boolean() && runs(client) == 1, "a known app passes the probe");
+    answer = 0;
+    Json refused = gate.verdict(false);
+    check(!refused["ok"].boolean() && refused["class"].string() == "unregistered" && runs(client) == 1,
+          "taken off the home screen after a kept verdict, it is refused without the probe: " + refused.dump());
+    check(gate.known()["class"].string() == "unregistered", "and the status route sees it");
+    answer = -1;
+    check(gate.verdict(false)["class"].string() == "unasked", "an unanswered question is a refusal too");
+    answer = 1;
+    Json again = gate.verdict(false);
+    check(again["ok"].boolean() && again["cached"].boolean() && runs(client) == 1,
+          "put back on it, the verdict kept before still stands: " + again.dump());
+    answer = 0;
+    check(gate.verdict(true)["class"].string() == "unregistered" && runs(client) == 1,
+          "force does not probe a client sam will not open");
+
+    // A missing file is told before sam is asked.
+    int asked = 0;
+    HomeProbeGate absent(runner, optionsFor(root + "/gone-client"), [&asked]() { ++asked; return 1; });
+    check(absent.verdict(false)["class"].string() == "missing" && asked == 0, "no file, no question");
+
+    Json refusal = Json::object();
+    refusal.set("ok", Json::flag(false));
+    refusal.set("class", Json::text("unregistered"));
+    Json supported = Json::object();
+    supported.set("ok", Json::flag(true));
+    const Json reason = homeSupportedWithProbe(supported, refusal);
+    check(!reason["ok"].boolean() && reason["reason"].string().find("home screen") != std::string::npos &&
+              reason["reason"].string().find("Server tab") != std::string::npos,
+          "the reason says where to switch the tile on: " + reason.dump());
+}
+
 void aRefusalIsAppliedToSupported() {
     Json supported = Json::object();
     supported.set("ok", Json::flag(true));
@@ -220,7 +259,7 @@ void aRefusalIsAppliedToSupported() {
     check(homeSupportedWithProbe(supported, good).dump() == supported.dump(), "a passing probe changes nothing");
     check(homeSupportedWithProbe(supported, Json()).dump() == supported.dump(), "no verdict changes nothing");
 
-    const char *const classes[] = {"missing", "timeout", "display", "context", "gl", "readback", "crashed", "failed"};
+    const char *const classes[] = {"missing", "unregistered", "unasked", "timeout", "display", "context", "gl", "readback", "crashed", "failed"};
     for (const char *name : classes) {
         Json bad = Json::object();
         bad.set("ok", Json::flag(false));
@@ -254,7 +293,8 @@ void optionsReadTheConfig() {
               options.cachePath == root + "/native-probe.json",
           "the config section is read and the timeout kept sane");
     options = homeProbeOptions(Json::object(), "/nowhere", root);
-    check(options.clientPath == "/nowhere/media/developer/apps/usr/palm/applications/com.tvweb.native/nativetv-tv" &&
+    check(options.clientPath == std::string("/nowhere/media/developer/apps/usr/palm/applications/") + kHomeClientApp + "/nativetv-tv" &&
+              std::string(kHomeClientApp) == "com.tvweb.dashboard" &&
               options.command.empty(),
           "the default client is the app's, and without a jailer it is run directly");
 }
@@ -275,6 +315,7 @@ int main() {
         noDisplayYetIsTriedAgain();
         aSettledVerdictIsKept();
         knownFollowsTheClientFile();
+        aClientSamDoesNotKnowIsRefused();
         aRefusalIsAppliedToSupported();
         optionsReadTheConfig();
         std::puts("home probe gate tests passed");

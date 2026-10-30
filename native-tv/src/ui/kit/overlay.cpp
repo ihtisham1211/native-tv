@@ -108,17 +108,8 @@ void statusPanel(Paint paint, const StatusPanel &panel) {
     text(paint, {box.x + 36, well.y + well.h + 24 + type::headline.line + 8, box.w - 72,
                  type::body.line * 2},
          panel.message, type::body, color::onSurface2, Node::Align::Left, 2);
-    if (panel.sweep >= 0) {
-        // A bar with a light running along it; the light is clipped to the bar's ends.
-        Rect track = {box.x + 36, box.y + box.h - 36 - layout::barH, std::min(360.0f, box.w - 72),
-                      layout::barH};
-        scene.shape(track, color::surface3, layout::barH / 2);
-        float length = track.w * .38f;
-        float start = track.x + (track.w + length) * focus::clamp01(panel.sweep) - length;
-        float left = std::max(track.x, start), right = std::min(track.x + track.w, start + length);
-        if (right > left)
-            scene.shape({left, track.y, right - left, track.h}, color::accent, layout::barH / 2);
-    }
+    if (panel.loadingMs >= 0)
+        spinner(paint, {box.x + 36, box.y + box.h - 36 - 40, 40, 40}, panel.loadingMs, color::onSurface2);
 }
 
 float keyHint(Paint paint, float x, float y, const std::string &key, const std::string &action,

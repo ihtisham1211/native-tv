@@ -786,6 +786,11 @@ if(BUILD_TESTING)
   target_link_libraries(native-names-tests PRIVATE nativetv_names)
   target_compile_options(native-names-tests PRIVATE -Wall -Wextra -Werror)
   add_test(NAME native-names COMMAND native-names-tests)
+  add_executable(native-tv-name-tests tests/tv_name.cpp)
+  target_link_libraries(native-tv-name-tests PRIVATE nativetv_names)
+  target_compile_definitions(native-tv-name-tests PRIVATE NATIVETV_TV_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/tv")
+  target_compile_options(native-tv-name-tests PRIVATE -Wall -Wextra -Werror)
+  add_test(NAME native-tv-name COMMAND native-tv-name-tests)
   add_executable(native-say-tests tests/say.cpp)
   target_link_libraries(native-say-tests PRIVATE nativetv_say)
   target_compile_options(native-say-tests PRIVATE -Wall -Wextra -Werror)
@@ -811,7 +816,7 @@ if(NATIVETV_BUILD_CLIENT)
   add_library(nativetv_models src/domain/home.cpp src/domain/dashboard.cpp src/domain/setup.cpp src/domain/setup_pages.cpp src/ui/keyboard.cpp
     src/domain/live_cards.cpp src/domain/settings_items.cpp)
   target_include_directories(nativetv_models PUBLIC src)
-  target_link_libraries(nativetv_models PUBLIC nativetv_core nativetv_say)
+  target_link_libraries(nativetv_models PUBLIC nativetv_core nativetv_say nativetv_names)
   target_compile_options(nativetv_models PRIVATE -Wall -Wextra -Werror)
   add_library(qrcodegen STATIC third_party/qrcodegen/qrcodegen.cpp)
   target_include_directories(qrcodegen PUBLIC third_party/qrcodegen)
@@ -823,7 +828,7 @@ if(NATIVETV_BUILD_CLIENT)
     src/ui/menu_controller.cpp src/ui/data_controller.cpp
     src/ui/home_view.cpp src/ui/menu_view.cpp
     src/ui/picture_controller.cpp src/ui/recents_controller.cpp src/ui/recents_view.cpp
-    src/ui/home_motion.cpp src/ui/screen_registry.cpp
+    src/ui/home_motion.cpp src/ui/screen_registry.cpp src/ui/optimistic.cpp
     src/ui/kit/entry.cpp src/ui/keyboard_pad.cpp src/ui/qr_code.cpp src/ui/setup_screen.cpp
     src/ui/splash.cpp
     src/ui/dashboard_screens.cpp src/ui/live_screen.cpp src/ui/settings_list.cpp
@@ -914,6 +919,19 @@ if(NATIVETV_BUILD_CLIENT)
     target_link_libraries(native-qr-matrix PRIVATE nativetv_presentation)
     target_compile_options(native-qr-matrix PRIVATE -Wall -Wextra -Werror)
     add_test(NAME native-setup-flow COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/setup_flow.py" "$<TARGET_FILE:native-setup-flow-tests>")
+    # The same first run against the real daemon (without Node, with its stand-in luna-send).
+    add_dependencies(native-setup-flow-tests nativetv-daemon native-fake-luna-send)
+    add_test(NAME native-setup-daemon COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/setup_daemon.py" "$<TARGET_FILE:nativetv-daemon>" "$<TARGET_FILE:native-setup-flow-tests>")
+    add_executable(native-quick-drawer-tests tests/quick_drawer.cpp)
+    target_link_libraries(native-quick-drawer-tests PRIVATE nativetv_presentation)
+    target_compile_options(native-quick-drawer-tests PRIVATE -Wall -Wextra -Werror)
+    add_test(NAME native-quick-drawer COMMAND native-quick-drawer-tests)
+    add_executable(native-optimistic-tests tests/optimistic.cpp)
+    target_link_libraries(native-optimistic-tests PRIVATE nativetv_presentation)
+    target_compile_options(native-optimistic-tests PRIVATE -Wall -Wextra -Werror)
+    add_test(NAME native-optimistic COMMAND native-optimistic-tests)
+    add_test(NAME native-optimistic-guard COMMAND "${Python3_EXECUTABLE}"
+             "${CMAKE_CURRENT_SOURCE_DIR}/tests/optimistic_guard.py" --src "${CMAKE_CURRENT_SOURCE_DIR}/src/ui")
     add_executable(native-kit-tests tests/kit.cpp)
     target_link_libraries(native-kit-tests PRIVATE nativetv_kit_glyphs nativetv_motion)
     target_compile_definitions(native-kit-tests PRIVATE NATIVETV_ASSETS="${CMAKE_CURRENT_SOURCE_DIR}/assets")

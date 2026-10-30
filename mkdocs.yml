@@ -63,7 +63,6 @@ nav:
           - Remote button events: integrations/home-assistant-remote-buttons.md
       - Prometheus metrics: integrations/prometheus.md
       - Log forwarding (syslog): integrations/syslog.md
-      - Ambient light (PicCap): integrations/piccap.md
   - Privacy and administration:
       - Security: administration/security.md
       - What LG's ACR does: administration/acr.md
@@ -85,16 +84,11 @@ nav:
           - LG C5 (OLED48C5PUA): development/tv-specs/c5.md
           - LG UA73 (55UA73006LA): development/tv-specs/ua73.md
           - LG NU80 (43NU800BPSC): development/tv-specs/nu80.md
-      - Android wrapper: development/android-wrapper.md
       - Strings: development/strings.md
 
 # Template overrides are not pages.
 exclude_docs: |
   /overrides/
-
-# Kept until the Homebrew Channel listing is live.
-not_in_nav: |
-  /getting-started/install-homebrew-channel.md
 
 extra_css:
   - stylesheets/extra.css

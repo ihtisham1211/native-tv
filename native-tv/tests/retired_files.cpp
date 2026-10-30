@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+using nativetv::daemon::removeRetiredApps;
 using nativetv::daemon::removeRetiredFiles;
 
 namespace {
@@ -90,6 +91,26 @@ int main() {
     for (const char *folder : {"/assets/dashboard-app", "/assets", ""}) rmdir((tile + folder).c_str());
 
     check(removeRetiredFiles("/nonexistent/nativetv-retired") == 0, "a missing server folder is not an error");
+
+    // The developer client no release stages now: its folders go whole, the tile's app stays.
+    char appsPattern[] = "/tmp/nativetv-retired-apps-XXXXXX";
+    const std::string apps = mkdtemp(appsPattern);
+    for (const char *folder : {"/applications", "/applications/com.tvweb.native", "/applications/com.tvweb.native/assets",
+                               "/applications/com.tvweb.dashboard", "/packages", "/packages/com.tvweb.native"})
+        mkdir((apps + folder).c_str(), 0755);
+    touch(apps + "/applications/com.tvweb.native/nativetv-tv");
+    touch(apps + "/applications/com.tvweb.native/assets/icon.png");
+    touch(apps + "/packages/com.tvweb.native/packageinfo.json");
+    touch(apps + "/applications/com.tvweb.dashboard/nativetv-tv");
+    check(removeRetiredApps(apps) == 1, "the developer client is counted once for its two folders");
+    check(!exists(apps + "/applications/com.tvweb.native") && !exists(apps + "/packages/com.tvweb.native"),
+          "with everything in them");
+    check(exists(apps + "/applications/com.tvweb.dashboard/nativetv-tv"), "the Native Tv tile's app stays");
+    check(removeRetiredApps(apps) == 0, "a second start finds nothing");
+    check(removeRetiredApps("/nonexistent/nativetv-apps") == 0, "a missing apps folder is not an error");
+    unlink((apps + "/applications/com.tvweb.dashboard/nativetv-tv").c_str());
+    for (const char *folder : {"/applications/com.tvweb.dashboard", "/applications", "/packages", ""})
+        rmdir((apps + folder).c_str());
     std::printf("%d failure(s)\n", failures);
     return failures ? 1 : 0;
 }

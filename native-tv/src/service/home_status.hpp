@@ -12,7 +12,8 @@ Json homeStatusProjection(const Json &rawDocument,
                           const std::string &webosVersion,
                           bool allowExperimental, bool active,
                           bool lgHomeOpen, bool historyEnabled,
-                          const Json &wallpapers);
+                          const Json &wallpapers,
+                          const std::string &mainProfileName = "Main");
 
 } // namespace service
 } // namespace nativetv

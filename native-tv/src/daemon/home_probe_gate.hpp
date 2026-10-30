@@ -2,6 +2,7 @@
 
 #include "core/json.hpp"
 #include <chrono>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -9,6 +10,15 @@
 namespace nativetv {
 namespace daemon {
 class ChildProcessRunner;
+class LunaClient;
+
+// The app that is Home's screens: the Native Tv tile, the one native app the
+// install registers with sam. The Home stub opens it on its Home screen.
+constexpr const char *kHomeClientApp = "com.tvweb.dashboard";
+
+// Whether sam knows the Home client app: 1 yes, 0 no (an app it was never told
+// of, or that was removed, which it refuses to launch), -1 it did not say.
+int homeClientRegistration(LunaClient &luna);
 
 // How the gate runs `nativetv-tv --probe`. The defaults suit a TV; config.json's
 // "nativeClient" section ({path, probeCommand, probeTimeoutMs}) overrides them
@@ -39,10 +49,14 @@ HomeProbeOptions homeProbeOptions(const Json &config, const std::string &systemR
 //
 // A verdict is {ok, exit, class, cached, report?, error?}. `class` names the
 // exit: ok, display (10), context (11), gl (12), readback (13), failed (any
-// other exit), crashed (a signal), timeout, missing (no client file).
+// other exit), crashed (a signal), timeout, missing (no client file),
+// unregistered (sam does not know the app), unasked (sam did not say). The app
+// is looked up every time, since the owner can remove its tile at any moment.
 class HomeProbeGate {
   public:
-    HomeProbeGate(ChildProcessRunner &children, HomeProbeOptions options);
+    // `registration` is homeClientRegistration; without it the app counts as known.
+    HomeProbeGate(ChildProcessRunner &children, HomeProbeOptions options,
+                  std::function<int()> registration = std::function<int()>());
 
     // Runs the probe unless this client on this firmware already has a verdict
     // that a rerun would not change (ok, gl, readback); `force` always runs it.
@@ -59,6 +73,7 @@ class HomeProbeGate {
 
     ChildProcessRunner &children_;
     const HomeProbeOptions options_;
+    const std::function<int()> registration_;
     // verdict() holds runMutex_ for its whole run, so known() is never kept
     // waiting on a probe by mutex_, which only guards the two fields.
     std::mutex runMutex_;
@@ -66,6 +81,9 @@ class HomeProbeGate {
     Json last_;
     std::string lastKey_;
 };
+
+// Why a verdict that is not ok refuses Home, as a sentence for the owner.
+std::string homeProbeReason(const Json &verdict);
 
 // `supported` as service::homeStatusSupported answers it, with the verdict
 // applied: unchanged when the verdict is ok or absent, else not ok, with the

@@ -3,6 +3,7 @@
 #include "domain/models.hpp"
 #include "ui/kit/widgets.hpp"
 #include "ui/motion/motion.hpp"
+#include "ui/optimistic.hpp"
 #include "ui/pictures.hpp"
 #include "ui/scene.hpp"
 #include "ui/screen.hpp"
@@ -96,6 +97,12 @@ class Application : private ScreenHost {
     ViewState state_;
     bool dirty_ = true, active_ = true, running_ = true;
     uint32_t now_ = 0, refreshAt_ = 0, toastUntil_ = 0, confirmUntil_ = 0;
+    // Whether the server has said if first-run setup is done (/api/caps). Until it does, the
+    // question is asked again every two seconds, and the client's own first frames stay behind the
+    // ink cover for at most 2.5 s so the page that is about to be replaced is not seen.
+    bool capsAnswered_ = false, holdForCaps_ = false;
+    uint32_t capsAt_ = 0;
+    std::string initial_;
     unsigned recentSnapshot_ = 0;
     std::string confirmId_;
     Command pending_, confirming_;
@@ -104,6 +111,7 @@ class Application : private ScreenHost {
     // update(), so a --time capture advances by whole frames and nothing else.
     Motion motion_;
     MotionClock clock_;
+    Optimistic optimistic_; // after clock_: it reads the frame's time
     kit::LegacyGlyphs legacyGlyphs_;
     kit::Glyphs *glyphs_ = &legacyGlyphs_;
     Pictures *pictures_ = nullptr;
@@ -112,6 +120,7 @@ class Application : private ScreenHost {
     std::unique_ptr<ScreenView> screen_;
     bool barFocus_ = false, ambientOnly_ = false;
     std::string currentRoute_, cameFrom_; // the registered screen showing, and where it was opened from
+    std::map<std::string, Json> memory_;  // what screens keep between openings
     // Home's choreography (home_motion.cpp).
     struct HomeFlow {
         bool entered = false;        // the page's entrance has played
@@ -150,6 +159,12 @@ class Application : private ScreenHost {
     std::string cameFrom() const override {
         return cameFrom_;
     }
+    std::map<std::string, Json> &memory() override {
+        return memory_;
+    }
+    Optimistic &optimistic() override {
+        return optimistic_;
+    }
     bool isRecents() const;
     void homeStart();
     void homeData();
@@ -168,6 +183,8 @@ class Application : private ScreenHost {
     void homeBeat(const Response *reply);
     void resolvePictures();
     void buildFrame();
+    void askCaps();
+    bool coveredForCaps() const;
     void rebuildHome();
     void rebuildMenu();
     void refresh();
@@ -197,6 +214,14 @@ class Application : private ScreenHost {
         return registry_;
     }
     explicit Application(Services &services, const std::string &initial = "home");
+    // The real client keeps its first frames behind the ink until the server has said whether
+    // first-run setup is needed (up to 2.5 s), so the page about to be replaced is never seen. Not
+    // for the kit gallery, setup itself or the splash, which do not ask.
+    void holdForSetupCheck() {
+        holdForCaps_ = initial_.compare(0, 4, "kit:") != 0 && initial_.compare(0, 6, "setup:") != 0 &&
+                       initial_ != "splash";
+        dirty_ = true;
+    }
     void key(Key key);
     void longPress();
     void input(const std::string &text);

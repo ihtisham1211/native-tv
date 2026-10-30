@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Package the native app with LG's packager, independently of the legacy server."""
+"""Package the Native Tv tile's app (the native client) with LG's packager, independently of the server."""
 import argparse
 import json
 from pathlib import Path
@@ -23,18 +23,21 @@ def main():
     if len(header) != 20 or header[:7] != b"\x7fELF\x01\x01\x01" or header[18:20] != b"\x28\x00":
         parser.error("Packaging requires a 32-bit little-endian ARM ELF build")
     output = args.out.resolve()
-    stage = output / "package" / "com.tvweb.native"
+    tile = ROOT / "assets/dashboard-app"
+    app_id = json.loads(tile.joinpath("appinfo.json").read_text())["id"]
+    stage = output / "package" / app_id
     if stage.exists():
         shutil.rmtree(stage)
     stage.mkdir(parents=True)
     stage_client(args.build, stage)
-    shutil.copyfile(ROOT / "appinfo.json", stage / "appinfo.json")
-    shutil.copyfile(ROOT / "assets/icon.png", stage / "assets/icon.png")
+    shutil.copyfile(tile / "appinfo.json", stage / "appinfo.json")
+    for icon in ("icon80.png", "icon130.png"):
+        shutil.copyfile(tile / "assets" / icon, stage / "assets" / icon)
     command = [args.packager] if shutil.which(args.packager) else ["npx", "--yes", "--package=@webos-tools/cli@3.2.6", "--", "ares-package"]
     subprocess.run([*command, "--no-minify", "--outdir", str(output), str(stage)], check=True)
-    version = json.loads(ROOT.joinpath("appinfo.json").read_text())["version"]
-    package = output / ("com.tvweb.native_" + version + "_arm.ipk")
-    candidates = list(output.glob("com.tvweb.native_" + version + "_*.ipk"))
+    version = json.loads(tile.joinpath("appinfo.json").read_text())["version"]
+    package = output / (app_id + "_" + version + "_arm.ipk")
+    candidates = list(output.glob(app_id + "_" + version + "_*.ipk"))
     if not candidates:
         parser.error("The packager produced no native IPK")
     print(candidates[0] if not package.exists() else package)

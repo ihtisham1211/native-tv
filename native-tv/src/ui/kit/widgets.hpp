@@ -239,6 +239,13 @@ struct KeyCap {
 };
 void keyCap(Paint paint, const KeyCap &key);
 
+// ---- Progress -----------------------------------------------------------------------------------
+
+// The circular indeterminate progress indicator, for a value that is being read or a change that
+// is on its way: twelve dots round a circle, the head one bright and the rest fading behind it,
+// one turn in 1.25 s. `timeMs` is the frame's clock; the box is square.
+void spinner(Paint paint, Rect box, double timeMs, Color ink = color::onSurface2, float alpha = 1);
+
 // Static frames of the designed screens for capture review: "home", "apps", "live", "settings"
 // and "setup". False for any other name.
 bool designGallery(Paint paint, const std::string &name);

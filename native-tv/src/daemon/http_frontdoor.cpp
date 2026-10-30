@@ -1187,7 +1187,7 @@ bool isSetupDemo(const ServerConfig &config, const HttpRequest &request) {
 
 bool setupRead(HttpExchange &exchange, const ServerConfig &config, const std::string &dataRoot,
                LunaClient &luna, const HttpProxy &proxy,
-               const std::string &nativeHandoffUrl) {
+               const std::string &nativeHandoffUrl, const std::string &model) {
     const HttpRequest &request = exchange.request();
     const bool demo = isSetupDemo(config, request);
     if (!isLoopbackPeer(request.remoteAddress) && !demo) {
@@ -1222,6 +1222,8 @@ bool setupRead(HttpExchange &exchange, const ServerConfig &config, const std::st
         state.set("address", Json());
     }
     state.set("hostname", context["hostname"]);
+    // What the TV is: the first setup step names it after the series.
+    state.set("model", Json::text(model));
 
     const Json mqtt = config.document["mqtt"];
     Json homeAssistant = Json::object();
@@ -1629,7 +1631,7 @@ void clearHomeRecentHistoryRows(HomeRecentHistoryState &history,
 
 bool homeReservedApp(const std::string &appId) {
     return appId.empty() || appId == "com.tvweb.home" ||
-           appId == "com.tvweb.native" || appId == "com.webos.app.home";
+           appId == kHomeClientApp || appId == "com.webos.app.home";
 }
 
 bool homeInputApp(const std::string &appId) {
@@ -2797,6 +2799,11 @@ std::string HttpFrontDoor::localHostname(const std::string &address) const {
     return hostnames_.name(address);
 }
 
+std::string HttpFrontDoor::mainProfileName() const {
+    StatsCollector *collector = statsCollector();
+    return names::tvDefaultName(collector ? collector->deviceModel() : std::string());
+}
+
 StatsCollector *HttpFrontDoor::statsCollector() const {
     std::call_once(statsCollectorOnce_, [this]() {
         StatsDeps deps;
@@ -3196,8 +3203,25 @@ HomeOrchestrator *HttpFrontDoor::homeOrchestrator() const {
                 !reply.response["running"].isArray())
                 return -1;
             for (const Json &app : reply.response["running"].items())
-                if (app["id"].string() == "com.tvweb.native") return 1;
+                if (app["id"].string() == kHomeClientApp) return 1;
             return 0;
+        };
+        deps.launchClient = [this]() {
+            Json payload = Json::object();
+            payload.set("id", Json::text(kHomeClientApp));
+            Json params = Json::object();
+            params.set("screen", Json::text("home"));
+            payload.set("params", params);
+            LunaReply reply;
+            if (!waitForLuna(luna_, "com.webos.applicationManager/launch", payload, reply)) return Json();
+            Json result = Json::object();
+            const bool opened = reply.response["returnValue"].boolean();
+            result.set("ok", Json::flag(opened));
+            if (!opened) {
+                result.set("error", Json::text(reply.response["errorText"].string()));
+                result.set("unregistered", Json::flag(homeClientRegistration(luna_) == 0));
+            }
+            return result;
         };
         deps.release = [this]() {
             Json failed = Json::object();
@@ -3359,7 +3383,8 @@ HomeOrchestrator *HttpFrontDoor::homeOrchestrator() const {
 HomeProbeGate *HttpFrontDoor::homeProbeGate() const {
     std::call_once(homeProbeGateOnce_, [this]() {
         homeProbeGate_.reset(new HomeProbeGate(
-            children_, homeProbeOptions(config_.document, systemRoot_, dataRoot_)));
+            children_, homeProbeOptions(config_.document, systemRoot_, dataRoot_),
+            [this]() { return homeClientRegistration(luna_); }));
     });
     return homeProbeGate_.get();
 }
@@ -7043,7 +7068,7 @@ void HttpFrontDoor::persistHomeConfig(HttpExchange &exchange) const {
                         const service::HomeDocumentUpdate update = action == "layout"
                             ? service::updateHomeLayout(current, payload["body"])
                             : action == "profile"
-                                ? service::updateHomeProfile(current, payload["body"])
+                                ? service::updateHomeProfile(current, payload["body"], mainProfileName())
                                 : service::updateHomeBooleanSetting(
                                       current, action, payload["body"]);
                         response.set("ok", Json::flag(true));
@@ -7132,6 +7157,8 @@ void HttpFrontDoor::handleHomeProfilePost(HttpExchange &exchange) const {
     service::HomeDocumentUpdate update;
     std::string saveError;
     bool saved = false;
+    // Asked before the lock: the first answer reads the TV's model.
+    const std::string mainName = mainProfileName();
     {
         std::lock_guard<std::mutex> lock(homeConfigMutex_);
         JsonFile file(dataFilePath(dataRoot_, "home.json"), maximumBytes);
@@ -7141,7 +7168,7 @@ void HttpFrontDoor::handleHomeProfilePost(HttpExchange &exchange) const {
         } else {
             current = service::normalizeHomeDocument(
                 stored.found ? stored.value : Json::object());
-            update = service::updateHomeProfile(current, body);
+            update = service::updateHomeProfile(current, body, mainName);
             if (update.response["ok"].boolean())
                 saved = file.save(update.document, &saveError);
         }
@@ -7178,18 +7205,6 @@ void HttpFrontDoor::handleHomeProfilePost(HttpExchange &exchange) const {
 
     Json response = update.response;
     Json profiles = response["profiles"];
-    const bool hadProfiles = current["profiles"].isArray() &&
-                             current["profiles"].size() != 0;
-    if (!hadProfiles) {
-        Json localized = Json::array();
-        for (Json profile : profiles.items()) {
-            if (profile["id"].string() == "main")
-                profile.set("name", Json::text(
-                    say::msg("srv.home.profileMain", "Main")));
-            localized.add(profile);
-        }
-        profiles = localized;
-    }
     if (body["action"].string() == "add" &&
         service::normalizeHomeProfileName(body["name"]).empty()) {
         Json localized = Json::array();
@@ -15159,7 +15174,7 @@ void HttpFrontDoor::sendAppIcon(HttpExchange &exchange) const {
                               "{\"ok\":false,\"error\":\"icon not found\"}");
         return;
     }
-    const service::AppIconFile icon = service::readAppIcon(appId, systemRoot_);
+    const service::AppIconFile icon = service::readAppIcon(appId, systemRoot_, assetsRoot_);
     if (!icon.found) {
         (void)exchange.respond(404, {{"Content-Type", "application/json"}},
                               "{\"ok\":false,\"error\":\"icon not found\"}");
@@ -15306,7 +15321,7 @@ void HttpFrontDoor::sendHomeStatus(HttpExchange &exchange) const {
     Json response = service::homeStatusProjection(
         rawHome, homeStatusWebosVersion(systemRoot_),
         config_.document["allowExperimentalHome"].boolean(), active,
-        lgHomeOpen, historyEnabled, wallpapers);
+        lgHomeOpen, historyEnabled, wallpapers, mainProfileName());
     response.set("writable", Json::flag(config_.allowControl ||
                                          isLoopbackPeer(request.remoteAddress)));
     // The native client's probe as it last ran (never run from here), and the
@@ -15496,7 +15511,7 @@ Json HttpFrontDoor::homeCatalogueResponse(bool view) const {
     Json response = catalogue;
     response.set("ok", Json::flag(true));
     response.set("layout", service::homeLayout(document));
-    response.set("profiles", service::homeProfileList(document));
+    response.set("profiles", service::homeProfileList(document, mainProfileName()));
     response.set("profile", document["profile"]);
     response.set("enabled", document["enabled"]);
     Json wallpaperStatus = service::homeWallpaperStatus(dataRoot_);
@@ -17085,7 +17100,7 @@ void HttpFrontDoor::handleLanIcon(HttpExchange &exchange) const {
     }
     const std::string appId = request.uri.substr(
         prefix.size(), request.uri.size() - prefix.size() - suffix.size());
-    const service::AppIconFile icon = service::readAppIcon(appId, systemRoot_);
+    const service::AppIconFile icon = service::readAppIcon(appId, systemRoot_, assetsRoot_);
     if (!icon.found) {
         (void)exchange.respond(404, {{"Content-Type", "text/plain"}}, "not found");
         return;
@@ -18088,7 +18103,8 @@ void HttpFrontDoor::dispatch(HttpExchange &exchange) const {
         return;
     }
     if (request.uri == "/api/setup" && request.method == "GET") {
-        (void)setupRead(exchange, config_, dataRoot_, luna_, proxy_, activeHandoffUrl());
+        (void)setupRead(exchange, config_, dataRoot_, luna_, proxy_, activeHandoffUrl(),
+                        statsCollector() ? statsCollector()->deviceModel() : std::string());
         return;
     }
     if (request.uri == "/api/setup" && request.method == "POST") {

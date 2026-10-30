@@ -8,6 +8,7 @@
 #include "ui/home_layout.hpp"
 #include "ui/kit/overlay.hpp"
 #include "ui/kit/tuning.hpp"
+#include "ui/optimistic.hpp"
 #include "ui/overlay_routes.hpp"
 #include <algorithm>
 #include <cstdlib>
@@ -22,12 +23,8 @@ constexpr size_t kMaxDepth = 8;
 constexpr float kTextWidth = 1100, kSimilarW = layout::cardW, kSimilarH = layout::cardH,
                 kSimilarGap = layout::cardGap, kSimilarTop = 784, kActionH = 64;
 constexpr size_t kOverviewPageBytes = 1100;
-constexpr const char *kDetails = "title:details", *kNetflix = "title:netflix", *kOpen = "title:open";
+constexpr const char *kDetails = "title:details", *kNetflix = "title:netflix";
 
-std::string failure(const std::string &what, const Json &data) {
-    std::string reason = data["error"].string();
-    return reason.empty() ? what : what + ": " + reason;
-}
 bool succeeded(const Response &response, const Json &data) {
     return response.ok() && data.valid() && (!data.has("ok") || data["ok"].boolean());
 }
@@ -97,7 +94,6 @@ void DetailsScreen::enter(ScreenHost &host) {
 void DetailsScreen::leave(ScreenHost &host) {
     host.services().cancel(kDetails);
     host.services().cancel(kNetflix);
-    host.services().cancel(kOpen);
     host.motion().erasePrefix("details:");
 }
 void DetailsScreen::rebuildActions(Title &title) {
@@ -191,13 +187,6 @@ void DetailsScreen::response(ScreenHost &host, const Response &response) {
             focusMoved(host, false);
             host.invalidate();
         }
-    } else if (response.channel == kOpen && openGeneration_ &&
-               response.generation == openGeneration_) {
-        openGeneration_ = 0;
-        opening_ = false;
-        if (!succeeded(response, data))
-            host.toast(failure(msg("tv.details.openFailed", "That did not open"), data));
-        host.invalidate();
     }
 }
 
@@ -262,8 +251,6 @@ void DetailsScreen::activate(ScreenHost &host) {
     default:
         break;
     }
-    if (opening_)
-        return;
     Json body = Json::object();
     Action::Kind kind = title.actions[title.action].kind;
     if (kind == Action::Kind::Trailer) {
@@ -274,11 +261,12 @@ void DetailsScreen::activate(ScreenHost &host) {
         body.set("type", title.item["type"]);
         body.set("id", title.item["id"]);
     }
-    openGeneration_ = host.services().write(kOpen, Operation::OpenHomeItem, body);
-    if (openGeneration_)
-        opening_ = true;
-    else
-        host.toast(msg("tv.details.busy", "Too many pending requests. Try again."));
+    // A second press while the first is on its way is dropped; a refusal is said by the layer.
+    Write write;
+    write.operation = Operation::OpenHomeItem;
+    write.body = [body](const Json &) { return body; };
+    write.failure = msg("tv.details.openFailed", "That did not open");
+    host.optimistic().run("details.open", write);
 }
 bool DetailsScreen::key(ScreenHost &host, Key key) {
     if (stack_.empty())

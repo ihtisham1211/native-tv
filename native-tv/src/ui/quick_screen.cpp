@@ -2,20 +2,24 @@
 // from, with the TV's volume, picture mode, light, sound output, input and sleep timer, the
 // screensaver and Screen off, the recent apps, the profile and Home's own switches.
 //
-// What the TV is on comes from /api/stats when the drawer opens and shortly after each change;
-// changes go to the routes the JavaScript drawer used (/api/control, /api/home/layout,
-// /api/home/open). Volume goes in steps like the remote's key and steps pressed while one is on
-// its way go in one more, so a held key sends a request at a time, never a pile.
+// Opening it shows each row's last known value at once (kept in the application between openings)
+// or a spinner where there is none yet, and reads the TV behind it. Every change goes through the
+// optimistic-update layer (optimistic.hpp): the value is on screen the moment the key is pressed,
+// the writes leave at a limited pace and carry the newest value, and a refusal puts the value back
+// and says so. Volume and light are absolute targets (/api/control "volume" and "backlight"), so a
+// held key from 5 to 95 shows 5, 6, 7 ... 95 and nothing a late reply or a re-read brings can move
+// it backwards.
 #include "domain/models.hpp"
 #include "domain/say.hpp"
 #include "ui/application.hpp"
 #include "ui/kit/overlay.hpp"
 #include "ui/kit/tuning.hpp"
+#include "ui/optimistic.hpp"
 #include "ui/overlay_routes.hpp"
+#include "ui/profile_names.hpp"
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
-#include <map>
 
 namespace nativetv {
 namespace {
@@ -26,14 +30,12 @@ using say::msg;
 constexpr float kPanelW = 760, kPanelX = kit::canvas::width - kPanelW, kPad = 48,
                 kRowW = kPanelW - 2 * kPad, kViewTop = 140, kViewBottom = kit::canvas::height - 96,
                 kRowPitch = 92;
-constexpr double kStepMs = 600;       // stats are read again this long after a change
-constexpr double kLightDebounceMs = 350;
 constexpr int kLightStep = 5;
+constexpr double kRetryMs = 3000;
 // The panel's own spring: quicker than a page's, still without overshoot.
 constexpr kit::SpringTuning kSlide = {420, 1};
-constexpr const char *kStats = "quick:stats", *kNow = "quick:now", *kVolume = "quick:vol",
-                     *kMute = "quick:mute", *kLight = "quick:light", *kSet = "quick:set",
-                     *kAct = "quick:act", *kLayout = "quick:layout";
+constexpr const char *kStats = "quick:stats", *kNow = "quick:now";
+constexpr const char *kStatsMemory = "quick.stats", *kNowMemory = "quick.now";
 
 enum class Level { Main, Picture, Sound, Input, Sleep, Layout };
 const char *levelName(Level level) {
@@ -75,26 +77,46 @@ const LayoutSwitch kSwitches[] = {{"clockFormat", "clock"}, {"appNames", "apps"}
                                   {"showLgHome", "home"},   {"picture", "display"}};
 const char *kSleep[] = {"off", "10", "30", "60", "90", "120"};
 
-std::string failure(const std::string &what, const Json &data) {
-    std::string reason = data["error"].string();
-    return reason.empty() ? what : what + ": " + reason;
-}
-bool succeeded(const Response &response, const Json &data) {
-    return response.ok() && data.valid() && (!data.has("ok") || data["ok"].boolean());
-}
 double clamp(double value, double low, double high) {
     return std::max(low, std::min(high, value));
+}
+Write controlWrite(const char *action) {
+    Write write;
+    write.operation = Operation::Control;
+    const std::string name = action;
+    write.body = [name](const Json &target) {
+        Json body = Json::object();
+        body.set("action", Json::text(name));
+        body.set("value", target);
+        return body;
+    };
+    write.readChannel = kStats;
+    write.readOperation = Operation::Metrics;
+    return write;
+}
+Write layoutWrite(const std::string &key) {
+    Write write;
+    write.operation = Operation::SetHomeLayout;
+    write.body = [key](const Json &target) {
+        Json body = Json::object();
+        body.set(key, key == "clockFormat" ? Json::text(target.boolean() ? "24h" : "12h") : target);
+        return body;
+    };
+    write.readChannel = "catalogue";
+    write.readOperation = Operation::HomeCatalogue;
+    return write;
+}
+// Rows whose value is read from the TV: they wait for the first read.
+bool readsStats(const std::string &id) {
+    return id == "volume" || id == "light" || id == "picture" || id == "sound" || id == "input" ||
+           id == "sleep";
 }
 
 class QuickScreen final : public ScreenView {
     struct Row {
         enum class Kind { Plain, Slider, Choice, Switch } kind = Kind::Plain;
-        std::string id, icon, title, trail;
-        bool on = false, dim = false, go = false;
-    };
-    struct Reading {
-        bool known = false;
-        double value = 0;
+        std::string id, icon, title, raw, trail;
+        bool go = false, dim = false, on = false;
     };
 
   public:
@@ -113,21 +135,24 @@ class QuickScreen final : public ScreenView {
     void enter(ScreenHost &host) override {
         host.motion().set("quick:x", kPanelW);
         host.motion().spring("quick:x", 0, kit::springParams(kSlide));
+        // What was read last time shows at once; the read behind it brings today's values.
+        auto &memory = host.memory();
+        if (memory.count(kStatsMemory) && memory[kStatsMemory].isObject()) {
+            stats_ = memory[kStatsMemory];
+            loaded_ = true;
+        }
+        if (memory.count(kNowMemory) && memory[kNowMemory].isObject())
+            nowPort_ = memory[kNowMemory]["port"].string();
         statsGeneration_ = host.services().read(kStats, Operation::Metrics);
         nowGeneration_ = host.services().read(kNow, Operation::HomeNow);
+        syncShown(host);
         rebuild(host, true);
         focusMoved(host, true);
         playEntrance(host);
     }
     void leave(ScreenHost &host) override {
-        // A change not yet sent goes now; the reply is not waited for.
-        if (stepSum_)
-            flushVolume(host, true);
-        if (lightAt_) {
-            lightAt_ = 0;
-            send(host, kLight, control("backlight", Json::numeric(light_.value)));
-        }
-        for (const char *channel : {kStats, kNow, kSet, kAct, kLayout, kMute})
+        // Writes in flight are the layer's and finish without this page.
+        for (const char *channel : {kStats, kNow})
             host.services().cancel(channel);
         host.motion().erasePrefix("quick:");
     }
@@ -138,15 +163,22 @@ class QuickScreen final : public ScreenView {
             host.open(destination_);
             return false;
         }
-        if (lightAt_ && now >= lightAt_) {
-            lightAt_ = 0;
-            lightGeneration_ = send(host, kLight, control("backlight", Json::numeric(light_.value)));
-        }
-        if (refreshAt_ && now >= refreshAt_) {
-            refreshAt_ = 0;
+        if (retryAt_ > 0 && now >= retryAt_) {
+            retryAt_ = 0;
             statsGeneration_ = host.services().read(kStats, Operation::Metrics);
         }
-        return lightAt_ > 0 || refreshAt_ > 0;
+        if (needsRebuild_) {
+            needsRebuild_ = false;
+            rebuild(host, false);
+        }
+        syncShown(host);
+        // The switches follow what is shown, so a refusal that takes one back moves it back.
+        if (level_ == Level::Layout)
+            for (size_t i = 0; i < rows_.size(); ++i)
+                host.motion().tween("quick:t:" + std::to_string(i), layoutFlag(host, rows_[i].id) ? 1 : 0,
+                                    kit::motion::ms::fast, easing(kit::motion::ease::out));
+        // The spinner turns while anything is being read.
+        return !loaded_ || retryAt_ > 0;
     }
 
     // ---- Keys --------------------------------------------------------------------------------
@@ -208,64 +240,34 @@ class QuickScreen final : public ScreenView {
 
     // ---- Replies -----------------------------------------------------------------------------
 
+    // What the TV said. The layer decides what shows while a change of ours is pending, so what is
+    // read is simply taken.
     void response(ScreenHost &host, const Response &response) override {
         const std::string &channel = response.channel;
         Json data = response.json();
-        bool ok = succeeded(response, data);
+        bool ok = response.ok() && data.valid() && (!data.has("ok") || data["ok"].boolean());
         if (channel == "catalogue") {
-            // The layout was read again: what was switched is what the catalogue now says.
-            layoutOverride_.clear();
-            rebuild(host);
-        } else if (channel == kStats && response.generation == statsGeneration_) {
-            if (response.ok() && data.valid()) {
-                applyStats(data);
-                rebuild(host);
+            needsRebuild_ = true; // the inputs and the profile names come from it
+        } else if (channel == kStats && response.generation >= statsGeneration_) {
+            if (ok) {
+                stats_ = data;
+                host.memory()[kStatsMemory] = data;
+                loaded_ = true;
+                readFailed_ = false;
+                retryAt_ = 0;
+                needsRebuild_ = true;
+            } else if (!loaded_) {
+                // Nothing to show yet and the TV did not answer: dashes, and another try.
+                loaded_ = true;
+                readFailed_ = true;
+                retryAt_ = host.nowMs() + kRetryMs;
+                needsRebuild_ = true;
             }
-        } else if (channel == kNow && response.generation == nowGeneration_) {
+        } else if (channel == kNow && response.generation >= nowGeneration_) {
             nowPort_ = ok && data["kind"].string() == "input" ? data["port"].string() : "";
-            rebuild(host);
-        } else if (channel == kVolume && response.generation == volumeGeneration_) {
-            stepBusy_ = false;
-            if (!ok) {
-                host.toast(failure(msg("tv.quick.failed", "That did not work"), data));
-                stepSum_ = 0;
-                refreshAt_ = host.nowMs();
-            } else if (stepSum_)
-                flushVolume(host, false);
-            else
-                refreshSoon(host);
-        } else if (channel == kMute && response.generation == muteGeneration_) {
-            if (!ok) {
-                muted_ = !muted_;
-                host.toast(failure(msg("tv.quick.failed", "That did not work"), data));
-            } else
-                refreshSoon(host);
-        } else if (channel == kLight && response.generation == lightGeneration_) {
-            if (!ok)
-                host.toast(failure(msg("tv.quick.failed", "That did not work"), data));
-            refreshSoon(host);
-        } else if (channel == kSet && response.generation == setGeneration_) {
-            setGeneration_ = 0;
-            if (!ok) {
-                host.toast(failure(msg("tv.quick.failed", "That did not work"), data));
-            } else {
-                chosen(host);
-                refreshSoon(host);
-            }
-        } else if (channel == kAct && response.generation == actGeneration_) {
-            actGeneration_ = 0;
-            if (!ok)
-                host.toast(failure(msg("tv.quick.failed", "That did not work"), data));
-            else
-                close(host, returnRoute(host.cameFrom()));
-        } else if (channel == kLayout && response.generation == layoutGeneration_) {
-            layoutGeneration_ = 0;
-            if (!ok) {
-                layoutOverride_.erase(switching_);
-                host.toast(failure(msg("tv.quick.failed", "That did not work"), data));
-            } else
-                host.services().read("catalogue", Operation::HomeCatalogue);
-            rebuild(host);
+            if (ok)
+                host.memory()[kNowMemory] = data;
+            needsRebuild_ = true;
         } else
             return;
         host.invalidate();
@@ -278,11 +280,12 @@ class QuickScreen final : public ScreenView {
         Scene &scene = paint.scene;
         float slide = static_cast<float>(motion.value("quick:x"));
         float open = kit::focus::clamp01(1 - slide / kPanelW);
+        syncShown(host);
         if (host.cameFrom() == "home" && !host.view().home.tabs.empty())
             drawHome(paint, Frame{host.view(), motion, host.nowMs()});
         else
             kit::ambientWall(paint, 1, host.view().home.art.wallTint);
-        kit::veil(paint, .62f * open);
+        kit::veil(paint, .62f * open); // the one dim scrim over the page
         scene.hits.push_back({{0, 0, kPanelX, kit::canvas::height}, "quick:close"});
 
         scene.pushTransform(Transform::translate(slide, 0));
@@ -305,7 +308,8 @@ class QuickScreen final : public ScreenView {
         scene.popClip();
         if (!hint().empty())
             paint.glyphs.text(scene, {kPanelX + kPad, kit::canvas::height - 64, kRowW, kit::type::labelM.line},
-                              hint(), kit::type::labelM, kit::color::onSurface3);
+                              hint(), kit::type::labelM,
+                              readFailed_ ? kit::color::warn : kit::color::onSurface3);
         scene.popTransform();
     }
     Json snapshot() const override {
@@ -314,17 +318,92 @@ class QuickScreen final : public ScreenView {
         value.set("selected", Json::numeric(static_cast<double>(focus_)));
         if (focus_ < rows_.size())
             value.set("focus", Json::text(rows_[focus_].title));
-        value.set("volume", Json::numeric(volume_.value));
-        value.set("muted", Json::flag(muted_));
-        value.set("light", Json::numeric(light_.value));
+        value.set("volume", Json::numeric(shownVolume_));
+        value.set("muted", Json::flag(shownMuted_));
+        value.set("light", Json::numeric(shownLight_));
+        value.set("sleep", Json::text(shownSleep_));
+        value.set("picture", Json::text(shownPicture_));
+        value.set("writing", Json::flag(writing_));
+        value.set("loading", Json::flag(!loaded_));
+        value.set("readFailed", Json::flag(readFailed_));
         value.set("closing", Json::flag(closing_));
         value.set("rows", Json::numeric(static_cast<double>(rows_.size())));
+        value.set("volumeBackwards", Json::numeric(volumeBackwards_));
+        value.set("lightBackwards", Json::numeric(lightBackwards_));
         return value;
     }
 
   private:
-    // ---- State -------------------------------------------------------------------------------
+    // ---- What is shown -----------------------------------------------------------------------
 
+    bool volumeKnown() const {
+        return stats_["volume"].isNumber();
+    }
+    bool lightKnown() const {
+        return stats_["picture"]["backlight"].isNumber();
+    }
+    // The values on screen, as the layer decides them: the wanted one while a change is pending.
+    double volume(ScreenHost &host) {
+        return host.optimistic().number("quick.volume", stats_["volume"].number(0));
+    }
+    double light(ScreenHost &host) {
+        return host.optimistic().number("quick.light", stats_["picture"]["backlight"].number(0));
+    }
+    bool muted(ScreenHost &host) {
+        return host.optimistic().flag("quick.mute", stats_["muted"].boolean());
+    }
+    std::string sleepValue(ScreenHost &host) {
+        return host.optimistic().text("quick.sleep", stats_["sleepTimer"].string());
+    }
+    std::string pictureValue(ScreenHost &host) {
+        return host.optimistic().text("quick.picture", stats_["picture"]["mode_raw"].string());
+    }
+    std::string soundValue(ScreenHost &host) {
+        return host.optimistic().text("quick.sound", stats_["sound"]["output_raw"].string());
+    }
+    // What the catalogue says of a Home switch; the clock is "24h" or "12h".
+    static bool layoutServer(const ScreenHost &host, const std::string &key) {
+        Json layout = host.view().catalogue["layout"];
+        return key == "clockFormat"                                                 ? layout["clockFormat"].string() == "24h"
+               : key == "appNames" || key == "showInputs" || key == "showLgHome" ? layout[key].boolean(true)
+                                                                                  : layout[key].boolean(false);
+    }
+    bool layoutFlag(ScreenHost &host, const std::string &key) {
+        return host.optimistic().flag("layout." + key, layoutServer(host, key));
+    }
+    // For the snapshot and for the held-key checks: what is shown now, and whether it ever went
+    // against the key that is held.
+    void syncShown(ScreenHost &host) {
+        double volumeNow = volume(host), lightNow = light(host);
+        if (volumeDirection_ && (volumeNow - shownVolume_) * volumeDirection_ < 0)
+            ++volumeBackwards_;
+        if (lightDirection_ && (lightNow - shownLight_) * lightDirection_ < 0)
+            ++lightBackwards_;
+        shownVolume_ = volumeNow;
+        shownLight_ = lightNow;
+        shownMuted_ = muted(host);
+        shownSleep_ = sleepValue(host);
+        shownPicture_ = pictureValue(host);
+        writing_ = false;
+        for (const char *key : {"quick.volume", "quick.light", "quick.mute", "quick.sleep", "quick.picture", "quick.sound"})
+            writing_ = writing_ || host.optimistic().pending(key);
+    }
+    std::string modeLabel(const std::string &raw) const {
+        for (const auto &mode : stats_["picture"]["modes"].items())
+            if (mode["value"].string() == raw)
+                return mode["label"].string();
+        return raw == stats_["picture"]["mode_raw"].string() ? stats_["picture"]["mode"].string() : raw;
+    }
+    std::string outputLabel(const std::string &raw) const {
+        for (const auto &output : stats_["sound"]["outputs"].items())
+            if (output["id"].string() == raw)
+                return output["name"].string();
+        return raw == stats_["sound"]["output_raw"].string() ? stats_["sound"]["output"].string() : raw;
+    }
+    static std::string sleepLabel(const std::string &value) {
+        return value == "off" ? msg("tv.quick.off", "Off")
+                              : msg("tv.quick.minutes", "{n} min", fields({{"n", Json::text(value)}}));
+    }
     std::string title() const {
         switch (level_) {
         case Level::Picture:
@@ -341,32 +420,6 @@ class QuickScreen final : public ScreenView {
             return msg("tv.quick.title", "Quick settings");
         }
     }
-    static std::string sleepLabel(const std::string &value) {
-        return value == "off" ? msg("tv.quick.off", "Off")
-                              : msg("tv.quick.minutes", "{n} min", fields({{"n", Json::text(value)}}));
-    }
-    std::string volumeText() const {
-        if (!volume_.known)
-            return "—";
-        return muted_ ? msg("tv.quick.muted", "Muted") : std::to_string(static_cast<int>(volume_.value));
-    }
-    bool layoutOn(const ScreenHost &host, const std::string &key) const {
-        auto found = layoutOverride_.find(key);
-        if (found != layoutOverride_.end())
-            return found->second;
-        Json layout = host.view().catalogue["layout"];
-        if (key == "clockFormat")
-            return layout["clockFormat"].string() == "24h";
-        if (key == "appNames" || key == "showInputs" || key == "showLgHome")
-            return layout[key].boolean(true);
-        return layout[key].boolean(false);
-    }
-    std::string activeProfile(const ScreenHost &host) const {
-        for (const auto &person : host.view().catalogue["profiles"].items())
-            if (person["active"].boolean())
-                return person["name"].string();
-        return "";
-    }
     // The cards of the Inputs tab: the devices in the layout's order, less the ones hidden.
     std::vector<Card> inputs(const ScreenHost &host) const {
         std::vector<CardRow> rows = homeRows("inputs", host.view().catalogue, host.view().discover,
@@ -381,79 +434,102 @@ class QuickScreen final : public ScreenView {
                    ? msg("tv.quick.port", "HDMI {port}", fields({{"port", card.data["port"]}}))
                    : card.title;
     }
-
-    void applyStats(const Json &stats) {
-        stats_ = stats;
-        if (!stepBusy_ && !stepSum_) {
-            volume_.known = stats["volume"].isNumber();
-            volume_.value = stats["volume"].number();
-            muted_ = stats["muted"].boolean();
-        }
-        if (!lightAt_) {
-            light_.known = stats["picture"]["backlight"].isNumber();
-            light_.value = stats["picture"]["backlight"].number();
-        }
+    std::string activeProfile(const ScreenHost &host) const {
+        std::string model = stats_["device"]["model"].string();
+        for (const auto &person : host.view().catalogue["profiles"].items())
+            if (person["active"].boolean())
+                return profileName(person, model);
+        return "";
     }
-    void rebuild(ScreenHost &host, bool jump = false) {
+    // The text at the right of a row.
+    std::string trail(ScreenHost &host, const Row &row) {
+        if (row.kind != Row::Kind::Plain)
+            return row.trail;
+        if (readFailed_ && readsStats(row.id))
+            return "—";
+        if (row.id == "picture") {
+            std::string raw = pictureValue(host);
+            return raw.empty() ? "—" : modeLabel(raw);
+        }
+        if (row.id == "sound") {
+            std::string raw = soundValue(host);
+            return raw.empty() ? stats_["audio_output"].string("—") : outputLabel(raw);
+        }
+        if (row.id == "input") {
+            for (const Card &card : inputs(host))
+                if (inputOn(card))
+                    return inputTitle(card);
+            return "";
+        }
+        if (row.id == "sleep") {
+            std::string value = sleepValue(host);
+            return value.empty() ? "—" : sleepLabel(value);
+        }
+        if (row.id == "profile")
+            return activeProfile(host);
+        return "";
+    }
+    bool rowOn(ScreenHost &host, const Row &row) {
+        if (row.kind == Row::Kind::Switch)
+            return layoutFlag(host, row.id);
+        if (level_ == Level::Picture)
+            return row.raw == pictureValue(host);
+        if (level_ == Level::Sound)
+            return row.raw == soundValue(host);
+        if (level_ == Level::Sleep)
+            return row.raw == sleepValue(host);
+        return row.on;
+    }
+    void rebuild(ScreenHost &host, bool jump) {
         std::vector<Row> rows;
         auto add = [&](Row::Kind kind, const std::string &id, const std::string &icon,
-                       const std::string &title, const std::string &trail = "", bool on = false,
-                       bool go = false, bool dim = false) {
+                       const std::string &title, const std::string &raw = "", bool go = false,
+                       bool dim = false, bool on = false, const std::string &trail = "") {
             Row row;
             row.kind = kind;
             row.id = id;
             row.icon = icon;
             row.title = title;
-            row.trail = trail;
-            row.on = on;
+            row.raw = raw;
             row.go = go;
             row.dim = dim;
+            row.on = on;
+            row.trail = trail;
             rows.push_back(row);
         };
         const Json &s = stats_;
         if (level_ == Level::Main) {
-            std::string current;
-            for (const Card &card : inputs(host))
-                if (inputOn(card))
-                    current = inputTitle(card);
             bool oled = s["oled"].valid() && (s["oled"].isObject() || s["oled"].boolean());
-            std::string output = s["sound"]["output"].string(s["audio_output"].string("—"));
-            add(Row::Kind::Slider, "volume", "volume", msg("tv.quick.volume", "Volume"), "", false, false,
-                !volume_.known);
-            add(Row::Kind::Plain, "picture", "picture", msg("tv.quick.pictureMode", "Picture mode"),
-                s["picture"]["mode"].string("—"), false, true);
+            add(Row::Kind::Slider, "volume", "volume", msg("tv.quick.volume", "Volume"));
+            add(Row::Kind::Plain, "picture", "picture", msg("tv.quick.pictureMode", "Picture mode"), "", true);
             add(Row::Kind::Slider, "light", "light",
-                oled ? msg("tv.quick.oledLight", "OLED light") : msg("tv.quick.backlight", "Backlight"), "",
-                false, false, !light_.known);
-            add(Row::Kind::Plain, "sound", "speaker", msg("tv.quick.sound", "Sound output"), output, false, true);
-            add(Row::Kind::Plain, "input", "hdmi", msg("tv.quick.input", "Input"), current, false, true);
-            add(Row::Kind::Plain, "sleep", "clock", msg("tv.quick.sleep", "Sleep timer"),
-                s["sleepTimer"].string().empty() ? "—" : sleepLabel(s["sleepTimer"].string()), false, true);
+                oled ? msg("tv.quick.oledLight", "OLED light") : msg("tv.quick.backlight", "Backlight"));
+            add(Row::Kind::Plain, "sound", "speaker", msg("tv.quick.sound", "Sound output"), "", true);
+            add(Row::Kind::Plain, "input", "hdmi", msg("tv.quick.input", "Input"), "", true);
+            add(Row::Kind::Plain, "sleep", "clock", msg("tv.quick.sleep", "Sleep timer"), "", true);
             add(Row::Kind::Plain, "saver", "monitor", msg("tv.quick.screensaver", "Screensaver"));
             add(Row::Kind::Plain, "off", "power", msg("tv.quick.screenOff", "Screen off"));
-            add(Row::Kind::Plain, "recents", "apps", msg("tv.quick.recents", "Recent apps"), "", false, true);
-            add(Row::Kind::Plain, "profile", "profile", msg("tv.quick.profile", "Profile"), activeProfile(host),
-                false, true);
-            add(Row::Kind::Plain, "layout", "gear", msg("tv.quick.settings", "Home settings"), "", false, true);
+            add(Row::Kind::Plain, "recents", "apps", msg("tv.quick.recents", "Recent apps"), "", true);
+            add(Row::Kind::Plain, "profile", "profile", msg("tv.quick.profile", "Profile"), "", true);
+            add(Row::Kind::Plain, "layout", "gear", msg("tv.quick.settings", "Home settings"), "", true);
         } else if (level_ == Level::Picture) {
             for (const auto &mode : s["picture"]["modes"].items())
-                add(Row::Kind::Choice, mode["value"].string(), "picture", mode["label"].string(), "",
-                    mode["value"].string() == s["picture"]["mode_raw"].string());
+                add(Row::Kind::Choice, mode["value"].string(), "picture", mode["label"].string(),
+                    mode["value"].string());
         } else if (level_ == Level::Sound) {
             for (const auto &output : s["sound"]["outputs"].items())
-                add(Row::Kind::Choice, output["id"].string(), "speaker", output["name"].string(), "",
-                    output["id"].string() == s["sound"]["output_raw"].string());
+                add(Row::Kind::Choice, output["id"].string(), "speaker", output["name"].string(),
+                    output["id"].string());
         } else if (level_ == Level::Input) {
             for (const Card &card : inputs(host))
-                add(Row::Kind::Choice, card.id, "hdmi", inputTitle(card),
-                    card.data["unused"].boolean() ? msg("tv.quick.nothingConnected", "Nothing connected") : "",
-                    inputOn(card), false, card.data["unused"].boolean());
+                add(Row::Kind::Choice, card.id, "hdmi", inputTitle(card), card.id, false,
+                    card.data["unused"].boolean(), inputOn(card),
+                    card.data["unused"].boolean() ? msg("tv.quick.nothingConnected", "Nothing connected") : "");
         } else if (level_ == Level::Sleep) {
             for (const char *value : kSleep)
-                add(Row::Kind::Choice, value, "timer", sleepLabel(value), "",
-                    s["sleepTimer"].string() == value);
+                add(Row::Kind::Choice, value, "timer", sleepLabel(value), value);
         } else {
-            static const std::map<std::string, std::string> titles = {
+            static const std::vector<std::pair<std::string, std::string>> titles = {
                 {"clockFormat", msg("tv.quick.clock24", "24-hour clock")},
                 {"appNames", msg("tv.quick.appNames", "App names")},
                 {"showLive", msg("tv.quick.showLive", "Live tab")},
@@ -461,27 +537,39 @@ class QuickScreen final : public ScreenView {
                 {"showLgHome", msg("tv.quick.showLgHome", "LG Home tile")},
                 {"picture", msg("tv.quick.picture", "Picture details")}};
             for (const LayoutSwitch &entry : kSwitches)
-                add(Row::Kind::Switch, entry.key, entry.icon, titles.at(entry.key), "",
-                    layoutOn(host, entry.key));
+                for (const auto &title : titles)
+                    if (title.first == entry.key)
+                        add(Row::Kind::Switch, entry.key, entry.icon, title.second);
         }
         if (rows.empty())
-            add(Row::Kind::Plain, "", "", msg("tv.quick.nothing", "Nothing to choose from"), "", false, false, true);
+            add(Row::Kind::Plain, "", "", msg("tv.quick.nothing", "Nothing to choose from"), "", false, true);
         rows_ = rows;
         focus_ = std::min(focus_, rows_.size() - 1);
-        // Switches slide to where the catalogue (or a press) put them.
+        // Switches slide to where they are shown.
         for (size_t i = 0; i < rows_.size(); ++i)
             if (rows_[i].kind == Row::Kind::Switch) {
                 std::string id = "quick:t:" + std::to_string(i);
+                double to = layoutFlag(host, rows_[i].id) ? 1 : 0;
                 if (jump)
-                    host.motion().set(id, rows_[i].on ? 1 : 0);
+                    host.motion().set(id, to);
                 else
-                    host.motion().tween(id, rows_[i].on ? 1 : 0, kit::motion::ms::fast,
-                                        easing(kit::motion::ease::out));
+                    host.motion().tween(id, to, kit::motion::ms::fast, easing(kit::motion::ease::out));
             }
         host.invalidate();
     }
+    bool rowDim(const Row &row) const {
+        if (row.dim)
+            return true;
+        if (!loaded_ && readsStats(row.id) && level_ == Level::Main)
+            return true;
+        return (row.id == "volume" && !volumeKnown()) || (row.id == "light" && !lightKnown());
+    }
     std::string hint() const {
-        if (focus_ >= rows_.size() || closing_)
+        if (closing_)
+            return "";
+        if (readFailed_)
+            return msg("tv.quick.noAnswer", "The TV did not answer. Trying again…");
+        if (focus_ >= rows_.size())
             return "";
         const Row &row = rows_[focus_];
         if (level_ == Level::Main && row.id == "volume")
@@ -532,21 +620,38 @@ class QuickScreen final : public ScreenView {
         Scene &scene = paint.scene;
         std::string number = std::to_string(index);
         double hidden = index < 14 ? motion.value("quick:e:" + number) : 0;
+        bool dim = rowDim(row);
+        bool waiting = !loaded_ && readsStats(row.id) && level_ == Level::Main;
         kit::SettingsRow item;
         item.rest = rest;
         item.id = "quick:row:" + number;
         item.icon = row.icon;
         item.title = row.title;
         item.focus = static_cast<float>(motion.value("quick:f:" + number));
-        item.enter = {static_cast<float>(1 - hidden) * (row.dim ? .5f : 1.0f), static_cast<float>(20 * hidden)};
+        item.enter = {static_cast<float>(1 - hidden) * (dim ? .6f : 1.0f), static_cast<float>(20 * hidden)};
         if (row.kind == Row::Kind::Switch) {
             item.toggle = true;
             item.on = static_cast<float>(motion.value("quick:t:" + number));
-        } else if (row.kind == Row::Kind::Slider)
-            item.value = row.id == "volume" ? volumeText() : light_.known ? std::to_string(static_cast<int>(light_.value)) : "—";
-        else
-            item.value = row.trail;
+        } else if (row.kind == Row::Kind::Slider) {
+            if (!waiting)
+                item.value = row.id == "volume" ? volumeText() : lightKnown() ? std::to_string(static_cast<int>(shownLight_)) : "—";
+        } else if (!waiting)
+            item.value = trail(host, row);
         kit::settingsRow(paint, item);
+        float right = rest.x + rest.w - layout::srowPadRight;
+        // A value still being read is a turning spinner where the number goes.
+        if (waiting) {
+            scene.pushOpacity(item.enter.alpha);
+            scene.pushTransform(Transform::translate(0, item.enter.dy));
+            kit::focus::Look look = kit::focus::lookAt(rest, kit::motion::scale::row, item.focus, kit::focus::leftCentre);
+            scene.pushTransform(kit::focus::transformAt(rest, look.scale, kit::focus::leftCentre));
+            kit::spinner(paint, {right - 28, rest.y + (rest.h - 28) / 2, 28, 28}, host.nowMs(),
+                         kit::focus::inkAt(kit::color::onSurface2, kit::color::onFocus, item.focus));
+            scene.popTransform();
+            scene.popTransform();
+            scene.popOpacity();
+            return;
+        }
         if (row.kind != Row::Kind::Slider && row.kind != Row::Kind::Choice)
             return;
         // The mark or the bar scales and fades with the row it sits on.
@@ -555,15 +660,17 @@ class QuickScreen final : public ScreenView {
         scene.pushOpacity(item.enter.alpha);
         scene.pushTransform(Transform::translate(0, item.enter.dy));
         scene.pushTransform(kit::focus::transformAt(rest, look.scale, kit::focus::leftCentre));
-        float right = rest.x + rest.w - layout::srowPadRight;
         if (row.kind == Row::Kind::Choice) {
-            kit::radio(paint, {right - 28, rest.y + (rest.h - 28) / 2, 28, 28}, row.on ? 1.0f : 0.0f,
+            kit::radio(paint, {right - 28, rest.y + (rest.h - 28) / 2, 28, 28}, rowOn(host, row) ? 1.0f : 0.0f,
                        item.focus);
         } else {
-            bool volume = row.id == "volume";
-            double level = volume ? (volume_.known ? volume_.value : 0) : (light_.known ? light_.value : 0);
-            float amount = static_cast<float>(clamp(level, 0, 100) / 100);
-            if (volume && muted_)
+            bool isVolume = row.id == "volume";
+            double level = isVolume ? (volumeKnown() ? shownVolume_ : 0) : (lightKnown() ? shownLight_ : 0);
+            std::string barId = std::string("quick:bar:") + row.id;
+            // The bar follows the value with a short glide, so each key repeat moves it a little.
+            host.motion().tween(barId, clamp(level, 0, 100), 90, easing(kit::motion::ease::out));
+            float amount = static_cast<float>(clamp(host.motion().value(barId), 0, 100) / 100);
+            if (isVolume && shownMuted_)
                 amount = 0;
             Rect track = {right - 84 - 16 - 160, rest.y + (rest.h - layout::barH) / 2, 160, layout::barH};
             scene.shape(track, kit::focus::mix(kit::color::surface3, Color{0.075f, 0.067f, 0.094f, .14f}, item.focus),
@@ -579,15 +686,14 @@ class QuickScreen final : public ScreenView {
         scene.popTransform();
         scene.popOpacity();
     }
+    std::string volumeText() const {
+        if (!volumeKnown())
+            return "—";
+        return shownMuted_ ? msg("tv.quick.muted", "Muted") : std::to_string(static_cast<int>(shownVolume_));
+    }
 
     // ---- Doing things ------------------------------------------------------------------------
 
-    unsigned send(ScreenHost &host, const char *channel, const Command &command) {
-        return host.services().write(channel, command.operation, command.body);
-    }
-    void refreshSoon(ScreenHost &host) {
-        refreshAt_ = host.nowMs() + kStepMs;
-    }
     void close(ScreenHost &host, const std::string &destination) {
         if (closing_)
             return;
@@ -602,7 +708,7 @@ class QuickScreen final : public ScreenView {
         rebuild(host, true);
         // A list of choices opens on the one in force; a list of switches, on its first.
         for (size_t i = 0; i < rows_.size(); ++i)
-            if (rows_[i].on && rows_[i].kind == Row::Kind::Choice)
+            if (rows_[i].kind == Row::Kind::Choice && rowOn(host, rows_[i]))
                 focus_ = i;
         host.motion().erasePrefix("quick:f:");
         focusMoved(host, true);
@@ -633,53 +739,50 @@ class QuickScreen final : public ScreenView {
         else if (row.id == "light")
             stepLight(host, direction * kLightStep);
     }
+    // Held, the key repeats: each repeat changes the shown value at once and the layer sends the
+    // newest target at most every 120 ms.
     void stepVolume(ScreenHost &host, int direction) {
-        if (!volume_.known)
+        if (!volumeKnown() || !loaded_)
             return;
-        // Only what the volume really moved is sent: at the end of the range a held key is idle.
-        double moved = clamp(volume_.value + direction, 0, 100) - volume_.value;
-        if (moved == 0)
+        double now = volume(host), target = clamp(now + direction, 0, 100);
+        volumeDirection_ = direction;
+        if (target == now)
             return;
-        volume_.value += moved;
-        stepSum_ += static_cast<int>(moved);
-        flushVolume(host, false);
+        host.optimistic().set("quick.volume", Json::numeric(target), Json::numeric(stats_["volume"].number(0)),
+                              controlWrite("volume"));
+        syncShown(host);
         host.invalidate();
     }
-    // One request at a time; what was pressed meanwhile goes as a single step when it answers.
-    void flushVolume(ScreenHost &host, bool leaving) {
-        if ((stepBusy_ && !leaving) || !stepSum_)
-            return;
-        int steps = stepSum_;
-        stepSum_ = 0;
-        volumeGeneration_ = send(host, kVolume, control("volumeStep", Json::numeric(steps)));
-        stepBusy_ = volumeGeneration_ != 0;
-        if (!volumeGeneration_ && !leaving) {
-            stepSum_ = steps;
-            host.toast(msg("tv.quick.busy", "Too many pending requests. Try again."));
-        }
-    }
     void stepLight(ScreenHost &host, int amount) {
-        if (!light_.known)
+        if (!lightKnown() || !loaded_)
             return;
-        light_.value = clamp(light_.value + amount, 0, 100);
-        lightAt_ = host.nowMs() + kLightDebounceMs;
+        double now = light(host), target = clamp(now + amount, 0, 100);
+        lightDirection_ = amount > 0 ? 1 : -1;
+        if (target == now)
+            return;
+        host.optimistic().set("quick.light", Json::numeric(target),
+                              Json::numeric(stats_["picture"]["backlight"].number(0)), controlWrite("backlight"));
+        syncShown(host);
         host.invalidate();
     }
     void press(ScreenHost &host) {
         if (focus_ >= rows_.size())
             return;
         const Row &row = rows_[focus_];
-        if (row.dim && !row.go)
+        if (rowDim(row) && !row.go)
             return;
         if (level_ != Level::Main) {
             choose(host, row);
             return;
         }
+        if (!loaded_ && readsStats(row.id))
+            return;
         if (row.id == "volume") {
-            if (!volume_.known)
+            if (!volumeKnown())
                 return;
-            muted_ = !muted_;
-            muteGeneration_ = send(host, kMute, control("mute", Json::flag(muted_)));
+            host.optimistic().set("quick.mute", Json::flag(!muted(host)), Json::flag(stats_["muted"].boolean()),
+                                  controlWrite("mute"));
+            syncShown(host);
             host.invalidate();
         } else if (row.id == "picture")
             openLevel(host, Level::Picture);
@@ -692,9 +795,9 @@ class QuickScreen final : public ScreenView {
         else if (row.id == "layout")
             openLevel(host, Level::Layout);
         else if (row.id == "saver" || row.id == "off") {
-            if (actGeneration_)
-                return;
-            actGeneration_ = send(host, kAct, control(row.id == "saver" ? "screensaver" : "screenOff"));
+            // The TV acts; the drawer is already gone, and a refusal is said by the layer.
+            host.optimistic().run("quick.act", controlWrite(row.id == "saver" ? "screensaver" : "screenOff"));
+            close(host, returnRoute(host.cameFrom()));
         } else if (row.id == "recents")
             close(host, "recents");
         else if (row.id == "profile")
@@ -702,63 +805,56 @@ class QuickScreen final : public ScreenView {
     }
     void choose(ScreenHost &host, const Row &row) {
         if (level_ == Level::Layout) {
-            if (layoutGeneration_)
-                return;
-            bool on = !row.on;
-            Json body = Json::object();
-            body.set(row.id, row.id == "clockFormat" ? Json::text(on ? "24h" : "12h") : Json::flag(on));
-            layoutGeneration_ = host.services().write(kLayout, Operation::SetHomeLayout, body);
-            if (layoutGeneration_) {
-                switching_ = row.id;
-                layoutOverride_[row.id] = on;
-                rebuild(host);
-            }
+            bool on = !layoutFlag(host, row.id);
+            host.optimistic().set("layout." + row.id, Json::flag(on), Json::flag(layoutServer(host, row.id)),
+                                  layoutWrite(row.id));
+            host.invalidate();
             return;
         }
-        if (setGeneration_ || actGeneration_)
-            return;
-        pending_ = row.id;
-        pendingTitle_ = row.title;
         if (level_ == Level::Input) {
-            Json body = Json::object();
-            body.set("kind", Json::text("dev"));
-            body.set("id", Json::text(row.id));
-            actGeneration_ = host.services().write(kAct, Operation::OpenHomeItem, body);
+            if (row.dim)
+                return;
+            Write open;
+            open.operation = Operation::OpenHomeItem;
+            const std::string id = row.raw;
+            open.body = [id](const Json &) {
+                Json body = Json::object();
+                body.set("kind", Json::text("dev"));
+                body.set("id", Json::text(id));
+                return body;
+            };
+            host.optimistic().run("quick.act", open);
+            close(host, returnRoute(host.cameFrom()));
             return;
         }
-        const char *action = level_ == Level::Picture ? "pictureMode"
-                             : level_ == Level::Sound ? "soundOutput"
-                                                      : "sleepTimer";
-        setGeneration_ = send(host, kSet, control(action, Json::text(row.id)));
-    }
-    // A choice was taken: what the TV is on is what was chosen, and the list goes back to the main
-    // one on its row.
-    void chosen(ScreenHost &host) {
-        if (level_ == Level::Picture) {
-            stats_["picture"].set("mode_raw", Json::text(pending_));
-            stats_["picture"].set("mode", Json::text(pendingTitle_));
-        } else if (level_ == Level::Sound) {
-            stats_["sound"].set("output_raw", Json::text(pending_));
-            stats_["sound"].set("output", Json::text(pendingTitle_));
-        } else if (level_ == Level::Sleep)
-            stats_.set("sleepTimer", Json::text(pending_));
+        if (level_ == Level::Picture)
+            host.optimistic().set("quick.picture", Json::text(row.raw),
+                                  Json::text(stats_["picture"]["mode_raw"].string()), controlWrite("pictureMode"));
+        else if (level_ == Level::Sound)
+            host.optimistic().set("quick.sound", Json::text(row.raw),
+                                  Json::text(stats_["sound"]["output_raw"].string()), controlWrite("soundOutput"));
+        else
+            host.optimistic().set("quick.sleep", Json::text(row.raw), Json::text(stats_["sleepTimer"].string()),
+                                  controlWrite("sleepTimer"));
+        syncShown(host);
         toMain(host);
     }
 
     Level level_;
     Json stats_ = Json::object();
-    Reading volume_, light_;
-    bool muted_ = false;
     std::string nowPort_;
     std::vector<Row> rows_;
     size_t focus_ = 0;
-    int stepSum_ = 0;
-    bool stepBusy_ = false, closing_ = false, closed_ = false;
-    double lightAt_ = 0, refreshAt_ = 0;
-    unsigned statsGeneration_ = 0, nowGeneration_ = 0, volumeGeneration_ = 0, muteGeneration_ = 0,
-             lightGeneration_ = 0, setGeneration_ = 0, actGeneration_ = 0, layoutGeneration_ = 0;
-    std::string destination_, pending_, pendingTitle_, switching_;
-    std::map<std::string, bool> layoutOverride_;
+    bool loaded_ = false, readFailed_ = false, needsRebuild_ = false, closing_ = false, closed_ = false;
+    double retryAt_ = 0;
+    unsigned statsGeneration_ = 0, nowGeneration_ = 0;
+    std::string destination_;
+    // What is shown, for the snapshot and the held-key counts.
+    double shownVolume_ = 0, shownLight_ = 0;
+    bool shownMuted_ = false, writing_ = false;
+    std::string shownSleep_, shownPicture_;
+    int volumeDirection_ = 0, lightDirection_ = 0;
+    unsigned volumeBackwards_ = 0, lightBackwards_ = 0;
 };
 } // namespace
 

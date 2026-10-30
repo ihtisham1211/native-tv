@@ -111,6 +111,19 @@ flowchart TD
     daemon's tests and answers 502 when there is no upstream.
 - `main` constructs dependencies, dispatches input and replies and schedules
   rendering. It contains no TV control policy.
+- Every change a page makes goes through one layer, `ui/optimistic.hpp`, which the
+  Application owns and hands to each page as `host.optimistic()`. A page says the value it
+  wants and how to write it, and draws `shown(key, serverValue)`: the wanted value is on screen
+  from the next frame, whatever the TV takes to answer. The layer sends the newest value at most
+  every 120 ms (and the last one however soon), numbers each write by the transport's
+  generation and ignores the reply of any write but the newest, never lets a read replace a
+  value that is waiting or in flight, reads the value back once after the last answer (the TV's
+  own answer wins there), and on a refusal or after eight seconds without an answer goes back to
+  the last accepted value and shows a short message. Where a route takes an absolute value
+  (volume, backlight) the write carries the target; where it only takes a change (volume steps)
+  the layer sends the net sum, one at a time. Several keys changed by one action go as one
+  write. A page never calls `Services::write` itself: `tests/optimistic_guard.py` fails the
+  build when one does.
 
 `TVWEB_DATA_DIR` relocates the data root; `nativetv-service` takes procfs and
 system-root arguments, and the event loop accepts an injected clock, so tests

@@ -525,5 +525,53 @@ Json vrrType(const Json &raw) {
     result.set("label", Json::text(raw.isString() && !type.empty() ? snakeCase(type) : "off"));
     return result;
 }
+
+std::string tvDefaultName(const std::string &model) {
+    const std::string unknown = "LGTV"; // the owner's name for a TV whose model is not known
+    // The leading run of letters and digits, upper case: "OLED55C4PUA.DUSQLJR" -> "OLED55C4PUA",
+    // "55UH850T-UA" -> "55UH850T". The brand is dropped.
+    std::string text;
+    for (char c : model)
+        text.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(c))));
+    size_t start = text.find_first_not_of(" \t");
+    if (start == std::string::npos)
+        return unknown;
+    text.erase(0, start);
+    if (text.compare(0, 3, "LG ") == 0 || text.compare(0, 3, "LG-") == 0)
+        text.erase(0, 3);
+    size_t end = 0;
+    while (end < text.size() && std::isalnum(static_cast<unsigned char>(text[end])))
+        ++end;
+    text.resize(end);
+    auto letter = [&](size_t at) { return at < text.size() && std::isalpha(static_cast<unsigned char>(text[at])); };
+    auto digit = [&](size_t at) { return at < text.size() && std::isdigit(static_cast<unsigned char>(text[at])); };
+    size_t at = 0;
+    const bool oled = text.compare(0, 4, "OLED") == 0;
+    if (oled)
+        at = 4;
+    // The size in inches comes first, or after OLED.
+    size_t digits = at;
+    while (digit(digits))
+        ++digits;
+    if (digits - at >= 2 && digits - at <= 3)
+        at = digits;
+    if (oled) {
+        // OLED series are a letter and the year's digit (B3, C2, G4), or the 2020 pair's X (CX).
+        // What follows is the region and the panel's variant, so "C24LA" is the C2.
+        if (letter(at) && (digit(at + 1) || (at + 1 < text.size() && text[at + 1] == 'X')))
+            return text.substr(at, 2);
+        return unknown;
+    }
+    // Other series keep their letters and the whole number: UQ8000, NANO856, QNED85, UH850.
+    size_t lettersEnd = at;
+    while (letter(lettersEnd))
+        ++lettersEnd;
+    size_t numberEnd = lettersEnd;
+    while (digit(numberEnd))
+        ++numberEnd;
+    if (lettersEnd == at || numberEnd == lettersEnd)
+        return unknown;
+    return text.substr(at, numberEnd - at);
+}
 } // namespace names
 } // namespace nativetv

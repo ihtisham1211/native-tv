@@ -3,8 +3,9 @@
 // its details on top of the search, which keeps its query and results for Back.
 //
 // Search asks the daemon 350 ms after the last key (two characters at least) and a reply is
-// taken only if it answers the latest request. A rename posts to the profile route; a refusal
-// keeps the name that was typed, says why and offers a retry.
+// taken only if it answers the latest request. A rename goes through the optimistic-update layer:
+// Save returns to the profiles at once with the new name on them, and if the server refuses the
+// name goes back and the layer says why.
 #include "domain/models.hpp"
 #include "domain/say.hpp"
 #include "ui/application.hpp"
@@ -14,7 +15,9 @@
 #include "ui/kit/entry.hpp"
 #include "ui/kit/overlay.hpp"
 #include "ui/kit/tuning.hpp"
+#include "ui/optimistic.hpp"
 #include "ui/overlay_routes.hpp"
+#include "ui/profile_names.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cmath>
@@ -26,7 +29,7 @@ namespace layout = kit::layout;
 using kit::easing;
 using say::msg;
 
-constexpr const char *kSearch = "title:search", *kSave = "editor:save", *kPad = "editor:kb";
+constexpr const char *kSearch = "title:search", *kPad = "editor:kb", *kStatsMemory = "quick.stats";
 constexpr float kLabelY = 150, kFieldY = 204, kFieldW = 890, kFieldH = 84, kStatusY = 300, kKeysY = 344,
                 kResultsX = 1020, kCardW = 396, kCardH = 222, kCardGap = 28, kCardPitch = kCardH + 32,
                 kResultsTop = 204, kResultsBottom = 1000;
@@ -52,10 +55,6 @@ Color profileColor(const Json &person) {
         value.find_first_not_of("0123456789abcdefABCDEF", 1) == std::string::npos)
         return kit::rgb(static_cast<unsigned>(std::strtoul(value.c_str() + 1, nullptr, 16)));
     return home::hsl(static_cast<float>(home::hashOf(person["id"].string()) % 360), .5f, .40f);
-}
-std::string failure(const std::string &what, const Json &data) {
-    std::string reason = data["error"].string();
-    return reason.empty() ? what : reason;
 }
 
 class EditorScreen final : public ScreenView {
@@ -87,7 +86,7 @@ class EditorScreen final : public ScreenView {
         options.id = kPad;
         options.origin = {kit::canvas::safeX, kKeysY, layout::keyW, layout::keyH};
         options.maximum = rename_ ? kNameMax : kSearchMax;
-        pad_.begin(host.motion(), rename_ ? profile_["name"].string() : "", options);
+        pad_.begin(host.motion(), rename_ ? shownName(host) : "", options);
         status_ = rename_ ? (pad_.value().empty() ? msg("tv.editor.enterName", "Enter a name") : hintForName())
                           : msg("tv.editor.minimum", "Enter at least 2 characters");
         Timeline timeline;
@@ -105,7 +104,6 @@ class EditorScreen final : public ScreenView {
             details_.reset();
         }
         host.services().cancel(kSearch);
-        host.services().cancel(kSave);
         host.motion().erasePrefix("editor:");
     }
     bool update(ScreenHost &host) override {
@@ -128,8 +126,6 @@ class EditorScreen final : public ScreenView {
     bool key(ScreenHost &host, Key key) override {
         if (details_)
             return details_->key(host, key);
-        if (saving_)
-            return true;
         bool used = key == Key::Up || key == Key::Down || key == Key::Left || key == Key::Right ||
                     key == Key::Ok;
         if (key == Key::Delete) {
@@ -174,7 +170,7 @@ class EditorScreen final : public ScreenView {
         return true;
     }
     bool text(ScreenHost &host, const std::string &typed) override {
-        if (details_ || saving_)
+        if (details_)
             return true;
         zoneTo(host, Zone::Keys);
         edited(host, pad_.type(host.nowMs(), typed));
@@ -190,8 +186,6 @@ class EditorScreen final : public ScreenView {
             close(host);
             return;
         }
-        if (saving_)
-            return;
         if (id == "editor:retry") {
             searchTitles(host);
         } else if (id == "editor:clear") {
@@ -249,20 +243,6 @@ class EditorScreen final : public ScreenView {
                 zoneTo(host, Zone::Keys);
             focusResult(host, true);
             host.invalidate();
-        } else if (response.channel == kSave && saveGeneration_ && response.generation == saveGeneration_) {
-            saveGeneration_ = 0;
-            saving_ = false;
-            Json data = response.json();
-            bool ok = response.ok() && data.valid() && data["ok"].boolean();
-            if (!ok) {
-                saveError_ = true;
-                status_ = failure(msg("tv.editor.saveFailed", "The name could not be saved. Try again."), data);
-                host.invalidate();
-                return;
-            }
-            host.services().read("catalogue", Operation::HomeCatalogue);
-            host.toast(msg("tv.editor.saved", "Profile saved"));
-            host.open("profiles");
         }
     }
 
@@ -288,7 +268,7 @@ class EditorScreen final : public ScreenView {
                                                  : msg("tv.editor.searchPlaceholder", "Title")));
         paint.glyphs.text(scene, {kit::canvas::safeX, kStatusY, kFieldW, kit::type::labelM.line}, status_,
                           kit::type::labelM,
-                          saveError_ || searchError_ ? kit::color::bad : kit::color::onSurface3);
+                          searchError_ ? kit::color::bad : kit::color::onSurface3);
         scene.popTransform();
         scene.popOpacity();
 
@@ -340,17 +320,19 @@ class EditorScreen final : public ScreenView {
   private:
     // ---- State -------------------------------------------------------------------------------
 
+    // The profile's name as the profiles page shows it: the TV's name for the untouched first one.
+    std::string shownName(ScreenHost &host) {
+        auto found = host.memory().find(kStatsMemory);
+        std::string model = found == host.memory().end() ? "" : found->second["device"]["model"].string();
+        return shownProfileName(host.optimistic(), profile_, model);
+    }
+
     static std::string hintForName() {
         return msg("tv.editor.limit", "Up to 20 characters");
     }
     std::string state() const {
-        if (rename_) {
-            if (saving_)
-                return "loading";
-            if (saveError_)
-                return "error";
+        if (rename_)
             return trim(pad_.value()).empty() ? "empty" : "editing";
-        }
         if (searching_)
             return "loading";
         if (searchError_)
@@ -361,14 +343,12 @@ class EditorScreen final : public ScreenView {
     }
     std::string doneLabel() const {
         if (rename_)
-            return saving_ ? msg("tv.editor.saving", "Saving…")
-                   : saveError_ ? msg("tv.editor.retry", "Retry")
-                                : msg("tv.editor.save", "Save");
+            return msg("tv.editor.save", "Save");
         return results_.empty() ? msg("tv.editor.search", "Search") : msg("tv.editor.resultsKey", "Results");
     }
     std::string doneIcon() const {
         if (rename_)
-            return saveError_ ? "refresh" : "check";
+            return "check";
         return results_.empty() ? "search" : "arrowright";
     }
     void close(ScreenHost &host) {
@@ -388,7 +368,7 @@ class EditorScreen final : public ScreenView {
         host.services().cancel(kSearch);
         results_.clear();
         selected_ = 0;
-        searching_ = searchError_ = searchComplete_ = saveError_ = false;
+        searching_ = searchError_ = searchComplete_ = false;
         searchAt_ = 0;
         searchGeneration_ = 0;
         if (rename_)
@@ -432,27 +412,27 @@ class EditorScreen final : public ScreenView {
     }
     void primary(ScreenHost &host) {
         if (rename_) {
-            if (saving_)
-                return;
             std::string name = trim(pad_.value());
             if (name.empty()) {
                 status_ = msg("tv.editor.enterName", "Enter a name");
-                saveError_ = false;
                 return;
             }
-            saving_ = true;
-            saveError_ = false;
-            status_ = msg("tv.editor.savingProfile", "Saving profile…");
-            Json body = Json::object();
-            body.set("action", Json::text("rename"));
-            body.set("id", profile_["id"]);
-            body.set("name", Json::text(name));
-            saveGeneration_ = host.services().write(kSave, Operation::SetProfile, body);
-            if (!saveGeneration_) {
-                saving_ = false;
-                saveError_ = true;
-                status_ = msg("tv.editor.saveFailed", "The name could not be saved. Try again.");
-            }
+            // The name is on the profiles page the moment this one closes; the write follows.
+            const std::string id = profile_["id"].string();
+            Write write;
+            write.operation = Operation::SetProfile;
+            write.body = [id](const Json &target) {
+                Json body = Json::object();
+                body.set("action", Json::text("rename"));
+                body.set("id", Json::text(id));
+                body.set("name", target);
+                return body;
+            };
+            write.readChannel = "catalogue";
+            write.readOperation = Operation::HomeCatalogue;
+            write.failure = msg("tv.editor.saveFailed", "The name could not be saved. Try again.");
+            host.optimistic().set("profile.name." + id, Json::text(name), Json::text(shownName(host)), write);
+            host.open("profiles");
         } else if (!results_.empty())
             zoneTo(host, Zone::Results);
         else
@@ -594,7 +574,7 @@ class EditorScreen final : public ScreenView {
                 box.icon = "search";
                 box.title = msg("tv.editor.searching", "Searching…");
                 box.message = msg("tv.editor.searchingBody", "Looking for films and series that match your query.");
-                box.sweep = static_cast<float>(std::fmod(host.nowMs(), 1400) / 1400);
+                box.loadingMs = host.nowMs();
             } else if (searchError_) {
                 box.icon = "info";
                 box.error = true;
@@ -643,10 +623,9 @@ class EditorScreen final : public ScreenView {
     KeyboardPad pad_;
     Zone zone_ = Zone::Keys;
     size_t selected_ = 0;
-    bool searching_ = false, searchError_ = false, searchComplete_ = false, saving_ = false,
-         saveError_ = false, caretLit_ = true;
+    bool searching_ = false, searchError_ = false, searchComplete_ = false, caretLit_ = true;
     double searchAt_ = 0;
-    unsigned searchGeneration_ = 0, saveGeneration_ = 0;
+    unsigned searchGeneration_ = 0;
     std::string status_;
     Json profile_;
     std::vector<Card> results_;

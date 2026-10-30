@@ -8,8 +8,8 @@ with its canonical sources in `web/`.
 The native client is under development. Its data adapter calls the Native Tv
 daemon, the server that runs on the TV, over loopback. The Node server it
 replaced is gone; [ARCHITECTURE.md](ARCHITECTURE.md) defines the module boundaries. The developer
-app is `com.tvweb.native`; deployment does not replace LG Home or enable Home
-takeover.
+app is the Native Tv tile's, `com.tvweb.dashboard`, which Native Tv Home also opens;
+deployment does not replace LG Home or enable Home takeover.
 
 ## Layout
 
@@ -138,7 +138,7 @@ uptime/load, network/Wi-Fi, picture-engine and Magic Remote pairing readings.
 The five-second CPU window, Home Assistant's publish baseline and the network rate
 are kept by the daemon over native counters.
 The worker and resident daemon live at `/var/lib/tvweb/native/`, independently
-of the developer app. `deploy.py` installs that runtime and the separate client.
+of the client app. `deploy.py` installs that runtime and a development build of the client.
 Server deployment and the Homebrew packager require an ARM build, using
 `build-webos` by default; `--native-build` selects an explicit build directory.
 The client IPK carries the native executable, its non-system SDK libraries, and
@@ -196,8 +196,8 @@ python3 native-tv/deploy.py --tv root@TV_ADDRESS \
   --identity ~/.ssh/id_ed25519 --known-hosts ~/.ssh/known_hosts --run
 ```
 
-`deploy.py` stages the separate developer app and managed service runtime.
-It removes the obsolete worker copy from the developer-app directory.
+`deploy.py` stages the client in the Native Tv tile's app folder (`com.tvweb.dashboard`) and the managed service runtime.
+It removes the obsolete worker copy from that directory.
 `--run` launches a bounded 12-second smoke check, saves a PPM capture and JSON report in ignored `out/`,
 then exits. `--screen dashboard:system` opens a dashboard tab; `--script` accepts
 a JSON array of timed key/input/capture/assertion steps. The launcher supports
@@ -232,7 +232,7 @@ The native component gallery opens with `--screen kit:keyboard` (also `field`, `
 and `drawer`). `tests/smoke/` contains read-only TV scripts; the content script
 expects a TMDB-enabled catalogue, a single profile and a Stranger Things result.
 
-`python3 native-tv/package.py` creates a separate ARM IPK in `native-tv/out/`
+`python3 native-tv/package.py` creates an ARM IPK of the tile's app in `native-tv/out/`
 using LG's packager. It rejects host executables. Packaging does not bundle the
 Node server or enable Home takeover.
 

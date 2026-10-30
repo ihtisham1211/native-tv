@@ -2,13 +2,18 @@
 
 #include "daemon/child_process.hpp"
 #include "daemon/json_file.hpp"
+#include "daemon/luna.hpp"
 #include "domain/say.hpp"
 
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include <algorithm>
+#include <condition_variable>
+#include <cctype>
 #include <cstdio>
 #include <fstream>
+#include <memory>
 #include <sstream>
 #include <thread>
 
@@ -17,8 +22,7 @@ extern char **environ;
 namespace nativetv {
 namespace daemon {
 namespace {
-const char *const kClientApp = "com.tvweb.native";
-const char *const kClientDirectory = "/media/developer/apps/usr/palm/applications/com.tvweb.native";
+const char *const kClientDirectory = "/media/developer/apps/usr/palm/applications/com.tvweb.dashboard";
 
 std::string rooted(const std::string &root, const std::string &path) {
     if (root.empty() || root == "/") return path;
@@ -87,7 +91,9 @@ Json classify(const ChildResult &result) {
     return verdict;
 }
 
-std::string reasonOf(const Json &verdict) {
+} // namespace
+
+std::string homeProbeReason(const Json &verdict) {
     Json variables = Json::object();
     variables.set("code", Json::text(verdict["class"].string() == "crashed"
                                          ? std::to_string(static_cast<int>(verdict["signal"].number()))
@@ -96,6 +102,12 @@ std::string reasonOf(const Json &verdict) {
     if (name == "missing")
         return say::msg("srv.home.probe.missing",
                         "The Native Tv app is not installed on this TV, so Native Tv Home cannot take LG's Home's place.");
+    if (name == "unregistered")
+        return say::msg("srv.home.probe.unregistered",
+                        "The Native Tv app is not on this TV's home screen (it was removed, or never added), so Native Tv Home cannot take LG's Home's place. Switch on App on the TV's home screen, on the Server tab, first.");
+    if (name == "unasked")
+        return say::msg("srv.home.probe.unasked",
+                        "The TV did not say whether the Native Tv app is on its home screen, so Native Tv Home cannot take LG's Home's place.");
     if (name == "timeout")
         return say::msg("srv.home.probe.timeout",
                         "The Native Tv app's start-up check did not finish in time, so Native Tv Home cannot take LG's Home's place.");
@@ -123,7 +135,6 @@ std::string reasonOf(const Json &verdict) {
                     "The Native Tv app's start-up check failed (exit {code}), so Native Tv Home cannot take LG's Home's place.",
                     variables);
 }
-} // namespace
 
 HomeProbeOptions homeProbeOptions(const Json &config, const std::string &systemRoot,
                                   const std::string &dataRoot) {
@@ -140,7 +151,7 @@ HomeProbeOptions homeProbeOptions(const Json &config, const std::string &systemR
         const std::string jailer = rooted(systemRoot, "/usr/bin/jailer");
         if (access(jailer.c_str(), X_OK) == 0) {
             const size_t slash = options.clientPath.rfind('/');
-            options.command = {jailer, "-t", "native_devmode", "-i", kClientApp, "-p",
+            options.command = {jailer, "-t", "native_devmode", "-i", kHomeClientApp, "-p",
                                slash == std::string::npos ? "." : options.clientPath.substr(0, slash),
                                options.clientPath, "--probe"};
             options.environment.push_back("XDG_RUNTIME_DIR=/tmp/xdg");
@@ -156,8 +167,40 @@ HomeProbeOptions homeProbeOptions(const Json &config, const std::string &systemR
     return options;
 }
 
-HomeProbeGate::HomeProbeGate(ChildProcessRunner &children, HomeProbeOptions options)
-    : children_(children), options_(std::move(options)) {}
+int homeClientRegistration(LunaClient &luna) {
+    struct Completion {
+        std::mutex mutex;
+        std::condition_variable condition;
+        bool done = false;
+        LunaReply reply;
+    };
+    const std::shared_ptr<Completion> completion = std::make_shared<Completion>();
+    Json payload = Json::object();
+    payload.set("id", Json::text(kHomeClientApp));
+    if (!luna.call("com.webos.applicationManager/getAppInfo", payload,
+                   [completion](const LunaReply &reply) {
+                       std::lock_guard<std::mutex> lock(completion->mutex);
+                       completion->reply = reply;
+                       completion->done = true;
+                       completion->condition.notify_one();
+                   }))
+        return -1;
+    std::unique_lock<std::mutex> lock(completion->mutex);
+    if (!completion->condition.wait_for(lock, std::chrono::seconds(5), [&completion] { return completion->done; }))
+        return -1;
+    const LunaReply &reply = completion->reply;
+    if (reply.timedOut || !reply.error.empty() || !reply.response["returnValue"].isBoolean()) return -1;
+    if (reply.response["returnValue"].boolean()) return 1;
+    // The wording the app manager answers an id it does not know with.
+    std::string text = reply.response["errorText"].string();
+    std::transform(text.begin(), text.end(), text.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return text.find("invalid appid") != std::string::npos ? 0 : -1;
+}
+
+HomeProbeGate::HomeProbeGate(ChildProcessRunner &children, HomeProbeOptions options,
+                             std::function<int()> registration)
+    : children_(children), options_(std::move(options)), registration_(std::move(registration)) {}
 
 // What identifies the client file: its size and time. Empty where it cannot be run.
 std::string HomeProbeGate::clientKey() const {
@@ -215,6 +258,13 @@ Json HomeProbeGate::verdict(bool force) {
         remember(verdictOf("missing", -1));
         return known();
     }
+    // Asked every time, before any kept verdict: the owner can take the tile off
+    // the home screen, after which sam refuses to open the app at all.
+    const int registered = registration_ ? registration_() : 1;
+    if (registered < 1) {
+        remember(verdictOf(registered == 0 ? "unregistered" : "unasked", -1));
+        return known();
+    }
     JsonFile cache(options_.cachePath, 64 * 1024);
     if (!force) {
         Json kept = known();
@@ -257,7 +307,7 @@ Json homeSupportedWithProbe(const Json &supported, const Json &verdict) {
     if (!supported["ok"].boolean() || !verdict.isObject() || verdict["ok"].boolean()) return supported;
     Json refused = Json::parse(supported.dump());
     refused.set("ok", Json::flag(false));
-    refused.set("reason", Json::text(reasonOf(verdict)));
+    refused.set("reason", Json::text(homeProbeReason(verdict)));
     refused.set("probe", verdict);
     return refused;
 }

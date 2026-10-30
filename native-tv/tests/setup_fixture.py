@@ -2,7 +2,7 @@
 """A stand-in for the daemon's first-run routes, over a data root that starts wiped.
 
 The routes and their answers are those of contract/routes.json (/api/caps, /api/setup,
-/api/setup/{network,always-ready,handoff,handoff-stop,done}, /api/settings); what the daemon
+/api/setup/{network,always-ready,handoff,handoff-stop,done}, /api/settings, /api/home/profile); what the daemon
 keeps in files, the marker `.setup-pending` and `config.json`, this keeps in the root it is given,
 so a test reads what the TV client wrote. A write that restarts the real server makes the next
 requests fail for `restart_ms`.
@@ -24,7 +24,8 @@ HANDOFF_URL = "http://192.168.1.42:3000/?c=" + "0f3a9c" * 5 + "ab"
 
 
 class State:
-    def __init__(self, root, standby=True, demo=False, restart_ms=1200, pending=True):
+    def __init__(self, root, standby=True, demo=False, restart_ms=1200, pending=True,
+                 model="OLED65B3PUA"):
         self.root, self.standby, self.demo, self.restart_ms = root, standby, demo, restart_ms
         self.lock = threading.Lock()
         self.down_until = 0.0
@@ -32,6 +33,8 @@ class State:
         self.calls = []
         self.broker = None
         self.always = False
+        self.profile = None  # the main profile's name once the client has renamed it
+        self.model = model
         os.makedirs(root, exist_ok=True)
         if pending:
             open(os.path.join(root, ".setup-pending"), "w").close()
@@ -85,7 +88,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         config = state.config()
         answer = {"ok": True, "needed": state.pending(), "writable": True,
                   "network": config["host"] != "127.0.0.1", "token": False,
-                  "address": "192.168.1.42:3000", "hostname": "lgwebostv",
+                  "address": "192.168.1.42:3000", "hostname": "lgwebostv", "model": state.model,
                   "homeAssistant": {"configured": bool(state.broker),
                                     "state": "connected" if state.broker else "unknown"},
                   "handoff": state.handoff or None}
@@ -162,6 +165,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     json.dump(state.broker, file)
                 state.restart()
                 return self.send(200, {"ok": True, "restarting": True})
+            if url == "/api/home/profile":
+                if body.get("action") != "rename" or body.get("id") != "main" or not body.get("name"):
+                    return self.send(400, {"ok": False, "error": "a profile action is expected"})
+                state.profile = body["name"]
+                return self.send(200, {"ok": True, "profiles": [
+                    {"id": "main", "name": state.profile, "active": True}]})
             if url == "/fixture/phone":
                 # What the phone's form does: the link closes, the server restarts with the broker.
                 state.handoff = ""

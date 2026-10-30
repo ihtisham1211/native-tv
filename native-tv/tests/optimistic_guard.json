@@ -1,0 +1,11 @@
+{
+  "_note": "Pages that still write through host.services(); each count may only go down. The layer is src/ui/optimistic.hpp.",
+  "pagesStillWriting": {
+    "settings_screen.cpp": 1,
+    "catalog_screen.cpp": 1,
+    "setup_screen.cpp": 2
+  },
+  "reasons": {
+    "setup_screen.cpp": "the network write restarts the server, so the page waits for the server to return rather than for a reply (an explicit wait on the Restarting page); the phone link's close is fire-and-forget and has no value to show or take back"
+  }
+}

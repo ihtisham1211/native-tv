@@ -1,153 +1,10 @@
-// The Quick drawer, Profiles, title details and the search and profile editors, driven through the
-// Application as the remote drives them: keys in, requests and replies at the Services seam, the
-// scene and the snapshot read back.
-#include "ui/application.hpp"
-#include "ui/kit/overlay.hpp"
-#include <cmath>
-#include <cstdio>
-#include <map>
-#include <stdexcept>
+// Profiles, title details and the search and profile editors, driven through the Application as
+// the remote drives them: keys in, requests and replies at the Services seam, the scene and the
+// snapshot read back. (The Quick drawer's own tests are in quick_drawer.cpp.)
+#include "overlay_harness.hpp"
+#include "ui/profile_names.hpp"
 
-using namespace nativetv;
-namespace {
-int checks = 0;
-void check(bool condition, const char *message) {
-    ++checks;
-    if (!condition)
-        throw std::runtime_error(message);
-}
-struct FakeTransport final : Services {
-    struct Request {
-        std::string channel;
-        Operation operation;
-        Json body;
-        bool write;
-    };
-    std::vector<Request> requests;
-    std::map<std::string, unsigned> revisions;
-    bool refuse = false; // a full queue: the request is not taken
-    unsigned read(const std::string &channel, Operation operation, const Json &arguments = Json()) override {
-        if (refuse)
-            return 0;
-        requests.push_back({channel, operation, arguments, false});
-        return ++revisions[channel];
-    }
-    unsigned write(const std::string &channel, Operation operation, const Json &body) override {
-        if (refuse)
-            return 0;
-        requests.push_back({channel, operation, body, true});
-        return ++revisions[channel];
-    }
-    void cancel(const std::string &channel) override {
-        ++revisions[channel];
-    }
-    size_t count(const std::string &channel) const {
-        size_t total = 0;
-        for (const auto &request : requests)
-            if (request.channel == channel)
-                ++total;
-        return total;
-    }
-    const Request &last(const std::string &channel) const {
-        for (size_t i = requests.size(); i-- > 0;)
-            if (requests[i].channel == channel)
-                return requests[i];
-        throw std::runtime_error("no request on " + channel);
-    }
-};
-uint32_t run(Application &app, uint32_t from, uint32_t ms) {
-    uint32_t at = from;
-    for (uint32_t step = 0; step <= ms * 60 / 1000; ++step) {
-        at = from + step * 1000 / 60;
-        app.update(at);
-    }
-    return at;
-}
-bool hasHit(const Scene &scene, const std::string &id) {
-    for (const auto &hit : scene.hits)
-        if (hit.id == id)
-            return true;
-    return false;
-}
-
-const char *catalogueJson =
-    R"({"ok":true,"apps":[{"id":"a","title":"Alpha"}],"devices":[{"id":"hdmi1","name":"Console","port":1},{"id":"hdmi2","name":"Stick","port":2,"unused":true}],"channels":[],"order":{"app":["a"],"dev":["hdmi1","hdmi2"]},"layout":{"rows":["app","dev"],"hidden":{},"showInputs":true,"clockFormat":"12h"},"profiles":[{"id":"main","name":"Main","active":true},{"id":"guest","name":"Guest","active":false}]})";
-const char *feedJson =
-    R"({"ok":true,"enabled":true,"titlesEnabled":true,"rows":[{"key":"trending","items":[{"id":7,"type":"movie","title":"Coast","overview":"A journey."},{"id":8,"type":"tv","title":"Harbor"},{"id":9,"type":"movie","title":"Orbit"}]}]})";
-const char *statsJson =
-    R"({"ok":true,"volume":24,"muted":false,"oled":{"care":true},"sleepTimer":"off","picture":{"mode":"Cinema","mode_raw":"cinema","backlight":70,"modes":[{"value":"vivid","label":"Vivid"},{"value":"cinema","label":"Cinema"},{"value":"game","label":"Game"}]},"sound":{"output":"TV Speaker","output_raw":"tv_speaker","outputs":[{"id":"tv_speaker","name":"TV Speaker"},{"id":"arc","name":"HDMI ARC"}]}})";
-const char *detailsJson =
-    R"({"ok":true,"enabled":true,"netflixEnabled":true,"item":{"id":7,"type":"movie","title":"Coast","overview":"A journey across the water.","runtime":121,"trailer":"dQw4w9WgXcQ","cast":[{"name":"Ada"},{"name":"Ben"}],"similar":[{"id":20,"type":"movie","title":"Horizon"},{"id":21,"type":"tv","title":"Tide"}]}})";
-
-// An application with Home's data in, its entrance played and the clock at a known time.
-struct World {
-    FakeTransport transport;
-    Application app;
-    uint32_t clock = 0;
-    explicit World(const char *catalogue = catalogueJson) : app(transport) {
-        app.update(0);
-        reply("catalogue", catalogue, 0);
-        reply("discover", feedJson, 0);
-        clock = run(app, 16, 1500);
-    }
-    // The answer to the latest request on a channel (generation 0 asks for none in particular).
-    void reply(const std::string &channel, const std::string &json, long status = 200,
-               int generation = -1) {
-        Response response;
-        response.channel = channel;
-        response.status = status ? status : 200;
-        response.bytes = json;
-        response.generation = generation >= 0 ? static_cast<unsigned>(generation)
-                                              : transport.revisions[channel];
-        app.response(response);
-    }
-    void settle(uint32_t ms) {
-        clock = run(app, clock, ms);
-    }
-    void press(Key key, uint32_t after = 0) {
-        app.key(key);
-        if (after)
-            settle(after);
-    }
-    void press(std::initializer_list<Key> keys) {
-        for (Key key : keys)
-            press(key);
-    }
-    Json snapshot() {
-        return app.snapshot();
-    }
-    std::string screen() {
-        return app.screenName();
-    }
-    double motion(const std::string &id) {
-        return app.animation().value(id);
-    }
-    // The toast is a tween: it shows after a few frames.
-    bool toasted(const std::string &text) {
-        settle(120);
-        return app.shows(text);
-    }
-    void openQuick() {
-        check(app.activate("tool:1"), "The gear is on the bar");
-        reply("quick:stats", statsJson);
-        reply("quick:now", R"({"ok":true,"kind":"input","port":1})");
-        settle(900);
-    }
-    void openProfiles() {
-        check(app.activate("tool:0"), "The avatar is on the bar");
-        settle(500);
-    }
-    void openSearch() {
-        check(app.activate("tool:2"), "The search button is on the bar");
-        settle(500);
-    }
-    void openDetails(const char *answer = detailsJson) {
-        press(Key::Ok);
-        reply("title:details", answer);
-        settle(500);
-    }
-};
-} // namespace
+using namespace overlay_test;
 
 // ---- Kit parts --------------------------------------------------------------------------------
 
@@ -201,13 +58,33 @@ void kitChecks() {
         panel.rest = {1000, 200, 800, 380};
         panel.title = "Searching…";
         kit::statusPanel({plain, glyphs}, panel);
-        panel.sweep = .5f;
+        panel.loadingMs = 300;
         kit::statusPanel({loading, glyphs}, panel);
-        check(loading.nodes.size() == plain.nodes.size() + 2, "A loading panel adds its bar and the light on it");
-        panel.sweep = 0;
-        Scene start;
-        kit::statusPanel({start, glyphs}, panel);
-        check(start.nodes.size() == plain.nodes.size() + 1, "The light is not drawn before it has entered the bar");
+        check(loading.nodes.size() == plain.nodes.size() + 12, "A loading panel turns the circular spinner");
+    }
+    {
+        Scene early, later;
+        kit::spinner({early, glyphs}, {100, 100, 40, 40}, 0, {1, 1, 1, 1});
+        kit::spinner({later, glyphs}, {100, 100, 40, 40}, 400, {1, 1, 1, 1});
+        check(early.nodes.size() == 12 && later.nodes.size() == 12,
+              "The circular progress indicator is twelve dots");
+        float headEarly = 0, headLater = 0;
+        size_t at = 0, moved = 0;
+        for (size_t i = 0; i < 12; ++i) {
+            if (early.nodes[i].color.a > headEarly) {
+                headEarly = early.nodes[i].color.a;
+                at = i;
+            }
+            if (later.nodes[i].color.a > headLater) {
+                headLater = later.nodes[i].color.a;
+                moved = i;
+            }
+        }
+        check(headEarly > .95f && headLater > .8f && at != moved,
+              "One dot is the bright head, and it has moved on a moment later");
+        Scene none;
+        kit::spinner({none, glyphs}, {0, 0, 40, 40}, 0, {1, 1, 1, 1}, 0);
+        check(none.nodes.empty(), "A spinner at no opacity draws nothing");
     }
     {
         Scene scene;
@@ -248,25 +125,25 @@ void detailsChecks() {
     check(world.snapshot()["focus"].string() == "Open on Netflix",
           "The Netflix action is inserted before Trailer");
     world.press(Key::Ok);
-    check(world.transport.count("title:open") == 1 && world.transport.last("title:open").body["kind"].string() == "netflix" &&
-              !world.transport.last("title:open").body.has("netflixId") &&
-              world.transport.last("title:open").body["id"].string() == "7",
+    check(world.on("w:details.open").size() == 1 && world.on("w:details.open").back().body["kind"].string() == "netflix" &&
+              !world.on("w:details.open").back().body.has("netflixId") &&
+              world.on("w:details.open").back().body["id"].string() == "7",
           "Open on Netflix posts the title and leaves the mapping to the server");
     world.press(Key::Ok);
-    check(world.transport.count("title:open") == 1, "A second OK while it is opening is ignored");
-    world.reply("title:open", R"({"ok":false,"error":"Refused"})", 400);
+    check(world.on("w:details.open").size() == 1, "A second OK while it is opening is ignored");
+    world.answer(world.on("w:details.open").back(), false, "Refused");
     check(world.toasted("That did not open: Refused"), "A refused open says so, with the daemon's reason");
     world.press(Key::Left);
     world.press(Key::Ok);
-    check(world.transport.count("title:open") == 2 && world.transport.last("title:open").body["kind"].string() == "title",
+    check(world.on("w:details.open").size() == 2 && world.on("w:details.open").back().body["kind"].string() == "title",
           "Open posts the title to the open route once the first reply is in");
-    world.reply("title:open", R"({"ok":true})");
+    world.answer(world.on("w:details.open").back());
     world.press(Key::Right);
     world.press(Key::Right);
     check(world.snapshot()["focus"].string() == "Trailer", "Trailer is reachable");
     world.press(Key::Ok);
-    check(world.transport.count("title:open") == 3 && world.transport.last("title:open").body["kind"].string() == "youtube" &&
-              world.transport.last("title:open").body["id"].string() == "dQw4w9WgXcQ",
+    check(world.on("w:details.open").size() == 3 && world.on("w:details.open").back().body["kind"].string() == "youtube" &&
+              world.on("w:details.open").back().body["id"].string() == "dQw4w9WgXcQ",
           "Trailer opens the video");
 
     // Similar titles open on top of this one; Back peels them off.
@@ -383,55 +260,6 @@ void detailsFocusReturnChecks() {
 
 // ---- Profiles ---------------------------------------------------------------------------------
 
-void profilesChecks() {
-    World world;
-    world.openProfiles();
-    check(world.screen() == "profiles" && world.snapshot()["selected"].number() == 0,
-          "The avatar opens the profile page on the profile in use");
-    world.press(Key::Right);
-    world.press(Key::Ok);
-    check(world.transport.count("profiles:set") == 1 && world.transport.last("profiles:set").operation == Operation::SetProfile &&
-              world.transport.last("profiles:set").body["action"].string() == "switch" &&
-              world.transport.last("profiles:set").body["id"].string() == "guest",
-          "OK on another profile posts a switch to it");
-    world.press(Key::Ok);
-    check(world.transport.count("profiles:set") == 1 && world.snapshot()["busy"].boolean(),
-          "A second OK while switching is ignored");
-    world.reply("profiles:set", R"({"ok":false,"error":"Not allowed"})", 403);
-    check(world.screen() == "profiles" && world.toasted("That did not work: Not allowed"),
-          "A refused switch stays on the page and says why");
-    world.press(Key::Ok);
-    world.reply("profiles:set", R"({"ok":true})");
-    world.settle(500);
-    check(world.screen() == "home" && world.transport.count("catalogue") >= 3,
-          "A switch reads the layout again and starts Home over");
-    // Add profile, and OK on the one in use.
-    World adding;
-    adding.openProfiles();
-    adding.press({Key::Right, Key::Right});
-    adding.press(Key::Ok);
-    check(adding.transport.last("profiles:set").body["action"].string() == "add" &&
-              adding.transport.last("profiles:set").body["switch"].boolean(),
-          "Add profile posts an add that switches to it");
-    adding.reply("profiles:set", R"({"ok":true})");
-    check(adding.toasted("Profile added"), "A new profile is announced");
-    World same;
-    same.openProfiles();
-    same.press(Key::Ok);
-    check(same.screen() == "home" && same.transport.count("profiles:set") == 0,
-          "OK on the profile in use only closes the page");
-    World back;
-    back.openProfiles();
-    back.press(Key::Back);
-    check(back.screen() == "home", "Back returns Home");
-    World rename;
-    rename.openProfiles();
-    rename.press(Key::Down);
-    rename.press(Key::Ok);
-    check(rename.screen() == "rename", "Rename profile opens the editor");
-    rename.press(Key::Back);
-    check(rename.screen() == "profiles", "Back from the editor returns to the profiles");
-}
 
 // ---- Editors ----------------------------------------------------------------------------------
 
@@ -572,314 +400,186 @@ void keyboardChecks() {
           "The 123? key switches to symbols");
 }
 
+
+
+
+
+
+
+
+
+
+
+// ---- Profiles ---------------------------------------------------------------------------------
+
+void profileNameChecks() {
+    check(tvShortName("OLED65B3PUA.DUSQLJR") == "B3" && tvShortName("OLED55C4PUA") == "C4" &&
+              tvShortName("OLED55CXPUA") == "CX" && tvShortName("OLED77G3PUA") == "G3",
+          "An OLED model gives its series");
+    check(tvShortName("55UQ7570PUB") == "LGTV" && tvShortName("") == "LGTV" && tvShortName("OLED") == "LGTV",
+          "Anything else is LGTV");
+    Json main = Json::parse(R"({"id":"main","name":"Main"})"), renamed = Json::parse(R"({"id":"main","name":"Dad"})"),
+         other = Json::parse(R"({"id":"guest","name":"Main"})");
+    check(profileName(main, "OLED65B3PUA.DUSQLJR") == "B3" && profileName(renamed, "OLED65B3PUA") == "Dad" &&
+              profileName(other, "OLED65B3PUA") == "Main",
+          "Only the untouched first profile takes the TV's name");
+}
+
+void profilesChecks() {
+    World world;
+    world.openProfiles();
+    check(world.screen() == "profiles" && world.snapshot()["selected"].number() == 0 &&
+              world.snapshot()["active"].string() == "main",
+          "The avatar opens the profile page on the profile in use");
+    check(world.app.shows("LGTV") && !world.app.shows("Main"),
+          "The first profile is named after the TV (LGTV until the model is known)");
+    world.reply("profiles:stats", R"({"ok":true,"device":{"model":"OLED65B3PUA.DUSQLJR"}})");
+    world.settle(100);
+    check(world.app.shows("B3"), "and after the model B3");
+
+    // Switching: the chosen profile is the one in use at once, before any reply.
+    world.press(Key::Right);
+    world.press(Key::Ok);
+    check(world.snapshot()["active"].string() == "guest" && world.snapshot()["busy"].boolean(),
+          "OK on a profile makes it the one in use at once, pending");
+    check(world.on("w:profiles.active").size() == 1 &&
+              world.on("w:profiles.active")[0].operation == Operation::SetProfile &&
+              world.on("w:profiles.active")[0].body["action"].string() == "switch" &&
+              world.on("w:profiles.active")[0].body["id"].string() == "guest",
+          "The write is a switch to it");
+    world.settle(300);
+    check(world.snapshot()["active"].string() == "guest" && world.screen() == "profiles",
+          "With no reply the page waits and keeps it");
+    // A change of mind: the newest wins, the older reply says nothing.
+    world.press(Key::Left);
+    world.press(Key::Ok);
+    check(world.snapshot()["active"].string() == "main", "A second choice replaces it at once");
+    world.settle(200);
+    check(world.on("w:profiles.active").size() == 2 &&
+              world.on("w:profiles.active")[1].body["id"].string() == "main",
+          "Only the newest is sent after the interval");
+    world.answer(world.on("w:profiles.active")[0]);
+    check(world.screen() == "profiles" && world.snapshot()["active"].string() == "main",
+          "The reply to the older switch changes nothing");
+    world.answer(world.on("w:profiles.active")[1]);
+    world.settle(300);
+    check(world.screen() == "home", "The newest reply starts Home over");
+}
+
+void profilesFailureChecks() {
+    World world;
+    world.openProfiles();
+    world.press(Key::Right);
+    world.press(Key::Ok);
+    world.answer(world.on("w:profiles.active")[0], false, "Not allowed");
+    world.settle(40);
+    check(world.screen() == "profiles" && world.snapshot()["active"].string() == "main" &&
+              !world.snapshot()["busy"].boolean(),
+          "A refused switch gives the profile back");
+    check(world.toasted("That did not work: Not allowed"), "and says why");
+    // Silence is a failure too.
+    World silent;
+    silent.openProfiles();
+    silent.press(Key::Right);
+    silent.press(Key::Ok);
+    silent.settle(8300);
+    check(silent.snapshot()["active"].string() == "main" && silent.screen() == "profiles",
+          "Eight seconds without an answer give it back");
+    // Leaving before the reply: the reply no longer opens Home.
+    World leaving;
+    leaving.openProfiles();
+    leaving.press(Key::Right);
+    leaving.press(Key::Ok);
+    leaving.press(Key::Back);
+    check(leaving.screen() == "home", "Back leaves at once");
+    leaving.answer(leaving.on("w:profiles.active")[0]);
+    leaving.settle(200);
+    check(leaving.screen() == "home", "and a late reply stays out of the way");
+    // Add profile.
+    World adding;
+    adding.openProfiles();
+    adding.press({Key::Right, Key::Right});
+    adding.press(Key::Ok);
+    check(adding.on("w:profiles.add").size() == 1 &&
+              adding.on("w:profiles.add")[0].body["action"].string() == "add" &&
+              adding.on("w:profiles.add")[0].body["switch"].boolean() && adding.snapshot()["busy"].boolean(),
+          "Add profile posts an add that switches to it, pending");
+    adding.press(Key::Ok);
+    check(adding.on("w:profiles.add").size() == 1, "A second press while it is on its way is dropped");
+    adding.answer(adding.on("w:profiles.add")[0]);
+    check(adding.toasted("Profile added") && adding.screen() == "home", "A new profile is announced and Home starts over");
+    World same;
+    same.openProfiles();
+    same.press(Key::Ok);
+    check(same.screen() == "home" && same.on("w:profiles.active").empty(),
+          "OK on the profile in use only closes the page");
+    World back;
+    back.openProfiles();
+    back.press(Key::Back);
+    check(back.screen() == "home", "Back returns Home");
+    World rename;
+    rename.openProfiles();
+    rename.press(Key::Down);
+    rename.press(Key::Ok);
+    check(rename.screen() == "rename", "Rename profile opens the editor");
+    rename.press(Key::Back);
+    check(rename.screen() == "profiles", "Back from the editor returns to the profiles");
+}
+
 void renameChecks() {
     World world;
     world.openProfiles();
     world.press(Key::Down);
     world.press(Key::Ok);
-    check(world.screen() == "rename" && world.snapshot()["query"].string() == "Main",
-          "Rename starts with the current name");
+    check(world.screen() == "rename" && world.snapshot()["query"].string() == "LGTV",
+          "Rename starts with the name on screen");
     world.app.activate("editor:clear");
     check(world.snapshot()["contentState"].string() == "empty" && world.app.shows("Enter a name"),
           "An empty name is explained");
     world.app.activate("editor:kb:4:4");
-    check(world.transport.count("editor:save") == 0, "An empty name is not sent");
+    check(world.on("w:profile.name.main").empty() && world.screen() == "rename", "An empty name is not sent");
     world.app.input("Sasha");
     world.app.activate("editor:kb:4:4");
-    check(world.transport.count("editor:save") == 1 && world.transport.last("editor:save").operation == Operation::SetProfile &&
-              world.transport.last("editor:save").body["action"].string() == "rename" &&
-              world.transport.last("editor:save").body["id"].string() == "main" &&
-              world.transport.last("editor:save").body["name"].string() == "Sasha" &&
-              world.snapshot()["contentState"].string() == "loading",
-          "Save posts the new name to the profile route");
-    world.app.input("!");
-    world.press(Key::Delete);
-    check(world.snapshot()["query"].string() == "Sasha", "The name cannot change while it saves");
-    world.reply("editor:save", R"({"ok":false,"error":"Profile service is starting"})", 503);
-    check(world.screen() == "rename" && world.snapshot()["contentState"].string() == "error" &&
-              world.snapshot()["query"].string() == "Sasha" && world.app.shows("Profile service is starting") &&
-              world.app.shows("Retry"),
-          "A refused save keeps the name and offers Retry");
-    world.app.activate("editor:kb:4:4");
-    check(world.transport.count("editor:save") == 2, "Retry posts the name again");
-    world.reply("editor:save", R"({"ok":true})");
+    check(world.screen() == "profiles", "Save returns to the profiles at once");
+    check(world.app.shows("Sasha") && !world.app.shows("LGTV"), "with the new name on them before any reply");
+    check(world.on("w:profile.name.main").size() == 1 &&
+              world.on("w:profile.name.main")[0].operation == Operation::SetProfile &&
+              world.on("w:profile.name.main")[0].body["action"].string() == "rename" &&
+              world.on("w:profile.name.main")[0].body["id"].string() == "main" &&
+              world.on("w:profile.name.main")[0].body["name"].string() == "Sasha",
+          "The write is a rename on the profile route");
     world.settle(300);
-    check(world.screen() == "profiles" && world.transport.count("catalogue") >= 3,
-          "A saved name reads the catalogue and returns to the profiles");
+    check(world.app.shows("Sasha"), "The name stays while the server has not answered");
+    world.answer(world.on("w:profile.name.main")[0], false, "Profile service is starting");
+    check(world.app.shows("LGTV") && !world.app.shows("Sasha"), "A refusal gives the name back");
+    check(world.toasted("The name could not be saved. Try again.: Profile service is starting"),
+          "and says why");
+    // An accepted rename is held until the catalogue says it too.
+    World ok;
+    ok.openProfiles();
+    ok.press(Key::Down);
+    ok.press(Key::Ok);
+    ok.app.activate("editor:clear");
+    ok.app.input("Ana");
+    ok.app.activate("editor:kb:4:4");
+    ok.answer(ok.on("w:profile.name.main")[0]);
+    ok.settle(100);
+    check(ok.app.shows("Ana"), "An accepted name stays");
+    size_t catalogues = ok.transport.count("catalogue");
+    ok.settle(800);
+    check(ok.transport.count("catalogue") == catalogues + 1, "The catalogue is read once to settle it");
+    ok.reply("catalogue", std::string(catalogueJson).replace(std::string(catalogueJson).find("\"name\":\"Main\""), 13, "\"name\":\"Ana\""));
+    ok.settle(100);
+    check(ok.app.shows("Ana"), "and the server's name is the one that shows");
     World limit;
     limit.openProfiles();
     limit.press(Key::Down);
     limit.press(Key::Ok);
+    limit.app.input("aaaaaaaaaaaaaaaaaaaaaaaaa");
+    check(limit.snapshot()["query"].string() == "LGTV", "A name over twenty characters is not taken whole");
     limit.app.input("aaaaaaaaaaaaaaaa");
     limit.app.input("b");
-    check(limit.snapshot()["query"].string() == "Mainaaaaaaaaaaaaaaaa", "A name is limited to twenty characters");
-}
-
-// ---- Quick drawer -----------------------------------------------------------------------------
-
-void quickChecks() {
-    World world;
-    check(world.app.activate("tool:1"), "The gear opens the drawer");
-    check(world.screen() == "quick" && world.transport.count("quick:stats") == 1 && world.transport.count("quick:now") == 1,
-          "The drawer reads what the TV is on when it opens");
-    check(world.motion("quick:x") > 700, "The drawer starts off the right edge");
-    double previous = world.motion("quick:x");
-    bool monotonic = true;
-    for (int frame = 0; frame < 40; ++frame) {
-        world.clock += 17;
-        world.app.update(world.clock);
-        double now = world.motion("quick:x");
-        monotonic = monotonic && now <= previous + 1e-6 && now >= -.01;
-        previous = now;
-    }
-    check(monotonic && previous < .5, "The drawer springs in without overshoot");
-    world.reply("quick:stats", statsJson);
-    world.reply("quick:now", R"({"ok":true,"kind":"input","port":1})");
-    world.settle(300);
-    check(world.snapshot()["volume"].number() == 24 && world.snapshot()["light"].number() == 70 &&
-              world.snapshot()["rows"].number() == 11 && world.snapshot()["focus"].string() == "Volume",
-          "The drawer shows the volume and light the TV reported");
-    check(world.app.shows("Picture mode") && world.app.shows("Cinema") && world.app.shows("OLED light") &&
-              world.app.shows("Console"),
-          "The rows carry what is set now");
-    // A stale reply is dropped.
-    world.reply("quick:stats", R"({"ok":true,"volume":99})", 200, 0);
-    check(world.snapshot()["volume"].number() == 24, "A reply to an older read is dropped");
-}
-
-void quickVolumeChecks() {
-    World world;
-    world.openQuick();
-    for (int i = 0; i < 5; ++i)
-        world.press(Key::Right);
-    check(world.snapshot()["volume"].number() == 29, "The volume moves at once on screen");
-    check(world.transport.count("quick:vol") == 1 && world.transport.last("quick:vol").operation == Operation::Control &&
-              world.transport.last("quick:vol").body["action"].string() == "volumeStep" &&
-              world.transport.last("quick:vol").body["value"].number() == 1,
-          "The first step goes out at once");
-    world.reply("quick:vol", R"({"ok":true})");
-    check(world.transport.count("quick:vol") == 2 && world.transport.last("quick:vol").body["value"].number() == 4,
-          "The steps pressed meanwhile go in one request");
-    world.press(Key::Left);
-    check(world.transport.count("quick:vol") == 2, "Nothing goes while a step is on its way");
-    world.reply("quick:vol", R"({"ok":true})");
-    check(world.transport.count("quick:vol") == 3 && world.transport.last("quick:vol").body["value"].number() == -1,
-          "A step the other way goes after it");
-    world.reply("quick:vol", R"({"ok":true})");
-    check(world.transport.count("quick:vol") == 3, "No more requests once nothing is left to send");
-    size_t reads = world.transport.count("quick:stats");
-    world.settle(800);
-    check(world.transport.count("quick:stats") == reads + 1, "The TV is read again shortly after the last change");
-    // A refused step is reported and the volume read back.
-    world.press(Key::Right);
-    size_t after = world.transport.count("quick:stats");
-    world.reply("quick:vol", R"({"ok":false,"error":"Volume locked"})", 409);
-    world.settle(100);
-    check(world.transport.count("quick:stats") > after, "A refused step reads the volume back");
-    check(world.toasted("That did not work: Volume locked"), "A refused volume step says why");
-    // The ends of the range.
-    World ends;
-    ends.openQuick();
-    for (int i = 0; i < 30; ++i)
-        ends.press(Key::Left);
-    check(ends.snapshot()["volume"].number() == 0, "The volume stops at zero");
-    // A pending step goes when the drawer closes.
-    World closing;
-    closing.openQuick();
-    closing.press(Key::Right);
-    closing.press(Key::Right);
-    closing.press(Key::Back);
-    closing.settle(900);
-    check(closing.screen() == "home" && closing.transport.count("quick:vol") == 2 &&
-              closing.transport.last("quick:vol").body["value"].number() == 1,
-          "A step not yet sent is sent as the drawer closes");
-}
-
-void quickMuteAndLightChecks() {
-    World world;
-    world.openQuick();
-    world.press(Key::Ok);
-    check(world.transport.last("quick:mute").body["action"].string() == "mute" &&
-              world.transport.last("quick:mute").body["value"].boolean() && world.snapshot()["muted"].boolean(),
-          "OK on the volume toggles mute");
-    world.reply("quick:mute", R"({"ok":false,"error":"Nope"})", 500);
-    check(!world.snapshot()["muted"].boolean(), "A refused mute is taken back");
-    // The light waits for the key to rest.
-    world.press(Key::Down);
-    world.press(Key::Down);
-    check(world.snapshot()["focus"].string() == "OLED light", "The light is the third row");
-    world.press(Key::Right);
-    world.press(Key::Right);
-    world.settle(200);
-    check(world.transport.count("quick:light") == 0 && world.snapshot()["light"].number() == 80,
-          "The light moves on screen while the request waits");
-    world.settle(300);
-    check(world.transport.count("quick:light") == 1 && world.transport.last("quick:light").body["action"].string() == "backlight" &&
-              world.transport.last("quick:light").body["value"].number() == 80,
-          "One request carries the final value");
-}
-
-void quickLevelChecks() {
-    World world;
-    world.openQuick();
-    world.press(Key::Down);
-    world.press(Key::Ok);
-    check(world.screen() == "quick:picture" && world.snapshot()["focus"].string() == "Cinema",
-          "Picture mode opens its list on the mode in force");
-    world.press(Key::Down);
-    world.press(Key::Ok);
-    check(world.transport.last("quick:set").body["action"].string() == "pictureMode" &&
-              world.transport.last("quick:set").body["value"].string() == "game",
-          "Choosing a mode posts it");
-    world.press(Key::Ok);
-    check(world.transport.count("quick:set") == 1, "A second choice waits for the first to answer");
-    world.reply("quick:set", R"({"ok":true})");
-    world.settle(300);
-    check(world.screen() == "quick" && world.snapshot()["focus"].string() == "Picture mode" && world.app.shows("Game"),
-          "The list closes on its row, with the new mode shown");
-    // Back and Left return to the main list; a refusal stays.
-    world.press(Key::Ok);
-    world.press(Key::Left);
-    check(world.screen() == "quick", "Left returns from a list");
-    world.press(Key::Down);
-    world.press(Key::Down);
-    world.press(Key::Ok);
-    check(world.screen() == "quick:sound", "Sound output opens its list");
-    world.press(Key::Down);
-    world.press(Key::Ok);
-    world.reply("quick:set", R"({"ok":false,"error":"Not connected"})", 502);
-    check(world.screen() == "quick:sound" && world.toasted("That did not work: Not connected"),
-          "A refused choice stays on its list and says why");
-    world.press(Key::Back);
-    check(world.screen() == "quick" && world.snapshot()["focus"].string() == "Sound output", "Back returns to the main list");
-    // Sleep timer.
-    world.press(Key::Down);
-    world.press(Key::Down);
-    world.press(Key::Ok);
-    check(world.screen() == "quick:sleep" && world.snapshot()["focus"].string() == "Off", "Sleep timer opens on Off");
-    world.press({Key::Down, Key::Down});
-    world.press(Key::Ok);
-    check(world.transport.last("quick:set").body["action"].string() == "sleepTimer" &&
-              world.transport.last("quick:set").body["value"].string() == "30",
-          "A sleep time posts its minutes");
-}
-
-void quickInputChecks() {
-    World world;
-    world.openQuick();
-    for (int i = 0; i < 4; ++i)
-        world.press(Key::Down);
-    world.press(Key::Ok);
-    check(world.screen() == "quick:input" && world.snapshot()["focus"].string() == "Console",
-          "Input lists the devices, on the one in use");
-    world.press(Key::Down);
-    world.settle(400);
-    check(world.snapshot()["focus"].string() == "HDMI 2" && world.app.shows("Nothing connected"),
-          "A port with nothing on it is named by its port");
-    world.press(Key::Up);
-    world.press(Key::Ok);
-    check(world.transport.last("quick:act").operation == Operation::OpenHomeItem &&
-              world.transport.last("quick:act").body["kind"].string() == "dev" &&
-              world.transport.last("quick:act").body["id"].string() == "hdmi1",
-          "Choosing an input opens it");
-    world.reply("quick:act", R"({"ok":true})");
-    world.settle(900);
-    check(world.screen() == "home", "The drawer closes once the input is open");
-}
-
-void quickSwitchChecks() {
-    World world;
-    world.openQuick();
-    for (int i = 0; i < 10; ++i)
-        world.press(Key::Down);
-    world.settle(400);
-    check(world.snapshot()["focus"].string() == "Home settings" && world.motion("quick:sy") < -100,
-          "The list scrolls to keep the focused row in view");
-    world.press(Key::Ok);
-    world.settle(400);
-    check(world.screen() == "quick:layout" && world.app.shows("24-hour clock") && world.app.shows("App names"),
-          "Home settings lists the switches");
-    world.press(Key::Down);
-    world.press(Key::Ok);
-    check(world.transport.last("quick:layout").operation == Operation::SetHomeLayout &&
-              world.transport.last("quick:layout").body["appNames"].isBoolean() &&
-              !world.transport.last("quick:layout").body["appNames"].boolean(),
-          "A switch posts its new value to the layout route");
-    world.settle(300);
-    check(world.motion("quick:t:1") < .5, "The switch moves at once");
-    world.reply("quick:layout", R"({"ok":false,"error":"Read-only"})", 500);
-    world.settle(300);
-    check(world.motion("quick:t:1") > .5 && world.toasted("That did not work: Read-only"),
-          "A refused switch moves back and says why");
-    world.press(Key::Up);
-    world.press(Key::Ok);
-    check(world.transport.last("quick:layout").body["clockFormat"].string() == "24h", "The clock switch posts 24h");
-    size_t catalogues = world.transport.count("catalogue");
-    world.reply("quick:layout", R"({"ok":true})");
-    check(world.transport.count("catalogue") == catalogues + 1, "A saved switch reads the layout again");
-}
-
-void quickActionChecks() {
-    World world;
-    world.openQuick();
-    for (int i = 0; i < 6; ++i)
-        world.press(Key::Down);
-    check(world.snapshot()["focus"].string() == "Screensaver", "Screensaver is a row");
-    world.press(Key::Ok);
-    check(world.transport.last("quick:act").body["action"].string() == "screensaver", "It starts the screensaver");
-    world.reply("quick:act", R"({"ok":false,"error":"Busy"})", 503);
-    check(world.screen() == "quick" && world.toasted("That did not work: Busy"), "A refusal keeps the drawer open");
-    world.press(Key::Down);
-    world.press(Key::Ok);
-    check(world.transport.last("quick:act").body["action"].string() == "screenOff", "Screen off posts its action");
-    world.reply("quick:act", R"({"ok":true})");
-    world.settle(900);
-    check(world.screen() == "home", "The drawer closes once the TV has acted");
-}
-
-void quickNavigationChecks() {
-    World recents;
-    recents.openQuick();
-    for (int i = 0; i < 8; ++i)
-        recents.press(Key::Down);
-    check(recents.snapshot()["focus"].string() == "Recent apps", "Recent apps is a row");
-    recents.press(Key::Ok);
-    recents.settle(900);
-    check(recents.screen() == "quick:recents", "The row opens the recent apps");
-    World profile;
-    profile.openQuick();
-    for (int i = 0; i < 9; ++i)
-        profile.press(Key::Down);
-    check(profile.snapshot()["focus"].string() == "Profile" && profile.app.shows("Main"), "The profile row names the profile in use");
-    profile.press(Key::Ok);
-    profile.settle(900);
-    check(profile.screen() == "profiles", "The row opens the profiles");
-    profile.press(Key::Back);
-    check(profile.screen() == "home", "Back from there goes Home, not into a second drawer");
-    // Close: the drawer slides out, Home is as it was, and the gear has the focus.
-    World world;
-    world.press({Key::Right, Key::Right});
-    world.settle(300);
-    world.press(Key::Up);
-    world.press({Key::Right, Key::Right, Key::Right});
-    world.press(Key::Ok);
-    world.reply("quick:stats", statsJson);
-    world.settle(600);
-    check(world.screen() == "quick", "The gear opens the drawer from the bar");
-    world.press(Key::Back);
-    check(world.screen() == "quick" && world.snapshot()["closing"].boolean(), "Back starts the slide out");
-    world.settle(900);
-    check(world.screen() == "home" && world.snapshot()["navigation"].boolean() &&
-              world.snapshot()["nav"].number() == 4 && world.snapshot()["column"].number() == 2,
-          "The drawer closes onto Home as it was, with the gear focused");
-    world.press(Key::Down);
-    check(!world.snapshot()["navigation"].boolean(), "Home answers its keys again");
-    // A click beside the drawer closes it.
-    World click;
-    click.openQuick();
-    click.app.click(300, 500);
-    click.settle(900);
-    check(click.screen() == "home", "A click beside the drawer closes it");
+    check(limit.snapshot()["query"].string() == "LGTVaaaaaaaaaaaaaaaa", "A name is limited to twenty characters");
 }
 
 int main() {
@@ -890,21 +590,15 @@ int main() {
         detailsOverviewChecks();
         detailsDepthChecks();
         detailsFocusReturnChecks();
+        profileNameChecks();
         profilesChecks();
+        profilesFailureChecks();
         searchChecks();
         searchStateChecks();
         searchGridChecks();
         keyboardChecks();
         renameChecks();
-        quickChecks();
-        quickVolumeChecks();
-        quickMuteAndLightChecks();
-        quickLevelChecks();
-        quickInputChecks();
-        quickSwitchChecks();
-        quickActionChecks();
-        quickNavigationChecks();
-        std::printf("%d native overlay-screen checks passed\n", checks);
+        std::printf("%d native overlay-screen checks passed\n", checkCount());
         return 0;
     } catch (const std::exception &error) {
         std::fprintf(stderr, "FAIL: %s\n", error.what());

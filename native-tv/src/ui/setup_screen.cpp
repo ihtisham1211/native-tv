@@ -5,6 +5,7 @@
 #include "domain/say.hpp"
 #include "domain/setup_pages.hpp"
 #include "ui/keyboard_pad.hpp"
+#include "ui/optimistic.hpp"
 #include "ui/kit/entry.hpp"
 #include "ui/kit/tuning.hpp"
 #include "ui/splash.hpp"
@@ -17,7 +18,7 @@ namespace ms = kit::motion::ms;
 using kit::Enter;
 
 // What each item of a page is called in the entrance: its Motion id is "setup:e:<n>".
-enum Item { Label = 0, Title, Lead, Action, Content, Field = 8, Keys, Hints, Dots, Items };
+enum Item { Label = 0, Title, Lead, Action, Content, Field = 9, Keys, Hints, Dots, Items };
 constexpr int kPollMs = 2000, kAdvanceMs = 1500, kRestartWaitMs = 1500, kRetryMs = 1000,
               kRetries = 60;
 constexpr float kLeft = 80, kRight = 944, kRowsTop = 228, kRowPitch = 100;
@@ -36,6 +37,33 @@ std::string addressOf(std::string url) {
     size_t end = url.find("/?c=");
     return end == std::string::npos ? url : url.substr(0, end);
 }
+// A write the page waits for (the server restarts on it, or its answer is what comes next): it
+// runs through the layer, which sends it, times it out and says so when it fails; the answer is
+// left in memory for update() to take.
+Write waitedWrite(ScreenHost &host, Operation operation, const Json &body, const std::string &name) {
+    ScreenHost *application = &host;
+    Write write;
+    write.operation = operation;
+    write.body = [body](const Json &) { return body; };
+    write.done = [application, name](bool ok, const Json &reply) {
+        Json result = Json::object();
+        result.set("ok", Json::flag(ok));
+        if (reply.valid())
+            result.set("reply", reply);
+        application->memory()["setup.reply." + name] = result;
+        application->invalidate();
+    };
+    return write;
+}
+bool takeReply(ScreenHost &host, const std::string &name, bool &ok, Json &reply) {
+    auto found = host.memory().find("setup.reply." + name);
+    if (found == host.memory().end())
+        return false;
+    ok = found->second["ok"].boolean();
+    reply = found->second["reply"];
+    host.memory().erase(found);
+    return true;
+}
 std::string trimmed(const std::string &value) {
     size_t first = value.find_first_not_of(" \t"), last = value.find_last_not_of(" \t");
     return first == std::string::npos ? "" : value.substr(first, last - first + 1);
@@ -52,6 +80,9 @@ class SetupScreen final : public ScreenView {
         return false;
     }
     void enter(ScreenHost &host) override {
+        // Answers a page before this one left behind are not this page's.
+        for (auto it = host.memory().begin(); it != host.memory().end();)
+            it = it->first.compare(0, 12, "setup.reply.") == 0 ? host.memory().erase(it) : std::next(it);
         host.motion().set("setup:pg", 0);
         waitForServer(host, After::Start, kRetries, 0);
     }
@@ -103,6 +134,16 @@ class SetupScreen final : public ScreenView {
     void connected(ScreenHost &host);
     void beginField(ScreenHost &host);
     void fieldDone(ScreenHost &host);
+    void beginName(ScreenHost &host);
+    void acceptName(ScreenHost &host);
+    void answered(ScreenHost &host, const std::string &name, bool ok, const Json &data);
+    // What the server holds, what the page shows: the optimistic layer's view of the choices.
+    bool serverStandby(ScreenHost &host) const;
+    std::string serverName(ScreenHost &host) const;
+    Json shownState(ScreenHost &host);
+    std::string pageKey(ScreenHost &host);
+    std::string shownName(ScreenHost &host);
+    void drawEntry(ScreenHost &host, kit::Paint paint);
     void submitBroker(ScreenHost &host);
     void brokerFailed(ScreenHost &host, const std::string &error);
     // ---- Drawing -----------------------------------------------------------------------------
@@ -116,8 +157,15 @@ class SetupScreen final : public ScreenView {
     bool hasAction() const {
         return !page_.action.empty() || step_ == SetupStep::Trouble;
     }
+    // The keyboard is on screen: the name's page, and the handoff's while it takes typing.
     bool usesKeys() const {
-        return step_ == SetupStep::Handoff && (link_ == Link::Preparing || link_ == Link::Ready);
+        return step_ == SetupStep::Name ||
+               (step_ == SetupStep::Handoff && (link_ == Link::Preparing || link_ == Link::Ready));
+    }
+    // The page is waiting on the server (a write that restarts it, the broker being saved): it says
+    // so with a breathing dot and "Saving…", the moment the key was pressed.
+    bool waitsOnServer() const {
+        return busy_ || (step_ == SetupStep::Handoff && link_ == Link::Sending && !joined_);
     }
     bool showsCode() const {
         return step_ == SetupStep::Handoff && link_ == Link::Ready && !url_.empty();
@@ -126,6 +174,7 @@ class SetupScreen final : public ScreenView {
     std::string leadText() const;
     void drawLeft(ScreenHost &host, kit::Paint paint);
     void drawChoices(ScreenHost &host, kit::Paint paint);
+    void drawWaiting(ScreenHost &host, kit::Paint paint);
     void drawHandoff(ScreenHost &host, kit::Paint paint);
     void drawFooter(ScreenHost &host, kit::Paint paint);
 
@@ -144,15 +193,20 @@ class SetupScreen final : public ScreenView {
     Link link_ = Link::Preparing;
     size_t linkRev_ = 0, field_ = 0;
     bool linkOpen_ = false, restarted_ = false, polling_ = false, pollAsked_ = false,
-         litCaret_ = true, joined_ = false, pendingStandby_ = false;
+         litCaret_ = true, joined_ = false;
     int failedFor_ = 0, goneFor_ = 0;
     double pollAt_ = 0, advanceAt_ = 0;
     std::string url_, message_;
     std::vector<SetupChoice> linkChoices_;
     std::vector<SetupField> fields_ = brokerFields();
     HandoffWords words_ = handoffWords();
+    std::string savingText_ = say::msg("setup.saving", "Saving\xe2\x80\xa6");
     std::string connectingText_ = say::msg("setup.broker.connecting", "Connecting to the broker\xe2\x80\xa6");
     std::vector<std::string> entered_ = std::vector<std::string>(4);
+    // The first step: what the main profile is called, and what the server holds (nothing, so
+    // its own default, until it is written).
+    std::string tvName_;
+    std::string summaryKey_; // what the summary page was last built from
     KeyboardPad pad_;
 };
 
@@ -171,6 +225,7 @@ void SetupScreen::serverAnswered(ScreenHost &host) {
     switch (after_) {
     case After::Start:
         loaded_ = true;
+        tvName_ = setupDefaultName(state_);
         showStep(host, entry_);
         break;
     case After::Network:
@@ -185,7 +240,8 @@ void SetupScreen::showStep(ScreenHost &host, SetupStep step) {
     Motion &motion = host.motion();
     step_ = step;
     ++rev_;
-    page_ = setupPage(step_, state_, netChosen_, fromSettings_);
+    page_ = setupPage(step_, shownState(host), netChosen_, fromSettings_, shownName(host));
+    summaryKey_ = pageKey(host);
     selected_ = leadShown_ = page_.selected;
     motion.set("setup:pg", 0);
     motion.set("setup:lead", 0);
@@ -204,6 +260,10 @@ void SetupScreen::showStep(ScreenHost &host, SetupStep step) {
                      Easing::out());
     if (step_ == SetupStep::Handoff)
         startLink(host);
+    if (step_ == SetupStep::Name) {
+        message_.clear();
+        beginName(host);
+    }
     host.invalidate();
 }
 void SetupScreen::goTo(ScreenHost &host, SetupStep step) {
@@ -231,7 +291,10 @@ void SetupScreen::select(ScreenHost &host, size_t index) {
 void SetupScreen::activate(ScreenHost &host) {
     switch (step_) {
     case SetupStep::Welcome:
-        goTo(host, SetupStep::Network);
+        goTo(host, SetupStep::Name);
+        break;
+    case SetupStep::Name:
+        acceptName(host);
         break;
     case SetupStep::Network:
         chooseNetwork(host);
@@ -275,52 +338,80 @@ void SetupScreen::chooseNetwork(ScreenHost &host) {
     Json body = Json::object();
     body.set("action", Json::text("network"));
     body.set("open", Json::flag(open));
-    if (demo()) {
+    if (demo())
         state_.set("network", Json::flag(open));
-        busy_ = true;
-        host.services().write("setup:network", Operation::Setup, withDemo(body));
-        return;
-    }
-    if (open == state_["network"].boolean()) {
+    else if (open == state_["network"].boolean()) {
         goTo(host, SetupStep::HomeAssistant);
         return;
     }
-    // The server restarts to apply it; the page waits for it to come back.
+    // The server restarts to apply it, so the connection may be cut before an answer: the page
+    // says so ("Applying your choice") and waits for the server to come back instead of reading
+    // the reply. One of the two writes that stay on the raw path, with the link's close below.
     busy_ = true;
-    goTo(host, SetupStep::Restarting);
-    host.services().write("setup:network", Operation::Setup, body);
+    if (!demo())
+        goTo(host, SetupStep::Restarting);
+    host.services().write("setup:network", Operation::Setup, withDemo(body));
 }
+// The choice shows at once and the write goes out behind it; a refusal puts the old answer back
+// with a message (the summary reads the shown value, so it follows).
 void SetupScreen::chooseStandby(ScreenHost &host) {
     const bool on = page_.choices[selected_].id == "on";
-    Json body = Json::object();
-    body.set("action", Json::text("alwaysReady"));
-    body.set("on", Json::flag(on));
-    pendingStandby_ = on;
-    if (demo()) {
-        state_.set("alwaysReady", Json::flag(on));
-        busy_ = true;
-        host.services().write("setup:standby", Operation::Setup, withDemo(body));
-        return;
-    }
-    if (on == state_["alwaysReady"].boolean()) {
-        goTo(host, SetupStep::Summary);
-        return;
-    }
-    busy_ = true;
-    host.services().write("setup:standby", Operation::Setup, body);
+    const bool dryRun = demo();
+    ScreenHost *application = &host;
+    Write write;
+    write.operation = Operation::Setup;
+    write.body = [dryRun](const Json &target) {
+        Json body = Json::object();
+        body.set("action", Json::text("alwaysReady"));
+        body.set("on", Json::flag(target.boolean()));
+        if (dryRun)
+            body.set("demo", Json::flag(true));
+        return body;
+    };
+    write.failure = say::msg("setup.standby.failed", "Standby could not be changed");
+    write.done = [application, on](bool ok, const Json &) {
+        if (ok)
+            application->memory()["setup.standby"] = Json::flag(on);
+    };
+    host.optimistic().set("setup:standby", Json::flag(on), Json::flag(serverStandby(host)), write);
+    goTo(host, SetupStep::Summary);
 }
 void SetupScreen::openDashboard(ScreenHost &host) {
-    busy_ = true;
     Json body = Json::object();
     body.set("action", Json::text("done"));
-    host.services().write("setup:done", Operation::Setup, withDemo(body));
+    // The dashboard opens at once; the marker is gone once the server says so, and a refusal
+    // comes back as a message over whatever is showing.
+    host.optimistic().run("setup:done", waitedWrite(host, Operation::Setup, withDemo(body), "done"));
+    host.open("dashboard:system");
+}
+bool SetupScreen::serverStandby(ScreenHost &host) const {
+    auto found = host.memory().find("setup.standby");
+    return found != host.memory().end() ? found->second.boolean() : state_["alwaysReady"].boolean();
+}
+std::string SetupScreen::serverName(ScreenHost &host) const {
+    auto found = host.memory().find("setup.name");
+    return found != host.memory().end() ? found->second.string() : setupDefaultName(state_);
+}
+// /api/setup as the page shows it: the standby choice as made, not as the TV last said.
+Json SetupScreen::shownState(ScreenHost &host) {
+    Json view = Json::parse(state_.dump());
+    if (setupHasStandby(view))
+        view.set("alwaysReady", Json::flag(host.optimistic().flag("setup:standby", serverStandby(host))));
+    return view;
+}
+std::string SetupScreen::pageKey(ScreenHost &host) {
+    return std::string(host.optimistic().flag("setup:standby", serverStandby(host)) ? "1" : "0") +
+           shownName(host);
+}
+std::string SetupScreen::shownName(ScreenHost &host) {
+    return host.optimistic().text("setup:name", serverName(host));
 }
 
 bool SetupScreen::key(ScreenHost &host, Key key) {
     // Nothing is chosen while the page loads, changes or waits on the server.
     if (!loaded_ || busy_ || next_ >= 0 || advanceAt_ > 0)
         return true;
-    if (step_ == SetupStep::Handoff && usesKeys()) {
+    if (usesKeys()) {
         KeyboardPad::Result result = pad_.key(host.motion(), host.nowMs(), key);
         if (result == KeyboardPad::Result::Done)
             fieldDone(host);
@@ -360,8 +451,11 @@ bool SetupScreen::back(ScreenHost &host) {
         return true;
     }
     switch (step_) {
-    case SetupStep::Network:
+    case SetupStep::Name:
         goTo(host, SetupStep::Welcome);
+        return true;
+    case SetupStep::Network:
+        goTo(host, SetupStep::Name);
         return true;
     case SetupStep::HomeAssistant:
         goTo(host, SetupStep::Network);
@@ -430,29 +524,6 @@ void SetupScreen::response(ScreenHost &host, const Response &reply) {
             goTo(host, SetupStep::HomeAssistant);
         } else
             waitForServer(host, After::Network, kRetries, kRestartWaitMs);
-    } else if (reply.channel == "setup:standby") {
-        busy_ = false;
-        if (demo() || (good && data["ok"].boolean()))
-            state_.set("alwaysReady", Json::flag(pendingStandby_));
-        goTo(host, SetupStep::Summary);
-    } else if (reply.channel == "setup:done") {
-        // The first-run marker is gone once the server says so; the dashboard opens either way,
-        // as the page did.
-        host.open("dashboard:system");
-    } else if (reply.channel == "setup:handoff") {
-        if (step_ != SetupStep::Handoff || linkRev_ != rev_)
-            return;
-        if (!good || !data["ok"].boolean() || data["url"].string().empty()) {
-            linkFailed(host, "failed");
-            return;
-        }
-        url_ = data["url"].string();
-        link_ = Link::Ready;
-        polling_ = true;
-        pollAt_ = host.nowMs() + kPollMs;
-        host.motion().ambient("setup:sweep");
-        host.motion().ambient("setup:pulse");
-        host.invalidate();
     } else if (reply.channel == "setup:poll") {
         pollAsked_ = false;
         polled(host, reply);
@@ -463,13 +534,33 @@ void SetupScreen::response(ScreenHost &host, const Response &reply) {
             brokerFailed(host, data["error"].string());
             return;
         }
-        host.services().write("setup:save", Operation::Settings,
-                              brokerSettings(data, trimmed(entered_[0]), entered_[1],
-                                             trimmed(entered_[2]), entered_[3]));
-    } else if (reply.channel == "setup:save") {
+        host.optimistic().run("setup:save",
+                              waitedWrite(host, Operation::Settings,
+                                          brokerSettings(data, trimmed(entered_[0]), entered_[1],
+                                                         trimmed(entered_[2]), entered_[3]),
+                                          "save"));
+    }
+    host.invalidate();
+}
+// The answer to a write the page waited for (waitedWrite): what it was for decides what follows.
+void SetupScreen::answered(ScreenHost &host, const std::string &name, bool ok, const Json &data) {
+    if (name == "handoff") {
+        if (step_ != SetupStep::Handoff || link_ != Link::Preparing)
+            return;
+        if (!ok || data["url"].string().empty()) {
+            linkFailed(host, "failed");
+            return;
+        }
+        url_ = data["url"].string();
+        link_ = Link::Ready;
+        polling_ = true;
+        pollAt_ = host.nowMs() + kPollMs;
+        host.motion().ambient("setup:sweep");
+        host.motion().ambient("setup:pulse");
+    } else if (name == "save") {
         if (link_ != Link::Sending)
             return;
-        if (!good || !data["ok"].boolean()) {
+        if (!ok) {
             brokerFailed(host, data["error"].string());
             return;
         }
@@ -533,7 +624,7 @@ void SetupScreen::startLink(ScreenHost &host) {
     linkOpen_ = true;
     Json body = Json::object();
     body.set("action", Json::text("handoff"));
-    host.services().write("setup:handoff", Operation::Setup, body);
+    host.optimistic().run("setup:handoff", waitedWrite(host, Operation::Setup, body, "handoff"));
 }
 void SetupScreen::stopLink(ScreenHost &host) {
     if (!linkOpen_)
@@ -553,7 +644,41 @@ void SetupScreen::beginField(ScreenHost &host) {
                options);
     pad_.setDone(field.done, field.doneIcon);
 }
+void SetupScreen::beginName(ScreenHost &host) {
+    KeyboardPad::Options options;
+    options.id = "setup:kb";
+    options.maximum = 20; // the Home profile's limit
+    pad_.begin(host.motion(), shownName(host), options);
+    pad_.setDone(nameWords().done, "arrowright");
+}
+// The name on the keyboard is the main profile's. It shows as the name at once and the next
+// question comes; the write goes out behind it, and a refusal puts the old name back with a
+// message. The TV's own series stays the server's default, so nothing is written for it.
+void SetupScreen::acceptName(ScreenHost &host) {
+    std::string name = trimmed(pad_.value());
+    if (name.empty())
+        name = setupDefaultName(state_);
+    tvName_ = name;
+    message_.clear();
+    if (!demo()) {
+        ScreenHost *application = &host;
+        Write write;
+        write.operation = Operation::SetProfile;
+        write.body = [](const Json &target) { return nameBody(target.string()); };
+        write.failure = say::msg("tv.editor.saveFailed", "The name could not be saved. Try again.");
+        write.done = [application, name](bool ok, const Json &) {
+            if (ok)
+                application->memory()["setup.name"] = Json::text(name);
+        };
+        host.optimistic().set("setup:name", Json::text(name), Json::text(serverName(host)), write);
+    }
+    goTo(host, SetupStep::Network);
+}
 void SetupScreen::fieldDone(ScreenHost &host) {
+    if (step_ == SetupStep::Name) {
+        acceptName(host);
+        return;
+    }
     entered_[field_] = pad_.value();
     message_.clear();
     if (field_ + 1 < entered_.size()) {
@@ -592,6 +717,14 @@ bool SetupScreen::update(ScreenHost &host) {
     Motion &motion = host.motion();
     const double now = host.nowMs();
     bool draw = false;
+    for (const char *name : {"handoff", "save"}) {
+        bool ok = false;
+        Json data;
+        if (takeReply(host, name, ok, data)) {
+            answered(host, name, ok, data);
+            draw = true;
+        }
+    }
     if (waiting_ && !askedServer_ && now >= retryAt_) {
         askedServer_ = true;
         host.services().read("setup:state", Operation::Setup);
@@ -622,11 +755,11 @@ bool SetupScreen::update(ScreenHost &host) {
         motion.tween("setup:lead", 0, ms::fast, Easing::out());
     }
     // The scan line and the waiting dot loop for as long as the code is on screen.
-    if (showsCode()) {
-        if (!motion.moving("setup:sweep")) {
-            motion.ambient("setup:sweep");
-            motion.play("setup:sweep", Tween(0, 1, 3200, Easing::linear()));
-        }
+    if (showsCode() && !motion.moving("setup:sweep")) {
+        motion.ambient("setup:sweep");
+        motion.play("setup:sweep", Tween(0, 1, 3200, Easing::linear()));
+    }
+    if (showsCode() || waitsOnServer()) {
         if (!motion.moving("setup:pulse")) {
             motion.ambient("setup:pulse");
             motion.play("setup:pulse", Tween(0, 1, 1600, Easing::linear()));
@@ -730,6 +863,17 @@ void SetupScreen::drawChoices(ScreenHost &host, kit::Paint paint) {
             scene.hits.push_back({look.rect, "setup:row:" + std::to_string(i)});
     }
 }
+void SetupScreen::drawWaiting(ScreenHost &host, kit::Paint paint) {
+    static const Easing inOut = Easing::inOut();
+    const double p = host.motion().value("setup:pulse");
+    const float u = static_cast<float>(p < .5 ? inOut(p * 2) : 1 - inOut((p - .5) * 2)),
+                size = 12 * (.8f + .2f * u);
+    kit::Layer layer(paint.scene, enterOf(host, Lead));
+    paint.scene.shape({kLeft + 6 - size / 2, 548 - size / 2, size, size},
+                      kit::focus::withAlpha(kit::color::accent, .35f + .65f * u), size / 2);
+    paint.glyphs.text(paint.scene, {kLeft + 28, 534, 400, kit::type::labelL.line}, savingText_,
+                      kit::type::labelL, kit::color::onSurface2);
+}
 void SetupScreen::drawHandoff(ScreenHost &host, kit::Paint paint) {
     Scene &scene = paint.scene;
     const Motion &motion = host.motion();
@@ -763,20 +907,29 @@ void SetupScreen::drawHandoff(ScreenHost &host, kit::Paint paint) {
     if (link_ == Link::Sending && joined_)
         paint.glyphs.text(scene, {kLeft, 530, 700, kit::type::title.line}, words.connected,
                           kit::type::title, kit::color::accent);
-    if (usesKeys()) {
-        const auto &fields = fields_;
-        {
-            kit::Layer layer(scene, enterOf(host, Field));
-            const bool failing = !message_.empty();
-            paint.glyphs.text(scene, {kRight, 176, 896, kit::type::title.line},
-                              failing ? message_ : fields[field_].label, kit::type::title,
-                              failing ? kit::color::warn : kit::color::onSurface2);
-            kit::TextField field = pad_.field(host.nowMs(), kit::metrics::setup::field,
-                                              fields[field_].placeholder, fields[field_].secret);
-            kit::textField(paint, field);
-        }
-        pad_.paint(paint, motion, enterOf(host, Keys));
+}
+// The field and the keyboard of the right-hand column: the name's, or the broker's field by field.
+void SetupScreen::drawEntry(ScreenHost &host, kit::Paint paint) {
+    Scene &scene = paint.scene;
+    std::string label, placeholder;
+    bool secret = false;
+    if (step_ == SetupStep::Name) {
+        label = nameWords().label;
+        placeholder = setupDefaultName(state_);
+    } else {
+        label = fields_[field_].label;
+        placeholder = fields_[field_].placeholder;
+        secret = fields_[field_].secret;
     }
+    {
+        kit::Layer layer(scene, enterOf(host, Field));
+        const bool failing = !message_.empty();
+        paint.glyphs.text(scene, {kRight, 176, 896, kit::type::title.line},
+                          failing ? message_ : label, kit::type::title,
+                          failing ? kit::color::warn : kit::color::onSurface2);
+        kit::textField(paint, pad_.field(host.nowMs(), kit::metrics::setup::field, placeholder, secret));
+    }
+    pad_.paint(paint, host.motion(), enterOf(host, Keys));
 }
 void SetupScreen::drawFooter(ScreenHost &host, kit::Paint paint) {
     const Motion &motion = host.motion();
@@ -791,9 +944,11 @@ void SetupScreen::drawFooter(ScreenHost &host, kit::Paint paint) {
     std::vector<kit::Hint> hints = {{"", say::msg("setup.hint.move", "Move")}};
     if (usesKeys()) {
         hints.push_back({"OK", say::msg("setup.hint.type", "Type")});
-        hints.push_back({"Back", field_ > 0 ? say::msg("setup.hint.previous", "Previous field")
+        const bool handoff = step_ == SetupStep::Handoff;
+        hints.push_back({"Back", handoff && field_ > 0 ? say::msg("setup.hint.previous", "Previous field")
                                  : fromSettings_ ? say::msg("setup.handoff.backToSettings", "Back to Settings")
-                                                 : say::msg("setup.hint.skip", "Skip for now")});
+                                 : handoff ? say::msg("setup.hint.skip", "Skip for now")
+                                           : say::msg("setup.hint.back", "Back")});
     } else {
         hints.push_back({"OK", say::msg("setup.hint.choose", "Choose")});
         if (step_ != SetupStep::Welcome && step_ != SetupStep::Restarting)
@@ -806,6 +961,11 @@ void SetupScreen::build(ScreenHost &host, kit::Paint paint) {
         return;
     Scene &scene = paint.scene;
     const Motion &motion = host.motion();
+    if (step_ == SetupStep::Summary && pageKey(host) != summaryKey_) {
+        // A write that was taken back changes what the summary says.
+        page_ = setupPage(step_, shownState(host), netChosen_, fromSettings_, shownName(host));
+        summaryKey_ = pageKey(host);
+    }
     drawLeft(host, paint);
     if (hasAction()) {
         kit::KeyCap button;
@@ -820,6 +980,10 @@ void SetupScreen::build(ScreenHost &host, kit::Paint paint) {
     }
     if (step_ == SetupStep::Handoff)
         drawHandoff(host, paint);
+    if (waitsOnServer())
+        drawWaiting(host, paint);
+    if (usesKeys())
+        drawEntry(host, paint);
     if (onChoices())
         drawChoices(host, paint);
     if (step_ == SetupStep::Welcome) {
@@ -835,12 +999,15 @@ Json SetupScreen::snapshot() const {
     value.set("busy", Json::flag(busy_));
     value.set("selected", Json::numeric(static_cast<double>(selected_)));
     value.set("fromSettings", Json::flag(fromSettings_));
+    value.set("tvName", Json::text(tvName_));
+    if (usesKeys()) {
+        value.set("typed", Json::text(pad_.value()));
+        value.set("focusedKey", Json::text(pad_.focusedKey()));
+    }
     if (step_ == SetupStep::Handoff) {
         static const char *links[] = {"preparing", "ready", "failed", "sending"};
         value.set("link", Json::text(links[static_cast<int>(link_)]));
         value.set("field", Json::numeric(static_cast<double>(field_)));
-        value.set("typed", Json::text(pad_.value()));
-        value.set("focusedKey", Json::text(pad_.focusedKey()));
         value.set("url", Json::text(url_));
     }
     return value;

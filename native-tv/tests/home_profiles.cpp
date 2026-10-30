@@ -12,6 +12,24 @@ int main() {
     assert(profileList.size() == 1);
     assert(profileList[0]["id"].string() == "main");
     assert(profileList[0]["active"].boolean());
+    assert(profileList[0]["name"].string() == "Main");
+
+    // A fresh install's main profile is named after the TV; renaming it keeps the new name.
+    Json named = homeProfileList(document, "B3");
+    assert(named[0]["name"].string() == "B3");
+    Json nameBody = Json::object();
+    nameBody.set("action", Json::text("rename"));
+    nameBody.set("id", Json::text("main"));
+    nameBody.set("name", Json::text("Living room"));
+    HomeDocumentUpdate first = updateHomeProfile(document, nameBody, "B3");
+    assert(first.response["ok"].boolean() && first.changed);
+    assert(first.response["profiles"].size() == 1 &&
+           first.response["profiles"][0]["name"].string() == "Living room");
+    Json addBody = Json::object();
+    addBody.set("action", Json::text("add"));
+    HomeDocumentUpdate added2 = updateHomeProfile(document, addBody, "C3");
+    assert(added2.response["profiles"][0]["name"].string() == "C3" &&
+           added2.response["profiles"][1]["name"].string() == "Profile 2");
 
     Json layout = Json::object();
     Json hidden = Json::object();

@@ -1335,7 +1335,7 @@ as LG's has it), bind-mounts the directory over
 of the one app on webOS 10, which ignores the nudge. On webOS 10 the Home
 button opens the default app of the `home` category, which sam takes from that
 `appCategory`; without it the button does nothing
-([research](tv-research.md#nativetv-home-on-webos-10-g5-webos-1031)).
+([research](tv-research.md#native-tv-home-on-webos-10-g5-webos-1031)).
 A server finding it mounted with a manifest sam has not read, as after an
 upgrade or an interrupted reread, checks sam's copy and has it read again. If sam
 does not report the home category, LG's Home is put back and the switch fails.

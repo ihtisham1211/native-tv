@@ -14,13 +14,15 @@ html,body{margin:0;height:100%;background:#000;overflow:hidden;cursor:none}
  * LG's Home, as the TV opens it: mounted over LG's Home under its id
  * (src/daemon/home_takeover_*). It has no screen. It asks the app manager for
  * the native client's Home screen and shows black until the client is in front.
+ * The client is the Native Tv tile's app, com.tvweb.dashboard: the one native
+ * app sam is told of, which opens the dashboard unless a screen is named.
  *
  * There is no page to fall back to. A launch the app manager refuses is asked
  * again; the server decides when the client has failed for good, and then gives
  * LG's Home its place back (src/daemon/home_orchestrator.cpp).
  */
 (function () {
-  var APP_ID = 'com.tvweb.native';
+  var APP_ID = 'com.tvweb.dashboard';
   var RETRY_MS = 3000;
   // Rewritten to match config.json by the stager and the launcher sync, which
   // both look for this line; the launch does not use it.

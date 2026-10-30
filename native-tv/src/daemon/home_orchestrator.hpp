@@ -17,6 +17,9 @@ struct HomeWatchOptions {
     // How long LG's Home (Native Tv's stub) may be in front before the native
     // client is, a cold start included, before that is counted as an exit.
     long long stubGraceMs = 15000;
+    // How long the stub is left to open the client itself before the server opens
+    // it for it, which also finds out whether sam will.
+    long long stubLaunchMs = 2500;
 };
 
 // Everything the orchestrator reads or asks for. Nothing here is its own: the
@@ -67,11 +70,14 @@ struct HomeOrchestratorDeps {
     std::function<void()> removeLegacyApp;
 
     // The crash watch, off unless all three of these are set. clientRunning:
-    // the native client (com.tvweb.native) is in the app manager's running
+    // the native client (the Native Tv tile's app) is in the app manager's running
     // list, 1 yes, 0 no, -1 unknown. release: LG's Home back in its place with
     // home.json left as it is (what tvwebctl does when the server stops):
     // {ok, error}. nowMs: a steady clock.
     std::function<int()> clientRunning;
+    // Opens the client at its Home screen, as the stub does: {ok, error, unregistered?}
+    // where sam answered (not ok: it refused), an invalid Json where it did not.
+    std::function<Json()> launchClient;
     std::function<Json()> release;
     std::function<long long()> nowMs;
     HomeWatchOptions watch;
@@ -124,6 +130,7 @@ class HomeOrchestrator {
     // two minutes give LG's Home back.
     void watchForeground(const std::string &was, const std::string &now);
     void checkClientLeft(const std::string &next);
+    void stubLaunch(unsigned long long token);
     void armStub();
     void stubExpired(unsigned long long token);
     bool mayWatch();

@@ -55,6 +55,11 @@ class Group {
     bool fade_, lift_, scale_;
 };
 
+// A filled circle of the given box.
+void packed(Scene &scene, Rect area, Color fill) {
+    scene.shape(area, fill, area.h / 2);
+}
+
 // Focus ring and shadow on the node itself; both fade with focus and vanish at 0.
 void applyFocus(Node &node, const focus::Look &look) {
     if (look.ringAlpha <= 0)
@@ -715,6 +720,25 @@ void keyCap(Paint paint, const KeyCap &key) {
                  key.label, style, ink);
     }
     hit(scene, focus::scaledAbout(key.rest, scaleNow), key.id);
+}
+
+void spinner(Paint paint, Rect box, double timeMs, Color ink, float alphaFactor) {
+    constexpr int dots = 12;
+    constexpr double turnMs = 1250;
+    constexpr float pi = 3.14159265358979f;
+    if (alphaFactor <= .002f)
+        return;
+    float head = static_cast<float>(std::fmod(timeMs, turnMs) / turnMs * dots);
+    float radius = std::min(box.w, box.h) / 2, dot = radius * .24f;
+    float cx = box.x + box.w / 2, cy = box.y + box.h / 2;
+    for (int i = 0; i < dots; ++i) {
+        // How far behind the head this dot is, in dots: the head is full, the tail a faint ring.
+        float behind = std::fmod(head - static_cast<float>(i) + dots, static_cast<float>(dots));
+        float strength = std::max(.14f, 1 - behind / 9);
+        float angle = -pi / 2 + 2 * pi * static_cast<float>(i) / dots;
+        float x = cx + std::cos(angle) * (radius - dot), y = cy + std::sin(angle) * (radius - dot);
+        packed(paint.scene, {x - dot, y - dot, 2 * dot, 2 * dot}, faded(ink, strength * alphaFactor));
+    }
 }
 } // namespace kit
 } // namespace nativetv

@@ -1153,17 +1153,6 @@ int main(int argc, char **argv) {
                     logger.info("Home takeover skipped: firmware is unsupported or experimental Home is disabled");
                     return 4;
                 }
-                // The stub that takes LG's Home's place has no page of its own to
-                // show, so the native client has to be able to draw first.
-                HomeProbeGate probeGate(children, homeProbeOptions(loaded.config.document,
-                                                                   systemRoot, dataDirectory()));
-                const Json probe = probeGate.verdict(false);
-                if (!probe["ok"].boolean()) {
-                    logger.info("Home takeover skipped: the native client's probe says " +
-                                probe["class"].string() + " (exit " +
-                                std::to_string(static_cast<int>(probe["exit"].number(-1))) + ")");
-                    return 4;
-                }
                 if (!blankStartLayout &&
                     homeSettings.value["hideLgHomeAtStart"].boolean() &&
                     homeScreenManager->isWebos9())
@@ -1171,6 +1160,7 @@ int main(int argc, char **argv) {
             }
             std::thread loopThread([&loop]() { loop.run(); });
             Json result;
+            Json refusal;
             try {
                 CommandPolicyContext context;
                 context.allowControl = loaded.config.allowControl;
@@ -1178,7 +1168,18 @@ int main(int argc, char **argv) {
                 const Json firmware = loaded.config.document["device"]["sw_version"];
                 if (firmware.isString())
                     context.firmwareVersion = firmware.string();
-                if (restoreHome)
+                if (takeoverHome) {
+                    // The stub that takes LG's Home's place has no page of its own to
+                    // show, so sam has to know the client and it has to be able to draw.
+                    HomeProbeGate probeGate(children, homeProbeOptions(loaded.config.document,
+                                                                       systemRoot, dataDirectory()),
+                                            [&luna]() { return homeClientRegistration(luna); });
+                    const Json probe = probeGate.verdict(false);
+                    if (!probe["ok"].boolean()) refusal = probe;
+                }
+                if (refusal.valid()) {
+                    // Nothing to take; the result below is not read.
+                } else if (restoreHome)
                     result = restoreHomeScreen(*homeScreenManager, commandPolicy, context);
                 else if (takeoverHome)
                     result = homeTakeoverLifecycleManager->takeover(blankStartLayout, context);
@@ -1191,6 +1192,12 @@ int main(int argc, char **argv) {
             }
             loop.stop();
             loopThread.join();
+            if (refusal.valid()) {
+                logger.info("Home takeover skipped: the native client is refused, " +
+                            refusal["class"].string() + " (exit " +
+                            std::to_string(static_cast<int>(refusal["exit"].number(-1))) + ")");
+                return 4;
+            }
             if (!result["ok"].isBoolean() || !result["ok"].boolean())
                 throw std::runtime_error(result["error"].isString()
                     ? result["error"].string()
@@ -1909,6 +1916,9 @@ int main(int argc, char **argv) {
             if (retiredGone)
                 logger.info("server: removed " + std::to_string(retiredGone) +
                             " file(s) an earlier release installed");
+            if (removeRetiredApps((systemRoot == "/" ? std::string() : systemRoot) +
+                                  "/media/developer/apps/usr/palm"))
+                logger.info("apps: removed the developer client com.tvweb.native an earlier release staged");
 
             // The launcher apps carry the dashboard port in their page; an
             // update or a changed "port" leaves it out of step, so it is

@@ -51,7 +51,7 @@ Json homeStatusProjection(const Json &rawDocument,
                           const std::string &webosVersion,
                           bool allowExperimental, bool active,
                           bool lgHomeOpen, bool historyEnabled,
-                          const Json &wallpapers) {
+                          const Json &wallpapers, const std::string &mainProfileName) {
     const Json document = normalizeHomeDocument(rawDocument);
     const Json supported = homeStatusSupported(webosVersion, allowExperimental);
     Json result = Json::object();
@@ -73,7 +73,7 @@ Json homeStatusProjection(const Json &rawDocument,
     result.set("history", Json::flag(historyEnabled));
     result.set("wallpapers", wallpapers);
     result.set("colourPresets", colourPresets());
-    result.set("profiles", homeProfileList(document));
+    result.set("profiles", homeProfileList(document, mainProfileName));
     result.set("profile", document["profile"]);
     result.set("profileColours", profileColours());
     result.set("layout", homeLayout(document));

@@ -4,6 +4,7 @@
 #include "ui/kit/widgets.hpp"
 #include "ui/motion/motion.hpp"
 #include <functional>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -14,6 +15,7 @@
 // engine, the top bar and the wall: a screen draws its page content and answers keys.
 namespace nativetv {
 struct ViewState;
+class Optimistic;
 
 enum class Key { Left, Right, Up, Down, Ok, Back, Red, PageUp, PageDown, Delete };
 
@@ -39,6 +41,12 @@ class ScreenHost {
     virtual std::string cameFrom() const {
         return std::string();
     }
+    // What a screen keeps for its next opening, under a key of its own ("quick.stats"): the
+    // last values it read, so it can show them at once and read again behind them.
+    virtual std::map<std::string, Json> &memory() = 0;
+    // The one way to change something on the TV or the server: the value shows at once and the
+    // write is sent, ordered, retried and taken back behind it (optimistic.hpp).
+    virtual Optimistic &optimistic() = 0;
 };
 
 class ScreenView {

@@ -99,7 +99,7 @@ When Native Tv is installed, opening the app on the TV for the first time starts
 
 *Choosing whether the web dashboard is open to devices on the home network or TV-local only.*
 
-The wizard guides you through three key choices:
+The wizard asks you to name the TV (it suggests its model's series, such as `B3`) and then guides you through three key choices:
 
 * **Web dashboard access**: Choose between opening the web dashboard to phones and computers on your home network, or keeping it private to this TV only (`127.0.0.1`).
 * **Home Assistant integration**: Connect your TV to Home Assistant via MQTT. The TV displays a QR code to scan with your phone, allowing you to enter your MQTT broker credentials easily from your mobile browser without typing on the TV remote. An on-screen keyboard beside the code takes them from the remote instead.

@@ -63,6 +63,16 @@ void reply(Application &app, const std::string &channel, const std::string &json
     response.bytes = json;
     app.response(response);
 }
+// The answer to a write the optimistic layer sent: it ignores any but the newest.
+void answerWrite(Transport &transport, Application &app, const std::string &key, const std::string &json,
+                 long status = 200) {
+    Response response;
+    response.channel = "w:" + key;
+    response.generation = transport.revisions["w:" + key];
+    response.status = status;
+    response.bytes = json;
+    app.response(response);
+}
 void fail(Application &app, const std::string &channel) {
     Response response;
     response.channel = channel;
@@ -81,7 +91,7 @@ uint32_t run(Application &app, uint32_t from, uint32_t ms) {
 // What /api/setup says. `standby`: the TV has LG's Always-on.
 std::string setupState(bool open = false, bool standby = true, const char *haState = "unknown",
                        const char *handoff = "", bool demo = false, bool always = false) {
-    std::string text = std::string("{\"ok\":true,\"needed\":true,\"network\":") +
+    std::string text = std::string("{\"ok\":true,\"needed\":true,\"model\":\"OLED65B3PUA\",\"network\":") +
                        (open ? "true" : "false") + ",\"token\":false,\"homeAssistant\":{\"state\":\"" +
                        haState + "\",\"configured\":" + (std::string(haState) == "connected" ? "true" : "false") +
                        "},\"handoff\":" + (*handoff ? std::string("\"") + handoff + "\"" : "null");
@@ -133,6 +143,16 @@ struct Fixture {
         if (!text.empty())
             app.input(text);
         pressDone();
+    }
+    // Welcome, then the name as it stands: the first question.
+    void toNetwork() {
+        press(Key::Ok);
+        pressDone();
+        advance(450);
+    }
+    void answerWrite(const std::string &key, const std::string &json) {
+        ::answerWrite(transport, app, key, json);
+        advance(100);
     }
     // The server's reply to every request of a channel not yet answered, as `json`.
     void answer(const std::string &channel, const std::string &json) {
@@ -320,21 +340,32 @@ int main() {
         {
             Json state = Json::parse(setupState());
             SetupPage network = setupPage(SetupStep::Network, state, false, false);
-            check(network.step == "Step 1 of 3" && network.choices.size() == 2 && network.selected == 0 &&
-                      network.dots == 2,
-                  "The network page is step 1 of 3 on a TV with Always-on");
+            check(network.step == "Step 2 of 4" && network.choices.size() == 2 && network.selected == 0 &&
+                      network.dots == 3,
+                  "The network page is step 2 of 4 on a TV with Always-on: the name comes first");
+            SetupPage name = setupPage(SetupStep::Name, state, false, false);
+            check(name.step == "Step 1 of 4" && name.title == "Name this TV" && name.dots == 2 &&
+                      setupDefaultName(state) == "B3" && setupDefaultName(Json::object()) == "LGTV",
+                  "The name page is step 1, and the default comes from the TV's model");
+            check(nameBody("Den")["action"].string() == "rename" && nameBody("Den")["id"].string() == "main" &&
+                      nameBody("Den")["name"].string() == "Den",
+                  "The name is written as the profile editor writes a rename");
             check(setupPage(SetupStep::Network, state, true, false).selected == 1,
                   "Once answered, a closed network preselects 'only on this TV'");
             check(setupPage(SetupStep::Network, Json::parse(setupState(false, false)), false, false).step ==
-                      "Step 1 of 2",
-                  "Without Always-on the flow is two steps");
+                      "Step 2 of 3",
+                  "Without Always-on the flow is three steps with the name");
             check(setupPage(SetupStep::Handoff, state, false, true).dots == 0,
                   "From Settings the page has no dots");
             SetupPage summary = setupPage(SetupStep::Summary, Json::parse(setupState(true, true, "connected", "", false, true)),
                                           true, false);
             check(summary.choices.size() == 4 && summary.choices[1].value == "On" &&
-                      summary.choices[2].value == "Connected" && summary.choices[3].on && summary.dots == 5,
+                      summary.choices[2].value == "Connected" && summary.choices[3].on && summary.dots == 6,
                   "The summary lists what was chosen");
+            SetupPage named = setupPage(SetupStep::Summary, Json::parse(setupState()), true, false, "Den");
+            check(named.choices.size() == 5 && named.choices[0].label == "TV name" &&
+                      named.choices[0].value == "Den",
+                  "and the name first");
             check(brokerProblem("", "1883") != "" && brokerProblem("host", "0") != "" &&
                       brokerProblem("host", "70000") != "" && brokerProblem("host", "abc") != "" &&
                       brokerProblem("host", "1883").empty(),
@@ -351,6 +382,44 @@ int main() {
         check(makeSetupScreen("home") == nullptr && makeSetupScreen("setup:nonsense") == nullptr &&
                   makeSetupScreen("setup:restarting") == nullptr && makeSetupScreen("setup:ha") != nullptr,
               "The factory answers only for the steps a route can name");
+
+        // ---- Whatever the client is opened on, a fresh install opens setup first -----------------
+        for (const char *launched : {"dashboard", "home", "dashboard:settings", "quick"}) {
+            Transport transport;
+            Application app(transport, launched);
+            check(transport.count("caps") == 1, "The client asks the server whether setup is needed");
+            reply(app, "caps", R"({"ok":true,"setupNeeded":true})");
+            check(app.screenName() == "setup:welcome",
+                  "A server that says setup is needed opens it, whichever screen was asked for");
+        }
+        {
+            Transport transport;
+            Application app(transport, "dashboard");
+            reply(app, "caps", R"({"ok":true,"setupNeeded":false})");
+            check(app.screenName() != "setup:welcome" && app.screenName().compare(0, 6, "setup:") != 0,
+                  "A server that says setup is done leaves the screen alone");
+        }
+        {
+            // Settings' own entry to the phone link is where the person was sent: it stays.
+            Transport transport;
+            Application app(transport, "setup:handoff");
+            reply(app, "caps", R"({"ok":true,"setupNeeded":true})");
+            check(app.screenName() == "setup:handoff", "The Settings entry is not sent back to the welcome page");
+        }
+        {
+            // A server that is not up when the client opens is asked again, so the answer still comes.
+            Transport transport;
+            Application app(transport, "dashboard");
+            fail(app, "caps");
+            uint32_t clock = run(app, 16, 1500);
+            check(transport.count("caps") == 1, "(nothing yet: it waits)");
+            clock = run(app, clock, 1200);
+            check(transport.count("caps") == 2, "A caps read that failed is asked again after two seconds");
+            reply(app, "caps", R"({"ok":true,"setupNeeded":true})");
+            check(app.screenName() == "setup:welcome", "and the late answer opens setup");
+            run(app, clock, 4200);
+            check(transport.count("caps") == 2, "Once answered it is not asked again");
+        }
 
         // ---- A server that does not answer does not trap the person --------------------------------
         {
@@ -377,14 +446,42 @@ int main() {
             reply(app, "setup:state", setupState());
             clock = run(app, clock, 600);
             check(app.shows("Your TV, your rules.") && app.shows("Get started") &&
-                      app.shows("Three quick choices first"),
-                  "The welcome page names the three choices on a TV with Always-on");
+                      app.shows("Four quick choices first"),
+                  "The welcome page names the four choices on a TV with Always-on");
             check(!app.frame().nodes.empty(), "The welcome page draws");
+            auto doneKey = [&] {
+                for (int i = 0; i < 3; ++i) {
+                    app.key(Key::Down);
+                    clock = run(app, clock, 40);
+                }
+                for (int i = 0; i < 4; ++i) {
+                    app.key(Key::Right);
+                    clock = run(app, clock, 40);
+                }
+                app.key(Key::Ok);
+                clock = run(app, clock, 100);
+            };
             app.key(Key::Ok);
             clock = run(app, clock, 500);
+            check(app.screenName() == "setup:name" && app.shows("Name this TV") && app.shows("Step 1 of 4") &&
+                      app.snapshot()["typed"].string() == "B3",
+                  "OK on 'Get started' opens the name, prefilled with the TV's series");
+            app.key(Key::Delete);
+            app.key(Key::Delete);
+            app.input("Den");
+            doneKey();
+            const auto *renamed = transport.last("w:setup:name");
+            check(renamed && renamed->write && renamed->operation == Operation::SetProfile &&
+                      renamed->body["action"].string() == "rename" && renamed->body["id"].string() == "main" &&
+                      renamed->body["name"].string() == "Den",
+                  "Next writes the name as the main profile's");
+            clock = run(app, clock, 500);
             check(app.screenName() == "setup:network" && app.shows("Turn on the web dashboard?") &&
-                      app.shows("Step 1 of 3"),
-                  "OK on 'Get started' opens the network question, step 1 of 3");
+                      app.shows("Step 2 of 4"),
+                  "and the network question comes at once, step 2 of 4, before the server has answered");
+            answerWrite(transport, app, "setup:name",
+                        R"({"ok":true,"profiles":[{"id":"main","name":"Den","active":true}]})");
+            clock = run(app, clock, 200);
             app.key(Key::Down);
             clock = run(app, clock, 400);
             check(app.snapshot()["selected"].number() == 1 && app.shows("Nothing else on your network"),
@@ -403,12 +500,12 @@ int main() {
             app.key(Key::Ok);
             clock = run(app, clock, 400);
             check(app.screenName() == "setup:handoff", "'Set it up on my phone' opens the handoff");
-            const auto *handoffWrite = transport.last("setup:handoff");
+            const auto *handoffWrite = transport.last("w:setup:handoff");
             check(handoffWrite && handoffWrite->write && handoffWrite->operation == Operation::Setup &&
                       handoffWrite->body["action"].string() == "handoff",
                   "The link is asked for with the handoff action");
             check(imageNodeWith(app.frame(), "qr:") == nullptr, "No code is drawn before the link answers");
-            reply(app, "setup:handoff", kHandoffReply);
+            answerWrite(transport, app, "setup:handoff", kHandoffReply);
             clock = run(app, clock, 700);
             const Node *qr = imageNodeWith(app.frame(), "qr:");
             check(qr && qr->value == std::string("qr:") + kLink,
@@ -420,18 +517,6 @@ int main() {
                   "The address and the waiting line are shown");
             check(app.shows("Or enter the broker address here"), "The TV's own entry is offered");
             // Typed on the TV: address, port, user, password.
-            auto doneKey = [&] {
-                for (int i = 0; i < 3; ++i) {
-                    app.key(Key::Down);
-                    clock = run(app, clock, 40);
-                }
-                for (int i = 0; i < 4; ++i) {
-                    app.key(Key::Right);
-                    clock = run(app, clock, 40);
-                }
-                app.key(Key::Ok);
-                clock = run(app, clock, 100);
-            };
             app.input("192.168.1.10");
             check(app.snapshot()["typed"].string() == "192.168.1.10", "Typed text lands in the field");
             doneKey();
@@ -449,7 +534,7 @@ int main() {
                       app.snapshot()["link"].string() == "sending",
                   "Connect reads the server's settings first");
             reply(app, "setup:settings", kSettings);
-            const auto *saved = transport.last("setup:save");
+            const auto *saved = transport.last("w:setup:save");
             check(saved && saved->write && saved->operation == Operation::Settings &&
                       saved->body["mqtt"]["host"].string() == "192.168.1.10" &&
                       saved->body["mqtt"]["port"].number() == 1883 &&
@@ -458,7 +543,7 @@ int main() {
                       saved->body["mqtt"]["enabled"].boolean() &&
                       saved->body["device"]["id"].string() == "lg_tv",
                   "and writes them back with the broker filled in");
-            reply(app, "setup:save", R"({"ok":true,"restarting":true})");
+            answerWrite(transport, app, "setup:save", R"({"ok":true,"restarting":true})");
             check(transport.last("setup:stop") == nullptr,
                   "The restart that takes the broker ends the phone link; nothing else is sent");
             clock = run(app, clock, 2200);
@@ -471,35 +556,69 @@ int main() {
             clock = run(app, clock, 600);
             check(app.shows("Connected"), "It says Connected");
             clock = run(app, clock, 1800);
-            check(app.screenName() == "setup:standby" && app.shows("Step 3 of 3"),
+            check(app.screenName() == "setup:standby" && app.shows("Step 4 of 4"),
                   "and moves on by itself to the standby question");
             // Standby: the choice before is 'No' (Always-on is off); choose 'Yes'.
             check(app.snapshot()["selected"].number() == 1, "The current setting is preselected");
             app.key(Key::Up);
             clock = run(app, clock, 300);
             app.key(Key::Ok);
-            const auto *standby = transport.last("setup:standby");
+            const auto *standby = transport.last("w:setup:standby");
             check(standby && standby->body["action"].string() == "alwaysReady" &&
                       standby->body["on"].boolean(),
                   "'Yes, keep it connected' writes Always-on on");
-            check(app.screenName() == "setup:standby", "The page waits for the answer");
-            reply(app, "setup:standby", R"({"ok":true})");
             clock = run(app, clock, 500);
             check(app.screenName() == "setup:summary" && app.shows("Ready to go") &&
-                      app.shows("Stays connected when off") && app.shows("Open dashboard"),
-                  "then shows what was chosen");
+                      app.shows("Stays connected when off") && app.shows("Open dashboard") &&
+                      app.shows("Den"),
+                  "and the summary shows what was chosen, the name too, before the server has answered");
+            answerWrite(transport, app, "setup:standby", R"({"ok":true})");
+            clock = run(app, clock, 200);
             app.key(Key::Ok);
-            const auto *done = transport.last("setup:done");
+            const auto *done = transport.last("w:setup:done");
             check(done && done->body["action"].string() == "done" && !done->body.has("demo"),
                   "Open dashboard marks setup done");
-            reply(app, "setup:done", R"({"ok":true})");
-            check(app.screenName() == "dashboard:system", "and leaves for the dashboard");
+            check(app.screenName() == "dashboard:system", "and leaves for the dashboard at once");
+            answerWrite(transport, app, "setup:done", R"({"ok":true})");
+        }
+
+        // ---- Choices the server refuses are taken back, with a message -----------------------------
+        {
+            Fixture f(setupState(false, true, "unknown", "", false, false));
+            f.press(Key::Ok);
+            f.app.key(Key::Delete);
+            f.app.key(Key::Delete);
+            f.app.input("Kitchen");
+            f.pressDone();
+            f.advance(300);
+            check(f.screen() == "setup:network" && f.transport.last("w:setup:name") != nullptr,
+                  "A name is written and setup goes on");
+            f.answerWrite("setup:name", R"({"ok":false,"error":"that name is refused"})");
+            f.advance(200);
+            check(f.app.shows("that name is refused"), "The refusal is said");
+            f.press(Key::Down);
+            f.press(Key::Ok); // the dashboard stays closed
+            f.press(Key::Down);
+            f.press(Key::Ok); // not now
+            f.press(Key::Up);
+            f.press(Key::Ok); // keep it connected
+            f.advance(300);
+            check(f.screen() == "setup:summary" && f.app.shows("B3"),
+                  "The name on the summary is the TV's own again");
+            f.answerWrite("setup:standby", R"({"ok":false,"error":"controls disabled in config"})");
+            f.advance(300);
+            check(f.app.shows("controls disabled in config"), "A refused standby is said too");
+            bool off = false;
+            for (const auto &row : f.app.frame().nodes)
+                if (row.kind == Node::Kind::Text && row.value == "Off")
+                    off = true;
+            check(f.app.shows("Stays connected when off") && off, "and the summary goes back to Off");
         }
 
         // ---- A restart to apply the network choice, then trouble ---------------------------------
         {
             Fixture f;
-            f.press(Key::Ok);
+            f.toNetwork();
             f.press(Key::Ok); // 'Yes, on phones and computers': the server is closed, so it changes
             const auto *network = f.transport.last("setup:network");
             check(network && network->body["action"].string() == "network" &&
@@ -525,7 +644,7 @@ int main() {
         }
         {
             Fixture f;
-            f.press(Key::Ok);
+            f.toNetwork();
             f.press(Key::Ok);
             f.answer("setup:network", R"({"ok":true})");
             size_t handled = f.transport.count("setup:state");
@@ -556,20 +675,20 @@ int main() {
         // ---- The phone link: refused, expired, never connected, connected -------------------------
         {
             Fixture f;
-            f.press(Key::Ok);
+            f.toNetwork();
             f.press(Key::Down);
             f.press(Key::Ok);
             f.press(Key::Ok); // handoff
-            f.answer("setup:handoff", R"({"ok":false,"error":"busy"})");
+            f.answerWrite("setup:handoff", R"({"ok":false,"error":"busy"})");
             f.advance(500);
             check(f.app.snapshot()["link"].string() == "failed" &&
                       f.app.shows("The link could not be opened.") && f.app.shows("Try again") &&
                       f.app.shows("Skip for now") && imageNodeWith(f.app.frame(), "qr:") == nullptr,
                   "A refused link says so and offers a new code or a way on");
-            size_t asked = f.transport.count("setup:handoff");
+            size_t asked = f.transport.count("w:setup:handoff");
             f.press(Key::Ok);
-            check(f.transport.count("setup:handoff") == asked + 1, "Try again asks for a new code");
-            f.answer("setup:handoff", kHandoffReply);
+            check(f.transport.count("w:setup:handoff") == asked + 1, "Try again asks for a new code");
+            f.answerWrite("setup:handoff", kHandoffReply);
             f.advance(600);
             check(f.app.snapshot()["link"].string() == "ready", "The new code is shown");
             // Expired: the server no longer has a link, twice running.
@@ -589,11 +708,11 @@ int main() {
         }
         {
             Fixture f;
-            f.press(Key::Ok);
+            f.toNetwork();
             f.press(Key::Down);
             f.press(Key::Ok);
             f.press(Key::Ok);
-            f.answer("setup:handoff", kHandoffReply);
+            f.answerWrite("setup:handoff", kHandoffReply);
             f.advance(600);
             size_t polls = f.transport.count("setup:poll");
             check(f.waitFor("setup:poll", polls, 2500), "Polling");
@@ -611,11 +730,11 @@ int main() {
         }
         {
             Fixture f;
-            f.press(Key::Ok);
+            f.toNetwork();
             f.press(Key::Down);
             f.press(Key::Ok);
             f.press(Key::Ok);
-            f.answer("setup:handoff", kHandoffReply);
+            f.answerWrite("setup:handoff", kHandoffReply);
             f.advance(600);
             size_t polls = f.transport.count("setup:poll");
             check(f.waitFor("setup:poll", polls, 2500), "Polling");
@@ -634,14 +753,16 @@ int main() {
         // ---- Back and Left ------------------------------------------------------------------------
         {
             Fixture f;
-            f.press(Key::Ok);
+            f.toNetwork();
             f.press(Key::Left);
-            check(f.screen() == "setup:welcome", "Left goes back, as it did on the web page");
-            f.press(Key::Ok);
+            check(f.screen() == "setup:name", "Left goes back, as it did on the web page");
+            f.press(Key::Back);
+            check(f.screen() == "setup:welcome", "Back from the name returns to the welcome page");
+            f.toNetwork();
             f.press(Key::Down);
             f.press(Key::Ok);
             f.press(Key::Ok);
-            f.answer("setup:handoff", kHandoffReply);
+            f.answerWrite("setup:handoff", kHandoffReply);
             f.advance(500);
             f.press(Key::Back);
             check(f.screen() == "setup:ha" && f.transport.last("setup:stop") != nullptr,
@@ -652,7 +773,7 @@ int main() {
             f.press(Key::Back);
             check(f.screen() == "setup:ha", "Back from standby returns to the question");
             f.press(Key::Ok, 450);
-            f.answer("setup:handoff", kHandoffReply);
+            f.answerWrite("setup:handoff", kHandoffReply);
             f.press(Key::Back);
             f.press(Key::Down);
             f.press(Key::Ok);
@@ -660,6 +781,7 @@ int main() {
             check(f.screen() == "setup:summary", "Choosing what Always-on already is writes nothing");
             f.press(Key::Back);
             check(f.screen() == "setup:standby", "Back from the summary returns to standby");
+            f.press(Key::Back);
             f.press(Key::Back);
             f.press(Key::Back);
             f.press(Key::Back);
@@ -671,9 +793,9 @@ int main() {
         // ---- A TV without Always-on ---------------------------------------------------------------
         {
             Fixture f(setupState(false, false));
-            check(f.app.shows("Two quick choices first"), "Two choices are promised");
-            f.press(Key::Ok);
-            check(f.app.shows("Step 1 of 2"), "and counted");
+            check(f.app.shows("Three quick choices first"), "Three choices are promised");
+            f.toNetwork();
+            check(f.app.shows("Step 2 of 3"), "and counted");
             f.press(Key::Down);
             f.press(Key::Ok);
             f.press(Key::Down);
@@ -687,9 +809,9 @@ int main() {
         {
             Fixture f(setupState(), "setup:handoff");
             check(f.screen() == "setup:handoff" && f.app.snapshot()["fromSettings"].boolean() &&
-                      f.transport.last("setup:handoff") != nullptr,
+                      f.transport.last("w:setup:handoff") != nullptr,
                   "Settings opens the phone link directly");
-            f.answer("setup:handoff", kHandoffReply);
+            f.answerWrite("setup:handoff", kHandoffReply);
             f.advance(600);
             check(f.app.shows("Back to Settings") && !f.app.shows("Skip for now"),
                   "The hints say Back returns to Settings");
@@ -699,7 +821,7 @@ int main() {
         }
         {
             Fixture f(setupState(), "setup:handoff");
-            f.answer("setup:handoff", kHandoffReply);
+            f.answerWrite("setup:handoff", kHandoffReply);
             f.advance(600);
             size_t polls = f.transport.count("setup:poll");
             check(f.waitFor("setup:poll", polls, 2500), "Polling");
@@ -714,7 +836,7 @@ int main() {
         // ---- The dry run ---------------------------------------------------------------------------
         {
             Fixture f(setupState(false, true, "unknown", "", true));
-            f.press(Key::Ok);
+            f.toNetwork();
             f.press(Key::Ok); // open
             const auto *network = f.transport.last("setup:network");
             size_t asked = f.transport.count("setup:state");
@@ -728,21 +850,21 @@ int main() {
             f.press(Key::Ok);
             f.press(Key::Up);
             f.press(Key::Ok);
-            check(f.transport.last("setup:standby")->body["demo"].boolean(), "Standby too");
-            f.answer("setup:standby", R"({"ok":true})");
+            check(f.transport.last("w:setup:standby")->body["demo"].boolean(), "Standby too");
+            f.answerWrite("setup:standby", R"({"ok":true})");
             f.advance(500);
             f.press(Key::Ok);
-            check(f.transport.last("setup:done")->body["demo"].boolean(), "and done");
+            check(f.transport.last("w:setup:done")->body["demo"].boolean(), "and done");
         }
 
         // ---- Typing on the TV: mistakes, going back, the server's refusal -------------------------
         {
             Fixture f;
-            f.press(Key::Ok);
+            f.toNetwork();
             f.press(Key::Down);
             f.press(Key::Ok);
             f.press(Key::Ok);
-            f.answer("setup:handoff", kHandoffReply);
+            f.answerWrite("setup:handoff", kHandoffReply);
             f.advance(500);
             f.pressDone(); // no address
             f.pressDone();
@@ -767,7 +889,7 @@ int main() {
             f.pressDone();
             check(f.transport.last("setup:settings") != nullptr, "A valid address goes to the server");
             f.answer("setup:settings", kSettings);
-            f.answer("setup:save", R"({"ok":false,"error":"controls disabled in config"})");
+            f.answerWrite("setup:save", R"({"ok":false,"error":"controls disabled in config"})");
             f.advance(300);
             check(f.app.snapshot()["link"].string() == "ready" &&
                       f.app.shows("controls disabled in config"),
@@ -777,7 +899,7 @@ int main() {
         // ---- Pointer and hardware keys --------------------------------------------------------------
         {
             Fixture f;
-            f.press(Key::Ok);
+            f.toNetwork();
             check(hasHit(f.app.frame(), "setup:row:0") && hasHit(f.app.frame(), "setup:row:1"),
                   "Each choice is a hit");
             f.app.activate("setup:row:1");
@@ -790,7 +912,7 @@ int main() {
             f.advance(300);
             f.app.activate("setup:row:0");
             f.advance(500);
-            f.answer("setup:handoff", kHandoffReply);
+            f.answerWrite("setup:handoff", kHandoffReply);
             f.advance(500);
             check(hasHit(f.app.frame(), "setup:kb:1:2"), "Each key is a hit");
             f.app.activate("setup:kb:1:2");

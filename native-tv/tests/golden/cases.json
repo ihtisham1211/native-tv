@@ -206,8 +206,8 @@
       ]
     },
     {
-      "name": "setup-network",
-      "time": 3200,
+      "name": "setup-name",
+      "time": 3000,
       "fixture": "setup",
       "args": [
         "--screen",
@@ -216,6 +216,53 @@
       "script": [
         {
           "at": 1500,
+          "key": "ok"
+        }
+      ]
+    },
+    {
+      "name": "setup-network",
+      "time": 3600,
+      "fixture": "setup",
+      "args": [
+        "--screen",
+        "setup:welcome"
+      ],
+      "script": [
+        {
+          "at": 1500,
+          "key": "ok"
+        },
+        {
+          "at": 2300,
+          "key": "down"
+        },
+        {
+          "at": 2340,
+          "key": "down"
+        },
+        {
+          "at": 2380,
+          "key": "down"
+        },
+        {
+          "at": 2420,
+          "key": "right"
+        },
+        {
+          "at": 2460,
+          "key": "right"
+        },
+        {
+          "at": 2500,
+          "key": "right"
+        },
+        {
+          "at": 2540,
+          "key": "right"
+        },
+        {
+          "at": 2580,
           "key": "ok"
         }
       ]

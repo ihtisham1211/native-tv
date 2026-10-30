@@ -28,7 +28,7 @@ struct StatusPanel {
     Rect rest;
     std::string icon, title, message;
     bool error = false;
-    float sweep = -1; // 0..1 position of the loading bar's light, or < 0 for none
+    double loadingMs = -1; // the frame's clock while a spinner turns in the panel, or < 0 for none
     Enter enter;
 };
 void statusPanel(Paint paint, const StatusPanel &panel);

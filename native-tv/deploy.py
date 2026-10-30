@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Stage the native app and managed runtime, optionally running a bounded TV smoke test."""
+"""Stage the native client in the Native Tv tile's app folder with the managed runtime, optionally running a bounded TV smoke test.
+
+The client is the one native app sam is told of (assets/dashboard-app, added by the
+dashboard's "App on the TV's home screen" or lifecycle/deploy.sh); this puts a development
+build over its files. The server brings the folder back to the release's copy at its next
+start, when the two differ and the app is not open."""
 import argparse
 import io
 import json
@@ -11,7 +16,7 @@ import tempfile
 from tools.runtime_payload import stage as stage_runtime, stage_client
 
 ROOT = Path(__file__).resolve().parent
-APP_ID = "com.tvweb.native"
+APP_ID = "com.tvweb.dashboard"
 APP = "/media/developer/apps/usr/palm/applications/" + APP_ID
 RUNTIME = "/var/lib/tvweb/native"
 
@@ -63,8 +68,10 @@ def main():
             for item in client_manifest["files"]:
                 if item["path"].startswith("assets/"):
                     archive.add(Path(folder) / item["path"], arcname=item["path"])
-            archive.add(ROOT / "appinfo.json", arcname="appinfo.json")
-            archive.add(ROOT / "assets/icon.png", arcname="assets/icon.png")
+            tile = ROOT / "assets/dashboard-app"
+            archive.add(tile / "appinfo.json", arcname="appinfo.json")
+            for icon in ("icon80.png", "icon130.png"):
+                archive.add(tile / "assets" / icon, arcname="assets/" + icon)
             if args.script:
                 if not isinstance(json.loads(args.script.read_text()), list):
                     parser.error("The smoke script must be a JSON array")

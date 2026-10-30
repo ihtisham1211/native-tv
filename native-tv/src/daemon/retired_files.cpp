@@ -1,5 +1,8 @@
 #include "daemon/retired_files.hpp"
+#include <ftw.h>
+#include <sys/stat.h>
 #include <unistd.h>
+#include <cstdio>
 
 namespace nativetv {
 namespace daemon {
@@ -46,7 +49,33 @@ const char *const kFiles[] = {
 const char *const kFolders[] = {"assets/i18n", "assets/google-tv/components",
                                 "assets/google-tv/pages/kit", "lib"};
 
+// The developer client, com.tvweb.native, which only deploy.py ever put on the
+// TV and which sam was never told of. The Home stub opens the Native Tv tile's
+// app (com.tvweb.dashboard) instead.
+const char *const kApps[] = {"com.tvweb.native"};
+
+int removeEntry(const char *path, const struct stat *, int, struct FTW *) {
+    return remove(path);
+}
+
 } // namespace
+
+size_t removeRetiredApps(const std::string &appsRoot) {
+    size_t gone = 0;
+    for (const char *id : kApps) {
+        bool found = false;
+        for (const char *folder : {"/applications/", "/packages/"}) {
+            const std::string path = appsRoot + folder + id;
+            struct stat info;
+            if (lstat(path.c_str(), &info) != 0) continue;
+            found = true;
+            // Depth first, links not followed: a link in it goes, not what it points at.
+            (void)nftw(path.c_str(), removeEntry, 16, FTW_DEPTH | FTW_PHYS);
+        }
+        if (found) ++gone;
+    }
+    return gone;
+}
 
 size_t removeRetiredFiles(const std::string &serverDirectory) {
     size_t gone = 0;

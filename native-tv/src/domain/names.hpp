@@ -6,6 +6,9 @@
 namespace nativetv {
 namespace names {
 std::string snakeCase(const std::string &value);
+// What a TV is called when its owner has not named it: the series of its model, "B3" for
+// OLED65B3PUA, "C2" for OLED42C24LA, "UQ8000" for 55UQ8000PUA; "LGTV" when the model is unknown.
+std::string tvDefaultName(const std::string &model);
 std::string mapped(const Json &table, const std::string &value);
 
 Json hdmiPhyMode(const std::string &raw, const Json &tmdsClockKhz = Json());

@@ -197,6 +197,14 @@ int main(int argc, char **argv) {
                 "{\"returnValue\":true,\"configs\":{\"inputMap.videoInputMapIndexInfo0\":["
                 "{\"assignment\":{\"hdmi1\":\"3\",\"hdmi2\":\"2\",\"hdmi3\":\"1\",\"hdmi4\":\"0\"}}]}}");
         }
+    } else if ((uri == "com.webos.applicationManager/getAppInfo" ||
+                uri == "com.webos.applicationManager/launch") &&
+               callPayload["id"].string() == "com.tvweb.dashboard" &&
+               !environment("NATIVETV_FAKE_LUNA_UNREGISTERED").empty() &&
+               ::access(environment("NATIVETV_FAKE_LUNA_UNREGISTERED").c_str(), F_OK) == 0) {
+        // The Native Tv tile taken off the home screen: sam does not know the app, nor open it.
+        reply.set("returnValue", Json::flag(false));
+        reply.set("errorText", Json::text("Invalid appId"));
     } else if (mode == "screen-time" &&
         (uri == "com.webos.notification/createToast" ||
          uri == "com.webos.applicationManager/launch" ||

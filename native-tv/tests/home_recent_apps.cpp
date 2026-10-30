@@ -67,6 +67,7 @@ int main() {
     recent.add(app("com.example.symlink", Json::text("Symlink"), symlinkPath, "", ""));
     recent.add(app("com.webos.app.home", Json::text("LG Home"), firstPath, "", ""));
     recent.add(app("com.tvweb.native", Json::text("Native Home"), firstPath, "", ""));
+    recent.add(app("com.tvweb.dashboard", Json::text("Native Tv"), firstPath, "", ""));
     recent.add(app("com.tvweb.splash", Json::text("Native Splash"), firstPath, "", ""));
     Json invalid = Json::object();
     invalid.set("title", Json::text("Missing app id"));

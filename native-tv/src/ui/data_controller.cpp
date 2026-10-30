@@ -56,6 +56,11 @@ void Application::response(const Response &response) {
         homeBeat(&response);
         return;
     }
+    // The replies to writes are the layer's; reads pass through it and on.
+    if (optimistic_.response(response)) {
+        dirty_ = true;
+        return;
+    }
     if (screen_)
         screen_->response(*this, response);
     if (response.channel == "recents" &&
@@ -130,7 +135,12 @@ void Application::response(const Response &response) {
     }
     if (response.channel == "caps") {
         state_.caps = data;
-        if (data["setupNeeded"].boolean())
+        capsAnswered_ = true;
+        // The rule of the old dashboard page: a server that says setup is needed opens setup first,
+        // whichever screen the client was asked for. A setup screen already open (Settings'
+        // phone link, or setup itself) stays: it is where the person was sent.
+        if (data["setupNeeded"].boolean() &&
+            !(screen_ && screen_->name().compare(0, 6, "setup:") == 0))
             route("setup:welcome");
     } else if (response.channel == "catalogue") {
         state_.catalogue = data;

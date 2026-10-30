@@ -9,6 +9,7 @@
 
 namespace nativetv {
 namespace {
+constexpr uint32_t kCapsCoverMs = 2500;
 struct WallpaperChoice {
     std::string asset;
     float opacity = 0;
@@ -67,7 +68,10 @@ void Application::wallClock(int hour, int minute, int weekday, int day, int mont
     }
 }
 Application::Application(Services &services, const std::string &initial)
-    : services_(services), clock_([this] { return static_cast<double>(now_); }) {
+    : services_(services), initial_(initial),
+      clock_([this] { return static_cast<double>(now_); }),
+      optimistic_(services, [this] { return clock_.nowMs(); },
+                  [this](const std::string &message) { toast(message); }) {
     registerScreens(registry_);
     state_.home.tabs = homeTabs(Json());
     if (initial == "splash") {
@@ -75,6 +79,7 @@ Application::Application(Services &services, const std::string &initial)
         return;
     }
     services_.read("caps", Operation::Capabilities);
+    capsAt_ = 2000;
     route(initial);
 }
 void Application::toast(const std::string &value) {
@@ -83,9 +88,25 @@ void Application::toast(const std::string &value) {
     motion_.play("toast", Tween(0, 1, kit::motion::ms::fast, Easing::out()));
     dirty_ = true;
 }
+// A server that was not ready when the client opened is asked again, so a fresh install still
+// reaches setup, and the ink cover goes once the question has had its 2.5 s.
+void Application::askCaps() {
+    if (capsAnswered_)
+        return;
+    if (static_cast<int32_t>(now_ - capsAt_) >= 0) {
+        services_.read("caps", Operation::Capabilities);
+        capsAt_ = now_ + 2000;
+    }
+    if (holdForCaps_ && now_ >= kCapsCoverMs && now_ < kCapsCoverMs + 100)
+        dirty_ = true;
+}
+bool Application::coveredForCaps() const {
+    return holdForCaps_ && !capsAnswered_ && now_ < kCapsCoverMs;
+}
 void Application::active(bool value) {
     active_ = value;
     if (value) {
+        capsAt_ = std::min(capsAt_, now_ + 300);
         if (state_.screen != Screen::Splash) {
             syncWallpaper();
             refresh();
@@ -106,13 +127,16 @@ bool Application::update(uint32_t now) {
     updateWallpaperTransition();
     if (static_cast<int32_t>(now_ - refreshAt_) >= 0)
         refresh();
+    askCaps();
     if (toastUntil_ && static_cast<int32_t>(now_ - toastUntil_) >= 0) {
         toastUntil_ = 0;
         state_.toast.clear();
         dirty_ = true;
     }
     idleUpdate();
-    bool screenBusy = false;
+    // The layer sends what is due and takes back what timed out; a pending write keeps frames coming.
+    bool changedByWrites = optimistic_.tick();
+    bool screenBusy = optimistic_.active() || changedByWrites;
     if (state_.screen == Screen::Home || isRecents()) {
         homeUpdate();
         homeBeat(nullptr);
@@ -293,6 +317,11 @@ void Application::buildFrame() {
     Frame frame{state_, motion_, static_cast<double>(now_)};
     if (state_.screen == Screen::Splash) {
         drawSplash(paint, now_);
+        return;
+    }
+    // The first frames wait for the server's word on first-run setup (see capsAnswered_).
+    if (coveredForCaps()) {
+        scene.background = kit::color::ink;
         return;
     }
     if (screen_) {

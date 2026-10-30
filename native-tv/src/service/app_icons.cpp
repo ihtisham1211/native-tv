@@ -2,6 +2,7 @@
 #include "core/json.hpp"
 #include <cerrno>
 #include <cstdint>
+#include <cstdlib>
 #include <fcntl.h>
 #include <limits.h>
 #include <sstream>
@@ -15,6 +16,8 @@ namespace service {
 namespace {
 const size_t MAX_APPINFO_BYTES = 64 * 1024;
 const size_t MAX_ICON_BYTES = 16 * 1024 * 1024;
+const size_t MAX_PACK_HEADER_BYTES = 16 * 1024;
+const char PACK_MAGIC[] = "NTVICONS 1\n";
 
 bool validAppId(const std::string &appId) {
     if (appId.empty() || appId.size() > 128)
@@ -120,11 +123,90 @@ std::string iconEtag(size_t size, const struct stat &info) {
     etag << '"' << std::hex << size << '-' << modifiedMs << '"';
     return etag.str();
 }
+// A title as the pack keys it: lower-case letters and digits, "+" as "plus".
+std::string titleKey(const std::string &title) {
+    std::string key;
+    for (size_t index = 0; index < title.size(); ++index) {
+        const unsigned char character = static_cast<unsigned char>(title[index]);
+        if (character >= 'A' && character <= 'Z')
+            key += static_cast<char>(character - 'A' + 'a');
+        else if ((character >= 'a' && character <= 'z') || (character >= '0' && character <= '9'))
+            key += static_cast<char>(character);
+        else if (character == '+')
+            key += "plus";
+    }
+    return key;
+}
+
+// The pack is "NTVICONS 1\n", one "key offset length\n" line per icon with the
+// offset counted from the first data byte, an empty line, then the PNGs.
+bool packedIcon(const std::string &packPath, const std::string &key, AppIconFile &result) {
+    if (key.empty() || packPath.empty())
+        return false;
+    const int descriptor = open(packPath.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
+    if (descriptor < 0)
+        return false;
+    struct stat info;
+    bool found = false;
+    char head[MAX_PACK_HEADER_BYTES];
+    const ssize_t headBytes = fstat(descriptor, &info) == 0 && S_ISREG(info.st_mode)
+                                  ? pread(descriptor, head, sizeof(head), 0)
+                                  : -1;
+    const std::string header = headBytes > 0 ? std::string(head, static_cast<size_t>(headBytes))
+                                             : std::string();
+    const size_t magicSize = sizeof(PACK_MAGIC) - 1;
+    const size_t listEnd = header.find("\n\n", magicSize - 1);
+    if (header.compare(0, magicSize, PACK_MAGIC) == 0 && listEnd != std::string::npos) {
+        const unsigned long long dataStart = listEnd + 2;
+        const std::string wanted = key + " ";
+        size_t lineStart = magicSize;
+        while (lineStart <= listEnd && !found) {
+            const size_t lineEnd = header.find('\n', lineStart);
+            if (header.compare(lineStart, wanted.size(), wanted) == 0) {
+                char *rest = nullptr;
+                const char *fields = header.c_str() + lineStart + wanted.size();
+                const unsigned long long offset = strtoull(fields, &rest, 10);
+                const unsigned long long length = strtoull(rest, nullptr, 10);
+                const unsigned long long fileSize = static_cast<unsigned long long>(info.st_size);
+                if (length > 0 && length <= MAX_ICON_BYTES && dataStart <= fileSize &&
+                    offset <= fileSize - dataStart && length <= fileSize - dataStart - offset) {
+                    result.bytes.assign(static_cast<size_t>(length), '\0');
+                    size_t done = 0;
+                    while (done < length) {
+                        const ssize_t count = pread(descriptor, &result.bytes[done], length - done,
+                                                    static_cast<off_t>(dataStart + offset + done));
+                        if (count < 0 && errno == EINTR)
+                            continue;
+                        if (count <= 0)
+                            break;
+                        done += static_cast<size_t>(count);
+                    }
+                    found = done == length;
+                }
+                break;
+            }
+            lineStart = lineEnd + 1;
+        }
+    }
+    close(descriptor);
+    if (!found) {
+        result.bytes.clear();
+        return false;
+    }
+    result.etag = iconEtag(result.bytes.size(), info);
+    result.found = true;
+    return true;
+}
 } // namespace
 
-AppIconFile readAppIcon(const std::string &appId, const std::string &systemRoot) {
+AppIconFile readAppIcon(const std::string &appId, const std::string &systemRoot,
+                        const std::string &assetsRoot) {
     AppIconFile result;
     if (!validAppId(appId))
+        return result;
+    const std::string packPath =
+        assetsRoot.empty() ? std::string() : assetsRoot + "/app-icons/app-icons.pack";
+    if (packedIcon(packPath, appId, result))
         return result;
 
     std::string locatedDirectory;
@@ -143,6 +225,8 @@ AppIconFile readAppIcon(const std::string &appId, const std::string &systemRoot)
         return result;
     const Json appInfo = Json::parse(appInfoText);
     if (!appInfo.isObject())
+        return result;
+    if (packedIcon(packPath, titleKey(appInfo["title"].string()), result))
         return result;
     std::string iconRelative = appInfo["largeIcon"].string();
     if (iconRelative.empty())

@@ -2,6 +2,7 @@
 """The end-to-end runner's own rules, checked without a TV (run.py has the cases that need one)."""
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -18,6 +19,10 @@ def frames(intervals, swap=1, start=2000):
     return rows + [dict(rows[-1], frame=len(rows), intervalMs=80.0)]  # the captured last frame
 
 
+def last_run_case():
+    return [case for case in run.load_registry()["cases"] if case["kind"] == "run"][-1]
+
+
 class Registry(unittest.TestCase):
     def test_the_registry_keeps_its_own_rules(self):
         self.assertEqual(run.check_registry(run.load_registry()), [])
@@ -25,15 +30,29 @@ class Registry(unittest.TestCase):
     def test_the_ids_cover_what_the_owner_asked_for(self):
         titles = " ".join(case["title"] for case in run.load_registry()["cases"])
         for word in ("probe", "Kit gallery", "Splash", "Home navigation", "Live", "Settings", "Catalog",
-                     "Setup", "idle dim"):
+                     "Setup", "idle dim", "Quick drawer navigation", "hold volume", "hold brightness",
+                     "closes with Back"):
             self.assertIn(word, titles)
+
+    def test_cases_that_change_a_tv_setting_need_the_control_permission(self):
+        for case in run.load_registry()["cases"]:
+            script = run.script_path(case)
+            if not script:
+                continue
+            with open(script) as file:
+                steps = json.load(file)
+            holds = sum(1 for step in steps if step.get("key") in ("left", "right")) > 10
+            if case["screen"] == "quick" and holds:
+                self.assertIn("control", case.get("requires", []), case["id"])
+        skipped = [case["id"] for case in run.load_registry()["cases"] if "control" in case.get("requires", [])]
+        self.assertEqual(skipped, ["E2E-091", "E2E-092"])
 
     def test_a_navigate_only_script_may_not_press_ok(self):
         with tempfile.TemporaryDirectory() as folder:
             os.mkdir(os.path.join(folder, "scripts"))
             with open(os.path.join(folder, "scripts", "bad.json"), "w") as file:
                 json.dump([{"at": 100, "key": "ok"}], file)
-            case = dict(run.load_registry()["cases"][-1], script="bad.json", navigateOnly=True)
+            case = dict(last_run_case(), script="bad.json", navigateOnly=True)
             real, run.HERE = run.HERE, folder
             try:
                 problems = run.check_registry({"cases": [case]})
@@ -42,7 +61,7 @@ class Registry(unittest.TestCase):
             self.assertTrue(any("navigate-only" in problem for problem in problems), problems)
 
     def test_a_run_is_bounded_and_the_environment_is_closed(self):
-        case = dict(run.load_registry()["cases"][-1], durationMs=61000, env={"LD_PRELOAD": "x"})
+        case = dict(last_run_case(), durationMs=61000, env={"LD_PRELOAD": "x"})
         problems = run.check_registry({"cases": [case]})
         self.assertTrue(any("durationMs" in problem for problem in problems), problems)
         self.assertTrue(any("LD_PRELOAD" in problem for problem in problems), problems)
@@ -57,7 +76,7 @@ class Registry(unittest.TestCase):
 
 class Commands(unittest.TestCase):
     def test_only_the_runner_s_own_verbs_go_to_the_tv(self):
-        allowed = ("mkdir /tmp/nativetv-e2e.lock", "cat ", "cd " + run.APP, "ls -l /tmp/nativetv-e2e", "rm -f ")
+        allowed = ("mkdir /tmp/nativetv-e2e.lock", "cat ", "cd " + run.APP, "ls -l /tmp/nativetv-e2e", "rm -f ", "node - ")
         forbidden = ("reboot", "tvwebctl", "luna-send", "poweroff", "nativetv-daemon", "systemctl", "deploy",
                      "/var/lib/tvweb/home", "access", "token")
         for case in run.load_registry()["cases"]:
@@ -88,6 +107,105 @@ class Commands(unittest.TestCase):
                               env=environment, capture_output=True, text=True)
         self.assertEqual(done.returncode, 1)
         self.assertIn("--allow stage", done.stderr)
+
+
+class Flows(unittest.TestCase):
+    def flow_cases(self):
+        return [case for case in run.load_registry()["cases"] if case["kind"] == "flow"]
+
+    def test_the_takeover_cases_are_there_and_need_permission(self):
+        titles = [case["title"] for case in self.flow_cases()]
+        for word in ("takeover on", "HDMI", "Back", "takeover off"):
+            self.assertTrue(any(word in title for title in titles), word)
+        for case in self.flow_cases():
+            self.assertEqual(case["requires"], ["takeover"], case["id"])
+
+    def test_a_flow_asks_only_what_the_vocabulary_allows(self):
+        case = dict(self.flow_cases()[0])
+        for step in ({"api": "POST /api/settings"}, {"api": "POST /api/control", "body": {"action": "powerOff"}},
+                     {"api": "POST /api/control", "body": {"action": "launchApp", "value": "com.example.x"}},
+                     {"api": "POST /api/control", "body": {"action": "rcu", "value": "home", "extra": 1}},
+                     {"foreground": "com.webos.app.home", "withinMs": 99999}, {"run": "reboot"}):
+            case["flow"] = [step]
+            self.assertTrue(run.check_registry({"cases": [case]}), step)
+        case["flow"] = [{"api": "POST /api/control", "body": {"action": "launchApp", "value": "com.webos.app.hdmi2"}}]
+        self.assertEqual(run.check_registry({"cases": [case]}), [])
+        case["requires"] = []
+        self.assertTrue(any("must require takeover" in problem for problem in run.check_registry({"cases": [case]})))
+
+    def test_the_verdict_names_the_step_that_failed(self):
+        case = self.flow_cases()[1]
+        good = {"exitCode": 0, "flowDone": True, "flow": [{"step": 0, "ok": True}, {"done": True, "ok": True}]}
+        self.assertEqual(run.verdict(good, case)[0], "pass")
+        bad = {"exitCode": 1, "flowDone": True, "flow": [{"step": 0, "ok": True}, {"step": 1, "ok": False, "note": "in front: hdmi"}]}
+        result, notes = run.verdict(bad, case)
+        self.assertEqual(result, "fail")
+        self.assertIn("step 1: in front: hdmi", " ".join(notes))
+        self.assertEqual(run.verdict({"exitCode": 1, "flowDone": False, "flow": []}, case)[0], "fail")
+
+    def test_the_script_runs_under_node_against_a_server_and_an_app_manager(self):
+        node = shutil.which("node")
+        if not node:
+            self.skipTest("no node on this computer")
+        import http.server
+        import threading
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            seen = []
+
+            def respond(self, body):
+                data = json.dumps(body).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+
+            def do_GET(self):
+                Handler.seen.append("GET " + self.path)
+                self.respond({"enabled": True, "nativeHome": {"halted": False}})
+
+            def do_POST(self):
+                Handler.seen.append("POST " + self.path + " " + self.rfile.read(int(self.headers["Content-Length"])).decode())
+                self.respond({"ok": True})
+
+            def log_message(self, *args):
+                pass
+
+        server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        with tempfile.TemporaryDirectory() as folder:
+            front = os.path.join(folder, "front")
+            with open(front, "w") as file:
+                file.write("com.tvweb.dashboard")
+            fake = os.path.join(folder, "luna-send")
+            with open(fake, "w") as file:
+                file.write('#!/bin/sh\nprintf \'{"returnValue":true,"appId":"%%s"}\' "$(cat %s)"\n' % front)
+            os.chmod(fake, 0o755)
+            case = {"id": "E2E-999", "flow": [
+                {"api": "GET /api/home", "expect": {"enabled": True, "nativeHome.halted": False}},
+                {"api": "POST /api/control", "body": {"action": "rcu", "value": "home"}, "expect": {"ok": True}},
+                {"foreground": "com.tvweb.dashboard", "withinMs": 2000},
+                {"stays": "com.tvweb.dashboard", "forMs": 500}, {"wait": 10}]}
+            environment = dict(os.environ, PATH=folder + os.pathsep + os.environ["PATH"])
+            done = subprocess.run([node, "-"], input=run.flow_program(case, server.server_port), env=environment,
+                                  capture_output=True, timeout=30)
+            rows = [json.loads(line) for line in done.stdout.decode().splitlines()]
+            self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+            self.assertEqual([row["ok"] for row in rows if "step" in row], [True] * 5, rows)
+            self.assertTrue(rows[-1]["done"] and rows[-1]["ok"])
+            self.assertEqual(Handler.seen, ["GET /api/home", 'POST /api/control {"action":"rcu","value":"home"}'])
+            # An app that never comes to the front ends the flow at that step, with the exit code 1.
+            with open(front, "w") as file:
+                file.write("com.webos.app.hdmi1")
+            case["flow"] = [{"foreground": "com.tvweb.dashboard", "withinMs": 600}, {"wait": 10}]
+            done = subprocess.run([node, "-"], input=run.flow_program(case, server.server_port), env=environment,
+                                  capture_output=True, timeout=30)
+            rows = [json.loads(line) for line in done.stdout.decode().splitlines()]
+            self.assertEqual(done.returncode, 1)
+            self.assertFalse(rows[-1]["ok"])
+            self.assertIn("still com.webos.app.hdmi1", rows[-2]["note"])
+        server.shutdown()
+        server.server_close()
 
 
 class Judging(unittest.TestCase):

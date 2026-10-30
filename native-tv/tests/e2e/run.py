@@ -6,7 +6,7 @@
   run.py --check                    the registry against its own rules (no TV needed)
   run.py --case E2E-030 [--case ..] run cases
   run.py --all                      run every case that is allowed
-  options: --report FILE (.json or .md), --stage, --allow takeover|reboot|stage
+  options: --report FILE (.json or .md), --stage, --allow takeover|reboot|control|fresh|stage
 
 The cases (cases.json) need a real TV, so nothing here runs in CI: with NATIVETV_TV_HOST
 unset the run options exit 77 (skipped). The environment:
@@ -18,10 +18,19 @@ unset the run options exit 77 (skipped). The environment:
 
 What a run does on the TV, and nothing else: one bounded client run (at most 60 s) through the
 app's jailer, started the way deploy.py starts it, one at a time under a lock folder in /tmp.
-It never reboots, never deploys or restarts the daemon, never touches the Home takeover or a TV
-setting, and navigate-only cases are checked to hold no OK, text or click. It reads the server's
+It never reboots, never deploys or restarts the daemon, never touches a TV setting (but for the
+cases marked `control`, which hold a key on the Quick drawer's volume or brightness and put it
+back), and navigate-only cases are checked to hold no OK, text or click. It reads the server's
 port from the TV as deploy.py does and never reads or prints the access token. Cases that need
-the takeover or a reboot are marked in `requires` and run only with the matching --allow.
+the takeover, a reboot or to change a TV setting (`control`) are marked in `requires` and run
+only with the matching --allow, and so are those that need a TV that has not done first-run setup
+(`fresh`: its first-run marker is present, which the runner never creates).
+
+The one exception is the flow cases (kind "flow", which all require takeover): they switch Native Tv
+Home on and off and press the Home and Back keys through the server's own routes, from the TV
+itself (scripts/home-flow.js under the TV's Node, loopback needing no token), and watch which app
+is in front. Their steps are a closed vocabulary, checked by --check; a flow that fails leaves
+the TV as it stopped, and the "off" case puts LG's Home back.
 """
 import argparse
 import json
@@ -33,21 +42,27 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SKIP = 77
-APP_ID = "com.tvweb.native"
+# The Native Tv tile's app: the one native app sam is told of, which Native Tv Home opens too.
+APP_ID = "com.tvweb.dashboard"
 APP = "/media/developer/apps/usr/palm/applications/" + APP_ID
 SERVICE = "/var/lib/tvweb/native/nativetv-service"
 DATA_ROOT = "/var/lib/tvweb"
 LOCK = "/tmp/nativetv-e2e.lock"
 MAX_DURATION_MS = 60000
-KNOWN_REQUIRES = {"takeover", "reboot"}
+KNOWN_REQUIRES = {"takeover", "reboot", "control", "fresh"}
 KNOWN_ALLOW = KNOWN_REQUIRES | {"stage"}
 ENV_NAMES = {"NATIVETV_PROBE_FAULT", "NATIVETV_AMBIENT"}
+# What a flow may ask of the TV: the server's Home routes and its remote and launch controls for
+# an input or the Native Tv app, nothing else.
+FLOW_API = {"GET /api/home", "POST /api/home/enable", "POST /api/home/disable"}
+FLOW_APP = re.compile(r"^(com\.webos\.app\.(hdmi[1-4]|livetv)|com\.tvweb\.dashboard)$")
+FLOW_KEYS = {"home", "back"}
 CASE_ID = re.compile(r"^E2E-\d{3}$")
 SCREEN = re.compile(r"^[a-z]+(:[a-z0-9]+)?$")
 VALUE = re.compile(r"^[A-Za-z0-9_,=.-]*$")
 # What the registry and the scripts must never hold: a personal path, an address, a token
 # (a long run of hex digits); the loopback address is the one address the cases use.
-PRIVATE = re.compile(r"/Users/|/home/[a-z]|\b(?!127\.0\.0\.1\b)\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b|[A-Fa-f0-9]{24,}")
+PRIVATE = re.compile(r"/Users/|(?<!/api)/home/[a-z]|\b(?!127\.0\.0\.1\b)\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b|[A-Fa-f0-9]{24,}")
 FORBIDDEN_IN_NAVIGATE_ONLY = ("text", "click", "activate")
 
 
@@ -62,6 +77,45 @@ def script_path(case):
     return os.path.join(HERE, "scripts", case["script"]) if case.get("script") else None
 
 
+def flow_problems(case):
+    """A flow only asks what FLOW_API and the control routes allow, and always needs the takeover."""
+    name = case.get("id", "?")
+    problems = []
+    if "takeover" not in case.get("requires", []):
+        problems.append("%s: a flow switches Home on or off and must require takeover" % name)
+    flow = case.get("flow")
+    if not isinstance(flow, list) or not flow:
+        return problems + ["%s: a flow has steps" % name]
+    for index, step in enumerate(flow):
+        where = "%s: flow step %d" % (name, index)
+        if not isinstance(step, dict):
+            problems.append(where + " is not an object")
+        elif "api" in step:
+            body = step.get("body")
+            allowed = step["api"] in FLOW_API and body is None
+            if step["api"] == "POST /api/control" and isinstance(body, dict):
+                action, value = body.get("action"), body.get("value")
+                allowed = (action == "launchApp" and isinstance(value, str) and bool(FLOW_APP.match(value))) or \
+                          (action == "rcu" and value in FLOW_KEYS)
+                allowed = allowed and set(body) == {"action", "value"}
+            if not allowed:
+                problems.append(where + " asks for " + json.dumps(step) + ", which a flow may not")
+        elif "foreground" in step:
+            if not FLOW_APP.match(step["foreground"]) and step["foreground"] != "com.webos.app.home" or \
+                    not 1 <= step.get("withinMs", 0) <= 30000:
+                problems.append(where + " needs an app and a withinMs up to 30000")
+        elif "stays" in step:
+            if not FLOW_APP.match(step["stays"]) and step["stays"] != "com.webos.app.home" or \
+                    not 1 <= step.get("forMs", 0) <= 30000:
+                problems.append(where + " needs an app and a forMs up to 30000")
+        elif "wait" in step:
+            if not 1 <= step["wait"] <= 30000:
+                problems.append(where + " waits up to 30000 ms")
+        else:
+            problems.append(where + " is not a step")
+    return problems
+
+
 def check_registry(registry):
     """Every rule a case must keep; returns the problems as strings."""
     problems = []
@@ -74,8 +128,10 @@ def check_registry(registry):
         for field in ("title", "purpose", "kind", "steps", "criteria"):
             if not case.get(field):
                 problems.append("%s: no %s" % (name, field))
-        if case.get("kind") not in ("probe", "run"):
-            problems.append("%s: kind must be probe or run" % name)
+        if case.get("kind") not in ("probe", "run", "flow"):
+            problems.append("%s: kind must be probe, run or flow" % name)
+        if case.get("kind") == "flow":
+            problems += flow_problems(case)
         if not set(case.get("requires", [])) <= KNOWN_REQUIRES:
             problems.append("%s: requires holds %s" % (name, sorted(set(case["requires"]) - KNOWN_REQUIRES)))
         if case.get("kind") == "run":
@@ -172,6 +228,10 @@ def judge(metrics, rules):
         if point is None or value != expected["equals"]:
             broken["checkpoint " + expected["name"] + "." + expected["path"]] = \
                 "checkpoint %s: %s is %r, wanted %r" % (expected["name"], expected["path"], value, expected["equals"])
+    if rules.get("flowOk"):
+        bad = [row for row in metrics.get("flow", []) if "step" in row and not row["ok"]]
+        if bad or not metrics.get("flowDone"):
+            broken["flowOk"] = "; ".join("step %d: %s" % (row["step"], row["note"]) for row in bad) or "the flow did not finish"
     for key, wanted in rules.get("probe", {}).items():
         if metrics.get("probe", {}).get(key) != wanted:
             broken["probe " + key] = "probe %s is %r, wanted %r" % (key, metrics.get("probe", {}).get(key), wanted)
@@ -250,6 +310,10 @@ def commands(case, port="PORT"):
     files = remote_files(case)
     if case["kind"] == "probe":
         return [jailer(["--probe"], case.get("env"), 40)]
+    if case["kind"] == "flow":
+        return ["mkdir " + LOCK,
+                "node - %s   # scripts/home-flow.js with this case's flow, over ssh" % port,
+                "rm -f /tmp/nativetv-e2e-%s* && rmdir %s" % (case["id"], LOCK)]
     steps = ["mkdir " + LOCK]
     if case.get("script"):
         steps.append("cat > " + files["script"] + "   # the script file, over ssh")
@@ -260,6 +324,13 @@ def commands(case, port="PORT"):
               "rm -f %s %s* && rmdir %s" % (files["script"] if case.get("script") else "/dev/null",
                                             "/tmp/nativetv-e2e-" + case["id"], LOCK)]
     return steps
+
+
+def flow_program(case, port):
+    """scripts/home-flow.js with the port and the case's steps in front of it."""
+    with open(os.path.join(HERE, "scripts", "home-flow.js"), "rb") as file:
+        body = file.read()
+    return ("var PORT = %d;\nvar STEPS = %s;\n" % (port, json.dumps(case["flow"]))).encode() + body
 
 
 def execute(tv, case, port):
@@ -279,6 +350,21 @@ def execute(tv, case, port):
     code, _, _ = tv.run("mkdir " + LOCK)
     if code != 0:
         raise RuntimeError("another run holds " + LOCK + "; remove it only when no client is running")
+    if case["kind"] == "flow":
+        try:
+            program = flow_program(case, port)
+            started = time.time()
+            code, out, _ = tv.run("node - %d" % port, program, timeout=180)
+            rows = []
+            for line in out.splitlines():
+                try:
+                    rows.append(json.loads(line))
+                except ValueError:
+                    pass
+            return {"exitCode": code, "flow": rows, "flowDone": any(row.get("done") for row in rows),
+                    "wallSeconds": round(time.time() - started, 1)}
+        finally:
+            tv.run("rmdir " + LOCK)
     try:
         code, out, _ = tv.run("pidof nativetv-tv")
         if out.strip():
@@ -354,7 +440,7 @@ def main(argv=None):
     parser.add_argument("--case", action="append", default=[], metavar="ID")
     parser.add_argument("--all", action="store_true")
     parser.add_argument("--allow", action="append", default=[], choices=sorted(KNOWN_ALLOW),
-                        help="let cases that require takeover or reboot run; stage allows --stage")
+                        help="let cases that require takeover, reboot, control or a fresh install run; stage allows --stage")
     parser.add_argument("--stage", action="store_true",
                         help="first stage the client with deploy.py (which also stages the managed runtime "
                              "under /var/lib/tvweb/native, so it needs --allow stage)")
@@ -419,7 +505,7 @@ def main(argv=None):
             row.update(result="skipped", notes=["needs --allow " + " --allow ".join(sorted(missing))])
         else:
             try:
-                if port is None and case["kind"] == "run":
+                if port is None and case["kind"] in ("run", "flow"):
                     port = tv.port()
                 row["metrics"] = execute(tv, case, port)
                 row["result"], row["notes"] = verdict(row["metrics"], case)

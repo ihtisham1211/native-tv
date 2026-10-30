@@ -1,4 +1,5 @@
 #include "domain/setup_pages.hpp"
+#include "domain/names.hpp"
 #include "domain/say.hpp"
 #include <cstdlib>
 #include <string>
@@ -8,7 +9,8 @@ namespace {
 const struct {
     SetupStep step;
     const char *name;
-} kSteps[] = {{SetupStep::Welcome, "welcome"},      {SetupStep::Network, "network"},
+} kSteps[] = {{SetupStep::Welcome, "welcome"},      {SetupStep::Name, "name"},
+              {SetupStep::Network, "network"},
               {SetupStep::HomeAssistant, "ha"},     {SetupStep::Handoff, "handoff"},
               {SetupStep::Standby, "standby"},      {SetupStep::Summary, "summary"},
               {SetupStep::Restarting, "restarting"}, {SetupStep::Trouble, "trouble"}};
@@ -19,8 +21,14 @@ std::string stepLabel(int number, size_t total) {
     values.set("total", Json::text(std::to_string(total)));
     return say::msg("setup.step", "Step {n} of {total}", values);
 }
+// The questions after the name: the dashboard's network, Home Assistant and, where the TV has it,
+// standby.
 size_t steps(const Json &state) {
     return setupHasStandby(state) ? 3 : 2;
+}
+// What "Step n of total" counts: those and the name.
+size_t questions(const Json &state) {
+    return steps(state) + 1;
 }
 SetupChoice choice(const char *id, const std::string &label, const std::string &hint,
                    const char *icon) {
@@ -63,10 +71,14 @@ bool setupHasStandby(const Json &state) {
     return state.has("alwaysReady");
 }
 size_t setupDotCount(const Json &state) {
-    return steps(state) + 2;
+    return steps(state) + 3;
+}
+std::string setupDefaultName(const Json &state) {
+    return names::tvDefaultName(state["model"].string());
 }
 
-SetupPage setupPage(SetupStep step, const Json &state, bool netChosen, bool fromSettings) {
+SetupPage setupPage(SetupStep step, const Json &state, bool netChosen, bool fromSettings,
+                    const std::string &tvName) {
     SetupPage page;
     const bool standby = setupHasStandby(state);
     switch (step) {
@@ -76,15 +88,23 @@ SetupPage setupPage(SetupStep step, const Json &state, bool netChosen, bool from
         page.lead = say::msg("setup.welcome", "Readings, controls and privacy settings for this TV, "
                                               "right here with the remote.") +
                     " " +
-                    (standby ? say::msg("setup.welcome.three", "Three quick choices first, and you "
-                                                               "can change any of them later.")
-                             : say::msg("setup.welcome.two", "Two quick choices first, and you can "
-                                                             "change both later."));
+                    (standby ? say::msg("setup.welcome.four", "Four quick choices first, and you "
+                                                              "can change any of them later.")
+                             : say::msg("setup.welcome.three", "Three quick choices first, and you "
+                                                               "can change any of them later."));
         page.action = say::msg("setup.start", "Get started");
         page.dots = 1;
         break;
+    case SetupStep::Name:
+        page.step = stepLabel(1, questions(state));
+        page.title = say::msg("setup.name.title", "Name this TV");
+        page.lead = say::msg("setup.name.lead",
+                             "This is the name of the main profile on Home. OK on Next keeps the name "
+                             "shown; type another to change it.");
+        page.dots = 2;
+        break;
     case SetupStep::Network: {
-        page.step = stepLabel(1, steps(state));
+        page.step = stepLabel(2, questions(state));
         page.title = say::msg("setup.net.title", "Turn on the web dashboard?");
         page.choices.push_back(choice(
             "open", say::msg("setup.net.open", "Yes, on phones and computers at home"),
@@ -106,11 +126,11 @@ SetupPage setupPage(SetupStep step, const Json &state, bool netChosen, bool from
         // A fresh install starts closed, so the TV's own state would always preselect "only on
         // this TV"; it is followed once a choice has been made.
         page.selected = netChosen && !state["network"].boolean() ? 1 : 0;
-        page.dots = 2;
+        page.dots = 3;
         break;
     }
     case SetupStep::HomeAssistant:
-        page.step = stepLabel(2, steps(state));
+        page.step = stepLabel(3, questions(state));
         page.title = say::msg("setup.ha.title", "Connect to Home Assistant?");
         page.choices.push_back(choice(
             "phone", say::msg("setup.ha.phone", "Set it up on my phone"),
@@ -124,10 +144,10 @@ SetupPage setupPage(SetupStep step, const Json &state, bool netChosen, bool from
                    say::msg("setup.ha.later.hint",
                             "The dashboard works without it. Set it up any time from Settings."),
                    "clock"));
-        page.dots = 3;
+        page.dots = 4;
         break;
     case SetupStep::Standby:
-        page.step = stepLabel(3, 3);
+        page.step = stepLabel(4, questions(state));
         page.title = say::msg("setup.standby.title", "Stay connected when off?");
         page.choices.push_back(choice(
             "on", say::msg("setup.standby.on", "Yes, keep it connected"),
@@ -144,7 +164,7 @@ SetupPage setupPage(SetupStep step, const Json &state, bool netChosen, bool from
                      "and Home Assistant wait until it is switched back on."),
             "timer"));
         page.selected = state["alwaysReady"].boolean() ? 0 : 1;
-        page.dots = 4;
+        page.dots = 5;
         break;
     case SetupStep::Summary: {
         const Json ha = state["homeAssistant"];
@@ -152,6 +172,9 @@ SetupPage setupPage(SetupStep step, const Json &state, bool netChosen, bool from
         page.step = say::msg("setup.summary.step", "All set");
         page.title = say::msg("setup.summary.title", "Ready to go");
         page.lead = say::msg("setup.summary.change", "Change any of these in Settings.");
+        if (!tvName.empty())
+            page.choices.push_back(
+                summary(say::msg("setup.summary.name", "TV name"), tvName, false, "tv"));
         page.choices.push_back(
             summary(say::msg("setup.summary.onTv", "On this TV"), say::msg("setup.yes", "Yes"), true, "tv"));
         page.choices.push_back(summary(say::msg("tv.settings.webDashboard", "Web dashboard"),
@@ -169,13 +192,13 @@ SetupPage setupPage(SetupStep step, const Json &state, bool netChosen, bool from
                                            onOff(state["alwaysReady"].boolean()),
                                            state["alwaysReady"].boolean(), "power"));
         page.action = say::msg("setup.summary.open", "Open dashboard");
-        page.dots = static_cast<int>(steps(state)) + 2;
+        page.dots = static_cast<int>(steps(state)) + 3;
         break;
     }
     case SetupStep::Restarting:
         page.step = say::msg("setup.restarting.step", "One moment");
         page.title = say::msg("setup.restarting.title", "Applying your choice\xe2\x80\xa6");
-        page.dots = 2;
+        page.dots = 3;
         break;
     case SetupStep::Trouble:
         page.step = say::msg("setup.trouble.step", "Setup");
@@ -185,7 +208,7 @@ SetupPage setupPage(SetupStep step, const Json &state, bool netChosen, bool from
     case SetupStep::Handoff:
         page.step = say::msg("setup.handoff.step", "Home Assistant");
         page.title = say::msg("setup.handoff.title", "Finish on your phone");
-        page.dots = 3;
+        page.dots = 4;
         break;
     }
     if (fromSettings)
@@ -226,6 +249,20 @@ std::vector<SetupChoice> handoffChoices(bool fromSettings) {
                    say::msg("setup.ha.later.hint",
                             "The dashboard works without it. Set it up any time from Settings."),
                    "close")};
+}
+
+NameWords nameWords() {
+    NameWords words;
+    words.label = say::msg("setup.name.label", "TV name");
+    words.done = say::msg("setup.name.next", "Next");
+    return words;
+}
+Json nameBody(const std::string &name) {
+    Json body = Json::object();
+    body.set("action", Json::text("rename"));
+    body.set("id", Json::text("main"));
+    body.set("name", Json::text(name));
+    return body;
 }
 
 std::vector<SetupField> brokerFields() {

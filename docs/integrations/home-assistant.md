@@ -136,7 +136,7 @@ Categories:
 
 ## PicCap
 
-Where PicCap is installed, a **PicCap Capture** switch is discovered while PicCap answers on the TV, and removed when it stops answering or is uninstalled. It is in Controls & Media and can be switched off there. It uses `<topicPrefix>/state/piccap/power` for state and `<topicPrefix>/command/piccap/power` for control, both `ON` or `OFF`. See [PicCap and ambient light](piccap.md) for full setup instructions, Hyperion configuration, and automation examples.
+Where PicCap is installed, a **PicCap Capture** switch is discovered while PicCap answers on the TV, and removed when it stops answering or is uninstalled. It is in Controls & Media and can be switched off there. It uses `<topicPrefix>/state/piccap/power` for state and `<topicPrefix>/command/piccap/power` for control, both `ON` or `OFF`. See [PicCap](https://github.com/TBSniller/piccap) for its own setup.
 
 ---
 

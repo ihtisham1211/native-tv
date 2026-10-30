@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "app": "com.tvweb.native",
+  "app": "com.tvweb.dashboard",
   "cases": [
     {
       "id": "E2E-001",
@@ -11,7 +11,7 @@
       "env": {},
       "durationMs": 0,
       "steps": [
-        "Run on the TV: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 40 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv --probe; echo exit=$?",
+        "Run on the TV: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 40 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv --probe; echo exit=$?",
         "Read the exit code and the last JSON line of the output."
       ],
       "criteria": {
@@ -32,7 +32,7 @@
       },
       "durationMs": 0,
       "steps": [
-        "Run on the TV: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg NATIVETV_PROBE_FAULT=gl-error timeout 40 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv --probe; echo exit=$?",
+        "Run on the TV: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg NATIVETV_PROBE_FAULT=gl-error timeout 40 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv --probe; echo exit=$?",
         "Read the exit code and the last JSON line of the output."
       ],
       "criteria": {
@@ -54,7 +54,7 @@
       },
       "durationMs": 0,
       "steps": [
-        "Run on the TV: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg NATIVETV_PROBE_FAULT=readback timeout 40 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv --probe; echo exit=$?",
+        "Run on the TV: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg NATIVETV_PROBE_FAULT=readback timeout 40 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv --probe; echo exit=$?",
         "Read the exit code and the last JSON line of the output."
       ],
       "criteria": {
@@ -77,7 +77,7 @@
       "steps": [
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 18 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen kit:home --duration-ms 3000 --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 18 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen kit:home --duration-ms 3000 --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -102,7 +102,7 @@
       "steps": [
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 18 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen kit:apps --duration-ms 3000 --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 18 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen kit:apps --duration-ms 3000 --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -127,7 +127,7 @@
       "steps": [
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 18 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen kit:live --duration-ms 3000 --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 18 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen kit:live --duration-ms 3000 --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -152,7 +152,7 @@
       "steps": [
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 18 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen kit:settings --duration-ms 3000 --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 18 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen kit:settings --duration-ms 3000 --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -177,7 +177,7 @@
       "steps": [
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 18 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen kit:setup --duration-ms 3000 --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 18 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen kit:setup --duration-ms 3000 --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -203,7 +203,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Copy scripts/checkpoints-only.json to APP/e2e-ID.json over ssh.",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 32 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen splash --duration-ms 17000 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 32 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen splash --duration-ms 17000 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -237,7 +237,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Copy scripts/home-nav.json to APP/e2e-ID.json over ssh.",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 32 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen home --duration-ms 17500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 32 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen home --duration-ms 17500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -271,7 +271,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Copy scripts/home-nav-60s.json to APP/e2e-ID.json over ssh.",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 74 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen home --duration-ms 59000 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 74 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen home --duration-ms 59000 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -305,7 +305,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Copy scripts/home-idle.json to APP/e2e-ID.json over ssh.",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 53 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen home --duration-ms 38500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 53 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen home --duration-ms 38500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -358,7 +358,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Copy scripts/live-nav.json to APP/e2e-ID.json over ssh.",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 28 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen live --duration-ms 13500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 28 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen live --duration-ms 13500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -392,7 +392,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Copy scripts/live-idle.json to APP/e2e-ID.json over ssh.",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 53 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen live --duration-ms 38500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 53 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen live --duration-ms 38500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -460,7 +460,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Copy scripts/settings-nav.json to APP/e2e-ID.json over ssh.",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 31 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen dashboard:privacy --duration-ms 16000 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 31 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen dashboard:privacy --duration-ms 16000 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -494,7 +494,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Copy scripts/settings-idle.json to APP/e2e-ID.json over ssh.",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 53 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen dashboard:privacy --duration-ms 38500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 53 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen dashboard:privacy --duration-ms 38500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -547,7 +547,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Copy scripts/settings-groups.json to APP/e2e-ID.json over ssh.",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 24 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen dashboard --duration-ms 9500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 24 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen dashboard --duration-ms 9500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -581,7 +581,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Copy scripts/catalog-nav.json to APP/e2e-ID.json over ssh.",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 28 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen catalog --duration-ms 13500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 28 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen catalog --duration-ms 13500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -615,7 +615,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Copy scripts/catalog-idle.json to APP/e2e-ID.json over ssh.",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 53 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen catalog --duration-ms 38500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 53 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen catalog --duration-ms 38500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -668,7 +668,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Copy scripts/setup-nav.json to APP/e2e-ID.json over ssh.",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 24 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen setup:welcome --duration-ms 9500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 24 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen setup:welcome --duration-ms 9500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -701,7 +701,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Copy scripts/setup-nav.json to APP/e2e-ID.json over ssh.",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 24 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen setup:ha --duration-ms 9500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 24 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen setup:ha --duration-ms 9500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -734,7 +734,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Copy scripts/setup-nav.json to APP/e2e-ID.json over ssh.",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 24 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen setup:summary --duration-ms 9500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 24 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen setup:summary --duration-ms 9500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -767,7 +767,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Copy scripts/setup-nav.json to APP/e2e-ID.json over ssh.",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 24 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen setup:standby --duration-ms 9500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 24 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen setup:standby --duration-ms 9500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -800,7 +800,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Copy scripts/setup-nav.json to APP/e2e-ID.json over ssh.",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 24 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen setup:network --duration-ms 9500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 24 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen setup:network --duration-ms 9500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -833,7 +833,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Copy scripts/setup-idle.json to APP/e2e-ID.json over ssh.",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 53 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen setup:welcome --duration-ms 38500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 53 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen setup:welcome --duration-ms 38500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -871,6 +871,619 @@
         "drawsMax": 40,
         "verticesMax": 8192,
         "textureMbMax": 64
+      }
+    },
+    {
+      "id": "E2E-080",
+      "title": "Home takeover on",
+      "purpose": "Switching Native Tv Home on takes LG's Home's place: the switch is accepted (the client is on the home screen and passes its probe), nothing is halted, and the stub is mounted.",
+      "kind": "flow",
+      "screen": "",
+      "env": {},
+      "durationMs": 0,
+      "requires": [
+        "takeover"
+      ],
+      "flow": [
+        {
+          "api": "POST /api/home/enable",
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/home",
+          "expect": {
+            "enabled": true,
+            "active": true,
+            "nativeHome.halted": false
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback and reads the app in front from the app manager.",
+        "Run: POST /api/home/enable, wait 1.5 s, then GET /api/home and check enabled, active (the stub is mounted) and nativeHome.halted false.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      }
+    },
+    {
+      "id": "E2E-081",
+      "title": "Home key from an HDMI input",
+      "purpose": "With Home on and an HDMI input in front, the Home key does not strand the screen between the stub and the input: the Native Tv app is in front within 5 s and stays, and LG's Home has not been given back.",
+      "kind": "flow",
+      "screen": "",
+      "env": {},
+      "durationMs": 0,
+      "requires": [
+        "takeover"
+      ],
+      "flow": [
+        {
+          "api": "GET /api/home",
+          "expect": {
+            "enabled": true,
+            "active": true,
+            "nativeHome.halted": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "launchApp",
+            "value": "com.webos.app.hdmi1"
+          }
+        },
+        {
+          "foreground": "com.webos.app.hdmi1",
+          "withinMs": 6000
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "rcu",
+            "value": "home"
+          }
+        },
+        {
+          "foreground": "com.tvweb.dashboard",
+          "withinMs": 5000
+        },
+        {
+          "stays": "com.tvweb.dashboard",
+          "forMs": 4000
+        },
+        {
+          "api": "GET /api/home",
+          "expect": {
+            "enabled": true,
+            "active": true,
+            "nativeHome.halted": false
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback and reads the app in front from the app manager.",
+        "Run: check Home is on; launch com.webos.app.hdmi1 through POST /api/control and wait for it in front; send the Home key (POST /api/control rcu home, which opens com.webos.app.home as the key does); wait for com.tvweb.dashboard in front within 5 s and for it to stay 4 s; check nativeHome.halted is still false.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      }
+    },
+    {
+      "id": "E2E-082",
+      "title": "Home and Back on Native Tv Home",
+      "purpose": "On the native Home screen Back does nothing and the Home key shows the stub and returns to the Native Tv app within 5 s; the app is in front throughout and LG's Home is not given back.",
+      "kind": "flow",
+      "screen": "",
+      "env": {},
+      "durationMs": 0,
+      "requires": [
+        "takeover"
+      ],
+      "flow": [
+        {
+          "api": "GET /api/home",
+          "expect": {
+            "enabled": true,
+            "active": true,
+            "nativeHome.halted": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "rcu",
+            "value": "home"
+          }
+        },
+        {
+          "foreground": "com.tvweb.dashboard",
+          "withinMs": 5000
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "rcu",
+            "value": "back"
+          }
+        },
+        {
+          "stays": "com.tvweb.dashboard",
+          "forMs": 3000
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "rcu",
+            "value": "home"
+          }
+        },
+        {
+          "foreground": "com.tvweb.dashboard",
+          "withinMs": 5000
+        },
+        {
+          "stays": "com.tvweb.dashboard",
+          "forMs": 3000
+        },
+        {
+          "api": "GET /api/home",
+          "expect": {
+            "enabled": true,
+            "active": true,
+            "nativeHome.halted": false,
+            "nativeHome.crashes.recentExits": 0
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback and reads the app in front from the app manager.",
+        "Run: check Home is on; send Home and wait for com.tvweb.dashboard within 5 s; send Back and check it stays 3 s; send Home again and check it is back within 5 s and stays 3 s; check nativeHome.halted is false and no exit was counted.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      }
+    },
+    {
+      "id": "E2E-083",
+      "title": "Home takeover off",
+      "purpose": "Switching Native Tv Home off gives LG's Home its place back: the switch is accepted, Home is off and the stub is unmounted, and the Home key no longer opens the Native Tv app.",
+      "kind": "flow",
+      "screen": "",
+      "env": {},
+      "durationMs": 0,
+      "requires": [
+        "takeover"
+      ],
+      "flow": [
+        {
+          "api": "POST /api/home/disable",
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "api": "GET /api/home",
+          "expect": {
+            "enabled": false,
+            "active": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "rcu",
+            "value": "home"
+          }
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "foreground": "com.webos.app.home",
+          "withinMs": 5000
+        },
+        {
+          "stays": "com.webos.app.home",
+          "forMs": 3000
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback and reads the app in front from the app manager.",
+        "Run: POST /api/home/disable, wait 2 s, check enabled and active are false; send Home and check com.webos.app.home (LG's) is in front within 5 s and stays 3 s.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      }
+    },
+    {
+      "id": "E2E-090",
+      "title": "Quick drawer navigation",
+      "purpose": "The drawer opens over Home with its spring, shows its rows (a spinner where a value is still being read), and scripted keys move the focus down and up the whole list; frames come at 60 fps and no interval passes 33 ms.",
+      "kind": "run",
+      "screen": "quick",
+      "script": "quick-nav.json",
+      "durationMs": 13000,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/quick-nav.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 28 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen quick --duration-ms 13000 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "p50Max": 17.0,
+        "p95Max": 16.8,
+        "over33Max": 0,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64,
+        "intervalsMin": 150
+      },
+      "floor": {
+        "p95Max": 20.0,
+        "over33Max": 3
+      }
+    },
+    {
+      "id": "E2E-091",
+      "title": "Quick drawer, hold volume",
+      "purpose": "Volume is held down for a moment and then back up: the shown value follows the key at once, never moves against it (no jumping through intermediate values), the writes settle and the volume ends where it began unless it reached an end of its range. Changes the TV volume.",
+      "kind": "run",
+      "screen": "quick",
+      "script": "quick-volume.json",
+      "durationMs": 14000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/quick-volume.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 29 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen quick --duration-ms 14000 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "p50Max": 17.0,
+        "p95Max": 16.8,
+        "over33Max": 0,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64,
+        "intervalsMin": 150,
+        "checkpoints": [
+          {
+            "name": "loaded",
+            "path": "loading",
+            "equals": false
+          },
+          {
+            "name": "volume-down",
+            "path": "volumeBackwards",
+            "equals": 0
+          },
+          {
+            "name": "volume-settled",
+            "path": "volumeBackwards",
+            "equals": 0
+          },
+          {
+            "name": "volume-settled",
+            "path": "writing",
+            "equals": false
+          }
+        ]
+      },
+      "floor": {
+        "p95Max": 20.0,
+        "over33Max": 3
+      },
+      "requires": [
+        "control"
+      ]
+    },
+    {
+      "id": "E2E-092",
+      "title": "Quick drawer, hold brightness",
+      "purpose": "The light (OLED light or backlight) is held down in steps of five and then back up: the shown value follows the key at once, never moves against it and the writes settle. Changes the TV brightness and puts it back unless it reached an end of its range.",
+      "kind": "run",
+      "screen": "quick",
+      "script": "quick-light.json",
+      "durationMs": 14000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/quick-light.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 29 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen quick --duration-ms 14000 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "p50Max": 17.0,
+        "p95Max": 16.8,
+        "over33Max": 0,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64,
+        "intervalsMin": 150,
+        "checkpoints": [
+          {
+            "name": "loaded",
+            "path": "loading",
+            "equals": false
+          },
+          {
+            "name": "light-down",
+            "path": "lightBackwards",
+            "equals": 0
+          },
+          {
+            "name": "light-settled",
+            "path": "lightBackwards",
+            "equals": 0
+          },
+          {
+            "name": "light-settled",
+            "path": "writing",
+            "equals": false
+          }
+        ]
+      },
+      "floor": {
+        "p95Max": 20.0,
+        "over33Max": 3
+      },
+      "requires": [
+        "control"
+      ]
+    },
+    {
+      "id": "E2E-093",
+      "title": "Quick drawer closes with Back",
+      "purpose": "Back slides the drawer out and leaves Home as it was.",
+      "kind": "run",
+      "screen": "quick",
+      "script": "quick-close.json",
+      "durationMs": 8500,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/quick-close.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 23 /usr/bin/jailer -t native_devmode -i com.tvweb.native -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.native\"}' --server http://127.0.0.1:PORT --screen quick --duration-ms 8500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "p50Max": 17.0,
+        "p95Max": 16.8,
+        "over33Max": 0,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64,
+        "checkpoints": [
+          {
+            "name": "open",
+            "path": "closing",
+            "equals": false
+          },
+          {
+            "name": "closing",
+            "path": "closing",
+            "equals": true
+          },
+          {
+            "name": "closed",
+            "path": "screen",
+            "equals": "home"
+          }
+        ]
+      },
+      "floor": {
+        "p95Max": 20.0,
+        "over33Max": 3
+      }
+    },
+    {
+      "id": "E2E-076",
+      "title": "Setup name page",
+      "purpose": "The first setup question on the test B3: the keyboard comes up with the name the TV's model gives it (B3), arrow keys move over the keys, and nothing is typed or chosen.",
+      "kind": "run",
+      "screen": "setup:name",
+      "script": "setup-name.json",
+      "durationMs": 6500,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/setup-name.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 21 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen setup:name --duration-ms 6500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64,
+        "p50Max": 17.0,
+        "p95Max": 16.8,
+        "over33Max": 0,
+        "checkpoints": [
+          {
+            "name": "default",
+            "path": "step",
+            "equals": "name"
+          },
+          {
+            "name": "default",
+            "path": "typed",
+            "equals": "B3"
+          },
+          {
+            "name": "default",
+            "path": "focusedKey",
+            "equals": "q"
+          },
+          {
+            "name": "moved",
+            "path": "focusedKey",
+            "equals": "d"
+          }
+        ]
+      },
+      "floor": {
+        "p95Max": 20.0,
+        "over33Max": 2
+      }
+    },
+    {
+      "id": "E2E-077",
+      "title": "First launch opens setup from the dashboard tile",
+      "purpose": "The dashboard tile launches the client on the dashboard; a TV that has not done first-run setup (its first-run marker is present) answers /api/caps with setupNeeded and the client opens the setup welcome page instead. Needs a fresh install: run with --allow fresh.",
+      "kind": "run",
+      "screen": "dashboard",
+      "script": "launch-check.json",
+      "durationMs": 6000,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/launch-check.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 21 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen dashboard --duration-ms 6000 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64,
+        "checkpoints": [
+          {
+            "name": "opened",
+            "path": "screen",
+            "equals": "setup:welcome"
+          }
+        ]
+      },
+      "requires": [
+        "fresh"
+      ]
+    },
+    {
+      "id": "E2E-078",
+      "title": "First launch opens setup from Home",
+      "purpose": "The same for the Home stub's launch: a fresh install opens setup, not Home. Run with --allow fresh.",
+      "kind": "run",
+      "screen": "home",
+      "script": "launch-check.json",
+      "durationMs": 6000,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/launch-check.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 21 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen home --duration-ms 6000 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64,
+        "checkpoints": [
+          {
+            "name": "opened",
+            "path": "screen",
+            "equals": "setup:welcome"
+          }
+        ]
+      },
+      "requires": [
+        "fresh"
+      ]
+    },
+    {
+      "id": "E2E-079",
+      "title": "Launch after setup opens the dashboard",
+      "purpose": "On a TV that has done setup the tile opens the dashboard's own screen, not setup.",
+      "kind": "run",
+      "screen": "dashboard",
+      "script": "launch-check.json",
+      "durationMs": 6000,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/launch-check.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 21 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen dashboard --duration-ms 6000 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64,
+        "checkpoints": [
+          {
+            "name": "opened",
+            "path": "screen",
+            "equals": "dashboard"
+          }
+        ]
       }
     }
   ]

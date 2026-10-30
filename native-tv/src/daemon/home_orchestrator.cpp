@@ -1,4 +1,6 @@
 #include "daemon/home_orchestrator.hpp"
+#include "daemon/home_probe_gate.hpp"
+#include <algorithm>
 #include "domain/names.hpp"
 #include "domain/say.hpp"
 #include <cctype>
@@ -9,7 +11,6 @@ namespace daemon {
 namespace {
 const char *const kLegacyApp = "com.tvweb.home";
 const char *const kLgHome = "com.webos.app.home";
-const char *const kNativeClient = "com.tvweb.native";
 const char *const kLiveTv = "com.webos.app.livetv";
 // After a wake, how long bootd is given to put the last input in front.
 const long long kWakeSettleMs = 1500;
@@ -103,7 +104,7 @@ void HomeOrchestrator::start() {
         // The version is one it was tried on, the native client is not: Home
         // stays switched on, for the next start or switching it on again, and
         // LG's is not given up to a stub with nothing behind it.
-        giveBack("probe", supported["reason"].string());
+        giveBack("client", supported["reason"].string());
         return;
     }
     if (enabled && !supported["ok"].boolean()) {
@@ -425,7 +426,7 @@ void HomeOrchestrator::watchForeground(const std::string &was, const std::string
     }
     // The running list is read at once: the stub starts the client again within
     // a second, and a list read later would show that one.
-    if (was == kNativeClient && (now == kLgHome || now.empty()))
+    if (was == kHomeClientApp && (now == kLgHome || now.empty()))
         deps_.blocking([this, now]() { checkClientLeft(now); });
 }
 
@@ -443,7 +444,40 @@ void HomeOrchestrator::armStub() {
     if (halted_ || foreground_ != kLgHome) return;
     const unsigned long long token = ++stubToken_;
     stubWatching_ = true;
-    stubTimer_ = deps_.after(deps_.watch.stubGraceMs,
+    stubTimer_ = deps_.after(std::min(deps_.watch.stubLaunchMs, deps_.watch.stubGraceMs / 2),
+                             [this, token]() { deps_.blocking([this, token]() { stubLaunch(token); }); });
+}
+
+/*
+ * The stub opens the client when it comes to the front. If it is still in front
+ * a moment later, the server opens the client itself: that works where the stub
+ * could not call the app manager, and it finds out at once whether sam refuses,
+ * which it does for an app it was never told of (the owner took the tile off the
+ * home screen), where the screen would otherwise stay black for the whole grace.
+ */
+void HomeOrchestrator::stubLaunch(unsigned long long token) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (!stubWatching_ || stubToken_ != token || foreground_ != kLgHome) return;
+        stubTimer_ = 0;
+    }
+    if (!mayWatch()) return;
+    const Json launched = deps_.launchClient ? deps_.launchClient() : Json();
+    if (launched.isObject() && !launched["ok"].boolean()) {
+        Json variables = Json::object();
+        variables.set("error", Json::text(launched["error"].string("no reason given")));
+        giveBack("client", launched["unregistered"].boolean()
+                               ? homeProbeReason(Json::parse(R"({"class":"unregistered"})"))
+                               : say::msg("srv.home.clientRefused",
+                                          "The TV would not open the Native Tv app ({error}), so Native Tv Home cannot hold LG's Home's place.",
+                                          variables));
+        return;
+    }
+    // Opened, or no answer: the rest of the grace is the client's to come to the front in.
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!stubWatching_ || stubToken_ != token || halted_) return;
+    const long long first = std::min(deps_.watch.stubLaunchMs, deps_.watch.stubGraceMs / 2);
+    stubTimer_ = deps_.after(deps_.watch.stubGraceMs - first,
                              [this, token]() { deps_.blocking([this, token]() { stubExpired(token); }); });
 }
 

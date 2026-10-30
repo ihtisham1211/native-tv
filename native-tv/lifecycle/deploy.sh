@@ -88,6 +88,7 @@ assets/splash-app/assets/icon80.png assets/splash-app/assets/icon130.png \
 assets/early-service/install.sh assets/early-service/early-start.sh \
 assets/fonts/Roboto-Regular.woff assets/fonts/Roboto-Medium.woff assets/fonts/LICENSE-Roboto.txt \
 assets/fonts/Figtree-Light.ttf assets/fonts/Figtree-Regular.ttf assets/fonts/Figtree-Medium.ttf assets/fonts/Figtree-SemiBold.ttf assets/fonts/LICENSE-Figtree-OFL.txt \
+assets/app-icons/app-icons.pack assets/app-icons/LICENSE-DashboardIcons.txt \
 assets/google-tv/shared/common.css assets/google-tv/shared/common.js assets/google-tv/shared/qr.js assets/google-tv/shared/keyboard.js \
 assets/google-tv/shared/key-done.svg assets/google-tv/shared/key-space.svg assets/google-tv/shared/key-left.svg assets/google-tv/shared/key-right.svg assets/google-tv/shared/key-delete.svg assets/google-tv/shared/key-shift.svg \
 assets/google-tv/pages/dashboard/index.html assets/google-tv/pages/dashboard/dashboard.css assets/google-tv/pages/dashboard/dashboard.js \

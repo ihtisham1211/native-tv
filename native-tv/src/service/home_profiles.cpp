@@ -368,14 +368,14 @@ Json homeLayout(const Json &document) {
     return result;
 }
 
-Json homeProfileList(const Json &input) {
+Json homeProfileList(const Json &input, const std::string &mainName) {
     const Json document = normalizeHomeDocument(input);
     const Json profiles = document["profiles"];
     Json result = Json::array();
     if (profiles.size() == 0) {
         Json main = Json::object();
         main.set("id", Json::text(kMainProfile));
-        main.set("name", Json::text("Main"));
+        main.set("name", Json::text(mainName));
         main.set("color", Json::text(kColors[0]));
         main.set("active", Json::flag(true));
         result.add(main);
@@ -447,7 +447,8 @@ HomeDocumentUpdate updateHomeLayout(const Json &input, const Json &body) {
     return update;
 }
 
-HomeDocumentUpdate updateHomeProfile(const Json &input, const Json &body) {
+HomeDocumentUpdate updateHomeProfile(const Json &input, const Json &body,
+                                     const std::string &mainName) {
     HomeDocumentUpdate update;
     const Json current = normalizeHomeDocument(input);
     update.document = current;
@@ -461,7 +462,7 @@ HomeDocumentUpdate updateHomeProfile(const Json &input, const Json &body) {
     if (profiles.size() == 0) {
         Json main = Json::object();
         main.set("id", Json::text(kMainProfile));
-        main.set("name", Json::text("Main"));
+        main.set("name", Json::text(mainName));
         main.set("color", Json::text(kColors[0]));
         main.set("layout", Json::parse("null"));
         profiles.add(main);
@@ -570,7 +571,7 @@ HomeDocumentUpdate updateHomeProfile(const Json &input, const Json &body) {
     update.document = next;
     Json response = Json::object();
     response.set("ok", Json::flag(true));
-    response.set("profiles", homeProfileList(next));
+    response.set("profiles", homeProfileList(next, mainName));
     response.set("profile", Json::text(next["profile"].string()));
     response.set("layout", homeLayout(next));
     update.response = response;

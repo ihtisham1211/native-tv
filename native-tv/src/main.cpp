@@ -321,6 +321,7 @@ int main(int argc, char **argv) {
                                [&http](const std::string &id) { return http.image(id) != 0; });
             LoaderPictures pictures(loader);
             app.attach(glyphs, pictures);
+            app.holdForSetupCheck();
             prewarm(renderer, glyphs, glyphAtlas, iconAtlas, runs);
             Json script = opts.script.empty() ? Json::array() : Json::parse(read(opts.script));
             size_t step = 0;
