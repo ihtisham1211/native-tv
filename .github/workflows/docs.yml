@@ -1,6 +1,6 @@
 name: Docs
 
-# The site at ihtisham1211.github.io/nativeTv, built from docs/.
+# The site at ihtisham1211.github.io/native-tv, built from docs/.
 # A pull request only builds it, in strict mode, so a broken link fails there;
 # docs-publish.yml publishes it once merged.
 on:

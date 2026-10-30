@@ -125,4 +125,4 @@ LG names webOS versions two ways. The TV itself, and this project, use the versi
 
 LG's updates have moved some TVs to a later version than they shipped with, so a TV's model year does not give its webOS: a 2022 C2 updated to webOS 24 reports 9.2.
 
-**Tested on another model?** Please [open an issue](https://github.com/ihtisham1211/nativeTv/issues/new) with the TV model, webOS version, and the contents of `/var/lib/tvweb/tvweb.log` — whether everything worked or something broke — and we will add a row.
+**Tested on another model?** Please [open an issue](https://github.com/ihtisham1211/native-tv/issues/new) with the TV model, webOS version, and the contents of `/var/lib/tvweb/tvweb.log` — whether everything worked or something broke — and we will add a row.

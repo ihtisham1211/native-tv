@@ -60,7 +60,7 @@ function check(config, reason, front, expected, label) {
   child.execFileSync('/bin/sh', ['-c', script], { encoding: 'utf8' });
   var output = fs.readFileSync(logFile, 'utf8');
   // The hook logs the open; every other outcome logs why Home was not opened.
-  assert.strictEqual(/nativeTv Home opened over/.test(output), expected, label + ': ' + output);
+  assert.strictEqual(/Native Tv Home opened over/.test(output), expected, label + ': ' + output);
 }
 
 check({ openOnPowerOn: true, lgAutoLaunch: null }, 'remoteKey', 'com.webos.app.hdmi4', true,

@@ -33,7 +33,7 @@ It doesn't happen on every start-up, or on every TV. A TV that already used eith
 
 Where the TV has the setting LG uses to block apps by region, the dashboard now has the app manager reread its apps through it, without restarting it, and restarts it only if that doesn't take. webOS 9 has the setting and webOS 4 doesn't; other versions are checked on the TV itself, and fall back to the restart without it. Both features stay experimental until TVs that have shown the fault confirm it is gone.
 
-If it happens, please open an [issue](https://github.com/ihtisham1211/nativeTv/issues) with the output of these, run before restarting the TV:
+If it happens, please open an [issue](https://github.com/ihtisham1211/native-tv/issues) with the output of these, run before restarting the TV:
 
 ```sh
 dmesg | grep -i -E "Unhandled fault|blocked!!|kadp"

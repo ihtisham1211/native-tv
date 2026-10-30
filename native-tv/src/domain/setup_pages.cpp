@@ -72,7 +72,7 @@ SetupPage setupPage(SetupStep step, const Json &state, bool netChosen, bool from
     switch (step) {
     case SetupStep::Welcome:
         page.step = say::msg("setup.firstTime", "First-time setup");
-        page.title = say::msg("setup.slogan", "Own the glass.");
+        page.title = say::msg("setup.slogan", "Your TV, your rules.");
         page.lead = say::msg("setup.welcome", "Readings, controls and privacy settings for this TV, "
                                               "right here with the remote.") +
                     " " +

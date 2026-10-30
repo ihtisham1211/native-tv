@@ -93,7 +93,7 @@
     if (poll) { clearInterval(poll); poll = null; }
 
     if (name === 'welcome') {
-      render(MARK + '<div class="title">' + esc(t('setup.slogan', 'Own the glass.')) + '</div>' +
+      render(MARK + '<div class="title">' + esc(t('setup.slogan', 'Your TV, your rules.')) + '</div>' +
         '<div class="sub">' + esc(t('setup.welcome', 'Readings, controls and privacy settings for this TV, right here with the remote.')) + ' ' +
         (hasAR() ? esc(t('setup.welcome.three', 'Three quick choices first, and you can change any of them later.')) : esc(t('setup.welcome.two', 'Two quick choices first, and you can change both later.'))) +
         '</div><div class="btn gt-btn focus">' + esc(t('setup.start', 'Get started')) + '</div>' + dots(1));

@@ -33,7 +33,7 @@ const SECTION_OF = {
 };
 const APPS_PANE = { apps: 'installed', catalogue: 'catalogue', homescreen: 'launch' };
 // Each tab's page on the docs site, for Help.
-const DOCS = 'https://ihtisham1211.github.io/nativeTv/';
+const DOCS = 'https://ihtisham1211.github.io/native-tv/';
 const TAB_DOCS = {
   control: 'dashboard/control/', metrics: 'dashboard/metrics/', apps: 'dashboard/apps/', catalogue: 'dashboard/apps/',
   homescreen: 'dashboard/apps/', home: 'dashboard/home/',

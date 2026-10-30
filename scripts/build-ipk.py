@@ -42,8 +42,8 @@ DIST = os.path.join(ROOT, 'dist')
 
 APP_ID = 'io.github.ihtisham1211.nativetv'
 TITLE = 'Native Tv'
-DESCRIPTION = 'Own the glass. Dashboard, privacy controls and Home Assistant bridge for rooted LG TVs'
-REPO = 'https://github.com/ihtisham1211/nativeTv'
+DESCRIPTION = 'Your TV, your rules. Dashboard, privacy controls and Home Assistant bridge for rooted LG TVs'
+REPO = 'https://github.com/ihtisham1211/native-tv'
 ICON_URI = (REPO.replace('github.com', 'raw.githubusercontent.com') +
             '/main/native-tv/assets/dashboard-app/assets/icon130.png')
 

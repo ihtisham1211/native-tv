@@ -60,7 +60,7 @@ representative at an online or offline event.
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
 reported to the community leaders responsible for enforcement through GitHub's
-[private reporting](https://github.com/ihtisham1211/nativeTv/security/advisories/new)
+[private reporting](https://github.com/ihtisham1211/native-tv/security/advisories/new)
 for this repository. All complaints will be reviewed and investigated promptly
 and fairly.
 

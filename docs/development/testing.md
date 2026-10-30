@@ -1,13 +1,13 @@
 # Testing and CI
 
-Every pull request is checked on [GitHub Actions](https://github.com/ihtisham1211/nativeTv/actions) before it is merged. Most of
+Every pull request is checked on [GitHub Actions](https://github.com/ihtisham1211/native-tv/actions) before it is merged. Most of
 the checks exist because a mistake of that kind once reached a release, or
 could have without anyone noticing: the TV gives little feedback when
 something is wrong, and Home Assistant and the TV's own browser fail quietly.
 
 ## On every pull request
 
-[`checks.yml`](https://github.com/ihtisham1211/nativeTv/blob/main/.github/workflows/checks.yml) runs these on each pull request and each merge to main. [`native-tv.yml`](https://github.com/ihtisham1211/nativeTv/blob/main/.github/workflows/native-tv.yml) builds the daemon and its worker for the host with address and undefined-behaviour sanitizers and runs CTest when native sources change.
+[`checks.yml`](https://github.com/ihtisham1211/native-tv/blob/main/.github/workflows/checks.yml) runs these on each pull request and each merge to main. [`native-tv.yml`](https://github.com/ihtisham1211/native-tv/blob/main/.github/workflows/native-tv.yml) builds the daemon and its worker for the host with address and undefined-behaviour sanitizers and runs CTest when native sources change.
 
 | Check | What it catches |
 | :--- | :--- |
@@ -51,7 +51,7 @@ from the former Node server are in `native-tv/tests/fixtures/*.json`.
 
 ## Native TV checks
 
-[`native-tv.yml`](https://github.com/ihtisham1211/nativeTv/blob/main/.github/workflows/native-tv.yml) builds the C++ daemon
+[`native-tv.yml`](https://github.com/ihtisham1211/native-tv/blob/main/.github/workflows/native-tv.yml) builds the C++ daemon
 with address/undefined-behavior sanitizers and runs CTest when native sources
 change. `python3 native-tv/build.py --test` reuses the host build and runs
 the unit suites, the daemon runtime suite and the contract checks. Native
@@ -446,7 +446,7 @@ A separately installed ARM IPK also passed normal app-manager launch,
 background/resume, close and cold relaunch on OLED65B3PUA/webOS 10.3.2.
 Up/Right/OK/Back injected through the TV input service also opened and closed
 the native Quick settings drawer; compositor captures verified the result.
-The [native README](https://github.com/ihtisham1211/nativeTv/blob/main/native-tv/README.md) records tested hardware and
+The [native README](https://github.com/ihtisham1211/native-tv/blob/main/native-tv/README.md) records tested hardware and
 migration limits.
 
 The daemon's remote-key reconcile (`/_internal/remote-keys/apply`, secret-guarded) does the start-up, settings-change, power and half-hourly reapply of the keys, the Home key and the starting message. `test_native_webos11_remote_keys_read_and_write` calls the route (refused without the secret). It also waits past the log
@@ -539,7 +539,7 @@ file.
 
 ## Home Assistant
 
-[`home-assistant.yml`](https://github.com/ihtisham1211/nativeTv/blob/main/.github/workflows/home-assistant.yml) builds every discovery config the server can publish and
+[`home-assistant.yml`](https://github.com/ihtisham1211/native-tv/blob/main/.github/workflows/home-assistant.yml) builds every discovery config the server can publish and
 runs each through Home Assistant's own validation, then checks that the volume
 entities are available exactly when the TV lets their volume be changed. Home
 Assistant creates no entity for a config it rejects, and says so only in its
@@ -567,7 +567,7 @@ the TMDB key is removed.
 `visitHomeColours` also checks that carousel text and the boot mark retain
 Home's colour overrides after extraction into shared sections.
 
-[`dashboards.yml`](https://github.com/ihtisham1211/nativeTv/blob/main/.github/workflows/dashboards.yml) starts the daemon against a stand-in `luna-send`, opens every tab of
+[`dashboards.yml`](https://github.com/ihtisham1211/native-tv/blob/main/.github/workflows/dashboards.yml) starts the daemon against a stand-in `luna-send`, opens every tab of
 the web dashboard and the TV app in a headless browser, and fails on any
 script error or failed request, naming the tab. A 404 for an app's icon is
 not a failure: it is how the server says an app has none, and the stand-in TV's
@@ -621,13 +621,13 @@ simulated here; actual webOS visibility behavior needs a real-TV check.
 
 ## Documentation
 
-[`docs.yml`](https://github.com/ihtisham1211/nativeTv/blob/main/.github/workflows/docs.yml) builds this site on each pull request that changes it, with every
-link and section link checked, and [`docs-publish.yml`](https://github.com/ihtisham1211/nativeTv/blob/main/.github/workflows/docs-publish.yml) publishes it when the
+[`docs.yml`](https://github.com/ihtisham1211/native-tv/blob/main/.github/workflows/docs.yml) builds this site on each pull request that changes it, with every
+link and section link checked, and [`docs-publish.yml`](https://github.com/ihtisham1211/native-tv/blob/main/.github/workflows/docs-publish.yml) publishes it when the
 change is merged.
 
 ## Releases
 
-Publishing a release runs [`homebrew-channel.yml`](https://github.com/ihtisham1211/nativeTv/blob/main/.github/workflows/homebrew-channel.yml), which builds the `.ipk`,
+Publishing a release runs [`homebrew-channel.yml`](https://github.com/ihtisham1211/native-tv/blob/main/.github/workflows/homebrew-channel.yml), which builds the `.ipk`,
 attaches it and the Homebrew Channel manifest to the release, and records the
 package's sha256 in the manifest.
 

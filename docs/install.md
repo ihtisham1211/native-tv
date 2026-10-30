@@ -29,8 +29,8 @@ The models confirmed so far are listed under [Tested TVs](tested-tvs.md). LG nam
 Download the project onto a computer on the same network as the TV.
 
 ```bash
-git clone https://github.com/ihtisham1211/nativeTv.git
-cd nativeTv
+git clone https://github.com/ihtisham1211/native-tv.git
+cd native-tv
 ```
 
 ### 2. Install the dashboard

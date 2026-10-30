@@ -68,7 +68,7 @@ and a tile or splash that differs is installed again, except while it is open.
 With the web dashboard switched off in `config.json` the tile is not added.
 The standalone ARM IPK registers a separate launcher entry through LG's
 developer installer. Its service migration is described in
-[`native-tv/ARCHITECTURE.md`](https://github.com/ihtisham1211/nativeTv/blob/main/native-tv/ARCHITECTURE.md).
+[`native-tv/ARCHITECTURE.md`](https://github.com/ihtisham1211/native-tv/blob/main/native-tv/ARCHITECTURE.md).
 
 The managed native runtime installs `nativetv-service`, `runtime.json` and a
 generated dependency notice under `/var/lib/tvweb/native/`. SSH and Homebrew

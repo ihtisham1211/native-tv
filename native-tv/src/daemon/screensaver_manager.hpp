@@ -16,7 +16,7 @@ class Logger;
 class SamRescanManager;
 
 // Owns the privileged filesystem staging and bind mount for custom QML savers,
-// plus dismissal of a nativeTv-launched saver on native remote input. The
+// plus dismissal of a Native Tv-launched saver on native remote input. The
 // boot hook delegates firmware policy and SAM rereads to this manager.
 class ScreensaverManager {
   public:

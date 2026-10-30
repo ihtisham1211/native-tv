@@ -373,10 +373,10 @@ int main() {
             check(app.screenName() == "setup:welcome", "A TV that needs setup opens it");
             uint32_t clock = run(app, 16, 50);
             check(transport.count("setup:state") == 1, "The page asks the server for its state");
-            check(!app.shows("Own the glass."), "Nothing is drawn before the state is known");
+            check(!app.shows("Your TV, your rules."), "Nothing is drawn before the state is known");
             reply(app, "setup:state", setupState());
             clock = run(app, clock, 600);
-            check(app.shows("Own the glass.") && app.shows("Get started") &&
+            check(app.shows("Your TV, your rules.") && app.shows("Get started") &&
                       app.shows("Three quick choices first"),
                   "The welcome page names the three choices on a TV with Always-on");
             check(!app.frame().nodes.empty(), "The welcome page draws");

@@ -1689,7 +1689,7 @@ function render() {
     } else if (d.error) {
       var detail = '<div class="msg-detail">' + esc(d.error);
       if (lanOrigin) detail += '<br>' + esc(t('tv.msg.useWeb', 'Use the web dashboard instead:')) + ' <span class="msg-url">' + esc(lanOrigin) + '</span>';
-      detail += '<br>' + esc(t('tv.msg.issue', 'If this persists, open an issue at github.com/ihtisham1211/nativeTv')) +
+      detail += '<br>' + esc(t('tv.msg.issue', 'If this persists, open an issue at github.com/ihtisham1211/native-tv')) +
                 '<br>' + esc(t('tv.msg.includeError', 'and include the error:')) + ' <span class="msg-url">' + esc(d.error) + '</span></div>';
       html = esc(t('tv.msg.wentWrong', 'Something went wrong')) + detail;
     } else {
@@ -2124,7 +2124,7 @@ function fetchTab(keepSel) {
       msg.style.display = 'block';
       var detail = '<div class="msg-detail">' + esc(t('tv.msg.noResponse', 'The dashboard’s server on this TV did not respond.'));
       if (lanOrigin) detail += '<br>' + esc(t('tv.msg.useWeb', 'Use the web dashboard instead:')) + ' <span class="msg-url">' + esc(lanOrigin) + '</span>';
-      detail += '<br>' + esc(t('tv.msg.issue', 'If this persists, open an issue at github.com/ihtisham1211/nativeTv')) + '</div>';
+      detail += '<br>' + esc(t('tv.msg.issue', 'If this persists, open an issue at github.com/ihtisham1211/native-tv')) + '</div>';
       msg.innerHTML = esc(t('tv.msg.unreachable', 'Could not reach the TV server')) + detail;
     }
     finish();

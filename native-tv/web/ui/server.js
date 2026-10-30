@@ -1,6 +1,6 @@
 // Shared Server dashboard settings, status and TV app controls.
 
-const REPO = 'https://github.com/ihtisham1211/nativeTv';
+const REPO = 'https://github.com/ihtisham1211/native-tv';
 
 function setVersion(v) {
   const el = q('version');

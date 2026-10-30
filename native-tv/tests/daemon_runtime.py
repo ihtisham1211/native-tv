@@ -11442,7 +11442,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                 alexaRow = next(row for row in apps["remoteKeys"]["keys"]
                                 if row["key"] == "alexa")
                 self.assertEqual(alexaRow["action"], "open",
-                                 "a nativeTv-owned block must keep Alexa restorable")
+                                 "a Native Tv-owned block must keep Alexa restorable")
 
                 time.sleep(0.35)
                 # The AI key's press earlier launched the same app: count from here.

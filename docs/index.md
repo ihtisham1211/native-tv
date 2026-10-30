@@ -2,7 +2,7 @@
 
 # Native Tv
 
-**Own the glass.** A dashboard, privacy controls and Home Assistant bridge for rooted LG webOS TVs.
+**Your TV, your rules.** A dashboard, privacy controls and Home Assistant bridge for rooted LG webOS TVs.
 
 > [!NOTE]
 >
@@ -81,15 +81,15 @@ This project is intended to give a rooted webOS TV a useful local control surfac
 * **Root access and hardware.** This runs custom software with `root` privileges on an embedded TV OS. It is designed to be lightweight and to leave the read-only rootfs untouched, but the author accepts **no responsibility** for damage, bootloops, bricked devices, voided warranties, data loss or panel issues.
 * **Power and control commands.** Reboot, power off, screen blanking and Pixel Refresher scheduling issue low-level `luna-send` calls. Understand what each does before using it.
 * **Trademarks.** An independent, unofficial community project, not affiliated with or endorsed by LG Electronics. webOS is a trademark of LG Electronics.
-* **Third-party components.** Fonts, icons and libraries keep their own licences, listed in [THIRD-PARTY-NOTICES.md](https://github.com/ihtisham1211/nativeTv/blob/main/THIRD-PARTY-NOTICES.md).
+* **Third-party components.** Fonts, icons and libraries keep their own licences, listed in [THIRD-PARTY-NOTICES.md](https://github.com/ihtisham1211/native-tv/blob/main/THIRD-PARTY-NOTICES.md).
 
 ## License
 
-MIT. See [LICENSE](https://github.com/ihtisham1211/nativeTv/blob/main/LICENSE).
+MIT. See [LICENSE](https://github.com/ihtisham1211/native-tv/blob/main/LICENSE).
 
 ## Credits
 
-Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by Rory Gallagher, released under the MIT licence; his copyright notice is kept in [LICENSE](https://github.com/ihtisham1211/nativeTv/blob/main/LICENSE). Bundled third-party work, with its licence ([THIRD-PARTY-NOTICES.md](https://github.com/ihtisham1211/nativeTv/blob/main/THIRD-PARTY-NOTICES.md) has the texts):
+Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by Rory Gallagher, released under the MIT licence; his copyright notice is kept in [LICENSE](https://github.com/ihtisham1211/native-tv/blob/main/LICENSE). Bundled third-party work, with its licence ([THIRD-PARTY-NOTICES.md](https://github.com/ihtisham1211/native-tv/blob/main/THIRD-PARTY-NOTICES.md) has the texts):
 
 * [CivetWeb](https://github.com/civetweb/civetweb): the HTTP server (MIT)
 * [json-c](https://github.com/json-c/json-c): JSON, from the webOSbrew SDK (MIT)

@@ -5,11 +5,11 @@ here is needed to use the project - see [Installing](install.md) and [the dashbo
 
 ---
 
-The C++ TV client under [`native-tv/`](https://github.com/ihtisham1211/nativeTv/blob/main/native-tv/README.md) draws its TV
+The C++ TV client under [`native-tv/`](https://github.com/ihtisham1211/native-tv/blob/main/native-tv/README.md) draws its TV
 screens with OpenGL ES 2 and SDL2. Its domain/presentation modules use semantic
 operations through an asynchronous service interface; a transitional HTTP
 adapter maps those operations to this server's HTTP API. The
-[native architecture](https://github.com/ihtisham1211/nativeTv/blob/main/native-tv/ARCHITECTURE.md) defines the module
+[native architecture](https://github.com/ihtisham1211/native-tv/blob/main/native-tv/ARCHITECTURE.md) defines the module
 boundaries. The server itself is the C++ `nativetv-daemon`; no Node runs on the TV.
 
 ## Architecture

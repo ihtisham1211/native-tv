@@ -11,5 +11,5 @@ Before opening a pull request:
 * Fill in the pull request template, including its **Testing** section: the TV and
   webOS version tried, what was done and seen, and what was not tested.
 
-Bugs and ideas go in the [issues](https://github.com/ihtisham1211/nativeTv/issues).
+Bugs and ideas go in the [issues](https://github.com/ihtisham1211/native-tv/issues).
 Everyone taking part follows the [Code of Conduct](CODE_OF_CONDUCT.md).

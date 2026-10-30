@@ -12,7 +12,7 @@ std::string setupTitle(const std::string &step) {
         return "Stay connected when off?";
     if (step == "summary")
         return "Ready to go";
-    return "Own the glass.";
+    return "Your TV, your rules.";
 }
 std::vector<MenuRow> setupRows(const std::string &step, const Json &state) {
     if (step == "welcome")
