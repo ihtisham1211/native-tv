@@ -1,126 +1,270 @@
-/* The menu's group headings (Getting started, The dashboard, Smart Home &
-   Lighting, Advanced & Administration) set apart from the pages under them, which
-   Material's default draws at the same size. Desktop only: on a phone the menu
-   is a drawer that shows one level at a time. */
-@media screen and (min-width: 76.25em) {
-  .md-nav--primary > .md-nav__list > .md-nav__item--section > .md-nav__link {
-    font-size: 0.82rem;
-    font-weight: 700;
-    color: var(--md-default-fg-color);
-    margin-top: 1.1em;
-  }
-}
+/* Google's Material 3 on top of mkdocs-material: the palette, shapes and state
+   layers of Google's own products. The dark primary, #A8C7FA on #062E6F, is the
+   TV kit's accent (native-tv/design/tokens.json), so the site and the TV share
+   one blue. Every text pair below is WCAG AA or better. Roboto, Material's own
+   typeface, stays: Google Sans is not licensed for redistribution. */
 
-/* A distinct pointer beside the active page in the navigation menu.
-   Material's default only tints the link text, which is too subtle against
-   the monochrome background. Exclude section toggle labels ([for^="__nav"])
-   so only the page link receives the pointer. */
-.md-nav--primary .md-nav__link--active:not([for^="__nav"]) {
-  font-weight: 700;
-}
-.md-nav--primary .md-nav__link--active:not([for^="__nav"])::before {
-  content: "";
-  display: inline-block;
-  width: 0;
-  height: 0;
-  border-top: 3.5px solid transparent;
-  border-bottom: 3.5px solid transparent;
-  border-left: 5px solid currentColor;
-  margin-top: 0.38em;
-  margin-right: 0.2rem;
-  align-self: flex-start;
-  flex-shrink: 0;
-}
-[dir="rtl"] .md-nav--primary .md-nav__link--active:not([for^="__nav"])::before {
-  border-left: none;
-  border-right: 5px solid currentColor;
-  margin-right: 0;
-  margin-left: 0.2rem;
-}
-
-/* The dashboard's own black and white: #000 with white in the dark theme,
-   #f5f5f5 with black in the light one (native-tv/web/ui/ui.css), in place of
-   Material's navy and indigo. */
-[data-md-color-scheme="slate"] {
-  --md-hue: 0;
-  --md-default-bg-color: #000;
-  --md-default-fg-color: rgba(255, 255, 255, 0.9);
-  --md-default-fg-color--light: rgba(255, 255, 255, 0.6);
-  --md-default-fg-color--lighter: rgba(255, 255, 255, 0.32);
-  --md-default-fg-color--lightest: rgba(255, 255, 255, 0.12);
-  --md-primary-fg-color: #000;
-  --md-primary-bg-color: #fff;
-  --md-accent-fg-color: #fff;
-  --md-typeset-color: rgba(255, 255, 255, 0.82);
-  --md-typeset-a-color: #fff;
-  --md-code-bg-color: rgba(255, 255, 255, 0.06);
-  --md-footer-bg-color: #000;
-  --md-footer-bg-color--dark: #000;
-}
 [data-md-color-scheme="default"] {
-  --md-default-bg-color: #f5f5f5;
-  --md-primary-fg-color: #f5f5f5;
-  --md-primary-bg-color: #000;
-  --md-accent-fg-color: #000;
-  --md-typeset-a-color: #000;
-  --md-code-bg-color: rgba(0, 0, 0, 0.05);
-  --md-footer-bg-color: #f5f5f5;
-  --md-footer-fg-color: #000;
-  --md-footer-fg-color--light: rgba(0, 0, 0, 0.6);
-  --md-footer-fg-color--lighter: rgba(0, 0, 0, 0.4);
-  --md-footer-bg-color--dark: #ebebeb;
+  --gm-surface: #f8fafd;
+  --gm-container: #f0f4f9;
+  --gm-container-high: #e9eef6;
+  --gm-on-surface: #1f1f1f;
+  --gm-on-surface-variant: #444746;
+  --gm-outline: #747775;
+  --gm-outline-variant: #c4c7c5;
+  --gm-primary: #0b57d0;
+  --gm-on-primary: #fff;
+  --gm-primary-container: #d3e3fd;
+  --gm-secondary-container: #c2e7ff;
+  --gm-on-secondary-container: #001d35;
+  --gm-warning-container: #feefc3;
+  --gm-on-warning-container: #3b2f00;
+  --gm-warning: #8c5d00;
+  --gm-error-container: #f9dedc;
+  --gm-on-error-container: #410e0b;
+  --gm-error: #b3261e;
 }
-.md-header, .md-tabs { border-bottom: 1px solid var(--md-default-fg-color--lightest); }
-.md-footer { border-top: 1px solid var(--md-default-fg-color--lightest); }
+[data-md-color-scheme="slate"] {
+  --gm-surface: #131314;
+  --gm-container: #1e1f20;
+  --gm-container-high: #282a2c;
+  --gm-on-surface: #e3e3e3;
+  --gm-on-surface-variant: #c4c7c5;
+  --gm-outline: #8e918f;
+  --gm-outline-variant: #444746;
+  --gm-primary: #a8c7fa;
+  --gm-on-primary: #062e6f;
+  --gm-primary-container: #0842a0;
+  --gm-secondary-container: #004a77;
+  --gm-on-secondary-container: #c2e7ff;
+  --gm-warning-container: #4a3b00;
+  --gm-on-warning-container: #ffe9a8;
+  --gm-warning: #ffd966;
+  --gm-error-container: #8c1d18;
+  --gm-on-error-container: #f9dedc;
+  --gm-error: #f2b8b5;
+}
 
-/* Links in white or black need more than colour to be told from the text. */
+/* Material's own variables, pointed at the roles above. The header takes the
+   surface colour and not the primary: Material 3 app bars are tonal, not filled. */
+[data-md-color-scheme="default"],
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: var(--gm-surface);
+  --md-default-fg-color: var(--gm-on-surface);
+  --md-default-fg-color--light: var(--gm-on-surface-variant);
+  --md-default-fg-color--lighter: var(--gm-outline);
+  --md-default-fg-color--lightest: var(--gm-outline-variant);
+  --md-typeset-color: var(--gm-on-surface);
+  --md-typeset-a-color: var(--gm-primary);
+  --md-primary-fg-color: var(--gm-surface);
+  --md-primary-bg-color: var(--gm-on-surface);
+  --md-primary-bg-color--light: var(--gm-on-surface-variant);
+  --md-accent-fg-color: var(--gm-primary);
+  --md-code-fg-color: var(--gm-on-surface);
+  --md-code-bg-color: var(--gm-container);
+  --md-typeset-table-color: var(--gm-outline-variant);
+  --md-footer-bg-color: var(--gm-container);
+  --md-footer-bg-color--dark: var(--gm-container);
+  --md-footer-fg-color: var(--gm-on-surface);
+  --md-footer-fg-color--light: var(--gm-on-surface-variant);
+  --md-footer-fg-color--lighter: var(--gm-on-surface-variant);
+  --md-shadow-z1: none;
+  --gm-ease: cubic-bezier(0.2, 0, 0, 1);
+}
+[data-md-color-scheme="default"] { --md-accent-fg-color--transparent: rgba(11, 87, 208, 0.08); }
+[data-md-color-scheme="slate"] { --md-accent-fg-color--transparent: rgba(168, 199, 250, 0.08); }
+
+/* Type scale: headlines in regular weight, titles in medium, as Material 3 sets
+   them, with the page title in the on-surface colour and not Material's grey. */
+.md-typeset h1 {
+  font-size: 2rem;
+  line-height: 2.5rem;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: var(--gm-on-surface);
+  margin: 0 0 1.5rem;
+}
+.md-typeset h2 { font-size: 1.5rem; line-height: 2rem; font-weight: 400; letter-spacing: 0; margin: 2.2em 0 0.8em; }
+.md-typeset h3 { font-size: 1.25rem; line-height: 1.75rem; font-weight: 500; letter-spacing: 0; margin: 1.8em 0 0.6em; }
+.md-typeset h4 { font-size: 1rem; line-height: 1.5rem; font-weight: 500; letter-spacing: 0.01em; }
+.md-typeset h5, .md-typeset h6 {
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  color: var(--gm-on-surface-variant);
+}
+
+/* Top app bar: tonal, with the outline only once the page has scrolled under it. */
+.md-header, .md-tabs {
+  border-bottom: 1px solid transparent;
+  transition: background-color 200ms var(--gm-ease), border-color 200ms var(--gm-ease);
+}
+.md-header--shadow { background-color: var(--gm-container); border-bottom-color: var(--gm-outline-variant); }
+.md-header__button { border-radius: 50%; transition: background-color 200ms var(--gm-ease); }
+.md-header__button:hover { background-color: var(--md-accent-fg-color--transparent); opacity: 1; }
+.md-footer { border-top: 1px solid var(--gm-outline-variant); }
+
+/* Search is Material 3's search bar: a full-radius field on a higher container. */
+.md-search__form {
+  border-radius: 28px;
+  background-color: var(--gm-container-high);
+  transition: background-color 200ms var(--gm-ease);
+}
+.md-search__form:hover { background-color: var(--gm-outline-variant); }
+[data-md-toggle="search"]:checked ~ .md-header .md-search__form { border-radius: 28px 28px 0 0; background-color: var(--gm-container-high); }
+.md-search__input { color: var(--gm-on-surface); }
+.md-search__input::placeholder, .md-search__icon { color: var(--gm-on-surface-variant); }
+.md-search__output { border-radius: 0 0 28px 28px; background-color: var(--gm-container-high); }
+.md-search-result__meta { background-color: var(--gm-container); color: var(--gm-on-surface-variant); }
+
+/* Navigation: the current page is a pill on the secondary container, as in
+   Material 3's navigation drawer. The group headings (Getting started, The
+   dashboard, Integrations) are set apart from the pages beneath them. The pill
+   geometry is for the sidebar, which has room from 76.25em up; on a phone the
+   menu is a drawer of full-width rows that shows one level at a time, so there
+   only the current row takes the colour. */
+.md-nav--primary .md-nav__link--active:not([for^="__nav"]) {
+  background-color: var(--gm-secondary-container);
+  color: var(--gm-on-secondary-container);
+  font-weight: 500;
+}
+@media screen and (min-width: 76.25em) {
+  .md-nav--primary .md-nav__link {
+    border-radius: 20px;
+    padding: 0.3em 0.75em;
+    margin-top: 0.2em;
+    margin-inline: -0.75em;
+    transition: background-color 200ms var(--gm-ease), color 200ms var(--gm-ease);
+  }
+  .md-nav--primary .md-nav__link:hover { background-color: var(--md-accent-fg-color--transparent); }
+  .md-nav--primary .md-nav__link--active:not([for^="__nav"]):hover { background-color: var(--gm-secondary-container); }
+  .md-nav--primary > .md-nav__list > .md-nav__item--section > .md-nav__link {
+    font-size: 0.7rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: var(--gm-on-surface-variant);
+    margin-top: 1.4em;
+  }
+  /* The site title's fade, which hides the pages scrolling under it, would
+     blur the top of the pill beneath it. */
+  .md-nav--primary > .md-nav__title { box-shadow: none; }
+}
+.md-nav--secondary .md-nav__link--active { font-weight: 500; }
+
+/* Links keep their underline: blue against the body text is 2.6:1 in the light
+   theme, short of the 3:1 that colour alone needs. */
 .md-typeset a {
   text-decoration: underline;
-  text-decoration-color: var(--md-default-fg-color--lighter);
+  text-decoration-thickness: 1px;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
   text-underline-offset: 0.2em;
 }
 .md-typeset a:hover { text-decoration-color: currentColor; }
 .md-typeset a.headerlink, .md-typeset a.md-button { text-decoration: none; }
 
+/* Buttons: filled for the main action, outlined for the rest, each a full-radius
+   pill. Hover and focus lay an 8 % state layer of the content colour on top. */
 .md-typeset .md-button {
-  color: var(--md-default-fg-color);
-  border-color: var(--md-default-fg-color--lighter);
-  border-radius: 0;
+  min-height: 40px;
+  padding: 0.55em 1.5em;
+  border: 1px solid var(--gm-outline);
+  border-radius: 20px;
+  background-color: transparent;
+  color: var(--gm-primary);
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  transition: background-color 200ms var(--gm-ease), box-shadow 200ms var(--gm-ease);
 }
-.md-typeset .md-button--primary, .md-typeset .md-button:hover {
-  background-color: var(--md-default-fg-color);
-  border-color: var(--md-default-fg-color);
-  color: var(--md-default-bg-color);
+.md-typeset .md-button:hover,
+.md-typeset .md-button:focus-visible {
+  background-color: var(--md-accent-fg-color--transparent);
+  border-color: var(--gm-outline);
+  color: var(--gm-primary);
+}
+.md-typeset .md-button--primary {
+  border-color: transparent;
+  background-color: var(--gm-primary);
+  color: var(--gm-on-primary);
+}
+.md-typeset .md-button--primary:hover,
+.md-typeset .md-button--primary:focus-visible {
+  border-color: transparent;
+  background-color: var(--gm-primary);
+  background-image: linear-gradient(color-mix(in srgb, var(--gm-on-primary) 8%, transparent), color-mix(in srgb, var(--gm-on-primary) 8%, transparent));
+  color: var(--gm-on-primary);
+  box-shadow: 0 1px 3px 1px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
-/* Notes and tips in the same greys, as the dashboard's own notices are. */
+/* Notes, tips, warnings and cautions are tonal cards: a container colour, no
+   border, rounded. Notes and tips take the neutral container with a blue icon;
+   a warning is amber and a caution red, never by colour alone: the title says it. */
 .md-typeset .admonition, .md-typeset details {
-  border-color: var(--md-default-fg-color--lighter) !important;
-  border-radius: 0;
+  --gm-card: var(--gm-container);
+  --gm-card-on: var(--gm-on-surface);
+  --gm-card-icon: var(--gm-primary);
+  border: 0 !important;
+  border-radius: 12px;
   box-shadow: none;
+  background-color: var(--gm-card);
+  color: var(--gm-card-on);
+}
+.md-typeset .admonition.warning, .md-typeset details.warning {
+  --gm-card: var(--gm-warning-container);
+  --gm-card-on: var(--gm-on-warning-container);
+  --gm-card-icon: var(--gm-warning);
+}
+.md-typeset .admonition.danger, .md-typeset details.danger {
+  --gm-card: var(--gm-error-container);
+  --gm-card-on: var(--gm-on-error-container);
+  --gm-card-icon: var(--gm-error);
 }
 .md-typeset .admonition-title, .md-typeset summary {
-  background-color: var(--md-default-fg-color--lightest) !important;
+  background-color: transparent !important;
+  font-weight: 500;
 }
+/* A heading that opens a card's body has the title above it already. */
+.md-typeset .admonition :is(h1, h2, h3, h4), .md-typeset details :is(h1, h2, h3, h4) { margin-top: 0.4em; }
 .md-typeset .admonition-title::before, .md-typeset summary::before {
-  background-color: var(--md-default-fg-color) !important;
+  background-color: var(--gm-card-icon) !important;
 }
 
-/* A screenshot of the dashboard's black page would otherwise have no edge
-   against the black site. The logo keeps its own shape. */
+/* Code: a container colour and a corner radius, in Material's own mono. */
+.md-typeset code { border-radius: 6px; }
+.md-typeset pre > code { border-radius: 12px; }
+.md-typeset .highlight .filename { border-radius: 12px 12px 0 0; }
+
+/* Tables: a rounded outline, a tonal header row. */
+.md-typeset table:not([class]) { border-radius: 12px; }
+.md-typeset table:not([class]) th {
+  background-color: var(--gm-container);
+  color: var(--gm-on-surface);
+  font-weight: 500;
+}
+
+/* A screenshot of the dashboard's dark page would otherwise have no edge against
+   the dark site. The logo keeps its own shape. */
 .md-typeset img:not([src*="logo/"]) {
-  border: 1px solid var(--md-default-fg-color--lighter);
+  border: 1px solid var(--gm-outline-variant);
+  border-radius: 12px;
 }
-/* The form behind the field is tinted too; over a light header that reads
-   as a heavy grey bar. */
-[data-md-color-scheme="default"] .md-search__form { background-color: rgba(0, 0, 0, 0.06); }
-[data-md-color-scheme="slate"] .md-search__form { background-color: rgba(255, 255, 255, 0.08); }
-[data-md-color-scheme="default"] .md-search__input {
-  background-color: transparent;
-  color: #000;
+
+/* Keyboard focus is a 2 px ring in the primary colour, offset from the control. */
+.md-typeset a:focus-visible,
+.md-nav__link:focus-visible,
+.md-header__button:focus-visible,
+.md-search__input:focus-visible,
+.md-top:focus-visible,
+.md-clipboard:focus-visible {
+  outline: 2px solid var(--gm-primary);
+  outline-offset: 2px;
 }
-[data-md-color-scheme="default"] .md-search__input::placeholder,
-[data-md-color-scheme="default"] .md-search__icon { color: rgba(0, 0, 0, 0.55); }
+
+@media (prefers-reduced-motion: reduce) {
+  .md-header, .md-tabs, .md-header__button, .md-search__form, .md-nav__link, .md-button {
+    transition: none !important;
+  }
+}
 
 /* An entity id broken across lines cannot be read or copied whole, so the
    entity tables keep their code on one line and scroll if they must. Only
