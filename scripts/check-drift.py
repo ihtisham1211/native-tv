@@ -4,7 +4,7 @@ Check the two lists that are maintained by hand against what the code does.
 
 All three fail silently, which is why they are checked rather than remembered:
 
-  * docs/HOME-ASSISTANT-ENTITIES.md is the entity reference, so an entity added to
+  * docs/integrations/home-assistant-entities.md is the entity reference, so an entity added to
     the daemon's catalogue, renamed or dropped leaves the table wrong with
     nothing to notice. The entities are read from the discovery golden
     (native-tv/tests/fixtures/ha-golden.json), which the native-ha-golden test
@@ -25,7 +25,7 @@ Exits non-zero if either has fallen out of step.
 import importlib.util, json, re, sys, pathlib
 
 root = pathlib.Path(__file__).resolve().parent.parent
-doc_path = root / 'docs' / 'HOME-ASSISTANT-ENTITIES.md'
+doc_path = root / 'docs' / 'integrations' / 'home-assistant-entities.md'
 problems = []
 
 # | `sensor` | `sensor.lg_tv_soc_temperature` | SoC Temperature | ... |

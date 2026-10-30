@@ -1,7 +1,7 @@
 # Contributing
 
 Changes are welcome as pull requests. How to build, test and describe a change is
-in [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md); the layout of the code is in the
+in [docs/development/contributing.md](docs/development/contributing.md); the layout of the code is in the
 [code map](CLAUDE.md#code-map) and [native-tv/ARCHITECTURE.md](native-tv/ARCHITECTURE.md).
 
 Before opening a pull request:

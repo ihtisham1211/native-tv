@@ -1,12 +1,12 @@
+---
+description: "The Native Tv app on an LG webOS TV’s home screen: the same readings and controls, driven by the remote."
+---
+
 # The TV app
 
 The dashboard can also run directly on the TV's home screen, driven by the remote, for when there is no phone or laptop to hand.
 
 It is drawn by the Native Tv client in the style of Google TV: a dark page with one accent colour, cards that lift and glow when they are focused, and a top bar with the profile, the tabs and the clock. The pages below are its own screens, not web pages.
-
-![The Native Tv TV app showing live hardware metrics, temperatures, and storage health on true black](../screenshots/tv-app.png)
-
-*The TV app's Metrics view, showing SoC temperature, CPU load, memory, swap, eMMC storage wear, and TV model.*
 
 Because the panel is an OLED, no screen of the app holds still at full brightness: thirty seconds without a key or a click dim it to two thirds black, and the first key or click after that only wakes it. This holds for Home, Live, Settings, the catalogue and the setup pages alike; the TV's own screen saver is left as it is set.
 
@@ -65,19 +65,11 @@ In Settings, the **Settings** section gives the web dashboard's address, with a 
 
 Scanning the code automatically pairs the phone with the TV, passing the access token if one is configured, allowing the dashboard to be opened without typing an IP address with the remote.
 
-![Settings tab on the TV app, showing web dashboard address and pairing QR code](../screenshots/tv-app-settings.png)
-
-*The Settings view, presenting the web dashboard's LAN address and phone pairing QR code.*
-
 ### Installing apps and system app hiding
 
 The **Apps** section lists the apps installed from outside LG's store, each with an uninstall that takes a second OK, the parts of LG's Home screen and the inputs shown on it, the keys of Quick Access, the system apps that can be hidden, the apps LG keeps ready in the background, and the background services that can be turned off.
 
 **Install homebrew apps** opens the catalog: the Homebrew Channel's apps as a grid of tiles, updates first and then by title, each marked Update, Installed or Homebrew Channel, with the focused app's version, size and description under the grid. OK on a new app or an update has the server fetch and check it, and then shows what it would change: the version, the background services, free space, whether the app asks to run its services as root (a switch, offered only for packages the Homebrew Channel has vetted), and whether it replaces a version from LG's store. Nothing is installed until OK on **Install**; **Cancel**, or Back, throws the download away. While it runs, a progress card replaces the page and Back waits for it to finish; the result then says what was installed or why it failed. OK on an installed app uninstalls it after a second OK.
-
-![Apps tab on the TV app, showing Homebrew catalog installation and home screen app hiding](../screenshots/tv-app-apps.png)
-
-*The Apps view, showing Homebrew Channel catalog browsing and system app hiding.*
 
 ### Native Tv Home
 

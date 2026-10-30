@@ -1,3 +1,8 @@
+---
+title: Turn off LG ACR, ad tracking and telemetry on webOS
+description: "Turn off LG ACR (Live Plus), ad tracking and data agreements on a rooted LG webOS TV, and block LG ad and telemetry servers."
+---
+
 # Privacy and data collection
 
 The **Privacy** section, `/?tab=privacy`, reports what the TV is configured to do rather than hiding these settings behind its normal menus.
@@ -35,8 +40,8 @@ The row shows the file's name, how many names it has and when it was uploaded, a
 
 After switching away from **everything**, LG's own apps, such as the Content Store and LG Channels, can take about a minute to connect again: they run in a browser engine that keeps a looked-up address for about a minute. If one shows an error, exit it and open it again after a minute. A restart is not needed.
 
-What ACR collects and what LG Ad Solutions does with it is set out in [What LG's ACR does](../ACR.md).
+What ACR collects and what LG Ad Solutions does with it is set out in [What LG's ACR does](../administration/acr.md).
 
-![Privacy tab: an overview of what is still on, then the ad and telemetry blocker, advertising identifier, the data collection agreements grouped by subject with toggles, what is running now, and custom ad blocking](../screenshots/privacy.png)
+![Privacy tab: what is still on, what LG can collect, the ad and telemetry blocker and the advertising identifier](../screenshots/privacy.png)
 
 *Privacy controls, data agreements, advertising ID, LG telemetry blocking and custom ad blocking.*

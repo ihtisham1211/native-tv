@@ -13,9 +13,9 @@ something is wrong, and Home Assistant and the TV's own browser fail quietly.
 | :--- | :--- |
 | `check-es5.py` | ES6 syntax, or a call or CSS the TV browser lacks, in the pages the TV shows (`native-tv/assets/google-tv/`, the Home app). The phone dashboard is not restricted. |
 | `check-ui-ids.py` | An element the dashboard's script reaches for that the page no longer has. |
-| `check-strings.py` | Dashboard text without a key, and one key used for two different texts. [Strings](../STRINGS.md) has the rules. |
+| `check-strings.py` | Dashboard text without a key, and one key used for two different texts. [Strings](strings.md) has the rules. |
 | `check-screensavers.py` | Screen saver QML that the TV's QtQuick version cannot load. |
-| `check-drift.py` | The [entity reference](../HOME-ASSISTANT-ENTITIES.md) out of step with the entities the daemon publishes, a file missing from `native-tv/lifecycle/deploy.sh`'s list, which would never be installed, and an asset the TV client names (`local:...`, the Figtree and Roboto fonts) that `tools/runtime_payload.py` does not stage for it. |
+| `check-drift.py` | The [entity reference](../integrations/home-assistant-entities.md) out of step with the entities the daemon publishes, a file missing from `native-tv/lifecycle/deploy.sh`'s list, which would never be installed, and an asset the TV client names (`local:...`, the Figtree and Roboto fonts) that `tools/runtime_payload.py` does not stage for it. |
 | `check-entity-stability.py` | A Home Assistant entity from the last release that has gone, been renamed or changed domain, which leaves it unavailable and stops every automation that used it. A deliberate removal is listed in `scripts/retired-entities.txt` with its reason. |
 | `shellcheck` | Mistakes in `deploy.sh`, `tvwebctl` and the boot script in `native-tv/lifecycle/`. |
 | `check-entities.py` | A Home Assistant entity reading a field the TV's telemetry does not have, checked against a B8's real telemetry. |
@@ -189,7 +189,7 @@ recorded goldens (`ha-golden.json`, `prometheus-golden.json`, `mqtt-publish.json
 `native-mqtt-publish` holds the daemon's telemetry payload (`daemon/mqtt_publish_payload`: the whole stats read
 with LG's settings, the switched-off flag, the watch summary and PicCap's power, the last app standing in while
 the TV is off) to what the Node release's `mqtt-state.js` `publishPayload` made of all seven captured `/api/stats` responses in
-three states (21 cases, recorded by `native-tv/tests/tools/gen-mqtt-publish.js` into `tests/fixtures/mqtt-publish.json`).
+three states (21 cases, held in `tests/fixtures/mqtt-publish.json`).
 `test_native_mqtt_production_uses_live_identity_topics_and_status` also checks the discovery device record carries the
 model and firmware the TV reports, that the daemon's media snapshot is no state topic and `<prefix>/update` is cleared,
 and that the TV's sensors are offered; `native-stats-collector` holds the device, picture modes and sound outputs
@@ -366,18 +366,17 @@ service never reports is answered after 4 s, and that a refused volume change st
 offering volume control on that output.
 
 `native-install-jobs` runs the install job coordinator (`TVWEB_NATIVE_INSTALL=1`) against scripted
-downloads, inspections, previews and installs: 37 scenarios recorded from the Node release's `installer.js`
-by `native-tv/tests/tools/gen-install-jobs.js` (states, final snapshot and wording; run it again after
-changing the scenarios), then a held download cancelled, the busy refusal, an expiring preview,
+downloads, inspections, previews and installs: 37 scenarios held in
+`tests/fixtures/install-jobs.json` (states, final snapshot and wording), then a held download cancelled, the busy refusal, an expiring preview,
 recovery of an interrupted job and failing job-record writes. The runtime suite uploads a package,
 previews, confirms with root, installs and cancels a second upload with no request reaching Node's
 installer.
 
 `native-home-orchestrator` runs what the Node release's `home.js` still did around the daemon's Home routes
 (`TVWEB_NATIVE_HOME_ORCH=1`): the start-up sequence, the wake from standby that opens Native Tv Home
-over the input LG put in front, and LG's auto launch following the screen. 43 scenarios recorded from
-`home.js` on a virtual clock by `native-tv/tests/tools/gen-home-orchestrator.js` (the calls made to the
-TV, in order, and the config left; run it again after changing the scenarios; a switch-off is recorded
+over the input LG put in front, and LG's auto launch following the screen. 43 scenarios held in
+`tests/fixtures/home-orchestrator.json`, run on a virtual clock (the calls made to the
+TV, in order, and the config left; a switch-off is recorded
 as its first call, `release`), then a failing switch-off, a lost inferred save, coalesced syncs, a
 stopped orchestrator and a timer firing after its wake was cancelled. The runtime suite checks that the
 daemon reads what earlier builds left only with the flag.

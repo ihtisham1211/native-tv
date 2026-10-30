@@ -10,9 +10,15 @@ pushed:
   workflow changes.
 - Something the dashboards show or do: docs/dashboard/ for that tab, and its
   screenshot once released.
-- Anything the server changes on the TV: docs/TV-CHANGES.md.
-- What contributors must do differently: docs/CONTRIBUTING.md.
-- A finding about how LG's software works: docs/development/TV-RESEARCH.md.
+- A new feature, an integration, or support for a new TV or webOS version:
+  README.md (a bullet under Features that links its docs page, the
+  Compatibility table, and the FAQ if people would search for it) and
+  docs/index.md. The README is what GitHub and Google show first, so keep its
+  opening paragraph and the GitHub description and topics current
+  (docs/development/contributing.md#readme-and-search).
+- Anything the server changes on the TV: docs/administration/tv-changes.md.
+- What contributors must do differently: docs/development/contributing.md.
+- A finding about how LG's software works: docs/development/tv-research.md.
 
 # Code map
 
@@ -93,12 +99,12 @@ the UI suites in `native-tv/tests/ui/`; and `scripts/check-ui-ids.py`,
 Hardware rendering changes also need a TV build and capture review.
 
 For background, open the doc for the area rather than README.md:
-docs/IMPLEMENTATION.md (platform quirks and how each subsystem works),
-docs/HOME-ASSISTANT.md (setup) and docs/HOME-ASSISTANT-ENTITIES.md (entities), docs/TV-CHANGES.md (what the server changes
+docs/development/implementation.md (platform quirks and how each subsystem works),
+docs/integrations/home-assistant.md (setup) and docs/integrations/home-assistant-entities.md (entities), docs/administration/tv-changes.md (what the server changes
 on the TV), docs/development/tv-specs/index.md (hardware of the tested TVs),
-docs/development/TV-RESEARCH.md (how LG's software was found to work, to
-read before investigating it again and to add findings to), docs/ACR.md,
-docs/SECURITY.md and docs/STRINGS.md.
+docs/development/tv-research.md (how LG's software was found to work, to
+read before investigating it again and to add findings to), docs/administration/acr.md,
+docs/administration/security.md and docs/development/strings.md.
 
 # Writing conventions
 
@@ -129,7 +135,7 @@ No process commentary: what was tried, what was ruled out, what turned out to
 be a false alarm. If a check found nothing, that is not a finding worth
 writing down.
 
-The exception is a PR's **Testing** section, which docs/CONTRIBUTING.md asks
+The exception is a PR's **Testing** section, which docs/development/contributing.md asks
 for: the TV and webOS version the change was tried on, what was done and seen,
 and what wasn't tested. State them as facts, briefly, not as a story.
 
@@ -164,7 +170,7 @@ Name a webOS version as the TV reports it (`/etc/issue`, the dashboard): webOS
 4.4, webOS 9, webOS 10. LG's year names (webOS 22 to 26) are the reported major
 version plus 15; give one only in brackets, as "LG's webOS 25", where an owner
 would look for it. A TV's model year is not its webOS: the C2 runs 9.2.
-docs/tested-tvs.md#webos-version-numbers has the table.
+docs/getting-started/tested-tvs.md#webos-version-numbers has the table.
 
 ## Names in code
 
@@ -178,7 +184,7 @@ dashboards' `q()` and `t()`, which every script uses.
 
 Text shown on the dashboards is keyed: `data-t` in markup,
 `t('key', 'English', {vars})` in script. The dashboards are English only, so
-the key names the string rather than a translation. docs/STRINGS.md has the
+the key names the string rather than a translation. docs/development/strings.md has the
 rules, and `scripts/check-strings.py` checks them. The parts already converted
 are listed in `CONVERTED` in that script, and new text in one of them needs a
 key.

@@ -1,7 +1,7 @@
 # Security policy
 
 How the server protects itself, what it exposes and how to harden it is in
-[docs/SECURITY.md](docs/SECURITY.md).
+[docs/administration/security.md](docs/administration/security.md).
 
 ## Reporting a vulnerability
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Check the dashboards' strings. docs/STRINGS.md has the rules this enforces.
+Check the dashboards' strings. docs/development/strings.md has the rules this enforces.
 
 Every string shown is written in English where it is used, with a key:
 

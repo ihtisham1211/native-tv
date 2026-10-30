@@ -1,6 +1,10 @@
+---
+description: "Every Home Assistant entity Native Tv publishes for an LG webOS TV over MQTT."
+---
+
 # Home Assistant entities
 
-Every entity the TV publishes, by category. Which categories are published is set on the dashboard's **MQTT** tab: see [Entity selection](HOME-ASSISTANT.md#entity-selection).
+Every entity the TV publishes, by category. Which categories are published is set on the dashboard's **MQTT** tab: see [Entity selection](home-assistant.md#entity-selection).
 
 <div class="entity-tables" markdown>
 
@@ -42,7 +46,7 @@ Every entity the TV publishes, by category. Which categories are published is se
 | `switch` | `switch.lg_tv_oled_screen_shift` | OLED Screen Shift | Pixel orbiting, on OLED TVs |
 | `select` | `select.lg_tv_oled_logo_dimming` | OLED Logo Dimming | Local logo dimming: Off, Light, High |
 | `select` | `select.lg_tv_screensaver_mode` | Screen Saver | Which screen saver the TV runs: LG default, Clock, Starfield, Fireworks, Bokeh, Harmonograph or Panel vitals. Brightness is set on the dashboard's Screensaver tab |
-| `button` | `button.lg_tv_screensaver` | Start Screensaver | Starts the webOS screensaver, or dismisses one that is showing. Where the TV refuses the request, it opens the screen saver itself, except while something is playing full screen or playback cannot be checked ([Screen savers](dashboard/screen-savers.md)) |
+| `button` | `button.lg_tv_screensaver` | Start Screensaver | Starts the webOS screensaver, or dismisses one that is showing. Where the TV refuses the request, it opens the screen saver itself, except while something is playing full screen or playback cannot be checked ([Screen savers](../dashboard/screen-savers.md)) |
 | `text` | `text.lg_tv_screen_notification` | Screen Notification | Send custom toast messages to TV screen |
 | `button` | `button.lg_tv_restart` | Restart TV | Reboots the TV (not published when `allowPower` is false) |
 | `button` | `button.lg_tv_power_off` | Power Off TV | Powers off the TV (not published when `allowPower` is false) |

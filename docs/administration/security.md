@@ -1,3 +1,8 @@
+---
+title: Security of a rooted LG webOS TV running Native Tv
+description: "How Native Tv protects itself on a rooted LG TV: the access token, closing the port, MQTT and moving from telnet to SSH."
+---
+
 # Security
 
 This server has **no authentication by default**, and binds dual-stack to
@@ -117,7 +122,6 @@ it before exposing it more widely.
 ---
 
 ---
-
 
 ## Narrowing access
 

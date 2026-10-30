@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{#- Search and social metadata Material does not emit on its own. The title
+    and description of each page come from its front matter, falling back to
+    the page heading and the site description in mkdocs.yml. -#}
+
+{% block htmltitle %}
+  {%- if page.is_homepage -%}
+    <title>Native Tv: open-source LG webOS TV dashboard, privacy controls and Home Assistant bridge</title>
+  {%- elif page.meta and page.meta.title -%}
+    <title>{{ page.meta.title }} - {{ config.site_name }}</title>
+  {%- elif page.title -%}
+    <title>{{ page.title | striptags }} - {{ config.site_name }}</title>
+  {%- else -%}
+    <title>{{ config.site_name }}</title>
+  {%- endif -%}
+{% endblock %}
+
+{% block extrahead %}
+  {%- if page.meta and page.meta.robots %}<meta name="robots" content="{{ page.meta.robots }}">{% endif %}
+  {%- set description = page.meta.description if page.meta and page.meta.description else config.site_description -%}
+  {%- set card_title = "Native Tv: open-source LG webOS TV dashboard, privacy controls and Home Assistant bridge" if page.is_homepage else ((page.title | striptags) ~ " - " ~ config.site_name) -%}
+  {%- set card_image = config.site_url ~ "assets/social-card.png" -%}
+  <meta property="og:type" content="{{ 'website' if page.is_homepage else 'article' }}">
+  <meta property="og:site_name" content="{{ config.site_name }}">
+  <meta property="og:title" content="{{ card_title }}">
+  <meta property="og:description" content="{{ description }}">
+  <meta property="og:url" content="{{ page.canonical_url }}">
+  <meta property="og:image" content="{{ card_image }}">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Native Tv: a dashboard, privacy controls and Home Assistant bridge for rooted LG webOS TVs">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ card_title }}">
+  <meta name="twitter:description" content="{{ description }}">
+  <meta name="twitter:image" content="{{ card_image }}">
+  {% if page.is_homepage %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    "name": "Native Tv",
+    "alternateName": "native-tv",
+    "description": "{{ config.site_description }}",
+    "url": "{{ config.site_url }}",
+    "image": "{{ card_image }}",
+    "applicationCategory": "UtilitiesApplication",
+    "operatingSystem": "LG webOS 4 and later (rooted)",
+    "softwareHelp": "{{ config.site_url }}getting-started/install/",
+    "downloadUrl": "{{ config.repo_url }}",
+    "license": "https://opensource.org/licenses/MIT",
+    "isAccessibleForFree": true,
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "keywords": "LG webOS, rooted LG TV, Homebrew Channel, Home Assistant, MQTT, ACR, Live Plus, OLED burn-in, debloat, privacy, Prometheus"
+  }
+  </script>
+  {% endif %}
+{% endblock %}

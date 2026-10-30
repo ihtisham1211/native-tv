@@ -39,7 +39,7 @@ const TAB_DOCS = {
   homescreen: 'dashboard/apps/', home: 'dashboard/home/',
   oledcare: 'dashboard/oled-care/', game: 'dashboard/game/', servicemenu: 'dashboard/service-menu/',
   screensaver: 'dashboard/screen-savers/', privacy: 'dashboard/privacy/', advanced: 'dashboard/advanced/',
-  mqtt: 'HOME-ASSISTANT/', server: 'dashboard/server/', tools: 'dashboard/tools/'
+  mqtt: 'integrations/home-assistant/', server: 'dashboard/server/', tools: 'dashboard/tools/'
 };
 // The tab each section was last on, kept for the visit.
 const lastTabIn = {};

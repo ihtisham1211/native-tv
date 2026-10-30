@@ -69,7 +69,7 @@ function nativeTvKeysChanged(payload) {
 // The first config read of a compositor start, which is before anything of
 // Native Tv's own runs: asks the Homebrew Channel's service to run its
 // startup script now rather than when LG's launcher asks it for its preview,
-// some 20 s later (docs/development/TV-RESEARCH.md). The script runs once per
+// some 20 s later (docs/development/tv-research.md). The script runs once per
 // boot whoever asks first, and the boot hook shows the starting notice: shown
 // here too it came twice, and again on a compositor restart mid-session.
 // The boot hook, early: calls a bus service of ours (assets/early-service) that starts it at about

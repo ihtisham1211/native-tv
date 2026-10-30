@@ -1,3 +1,8 @@
+---
+title: Prometheus metrics for an LG webOS TV
+description: "Scrape LG webOS TV metrics with Prometheus: SoC temperature, CPU, memory, Wi-Fi and picture state."
+---
+
 # Prometheus metrics
 
 [Prometheus](https://prometheus.io/) is an open-source time-series monitoring and alerting platform. Rather than waiting for systems to push events, Prometheus periodically scrapes metrics over HTTP from instrumented endpoints, storing timestamped samples that can be queried with PromQL and visualized in dashboards like [Grafana](https://grafana.com/).
@@ -13,7 +18,7 @@ The server answers scrapes at `/api/prometheus/metrics` in the standard Promethe
 
 ## Switching it on
 
-The **Prometheus** switch on the [Server tab](dashboard/server.md) turns it on and off, at once and without a restart. It is read-only where controls are turned off in `config.json`.
+The **Prometheus** switch on the [Server tab](../dashboard/server.md) turns it on and off, at once and without a restart. It is read-only where controls are turned off in `config.json`.
 
 The same setting can be configured in `/var/lib/tvweb/config.json` on the TV, followed by a restart of the server:
 
@@ -23,7 +28,7 @@ The same setting can be configured in `/var/lib/tvweb/config.json` on the TV, fo
 
 ## Scraping
 
-The endpoint is under `/api/`, so a [token](SECURITY.md), where one is set, is needed as for the rest of the API. Prometheus sends it as an `Authorization: Bearer` header, which keeps it out of URLs and logs:
+The endpoint is under `/api/`, so a [token](../administration/security.md), where one is set, is needed as for the rest of the API. Prometheus sends it as an `Authorization: Bearer` header, which keeps it out of URLs and logs:
 
 ```yaml
 scrape_configs:
@@ -70,11 +75,11 @@ The HDMI link families describe every input with a source linked to it, whicheve
 
 `nativetv_foreground_app_info` has a sample while an app is in the foreground, including with the screen off, and none in standby: `app_id` is the app's id, such as `com.webos.app.hdmi4` or `netflix`, and `app_name` is the name given an input in the TV's settings, an app's title, or the short id. `nativetv_hdmi_input_info` has a sample for every HDMI input, labelled with `input`, its `app_id`, and the `name` given it in the TV's settings, so the foreground app joins it on `app_id` and the input then joins the HDMI link families on `input`.
 
-The syslog counters count since the server started and have samples only while [syslog forwarding](IMPLEMENTATION.md#forwarding-the-logs-to-syslog) is on. `source` is `system`, `nativetv`, or `kernel`, one for each source forwarded. Compared with what the receiver counts per `source` as MSGID, they show lines lost on the way.
+The syslog counters count since the server started and have samples only while [syslog forwarding](../development/implementation.md#forwarding-the-logs-to-syslog) is on. `source` is `system`, `nativetv`, or `kernel`, one for each source forwarded. Compared with what the receiver counts per `source` as MSGID, they show lines lost on the way.
 
-The NTP families have samples only while [setting the clock from NTP](IMPLEMENTATION.md#setting-the-clock-from-ntp) is on, and the offset, round trip, stratum, and last answer only once the server has answered. The counters count since the server started. The offset is the server's time less the TV's at that answer, before the clock was set from it. How long since the last answer is `time() - nativetv_ntp_last_answer_timestamp_seconds`.
+The NTP families have samples only while [setting the clock from NTP](../development/implementation.md#setting-the-clock-from-ntp) is on, and the offset, round trip, stratum, and last answer only once the server has answered. The counters count since the server started. The offset is the server's time less the TV's at that answer, before the clock was set from it. How long since the last answer is `time() - nativetv_ntp_last_answer_timestamp_seconds`.
 
-`nativetv_watch_seconds_total` has samples only while [watch time](dashboard/metrics.md#watch-time) is on, one for each `app` the history has: the app's id, the input's, such as `hdmi2`, `screen_off` for the TV on with its panel off, or `screen_saver` for LG's screen saver showing. Clearing the history resets it.
+`nativetv_watch_seconds_total` has samples only while [watch time](../dashboard/metrics.md#watch-time) is on, one for each `app` the history has: the app's id, the input's, such as `hdmi2`, `screen_off` for the TV on with its panel off, or `screen_saver` for LG's screen saver showing. Clearing the history resets it.
 
 `version` is the Native Tv version. A label the TV does not report is present with an empty value. The panel usage since the last compensation cycle is `nativetv_oled_panel_usage_seconds_total - nativetv_oled_last_compensation_usage_seconds`, the uptime is `time() - nativetv_boot_time_seconds`, and the processor's busy share is `1 - avg without (cpu, mode) (rate(nativetv_cpu_seconds_total{mode="idle"}[5m]))`.
 

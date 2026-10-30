@@ -1,3 +1,8 @@
+---
+title: LG OLED burn-in protection and Pixel Refresher control
+description: "LG OLED panel wear, Pixel Refresher scheduling and burn-in protections: screen shift, logo dimming, ASBL and Global Stress Reduction."
+---
+
 # OLED wear and burn-in protection
 
 The **OLED care** tab of the **Display** section, `/?tab=oledcare`, brings together the panel's own wear figures with the protections that affect OLED wear.
@@ -9,10 +14,7 @@ The aim is not to encourage disabling OLED protections blindly. Instead, the das
 * Screen shift and logo dimming on any OLED.
 * Temporal peak control (ASBL) and global stress reduction on supported models (the two normally reachable only from the TV's service menu, with a service remote and a PIN).
 
-![OLED Care tab: panel hours, maintenance cycle countdowns and progress bars, lifetime counts and burn-in protections](../screenshots/oledcare.png)
+![OLED care tab: panel life and the burn-in protections, each with a switch](../screenshots/oledcare.png)
 
 *OLED panel wear information, maintenance cycle progress and burn-in protection controls.*
 
-![Panel life: total power-on hours, panel maintenance and Pixel Refresher countdowns](../screenshots/oledcare-panel.png)
-
-*Panel life, maintenance and Pixel Refresher status.*

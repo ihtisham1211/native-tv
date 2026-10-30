@@ -12,7 +12,7 @@ The TV normally gets its time from LG's servers. The ad blocker's **Everything**
 
 ## Setting it
 
-On the [Server tab](dashboard/server.md), open **Advanced** and switch on **Set the clock from a time server**. Type the time server's address and press **Save**: a name such as `time.lan`, or an address such as `192.168.1.1`. A port other than the usual 123 goes after a colon, as in `time.lan:1123`.
+On the [Server tab](../dashboard/server.md), open **Advanced** and switch on **Set the clock from a time server**. Type the time server's address and press **Save**: a name such as `time.lan`, or an address such as `192.168.1.1`. A port other than the usual 123 goes after a colon, as in `time.lan:1123`.
 
 The tab then shows whether the server answered:
 
@@ -31,4 +31,4 @@ The same setting can be made in `/var/lib/tvweb/config.json` on the TV, followed
 
 The server is asked when Native Tv starts, every hour, and whenever the TV switches on. The TV's clock is only changed when it is out by a second or more, and the time is handed to the TV's own time service, so the TV treats it exactly as it treats LG's.
 
-NTP is not encrypted or authenticated: anything that can answer in the server's place can set the TV's clock. Use a server on a network you trust. [Security](SECURITY.md) and [Internals](IMPLEMENTATION.md#setting-the-clock-from-ntp) have the details.
+NTP is not encrypted or authenticated: anything that can answer in the server's place can set the TV's clock. Use a server on a network you trust. [Security](security.md) and [Internals](../development/implementation.md#setting-the-clock-from-ntp) have the details.

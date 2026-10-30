@@ -2,7 +2,7 @@
 
 Findings about how LG's webOS works, kept so the same ground is not covered
 twice. Each entry names the TV and webOS version it was found on. For how
-Native Tv itself works, see [IMPLEMENTATION.md](../IMPLEMENTATION.md).
+Native Tv itself works, see [IMPLEMENTATION.md](implementation.md).
 
 ## HDMI CEC devices (G3, webOS 9.2.2)
 
@@ -102,7 +102,6 @@ CEC names on LG's own Home screen. Long titles use LG's scrolling text.
 - `luna-send` run over SSH with stdin at end of file exits 0 and prints
   nothing; with stdin held open (`sleep 5 | luna-send ...`), or from node's
   `execFile`, it answers.
-
 
 ### Cold start with Native Tv Home as the start-up app (webOS 9.2.2, G3)
 
@@ -1572,7 +1571,6 @@ that explains how a UHD panel and a 1080p app can report 2. A
 renderer experiment validated compositor snapshots before timing. Its verified 1080p reference
 and native workload both approach 60 Hz. Other firmware has not been checked
 with this method.
-
 
 ## Luna and file shapes the native daemon met on a B3 (webOS 10.3.2)
 

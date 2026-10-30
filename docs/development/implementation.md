@@ -1,7 +1,7 @@
 # Internals
 
 How this works on the inside, and the platform quirks that shaped it. Nothing
-here is needed to use the project - see [Installing](install.md) and [the dashboard](dashboard/index.md) for that.
+here is needed to use the project - see [Installing](../getting-started/install.md) and [the dashboard](../dashboard/index.md) for that.
 
 ---
 
@@ -262,7 +262,7 @@ becomes the remote shell's own `argv`:
 
 ## Server release deployment
 
-The dashboard no longer checks for or installs Native Tv server releases. Deploy a release from a checkout with `native-tv/lifecycle/deploy.sh`, or install the Homebrew Channel package. A TV that still has an updater from an older release can use it to install the first release without that feature; `scripts/check-upgrade.js` keeps this transition path covered. Current releases do not ship a Native Tv self-updater. See [Updating](managing.md#updating).
+The dashboard no longer checks for or installs Native Tv server releases. Deploy a release from a checkout with `native-tv/lifecycle/deploy.sh`, or install the Homebrew Channel package. A TV that still has an updater from an older release can use it to install the first release without that feature. Current releases do not ship a Native Tv self-updater. See [Updating](../getting-started/managing.md#updating).
 
 ## Fonts
 
@@ -445,7 +445,6 @@ restarting it mid-boot tears down the UI and fires a burst of system
 notifications. So the choice is a disruptive restart on every boot, or buttons
 that stay stock until something else restarts the compositor. Neither is worth
 having.
-
 
 The remote's streaming buttons (Netflix, Prime Video, Disney+ …) resolve through
 `mapping_info` in the settings service, `category: "other"`, which
@@ -1031,7 +1030,7 @@ fails, never for each send, and the socket is `udp4` or `udp6` to match the
 address the lookup gives. A failed send is dropped and counted, not queued, as
 UDP syslog is everywhere. Native Tv logs one line when forwarding starts and
 one at each change of error state. `nativetv_syslog_messages_total` and
-`nativetv_syslog_errors_total` on the [Prometheus endpoint](PROMETHEUS.md)
+`nativetv_syslog_errors_total` on the [Prometheus endpoint](../integrations/prometheus.md)
 count what was sent and what was dropped.
 
 ---
@@ -1192,7 +1191,7 @@ run in CI alongside `shellcheck`; `check-entities.py` reads a captured
 
 ## Versioning and server deployment
 
-The daemon formats the server version with matching `build.json` metadata (`displayVersion`). TV server releases are installed by `native-tv/lifecycle/deploy.sh` or by installing the Homebrew Channel package; the current server does not check, install or roll back its own releases. See [Updating](managing.md#updating) for the supported deployment paths.
+The daemon formats the server version with matching `build.json` metadata (`displayVersion`). TV server releases are installed by `native-tv/lifecycle/deploy.sh` or by installing the Homebrew Channel package; the current server does not check, install or roll back its own releases. See [Updating](../getting-started/managing.md#updating) for the supported deployment paths.
 
 ---
 
@@ -1268,7 +1267,7 @@ Home screen bloatware tile hiding allows built-in or preloaded system apps (whic
 
 ### Cold Boot vs. Quick Start+ (Standby)
 - **Normal Usage (Quick Start+)**: LG webOS defaults to Quick Start+ (Active Standby / Suspend-to-RAM). When the TV is powered off and on with the remote, the Linux kernel, active bind-mounts, and SAM remain running in memory. The overrides remain intact, and hidden tiles never appear.
-- **Cold Boot (Full Reboot / Power Loss)**: On a true cold boot, webOS boots from an early checkpoint/snapshot (CRIU), displaying the Home screen (`com.webos.app.home`) before late userland root hooks run. The Home screen briefly shows the stock tiles for a few seconds until the Homebrew Channel's autostart runs `/var/lib/webosbrew/startup.sh` &rarr; `run-parts /var/lib/webosbrew/init.d/50-tvweb` (about 46 s in on a B3, webOS 10.3.2; [what starts it](development/TV-RESEARCH.md#what-starts-the-boot-hook-and-when-b3-webos-1032)).
+- **Cold Boot (Full Reboot / Power Loss)**: On a true cold boot, webOS boots from an early checkpoint/snapshot (CRIU), displaying the Home screen (`com.webos.app.home`) before late userland root hooks run. The Home screen briefly shows the stock tiles for a few seconds until the Homebrew Channel's autostart runs `/var/lib/webosbrew/startup.sh` &rarr; `run-parts /var/lib/webosbrew/init.d/50-tvweb` (about 46 s in on a B3, webOS 10.3.2; [what starts it](tv-research.md#what-starts-the-boot-hook-and-when-b3-webos-1032)).
 - `50-tvweb` reapplies the bind-mounts from `/var/lib/tvweb/hidden_apps` in ~50ms and respawns SAM, at which point the Home screen drops the tiles from view. This brief appearance on cold boot is architectural to webOS's read-only root partition: root hooks run safely in user space without modifying rootfs systemd units.
 
 ---
@@ -1336,7 +1335,7 @@ as LG's has it), bind-mounts the directory over
 of the one app on webOS 10, which ignores the nudge. On webOS 10 the Home
 button opens the default app of the `home` category, which sam takes from that
 `appCategory`; without it the button does nothing
-([research](development/TV-RESEARCH.md#nativetv-home-on-webos-10-g5-webos-1031)).
+([research](tv-research.md#nativetv-home-on-webos-10-g5-webos-1031)).
 A server finding it mounted with a manifest sam has not read, as after an
 upgrade or an interrupted reread, checks sam's copy and has it read again. If sam
 does not report the home category, LG's Home is put back and the switch fails.
@@ -1344,7 +1343,7 @@ Everything on the TV that means Home opens that id: the
 Home button (surface-manager, `hotKey`), Back out of the last app (sam's
 `last_input_handler`), waking on Home (`bootManager`), so all of them open
 Native Tv Home, with nothing to correct afterwards and no setting changed
-([research](development/TV-RESEARCH.md#replacing-lgs-home-under-its-id-webos-922-g3)).
+([research](tv-research.md#replacing-lgs-home-under-its-id-webos-922-g3)).
 The staged files are rewritten at every server start, so a new release reaches
 the page without a remount; the view reloads itself when the server's build
 changes.
@@ -1483,7 +1482,7 @@ webOS 9.2 but not on webOS 10.3, so Native Tv first stops the selected apps:
 that they have left `running` before removing their cards with `removeRecent`;
 a refused or unconfirmed stop keeps the cards for retry. Close all acts only
 on the offered list, leaving Home and any newer cards alone
-([TV-RESEARCH](development/TV-RESEARCH.md#lg-homes-recent-apps-g3-webos-922)).
+([TV-RESEARCH](tv-research.md#lg-homes-recent-apps-g3-webos-922)).
 A card shows the app's snapshot, or its splash where the TV has none since it
 restarted. Pictures are served only from the paths the last list named, and an
 app is opened or closed only while it is on the list. Snapshot responses use
@@ -1553,7 +1552,6 @@ The debloating engine (`background_services`, kept by `services_keeper`) switche
   5. As a result, `videooutputd` never receives a matching `vssForegroundAppId` from `getForegroundApps`. In `videooutputd`, the `MAIN` sink starts muted at boot and only unmutes when the connecting app matches `vssForegroundAppId`. With the foreground state stalled at `unknown`, `videooutputd` holds `muted: true` indefinitely.
 * **Why Disabling Offers No Benefit**: On consumer/retail TVs where Hotel Mode is disabled (`enableHotelMode == 0`), `tvdataexchanger`'s power-on handlers (`CHotel::loadAvSettings()` and `CHotel::runAspectRatio()`) abort immediately. It does not touch AV settings or display configurations on consumer sets, uses negligible RAM (~1.8 MB), and consumes 0% CPU after boot.
 
-
 ### Forbidden Service: `alwaysready` (Always Ready Ambient Mode)
 
 `alwaysready` (`alwaysready.service`) was on the list until 0.73.2 and is now retired the same way.
@@ -1576,8 +1574,6 @@ Custom QML screensavers are staged in `/var/lib/tvweb/screensaver` and bind-moun
 ## PicCap
 
 The server asks PicCap's service only where `/media/developer/apps/usr/palm/applications/org.webosbrew.piccap` exists and webOS is version 3 or later, so a TV without it or running webOS 2 starts no `luna-send` for it (querying PicCap's native service on webOS 2 stalled the Luna bus and tripped a watchdog reboot, #746). For Home Assistant it polls every `piccap.pollIntervalMs` milliseconds (30 seconds by default) while MQTT is connected and the `piccap` entity is not switched off in the entity settings. An old `"piccap": {"enabled": false}` is turned into exactly that at start-up, and the key removed. Telemetry includes boolean `piccap.power` while PicCap answers; the bridge publishes retained `ON` or `OFF` to `<prefix>/state/piccap/power`, and `<prefix>/command/piccap/power` accepts `ON` or `OFF` when `allowControl` is enabled. Discovery carries the `piccap` switch only while a status check has answered, and is republished when that changes. `/api/stats` adds `piccapCapture: {running}` where PicCap answers, for the Advanced tab's switch, which sends the `piccap` control.
-
-
 
 No Home wallpapers are packaged; the background is black until one is uploaded. The browser prepares personal JPEG/PNG/WebP images as JPEGs within 1920 × 1080 pixels, the `resolution` the Home app declares, which webOS web apps are drawn at. `/api/home/wallpapers/upload?slot=morning|afternoon|evening|night` accepts only `image/jpeg` with a declared size up to 5 MiB, under the usual authentication, control and Origin guards. One upload is buffered at a time, with a 30-second body deadline, frame/scan structure and dimension checks, a disk-space check and atomic replacement. The server does not decode JPEG pixels. The Apps tab hides a system app by setting `visible: false` in its appinfo, and the TV's launch points, which the Apps row is built from, have no tile for such an app (AirPlay's appinfo has it from LG), so it is hidden on both Homes. On a G3 no launch point carries a `visible` field; the Apps row skips any that says `false` all the same. `home-wallpaper-uploads/<slot>.jpg`, outside the deploy bundle, is that slot's image. File revisions invalidate the browser and TV image URLs after replacement. Uploads are excluded from layout backups.
 

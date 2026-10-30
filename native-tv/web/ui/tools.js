@@ -530,7 +530,7 @@ document.addEventListener('visibilitychange', () => {
  * Whether these logs also go to a log server (#633). Read-only: forwarding is
  * set up in config.json, which the docs page linked here explains.
  */
-const LOG_FORWARDING_DOCS = 'https://ihtisham1211.github.io/native-tv/syslog/';
+const LOG_FORWARDING_DOCS = 'https://ihtisham1211.github.io/native-tv/integrations/syslog/';
 
 async function loadLogForwarding() {
   const el = q('tools-fwd');

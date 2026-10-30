@@ -1,3 +1,8 @@
+---
+title: LG webOS TV and Home Assistant over MQTT
+description: "Connect a rooted LG webOS TV to Home Assistant through MQTT Discovery, with controls, telemetry and remote button events."
+---
+
 # Home Assistant
 
 [Home Assistant](https://www.home-assistant.io/) is a popular, open-source home automation platform designed with a local-first philosophy, prioritizing privacy, reliability, and full control over your smart home ecosystem.
@@ -8,7 +13,7 @@ Native Tv bridges your rooted LG webOS TV directly into Home Assistant, transfor
 * **Bi-directional Control**: Provides complete local control from your Home Assistant dashboard and automations — power states, input switching, volume and mute, playback controls, picture presets, screen blanking, and launching apps.
 * **Remote & Cloud Control**: With [Home Assistant Cloud](https://www.nabucasa.com/) (Nabu Casa) or your own secure remote connection (WireGuard, Cloudflare Tunnel), you can securely monitor and control your TV from anywhere in the world, without exposing the TV's web dashboard or root shell directly to the internet.
 
-Every entity published by the bridge is detailed in [Entities](HOME-ASSISTANT-ENTITIES.md), and triggering automations from Magic Remote button presses is covered in [Remote Button Events](HOME-ASSISTANT-REMOTE-BUTTONS.md).
+Every entity published by the bridge is detailed in [Entities](home-assistant-entities.md), and triggering automations from Magic Remote button presses is covered in [Remote Button Events](home-assistant-remote-buttons.md).
 
 ---
 
@@ -35,7 +40,7 @@ Connecting Native Tv to Home Assistant takes only a few minutes.
    - In Home Assistant, navigate to **Settings** → **Add-ons** → **Add-on Store**.
    - Search for **Mosquitto broker**, install it, and start the add-on.
    - Navigate to **Settings** → **Devices & Services** and ensure the **MQTT** integration is configured (Home Assistant prompts to set it up automatically once Mosquitto is running).
-3. Dedicated MQTT credentials for the TV (recommended; see [Hardening the MQTT bridge](SECURITY.md#hardening-the-mqtt-bridge)).
+3. Dedicated MQTT credentials for the TV (recommended; see [Hardening the MQTT bridge](../administration/security.md#hardening-the-mqtt-bridge)).
 
 ### Setting it up from the dashboard
 
@@ -82,7 +87,7 @@ Edit those in `config.json` and redeploy, or edit `/var/lib/tvweb/config.json` o
 `allowPower` defaults to true: who on the network can use controls is decided by network exposure and `token`. Setting `"allowPower": false` hides and refuses power off, power on, and reboot, both in the dashboard and in Home Assistant.
 
 > [!NOTE]
-> Give the TV its own MQTT user with a restricted topic ACL rather than reusing the main Home Assistant credentials. See [Hardening the MQTT bridge](SECURITY.md#hardening-the-mqtt-bridge).
+> Give the TV its own MQTT user with a restricted topic ACL rather than reusing the main Home Assistant credentials. See [Hardening the MQTT bridge](../administration/security.md#hardening-the-mqtt-bridge).
 
 ### Running one half without the other
 
@@ -114,7 +119,7 @@ Node-RED, Telegraf into InfluxDB, or scripts subscribing to that topic work the 
 
 ## Entities
 
-Once connected to the MQTT broker, Home Assistant discovers the TV as a single device. [Entities](HOME-ASSISTANT-ENTITIES.md) lists every one it publishes.
+Once connected to the MQTT broker, Home Assistant discovers the TV as a single device. [Entities](home-assistant-entities.md) lists every one it publishes.
 
 ### Entity Selection
 

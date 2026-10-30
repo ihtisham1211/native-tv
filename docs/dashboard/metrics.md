@@ -19,13 +19,7 @@ This is useful both for monitoring and for troubleshooting. It shows whether a h
 
 Straight after the server starts, the tab shows what the TV itself reports (load, memory, network, temperatures) and **Loading…** for the state and source, until the TV's services have answered, a few seconds later.
 
-![Metrics tab: processor, memory, swap and network readouts](../screenshots/metrics-system.png)
-
-*Metrics including processor, memory, swap and network.*
-
 ## Watch time
-
-![Watch time: today, 7 days and 30 days, a bar for each of the last 14 days, and the time per app and input](../screenshots/metrics-watch-time.png)
 
 Shown while **Watch time** is on in the [Server tab](server.md#nativetv). It
 is off until then, as it records what the household watches. While on, the
@@ -39,7 +33,7 @@ is open.
 
 The days are the viewing browser's own. The history stays on the TV, in
 `/var/lib/tvweb/history`, for 13 months. Switching watch time off keeps what is
-there and counts no more. With it on, Home Assistant gets [three watch-time sensors](../HOME-ASSISTANT-ENTITIES.md#hardware-remote-system-diagnostics)
+there and counts no more. With it on, Home Assistant gets [three watch-time sensors](../integrations/home-assistant-entities.md#hardware-remote-system-diagnostics)
 and Prometheus `nativetv_watch_seconds_total`.
 
 Time is counted while the server runs, so a TV switched off at the wall or

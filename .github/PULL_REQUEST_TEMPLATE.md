@@ -14,4 +14,5 @@
 
 - [ ] The checks in `docs/development/testing.md` pass
 - [ ] The docs that describe the change are updated
+- [ ] A new feature or supported TV is in the README's Features or Compatibility
 - [ ] No personal data in code, fixtures or docs (addresses, serial numbers, tokens)

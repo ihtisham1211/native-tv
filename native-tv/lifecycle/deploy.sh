@@ -6,7 +6,7 @@
 # lines whichever way they get there:
 #
 #   SSH     when key-based login works - the recommended setup, see "Moving
-#           from telnet to SSH" in docs/SECURITY.md.
+#           from telnet to SSH" in docs/administration/security.md.
 #   telnet  otherwise, through the Homebrew Channel's root shell. Telnet has no
 #           file transfer, so the bundle is sent down the connection as text
 #           and decoded on the TV.
@@ -281,13 +281,13 @@ deploy_telnet() {
 Couldn't reach the TV. Check that it is on and that $TV is its address
 (Settings > Network on the TV). If it is, telnet may be switched off in the
 Homebrew Channel's settings: switch it on, or set up SSH - see "Moving from
-telnet to SSH" in docs/SECURITY.md.
+telnet to SSH" in docs/administration/security.md.
 EOF
     exit 1
   fi
   if [ -z "$FORCE_TELNET" ]; then
     echo "SSH isn't set up on this TV, so installing over telnet instead."
-    echo "(SSH is safer - see \"Moving from telnet to SSH\" in docs/SECURITY.md.)"
+    echo "(SSH is safer - see \"Moving from telnet to SSH\" in docs/administration/security.md.)"
   fi
   echo "installing on $TV over telnet ..."
 

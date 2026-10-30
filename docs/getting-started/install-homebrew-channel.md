@@ -1,3 +1,7 @@
+---
+robots: noindex
+---
+
 # Installing from the Homebrew Channel
 
 1. Open the Homebrew Channel, find **Native Tv**, and install it.

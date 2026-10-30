@@ -1,3 +1,8 @@
+---
+title: What LG ACR (Live Plus) does on a webOS TV
+description: "What LG’s automatic content recognition (ACR, Live Plus) samples on a webOS TV, and how Native Tv shows and switches it off."
+---
+
 # What LG's ACR does
 
 Automatic content recognition (ACR) is how an LG TV works out what is being

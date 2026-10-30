@@ -1,6 +1,6 @@
 # Log forwarding (syslog)
 
-Native Tv can send the logs shown on the [Tools tab](dashboard/tools.md) to a log server on the local network, so they can be kept and searched alongside the logs of other devices.
+Native Tv can send the logs shown on the [Tools tab](../dashboard/tools.md) to a log server on the local network, so they can be kept and searched alongside the logs of other devices.
 
 This is for networks that already run a log server, such as Grafana Loki (through Alloy), rsyslog, syslog-ng or Vector. Without one, there is nothing to set up: the Tools tab shows the logs on its own.
 
@@ -30,4 +30,4 @@ Log forwarding is set up in `/var/lib/tvweb/config.json` on the TV, followed by 
 
 Lines go as standard syslog (RFC 5424) over UDP, one line each. With Alloy, `loki.source.syslog` with `syslog_format = "rfc5424"` takes them.
 
-UDP syslog is not encrypted or authenticated, and anything on the network path can read it. [Security](SECURITY.md) and [Internals](IMPLEMENTATION.md#forwarding-the-logs-to-syslog) have the details.
+UDP syslog is not encrypted or authenticated, and anything on the network path can read it. [Security](../administration/security.md) and [Internals](../development/implementation.md#forwarding-the-logs-to-syslog) have the details.

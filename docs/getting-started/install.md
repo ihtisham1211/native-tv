@@ -1,3 +1,8 @@
+---
+title: Install Native Tv on a rooted LG webOS TV
+description: "Install Native Tv on a rooted LG webOS TV: build the ARM server with the webOSbrew SDK, run deploy.sh over SSH, open the dashboard."
+---
+
 # Installing
 
 ## Quick start
@@ -38,7 +43,7 @@ cd native-tv
 Find the TV's address under Settings → Network on the TV, or in the router's list of devices. The installer automatically uses SSH if the TV has it, and falls back to the Homebrew Channel's telnet if not.
 
 > [!CAUTION]
-> Rooting an LG TV will often open an unauthenticated telnet server by default, leaving a root shell open on the local network. It is good practice to turn telnet off and turn SSH on, for more secure access — [moving from telnet to SSH](SECURITY.md#moving-from-telnet-to-ssh) takes about five minutes and is strongly recommended.
+> Rooting an LG TV will often open an unauthenticated telnet server by default, leaving a root shell open on the local network. It is good practice to turn telnet off and turn SSH on, for more secure access — [moving from telnet to SSH](../administration/security.md#moving-from-telnet-to-ssh) takes about five minutes and is strongly recommended.
 
 Build the native service from the repository root using a compatible
 [webOSbrew native SDK](https://github.com/webosbrew/native-toolchain):
@@ -69,7 +74,7 @@ native-tv/lifecycle/deploy.sh 192.168.1.50
 The script takes about ten seconds to copy the server files and verify that the service is running. Once complete:
 
 * **In your browser:** Open **`http://<tv-ip>:8080/`** on any phone, tablet, or computer on your home network.
-* **On the TV:** Open the new **Native Tv** tile on your TV's home screen using your remote (see [The TV app](apps/tv-app.md)).
+* **On the TV:** Open the new **Native Tv** tile on your TV's home screen using your remote (see [The TV app](../apps/tv-app.md)).
 
 > [!TIP]
 > **Static IP recommendation:** Reserving a fixed DHCP IP address for the TV in your home router settings ensures the dashboard address never changes.
@@ -90,7 +95,7 @@ Native Tv can be configured in two ways:
 
 When Native Tv is installed, opening the app on the TV for the first time starts an interactive setup wizard designed for the remote.
 
-![Network access selection in the Native Tv TV app setup wizard](screenshots/tv-app-setup-network.png)
+![Network access selection in the Native Tv TV app setup wizard](../screenshots/tv-app-setup-network.png)
 
 *Choosing whether the web dashboard is open to devices on the home network or TV-local only.*
 
@@ -100,7 +105,7 @@ The wizard guides you through three key choices:
 * **Home Assistant integration**: Connect your TV to Home Assistant via MQTT. The TV displays a QR code to scan with your phone, allowing you to enter your MQTT broker credentials easily from your mobile browser without typing on the TV remote. An on-screen keyboard beside the code takes them from the remote instead.
 * **Active Standby (Always-on)**: On TVs that support Always Ready / Active Standby (such as the LG C2 or G2), choose whether Native Tv and Home Assistant remain connected with the screen off so the TV can be controlled and turned back on over the network.
 
-Any choice made during setup can be changed at any time from the TV app's **Settings** tab or the web dashboard. For a full walkthrough with screenshots, see [The TV app setup wizard](apps/tv-app.md#first-run-setup-wizard).
+Any choice made during setup can be changed at any time from the TV app's **Settings** tab or the web dashboard. For a full walkthrough with screenshots, see [The TV app setup wizard](../apps/tv-app.md#first-run-setup-wizard).
 
 ---
 
@@ -156,7 +161,7 @@ Advanced settings can be adjusted in `config.json` or through the dashboard's Se
 | `ntp.server` | `""` | Hostname of an NTP server (e.g., `"pool.ntp.org"`) to synchronize the TV's clock on boot and hourly. |
 | `syslog.server` | `""` | Remote syslog server address to forward TV and Native Tv logs over RFC 5424 UDP (port `514`). |
 | `allowTileHiding` | `false` | Experimental: allows hiding built-in LG system tiles and apps on the home screen. |
-| `allowExperimentalHome` | `false` | Experimental: offers [Native Tv Home](dashboard/home.md) on webOS 11, where it is untried. |
+| `allowExperimentalHome` | `false` | Experimental: offers [Native Tv Home](../dashboard/home.md) on webOS 11, where it is untried. |
 | `allowExperimentalScreensavers` | `false` | Experimental: allows custom QML screensavers on webOS 12 and newer, which are untried there. Named `allowOnWebos10` before 0.105; that name is still read, and renamed when the server starts. |
 | `allowNetworkDebugger` | `false` | Exposes the webOS app inspector on port `9998` over the local network for developers using `ares-inspect`. |
 | `iconServer` | `false` | Serves installed apps' icons, read-only and without a token, at `http://<tv-ip>:8082/icons/<appId>.png` (the dashboard's port plus two), for launchers on other devices. Home Assistant's Launch App select then lists each icon's address in `app_icons`. Also switched from the MQTT tab. |

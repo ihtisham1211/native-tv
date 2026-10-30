@@ -1,3 +1,8 @@
+---
+title: Open the LG service menu without a service remote
+description: "Open and unlock LG’s service menu on a webOS TV from a browser, with no service remote."
+---
+
 # Service menu access
 
 The **Service menu** tab of the **Settings** section, `/?tab=servicemenu`, opens LG's engineering menu on the TV — EZ Adjust or In Start — without a service remote; the TV still asks for its PIN.
@@ -12,6 +17,3 @@ Newer firmware shows a cut-down version until it is unlocked, and the dashboard 
 > [!WARNING]
 > The service menu provides low-level hardware and calibration control. Changing unfamiliar values in EZ Adjust or In Start can cause permanent display corruption or render the TV unbootable.
 
-![Service menu tab: unlock state with a power-cycle note, buttons to open EZ Adjust or In Start, and a warning about what the menu can change](../screenshots/servicemenu.png)
-
-*Service menu access, unlock state and low-level hardware controls.*

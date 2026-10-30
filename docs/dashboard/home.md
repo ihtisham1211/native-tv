@@ -2,8 +2,6 @@
 
 **Experimental.** Native Tv Home is a home screen of Native Tv's own, shown in place of LG's when the remote's Home or Back button is pressed and when the TV switches on. The **Native Tv Home** tab, `/?tab=home`, under Apps, switches it on and off and arranges it. It has been tried on webOS 9 and 10, and requires the dashboard on port 8080. On webOS 11 it is offered once `"allowExperimentalHome": true` is set in `config.json`. Elsewhere neither dashboard shows it, unless it is still switched on or LG's Home has not yet been fully restored.
 
-![Native Tv Home on an OLED55G36LA (webOS 9.2): clock and the Apps, Inputs and Channels rows over an uploaded afternoon wallpaper](../screenshots/home.jpg)
-
 The screen is laid out as Google TV's home, after Google's TV Design Kit: a bar of tabs with the clock and date at the right, a featured carousel across the top (the kit's Immersive layout: its artwork fills the top right and fades into the black, with the text at the left), and rows of cards below it. Until Home has its first content, a boot screen of slowly moving colours shows the Native Tv mark. The tabs are:
 
 * **Home** leads with **Your apps**, as 16:9 cards in each app's own colours, with the name under the one in focus. With a TMDB key set (below), the carousel is a spotlight of today's trending films and series with artwork, year, rating and summary, moving on by itself while no key is pressed, with a dot for each title; rows of **Trending today**, **Trending films this week**, **Trending series this week** and **Anime airing this week** (shows with an episode out in the last seven days) follow, as picture cards, and the focused title is in the carousel. With a YouTube key, **Popular on YouTube** is added. Elsewhere the carousel shows what is focused.
@@ -68,12 +66,6 @@ enabled; standalone native launch does not enable Home replacement.
 The background is black. The browser dashboard can add an image for each time of day (morning 06:00, afternoon 11:00, evening 17:00, night 21:00): choose a **Time of day**, select a JPEG, PNG or WebP file up to 25 MB, then press **Upload image**. The browser fits it within 1920 × 1080 pixels, the size Native Tv Home is drawn at, and prepares a JPEG before sending it to the TV. Images fill the screen and may be cropped. **Remove uploaded images** puts black back. None are included with Native Tv.
 
 Uploads are stored in `/var/lib/tvweb/home-wallpaper-uploads`, outside the deploy bundle. A failed or interrupted upload leaves the previous image intact. The directory is removed when Native Tv is uninstalled; the layout backup does not include image files.
-
-![Personal wallpapers uploaded for all four time-of-day slots](../screenshots/home-wallpaper-upload.png)
-
-![Home with no wallpaper uploaded: the same apps, inputs and channels on black](../screenshots/home-black.jpg)
-
-![An uploaded evening wallpaper](../screenshots/home-evening.jpg)
 
 **Colours** sets the text and the accent of Native Tv Home. The quieter text is a darker shade of the text colour. Once colours are chosen, the accent frames the focused card; the default frames it in the text colour. The tab shows six presets, each as a small preview of the clock, a row name and the accent, with **Text** and **Accent** pickers for any other colour and **Use the default colours** to go back. The TV app's Home section steps through the same presets with OK, and shows Custom for colours picked in the browser. Native Tv Home changes colour within a few seconds, without being reopened.
 
@@ -156,10 +148,6 @@ The Native Tv server answers about ten seconds later; Native Tv Home opened in b
 Over SSH, `tvwebctl restore-nativetv-home` does what **Use LG Home** does. Uninstalling Native Tv from the Homebrew Channel switches Native Tv Home off before deleting the server; a failed switch-off keeps the server for another attempt.
 
 Earlier builds installed a separate Native Tv Home app and changed the TV's Home and start-up settings to it. The first start of a newer server puts back any of those settings that still name that app, gives the Home button back to LG's filters, and removes the app.
-
-![The Home tab in the browser dashboard: the Channels row with its added channels, and Add channels below them](../screenshots/home-dashboard.png)
-
-![The Home section of the TV app: inputs shown or hidden, channels removed with OK, and Add channels](../screenshots/home-tv-app.jpg)
 
 ## Arranging
 

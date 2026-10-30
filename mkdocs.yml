@@ -1,13 +1,16 @@
 site_name: Native Tv
-site_description: A dashboard, privacy controls and Home Assistant bridge for rooted LG webOS TVs.
+site_description: "Open-source dashboard, privacy controls and Home Assistant MQTT bridge for rooted LG webOS TVs: turn off ACR and ads, debloat apps, protect OLED panels."
 site_url: https://ihtisham1211.github.io/native-tv/
+site_author: Native Tv contributors
 repo_url: https://github.com/ihtisham1211/native-tv
-repo_name: native-tv
+repo_name: ihtisham1211/native-tv
 edit_uri: edit/main/docs/
+copyright: MIT licence. Native Tv is not affiliated with or endorsed by LG Electronics.
 strict: true
 
 theme:
   name: material
+  custom_dir: docs/overrides
   logo: logo/nativetv.svg
   favicon: logo/nativetv-512.png
   palette:
@@ -35,9 +38,9 @@ theme:
 nav:
   - Home: index.md
   - Getting started:
-      - Installing: install.md
-      - Tested TVs: tested-tvs.md
-      - Updating and uninstalling: managing.md
+      - Installing: getting-started/install.md
+      - Tested TVs: getting-started/tested-tvs.md
+      - Updating and uninstalling: getting-started/managing.md
   - The dashboard:
       - dashboard/index.md
       - Control: dashboard/control.md
@@ -52,28 +55,29 @@ nav:
       - Service menu: dashboard/service-menu.md
       - Server: dashboard/server.md
       - Tools: dashboard/tools.md
-  - Native Tv apps:
-      - The TV app: apps/tv-app.md
-      - Android wrapper: apps/android.md
-  - Smart Home & Lighting:
+  - The TV app: apps/tv-app.md
+  - Integrations:
       - Home Assistant:
-          - Overview: HOME-ASSISTANT.md
-          - Entities: HOME-ASSISTANT-ENTITIES.md
-          - Remote button events: HOME-ASSISTANT-REMOTE-BUTTONS.md
-      - Ambient light (PicCap): piccap.md
-  - Advanced & Administration:
-      - Security: SECURITY.md
-      - What it changes on the TV: TV-CHANGES.md
-      - What LG's ACR does: ACR.md
-      - Network time (NTP): ntp.md
-      - Prometheus metrics: PROMETHEUS.md
-      - Log forwarding (syslog): syslog.md
-      - Experimental features: experimental.md
+          - Overview: integrations/home-assistant.md
+          - Entities: integrations/home-assistant-entities.md
+          - Remote button events: integrations/home-assistant-remote-buttons.md
+      - Prometheus metrics: integrations/prometheus.md
+      - Log forwarding (syslog): integrations/syslog.md
+      - Ambient light (PicCap): integrations/piccap.md
+  - Privacy and administration:
+      - Security: administration/security.md
+      - What LG's ACR does: administration/acr.md
+      - What it changes on the TV: administration/tv-changes.md
+      - Network time (NTP): administration/ntp.md
+      - Experimental features: administration/experimental.md
   - Development:
-      - Contributing: CONTRIBUTING.md
-      - Internals: IMPLEMENTATION.md
+      - Contributing: development/contributing.md
+      - Internals: development/implementation.md
+      - Testing and CI: development/testing.md
+      - TV research: development/tv-research.md
       - TV hardware specifications:
           - development/tv-specs/index.md
+          - LG B3 (OLED65B3PUA): development/tv-specs/b3.md
           - LG B8 (OLED65B8SLC): development/tv-specs/b8.md
           - LG C9 (OLED65C97LA): development/tv-specs/c9.md
           - LG CX (OLED48CXPUB): development/tv-specs/cx.md
@@ -81,16 +85,25 @@ nav:
           - LG C5 (OLED48C5PUA): development/tv-specs/c5.md
           - LG UA73 (55UA73006LA): development/tv-specs/ua73.md
           - LG NU80 (43NU800BPSC): development/tv-specs/nu80.md
-      - Testing and CI: development/testing.md
-      - TV research: development/TV-RESEARCH.md
-      - Strings: STRINGS.md
+      - Android wrapper: development/android-wrapper.md
+      - Strings: development/strings.md
+
+# Template overrides are not pages.
+exclude_docs: |
+  /overrides/
 
 # Kept until the Homebrew Channel listing is live.
 not_in_nav: |
-  /install-homebrew-channel.md
+  /getting-started/install-homebrew-channel.md
 
 extra_css:
   - stylesheets/extra.css
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/ihtisham1211/native-tv
+      name: Native Tv on GitHub
 
 markdown_extensions:
   - github-callouts

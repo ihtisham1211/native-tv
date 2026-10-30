@@ -18,7 +18,7 @@ Hardware specifications directly determine runtime compatibility and performance
 
 ## Hardware comparison across generations
 
-The table below summarizes hardware specifications across key LG TV generations tested with the project, spanning webOS 3.x (2016) through webOS 11 (2026, LG's webOS 26). Versions are the ones the TV reports; [webOS version numbers](../../tested-tvs.md#webos-version-numbers) gives LG's names for them.
+The table below summarizes hardware specifications across key LG TV generations tested with the project, spanning webOS 3.x (2016) through webOS 11 (2026, LG's webOS 26). Versions are the ones the TV reports; [webOS version numbers](../../getting-started/tested-tvs.md#webos-version-numbers) gives LG's names for them.
 
 | Series / Year | webOS (native) | SoC / Board | CPU | GPU | RAM | eMMC | Kernel | Node / Chromium | HDMI |
 |---|---|---|---|---|---|---|---|---|---|
