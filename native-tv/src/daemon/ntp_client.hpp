@@ -64,6 +64,7 @@ class NtpClient {
     std::string error_;
     std::string configPath_;
     std::string ntpConfigSnapshot_;
+    std::string configStamp_; // fileStamp() of the config last read successfully
     std::function<void(const Json &)> statusChanged_;
 };
 } // namespace daemon

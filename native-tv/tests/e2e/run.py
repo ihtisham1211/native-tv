@@ -5,7 +5,7 @@
   run.py --show E2E-030             one case, with the commands it runs
   run.py --check                    the registry against its own rules (no TV needed)
   run.py --case E2E-030 [--case ..] run cases
-  run.py --all                      run every case that is allowed
+  run.py --all [--quick]            run every case that is allowed (--quick: without the sweeps and runs over 45 s)
   options: --report FILE (.json or .md), --stage, --allow takeover|reboot|control|fresh|stage
 
 The cases (cases.json) need a real TV, so nothing here runs in CI: with NATIVETV_TV_HOST
@@ -302,7 +302,12 @@ def judge(metrics, rules):
     for expected in rules.get("checkpoints", []):
         point = metrics.get("checkpoints", {}).get(expected["name"])
         value = None if point is None else point.get(expected["path"])
-        if point is None or value != expected["equals"]:
+        if "atLeast" in expected:
+            # A count that has to have grown to this much (the readings Live has taken in so many seconds).
+            if point is None or not isinstance(value, (int, float)) or value < expected["atLeast"]:
+                broken["checkpoint " + expected["name"] + "." + expected["path"]] = \
+                    "checkpoint %s: %s is %r, wanted at least %r" % (expected["name"], expected["path"], value, expected["atLeast"])
+        elif point is None or value != expected["equals"]:
             broken["checkpoint " + expected["name"] + "." + expected["path"]] = \
                 "checkpoint %s: %s is %r, wanted %r" % (expected["name"], expected["path"], value, expected["equals"])
     if "sweep" in rules:
@@ -590,6 +595,12 @@ def summary(results):
 
 # ---- Main -----------------------------------------------------------------------------------
 
+def is_slow(case):
+    """A Settings sweep, or a client run of more than 45 s: what --quick leaves out."""
+    return str(case.get("script", "")).startswith("sweep-") or (
+        case.get("kind") == "run" and case.get("durationMs", 0) > 45000)
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--list", action="store_true")
@@ -597,6 +608,9 @@ def main(argv=None):
     parser.add_argument("--check", action="store_true", help="check the registry; needs no TV")
     parser.add_argument("--case", action="append", default=[], metavar="ID")
     parser.add_argument("--all", action="store_true")
+    parser.add_argument("--quick", action="store_true",
+                        help="with --all, leave out the Settings sweeps and the client runs over 45 s (about three "
+                             "quarters of the time): what a change needs between releases")
     parser.add_argument("--allow", action="append", default=[], choices=sorted(KNOWN_ALLOW),
                         help="let cases that require takeover, reboot, control or a fresh install run; stage allows --stage")
     parser.add_argument("--stage", action="store_true",
@@ -637,6 +651,8 @@ def main(argv=None):
         print("\n".join(problems), file=sys.stderr)
         return 1
     chosen = registry["cases"] if args.all else [by_id[name] for name in args.case if name in by_id]
+    if args.all and args.quick:
+        chosen = [case for case in chosen if not is_slow(case)]
     if not args.all and len(chosen) != len(args.case):
         print("no such case in --case", file=sys.stderr)
         return 1

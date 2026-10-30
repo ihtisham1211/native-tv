@@ -204,6 +204,7 @@ ImageView ImageLoader::get(const std::string &id, int width, int height, ImageFi
         request(*slot, nowMs);
     }
     slot->usedTick = tick_;
+    requested_ = true;
     if ((slot->state == Slot::State::Failed || slot->state == Slot::State::Fetching) &&
         nowMs >= slot->retryAtMs)
         request(*slot, nowMs);
@@ -267,7 +268,10 @@ bool ImageLoader::makeRoom(size_t bytes) {
     return true;
 }
 size_t ImageLoader::pump(size_t uploadBudgetBytes, double nowMs) {
-    ++tick_;
+    if (requested_) {
+        ++tick_;
+        requested_ = false;
+    }
     std::vector<Result> arrived;
     {
         std::lock_guard<std::mutex> lock(mutex_);

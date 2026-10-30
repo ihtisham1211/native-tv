@@ -68,7 +68,10 @@ class ImageLoader {
     Fetch fetch_;
     Decoder decoder_;
     size_t budget_, resident_ = 0;
+    // Counts the pumps that follow a get(), so the loop's idle wake-ups (which draw nothing)
+    // do not age the pictures still on screen into evictable ones.
     unsigned tick_ = 0;
+    bool requested_ = false;
     std::map<std::string, std::vector<std::shared_ptr<Slot>>> slots_;
     std::deque<std::shared_ptr<Slot>> uploads_;
     mutable std::mutex mutex_;

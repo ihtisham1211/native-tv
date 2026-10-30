@@ -19,7 +19,7 @@ The app is drawn on the GPU at the display's 60 frames a second, with no browser
 * **Motion keeps its momentum.** Focus, rows, drawers and the keyboard move on springs that carry their position and speed over when the next key arrives, so holding a direction glides on instead of restarting.
 * **Keys are read after the wait for the display.** The B3's driver blocks the first GL call of a frame for about 21 ms roughly every seven seconds; the loop takes that wait before it reads the clock and the keys, not after.
 * **Priority.** The TV runs a load average near 30, and a client at normal priority is woken up to several milliseconds late, so the client raises its own priority to -10 where the TV allows it.
-* **Nothing moves, nothing is drawn.** A still screen draws no frames, and slow ambient motion (the hero picture's drift) is paced at 30 frames a second.
+* **Nothing moves, nothing is drawn.** A still screen draws no frames, and slow ambient motion (the hero picture's drift) is paced at 30 frames a second, also while a pointer moves or the window system sends events the client does not use.
 
 Measured on an LG OLED65B3PUA (webOS 10.3.2, 1920×1080) with the load average at about 32, on 29 October 2026: frames came 14 to 19 ms apart at normal priority (95th percentile 18.4 ms) and 15 to 18 ms with the raised priority (95th percentile 17.5 ms), against 16.7 ms for a perfect 60 Hz. The driver's wait shows as one 35 ms interval about every seven seconds, whatever the frame holds. The cases that navigate Home and the Quick drawer on a real TV check the frame intervals against limits ([the testing page](../development/testing.md) has them), and `--perf` writes every frame's interval, draw calls and vertices to a file.
 

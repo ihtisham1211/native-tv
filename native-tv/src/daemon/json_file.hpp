@@ -13,6 +13,11 @@ struct JsonFileResult {
     std::string error;
 };
 
+// Changes whenever the file is replaced or rewritten: modification time to the nanosecond, size
+// and inode, or "-" when it is missing. A poller compares it to skip reading a file that has
+// not changed; the daemon's own files are written by atomic rename, which changes the inode.
+std::string fileStamp(const std::string &path);
+
 // A small crash-safe JSON file store for daemon-owned state. Writes replace
 // the file atomically and keep the previous valid value as a recovery copy.
 class JsonFile {

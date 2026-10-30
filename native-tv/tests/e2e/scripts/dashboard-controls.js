@@ -162,8 +162,16 @@ window.alert = function (m) { window.__rt.dialogs.push('ALERT: ' + String(m).sli
       ntp.before = stateOf('ntp-toggle') + '/' + field().value;
       await saveServer('pool.ntp.org'); ntp.after = stateOf('ntp-toggle') + '/' + field().value;
       if (stateOf('ntp-toggle') !== 'off') { document.getElementById('ntp-toggle').click(); await wait(3000); }
-      await saveServer(''); ntp.restored = stateOf('ntp-toggle') + '/' + field().value;
-      ntp.ok = ntp.after.indexOf('pool.ntp.org') > 0 && ntp.after !== ntp.before && ntp.restored === ntp.before;
+      // The form cannot save an empty server (Save with an empty field only focuses it), so the saved server
+      // stays after the switch is off; it is cleared here with the page's own command, as E2E-115 does.
+      await reload('server');
+      const stored = (await (await fetch('/api/update', { cache: 'no-store' })).json()).ntpSettings;
+      ntp.keptAfterOff = stored && stored.server;
+      await sendCommand('setNtpServer', ''); await reload('server');
+      const cleared = (await (await fetch('/api/update', { cache: 'no-store' })).json()).ntpSettings;
+      ntp.restored = stateOf('ntp-toggle') + '/' + field().value;
+      ntp.ok = ntp.after.indexOf('pool.ntp.org') > 0 && ntp.after !== ntp.before && ntp.restored === ntp.before &&
+        stored && stored.enabled === false && cleared && cleared.server === '' && cleared.enabled === false;
       window.__rt.log.push(ntp);
     }
 

@@ -1,4 +1,5 @@
 #include "daemon/ntp_client.hpp"
+#include "daemon/json_file.hpp"
 #include "daemon/logger.hpp"
 #include "daemon/luna.hpp"
 #include "domain/names.hpp"
@@ -153,6 +154,10 @@ void NtpClient::stopClient() {
 void NtpClient::checkConfigFile() {
     if (configPath_.empty())
         return;
+    // Once a second: do not read and parse a config that has not changed.
+    const std::string stamp = fileStamp(configPath_);
+    if (stamp == configStamp_)
+        return;
     std::ifstream input(configPath_.c_str(), std::ios::in | std::ios::binary);
     if (!input)
         return;
@@ -168,6 +173,7 @@ void NtpClient::checkConfigFile() {
     const Json config = Json::parse(bytes);
     if (!config.isObject())
         return;
+    configStamp_ = stamp;
     const Json configuredNtp = config["ntp"];
     const std::string snapshot = configuredNtp.valid() ? configuredNtp.dump() : "null";
     if (snapshot == ntpConfigSnapshot_)

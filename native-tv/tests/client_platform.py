@@ -126,6 +126,18 @@ class FixedClock(NeedsGl):
             self.assertEqual(len(summary["histogram"]), len(summary["histogramEdgesMs"]) + 1)
             self.assertGreater(frames[1]["draws"], 0)
 
+    def test_report_lists_startup_phases_in_order(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report = os.path.join(directory, "report.json")
+            done = run(QUIET + ["--screen", "splash", "--time=300", "--report=" + report])
+            self.assertEqual(done.returncode, 0, done.stderr)
+            startup = json.loads(read(report))["startup"]
+            phases = ["windowMs", "rendererMs", "atlasesMs", "prewarmMs", "firstSwapMs"]
+            self.assertEqual(sorted(startup), sorted(phases))
+            times = [startup[phase] for phase in phases]
+            self.assertEqual(times, sorted(times))
+            self.assertGreater(times[0], 0)
+
     def test_equals_and_space_forms_of_an_option_agree(self):
         with tempfile.TemporaryDirectory() as directory:
             a, b = os.path.join(directory, "a.ppm"), os.path.join(directory, "b.ppm")

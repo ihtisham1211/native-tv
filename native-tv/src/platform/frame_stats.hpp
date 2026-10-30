@@ -14,6 +14,10 @@ struct FrameStats {
     double buildMs = 0, submitMs = 0;
     unsigned draws = 0, vertices = 0;
     size_t textureBytes = 0;
+    // The oldest input event this frame shows, from the OS timestamp to the swap call
+    // returning; negative when the frame shows none. Not button-to-photon: the display's
+    // scan-out is not in it.
+    double inputMs = -1;
 };
 
 struct FrameSummary {
@@ -25,6 +29,9 @@ struct FrameSummary {
     // Peaks over all frames.
     unsigned draws = 0, vertices = 0;
     double textureMb = 0;
+    // Input-to-swap over the frames that showed an input event (see FrameStats::inputMs).
+    unsigned inputFrames = 0;
+    double inputP50 = 0, inputP95 = 0, inputMax = 0;
     // Counts per bin of frameIntervalEdgesMs(), plus one overflow bin.
     std::vector<unsigned> histogram;
 };
@@ -35,7 +42,7 @@ const std::vector<double> &frameIntervalEdgesMs();
 // line when it is recorded, and finish() appends the summary record.
 class FrameLog {
     std::FILE *file_ = nullptr;
-    std::vector<double> intervals_;
+    std::vector<double> intervals_, inputs_;
     unsigned frames_ = 0, ambient_ = 0, late_ = 0;
     double buildTotal_ = 0, submitTotal_ = 0;
     FrameStats peak_;

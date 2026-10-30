@@ -174,6 +174,28 @@ bool ambientOnly(const Application &app) {
     return forced || app.ambientOnly();
 }
 
+// What the loop acts on. Anything else (mouse motion, a window move or exposure) is let go
+// during the pause between frames: the window manager or a Magic Remote pointer can send them at
+// the display rate, and each one used to cut the 30 fps ambient pause short.
+bool endsPause(const SDL_Event &event) {
+    switch (event.type) {
+    case SDL_QUIT:
+    case SDL_KEYDOWN:
+    case SDL_KEYUP:
+    case SDL_TEXTINPUT:
+    case SDL_MOUSEBUTTONUP:
+    case SDL_MOUSEWHEEL:
+        return true;
+    case SDL_WINDOWEVENT:
+        return event.window.event == SDL_WINDOWEVENT_FOCUS_LOST ||
+               event.window.event == SDL_WINDOWEVENT_HIDDEN ||
+               event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED ||
+               event.window.event == SDL_WINDOWEVENT_SHOWN;
+    default:
+        return false;
+    }
+}
+
 // The application asks for pictures at the size it draws them; the loader decodes them off the
 // render thread and uploads a megabyte a frame.
 class LoaderPictures final : public Pictures {
@@ -290,6 +312,12 @@ int main(int argc, char **argv) {
         const bool priorityRaised = setpriority(PRIO_PROCESS, 0, -10) == 0;
         SDL_SetHint("SDL_WEBOS_ACCESS_POLICY_KEYS_BACK", "true");
         SDL_SetHint("SDL_WEBOS_ACCESS_POLICY_KEYS_EXIT", "true");
+        // Milliseconds from here, written to the --report file, to see where start-up goes.
+        const Uint64 startedAt = SDL_GetPerformanceCounter();
+        Json startup = Json::object();
+        auto markStartup = [&](const char *phase) {
+            startup.set(phase, Json::numeric(millisecondsSince(startedAt)));
+        };
         GlWindow gl(opts.windowed);
         if (TTF_Init())
             throw std::runtime_error(TTF_GetError());
@@ -301,6 +329,7 @@ int main(int argc, char **argv) {
                      glGetString(GL_RENDERER), glGetString(GL_VERSION),
                      priorityRaised ? ", priority raised" : "");
         {
+            markStartup("windowMs");
             HttpServices http(opts.server);
             Application app(http, opts.screen);
             const std::string assets = resourceDirectory(argv[0]) + "/assets";
@@ -311,6 +340,7 @@ int main(int argc, char **argv) {
             GLint maxTexture = 2048;
             glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTexture);
             const int atlasSide = std::min<int>(2048, maxTexture);
+            markStartup("rendererMs");
             GlyphAtlas glyphAtlas(&renderer, assets + "/fonts", atlasSide, atlasSide / 2);
             IconAtlas iconAtlas(&renderer, assets + "/icons", std::min<int>(1024, maxTexture),
                                 std::min<int>(512, maxTexture));
@@ -322,7 +352,9 @@ int main(int argc, char **argv) {
             LoaderPictures pictures(loader);
             app.attach(glyphs, pictures);
             app.holdForSetupCheck();
+            markStartup("atlasesMs");
             prewarm(renderer, glyphs, glyphAtlas, iconAtlas, runs);
+            markStartup("prewarmMs");
             Json script = opts.script.empty() ? Json::array() : Json::parse(read(opts.script));
             size_t step = 0;
             if (!script.isArray())
@@ -372,6 +404,24 @@ int main(int argc, char **argv) {
             int pace = -1; // 2 while ambient, 1 otherwise (0 in a fixed-clock run)
             Uint64 lastSwapAt = 0;
             bool lastSwapMeasurable = false;
+            // The oldest input event not yet shown, for the perf log's input-to-swap time. An
+            // event the pacing sleep pushed back keeps the stamp it woke with, because
+            // SDL_PushEvent restamps it.
+            Uint32 inputAt = 0, repushedAt = 0;
+            bool inputPending = false;
+            auto noteInput = [&](Uint32 stamp) {
+                const Uint32 polled = SDL_GetTicks();
+                if (repushedAt) {
+                    stamp = repushedAt;
+                    repushedAt = 0;
+                }
+                if (!stamp || static_cast<Sint32>(stamp - polled) > 0)
+                    stamp = polled;
+                if (!inputPending) {
+                    inputPending = true;
+                    inputAt = stamp;
+                }
+            };
             while (!quit && !terminationRequested && app.running()) {
                 // Nothing to draw: sleep until an event or the nearest timer.
                 const bool idle = !fixed && (!active || (!draw && !animating));
@@ -413,6 +463,10 @@ int main(int argc, char **argv) {
                 }
                 for (bool more = pending || SDL_PollEvent(&event); more;
                      more = SDL_PollEvent(&event)) {
+                    if (event.type == SDL_KEYDOWN || event.type == SDL_KEYUP ||
+                        event.type == SDL_TEXTINPUT || event.type == SDL_MOUSEBUTTONUP ||
+                        event.type == SDL_MOUSEWHEEL)
+                        noteInput(event.common.timestamp);
                     if (event.type == SDL_QUIT)
                         quit = true;
                     else if (event.type == SDL_WINDOWEVENT && !stops) {
@@ -474,6 +528,7 @@ int main(int argc, char **argv) {
                     } else if (event.type == SDL_MOUSEWHEEL)
                         app.key(event.wheel.y > 0 ? Key::Up : Key::Down);
                 }
+                repushedAt = 0;
                 if (okDown && !held && now - okAt >= 650 && app.screenName() == "home") {
                     held = true;
                     app.longPress();
@@ -500,6 +555,9 @@ int main(int argc, char **argv) {
                                       static_cast<int>(month));
                         scriptedWallClock = true;
                     }
+                    if (instruction.has("text") || instruction.has("key") ||
+                        instruction.has("click"))
+                        noteInput(0); // a scripted input is stamped when the loop takes it
                     if (instruction.has("text"))
                         app.input(instruction["text"].string());
                     if (instruction.has("key"))
@@ -573,6 +631,8 @@ int main(int argc, char **argv) {
                     if (lastFrame && !opts.capture.empty())
                         renderer.capture(opts.capture);
                     gl.swap();
+                    if (!startup.has("firstSwapMs"))
+                        markStartup("firstSwapMs");
                     const Uint64 swappedAt = SDL_GetPerformanceCounter();
                     if (perf) {
                         FrameStats stats;
@@ -581,6 +641,8 @@ int main(int argc, char **argv) {
                         stats.draws = drawn.draws;
                         stats.vertices = drawn.vertices;
                         stats.textureBytes = drawn.textureBytes;
+                        if (inputPending)
+                            stats.inputMs = static_cast<Sint32>(SDL_GetTicks() - inputAt);
                         perf->record(now,
                                      lastSwapMeasurable
                                          ? (swappedAt - lastSwapAt) * 1000.0 /
@@ -605,12 +667,22 @@ int main(int argc, char **argv) {
                     const double spent = millisecondsSince(frameStart);
                     if (!fixed && spent < frameMs) {
                         // Waiting on events instead of sleeping, so a key press ends the pause.
-                        SDL_Event woken;
-                        if (SDL_WaitEventTimeout(&woken, static_cast<int>(frameMs - spent + 0.999)) == 1)
-                            SDL_PushEvent(&woken);
+                        for (double left = frameMs - spent; left > 0;
+                             left = frameMs - millisecondsSince(frameStart)) {
+                            SDL_Event woken;
+                            if (SDL_WaitEventTimeout(&woken, static_cast<int>(left + 0.999)) != 1)
+                                break;
+                            if (endsPause(woken)) {
+                                repushedAt = woken.common.timestamp;
+                                SDL_PushEvent(&woken);
+                                break;
+                            }
+                        }
                     }
                 } else
                     lastSwapMeasurable = false;
+                // An input that drew nothing is not carried into a later, unrelated frame.
+                inputPending = false;
                 std::string screen = app.screenName();
                 if (screen != lastScreen) {
                     screens.add(
@@ -636,6 +708,7 @@ int main(int argc, char **argv) {
                             {"height", Json::numeric(height)},
                             {"frames", Json::numeric(frames)},
                             {"textureBytes", Json::numeric(renderer.textureBytes())},
+                            {"startup", startup},
                             {"screens", screens},
                             {"checkpoints", checkpoints}});
                 std::ofstream file(opts.report);

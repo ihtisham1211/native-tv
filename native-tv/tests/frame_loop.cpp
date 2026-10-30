@@ -117,7 +117,7 @@ void writesLogFile() {
     assert(!std::getline(lines, extra));
     assert(first ==
            "{\"frame\":0,\"atMs\":0.0,\"intervalMs\":null,\"swap\":1,\"buildMs\":0.50,"
-           "\"submitMs\":1.25,\"draws\":12,\"vertices\":72,\"textureMB\":2.00}");
+           "\"submitMs\":1.25,\"draws\":12,\"vertices\":72,\"textureMB\":2.00,\"inputMs\":null}");
     assert(second.find("\"frame\":1,\"atMs\":16.7,\"intervalMs\":16.70,") == 1);
     assert(last.find("{\"summary\":{\"frames\":2,\"ambientFrames\":0,") == 0);
     assert(last.find("\"histogramEdgesMs\":[8,12,15,17,20,25,33,50,100],"
@@ -132,6 +132,35 @@ void writesLogFile() {
     }
     assert(refused);
 }
+
+void summarisesInputLatency() {
+    FrameLog log("");
+    // Frames that show no input (negative) are not counted; 1..20 ms are.
+    for (int i = 0; i < 30; ++i) {
+        FrameStats frame;
+        frame.inputMs = i < 20 ? i + 1.0 : -1;
+        log.record(i * 16.7, 16.7, 1, frame);
+    }
+    FrameSummary s = log.summary();
+    assert(s.inputFrames == 20);
+    assert(s.inputP50 == 10 && s.inputP95 == 19 && s.inputMax == 20);
+    FrameSummary none = FrameLog("").summary();
+    assert(none.inputFrames == 0 && none.inputP95 == 0 && none.inputMax == 0);
+
+    const std::string path = "frame_loop_input_test.jsonl";
+    {
+        FrameLog file(path);
+        FrameStats frame;
+        frame.inputMs = 7.5;
+        file.record(0, -1, 1, frame);
+        file.finish();
+    }
+    const std::string text = readAll(path);
+    assert(text.find("\"inputMs\":7.50}") != std::string::npos);
+    assert(text.find("\"inputFrames\":1,\"inputP50Ms\":7.50,\"inputP95Ms\":7.50,"
+                     "\"inputMaxMs\":7.50,") != std::string::npos);
+    std::remove(path.c_str());
+}
 } // namespace
 
 int main() {
@@ -140,5 +169,6 @@ int main() {
     summarisesIntervals();
     percentilesUseNearestRank();
     writesLogFile();
+    summarisesInputLatency();
     return 0;
 }

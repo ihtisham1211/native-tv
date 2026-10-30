@@ -12,6 +12,19 @@
 #include <vector>
 
 namespace nativetv {
+std::string fileStamp(const std::string &path) {
+    struct stat info = {};
+    if (stat(path.c_str(), &info) != 0)
+        return "-";
+#ifdef __APPLE__
+    const long long nanoseconds = info.st_mtimespec.tv_nsec;
+#else
+    const long long nanoseconds = info.st_mtim.tv_nsec;
+#endif
+    return std::to_string(static_cast<long long>(info.st_mtime)) + "." +
+           std::to_string(nanoseconds) + ":" + std::to_string(static_cast<long long>(info.st_size)) +
+           ":" + std::to_string(static_cast<unsigned long long>(info.st_ino));
+}
 namespace {
 enum class ReadStatus { Ok, Missing, Error };
 std::atomic<unsigned long> quarantineSequence(0);

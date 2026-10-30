@@ -30,8 +30,8 @@ GLuint compile(GLenum type, const std::string &source) {
     }
     return shader;
 }
-GLuint link(const std::string &vertex, const std::string &fragment) {
-    GLuint vs = compile(GL_VERTEX_SHADER, vertex), fs = compile(GL_FRAGMENT_SHADER, fragment);
+GLuint link(GLuint vs, const std::string &fragment) {
+    GLuint fs = compile(GL_FRAGMENT_SHADER, fragment);
     GLuint program = glCreateProgram();
     glAttachShader(program, vs);
     glAttachShader(program, fs);
@@ -41,7 +41,6 @@ GLuint link(const std::string &vertex, const std::string &fragment) {
     glBindAttribLocation(program, 3, "a_band");
     glBindAttribLocation(program, 4, "a_color");
     glLinkProgram(program);
-    glDeleteShader(vs);
     glDeleteShader(fs);
     GLint ok;
     glGetProgramiv(program, GL_LINK_STATUS, &ok);
@@ -92,6 +91,8 @@ Renderer::~Renderer() {
     glDeleteBuffers(1, &buffer_);
     for (auto &built : programs_)
         glDeleteProgram(built.second);
+    if (vertexShader_)
+        glDeleteShader(vertexShader_);
 }
 
 GLuint Renderer::program(Program kind, bool singleTexture, unsigned debugVariant) {
@@ -100,7 +101,9 @@ GLuint Renderer::program(Program kind, bool singleTexture, unsigned debugVariant
     GLuint &built = programs_[(variant << 4) | static_cast<unsigned>(kind)];
     if (built)
         return built;
-    built = link(vertexSource(), fragmentSource(kind, variant));
+    if (!vertexShader_)
+        vertexShader_ = compile(GL_VERTEX_SHADER, vertexSource());
+    built = link(vertexShader_, fragmentSource(kind, variant));
     glUseProgram(built);
     for (int unit = 0; unit < kTextureSlots; ++unit) {
         GLint sampler = glGetUniformLocation(built, ("u_tex" + std::to_string(unit)).c_str());

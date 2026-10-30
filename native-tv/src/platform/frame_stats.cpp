@@ -49,10 +49,16 @@ void FrameLog::record(double atMs, double intervalMs, int swapInterval, const Fr
             std::fputs("null", file_);
         std::fprintf(file_,
                      ",\"swap\":%d,\"buildMs\":%.2f,\"submitMs\":%.2f,\"draws\":%u,"
-                     "\"vertices\":%u,\"textureMB\":%.2f}\n",
+                     "\"vertices\":%u,\"textureMB\":%.2f,\"inputMs\":",
                      swapInterval, stats.buildMs, stats.submitMs, stats.draws, stats.vertices,
                      megabytes(stats.textureBytes));
+        if (stats.inputMs >= 0)
+            std::fprintf(file_, "%.2f}\n", stats.inputMs);
+        else
+            std::fputs("null}\n", file_);
     }
+    if (stats.inputMs >= 0)
+        inputs_.push_back(stats.inputMs);
     ++frames_;
     buildTotal_ += stats.buildMs;
     submitTotal_ += stats.submitMs;
@@ -87,6 +93,12 @@ FrameSummary FrameLog::summary() const {
     result.draws = peak_.draws;
     result.vertices = peak_.vertices;
     result.textureMb = megabytes(peak_.textureBytes);
+    std::vector<double> inputs = inputs_;
+    std::sort(inputs.begin(), inputs.end());
+    result.inputFrames = static_cast<unsigned>(inputs.size());
+    result.inputP50 = percentile(inputs, 0.50);
+    result.inputP95 = percentile(inputs, 0.95);
+    result.inputMax = inputs.empty() ? 0 : inputs.back();
     const auto &edges = frameIntervalEdgesMs();
     result.histogram.assign(edges.size() + 1, 0);
     for (double interval : sorted)
@@ -103,9 +115,11 @@ void FrameLog::finish() {
                  "{\"summary\":{\"frames\":%u,\"ambientFrames\":%u,\"p50Ms\":%.2f,"
                  "\"p95Ms\":%.2f,\"p99Ms\":%.2f,\"maxMs\":%.2f,\"lateFrames\":%u,"
                  "\"buildMs\":%.2f,\"submitMs\":%.2f,\"draws\":%u,\"vertices\":%u,"
-                 "\"textureMB\":%.2f,\"histogramEdgesMs\":[",
+                 "\"textureMB\":%.2f,\"inputFrames\":%u,\"inputP50Ms\":%.2f,"
+                 "\"inputP95Ms\":%.2f,\"inputMaxMs\":%.2f,\"histogramEdgesMs\":[",
                  s.frames, s.ambientFrames, s.p50, s.p95, s.p99, s.max, s.lateFrames, s.buildMs,
-                 s.submitMs, s.draws, s.vertices, s.textureMb);
+                 s.submitMs, s.draws, s.vertices, s.textureMb, s.inputFrames, s.inputP50,
+                 s.inputP95, s.inputMax);
     const auto &edges = frameIntervalEdgesMs();
     for (size_t i = 0; i < edges.size(); ++i)
         std::fprintf(file_, "%s%g", i ? "," : "", edges[i]);

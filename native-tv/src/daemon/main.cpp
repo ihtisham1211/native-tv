@@ -56,6 +56,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cerrno>
+#include <chrono>
 #include <cctype>
 #include <csignal>
 #include <cmath>
@@ -729,6 +730,14 @@ void publishMqttShadowDiscoveryIfReady(
 int main(int argc, char **argv) {
     using namespace nativetv;
     using namespace nativetv::daemon;
+    const auto processStartedAt = std::chrono::steady_clock::now();
+    // Milliseconds since main() began, for the start-up milestones in the log.
+    auto sinceStart = [processStartedAt]() {
+        return std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                  std::chrono::steady_clock::now() - processStartedAt)
+                                  .count()) +
+               " ms";
+    };
 
     try {
         ConfigLoadOptions configOptions;
@@ -1868,6 +1877,7 @@ int main(int argc, char **argv) {
                     [&frontDoor](HttpExchange &exchange) { frontDoor->handle(exchange); },
                     proxyError))
                 throw std::runtime_error("could not start HTTP front door: " + proxyError);
+            logger.info("startup: HTTP front door listening " + sinceStart() + " after main()");
             HttpServerOptions handoffOptions;
             handoffOptions.host = loaded.config.host;
             handoffOptions.port = publicHandoffPort;
@@ -2478,6 +2488,7 @@ int main(int argc, char **argv) {
                                   std::to_string(phoneHandoffServer.boundPort())
                             : "") +
                     ", HTTP engine=CivetWeb/" + HttpServer::libraryVersion());
+        logger.info("startup: event loop running " + sinceStart() + " after main()");
         loop.run();
         if (mqttShadowCommandDispatcher)
             mqttShadowCommandDispatcher->join();

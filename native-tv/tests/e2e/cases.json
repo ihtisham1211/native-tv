@@ -6240,7 +6240,7 @@
     {
       "id": "E2E-147",
       "title": "TV Settings Home: the Native Tv Home switch takes the TV over",
-      "purpose": "OK twice (the second confirms, as the switch asks) on the first row of the Home settings, Native Tv Home, switches the takeover on from the TV itself (E2E-080 does it through the server): once the client has run, the server reports Home on and not halted, and the case then switches it off through the server. The client may be replaced by Native Tv Home itself, so only the server's answer is judged. It expects Native Tv Home off at the start.",
+      "purpose": "OK twice (the second confirms, as the switch asks) on the first row of the Home settings, Native Tv Home, switches the takeover on from the TV itself (E2E-080 does it through the server): once the client has run, the server reports Home on and not halted, and the case then switches it off through the server. The client may be replaced by Native Tv Home itself, so only the server's answer is judged. It expects Native Tv Home off at the start. It then closes the Native Tv app, which the takeover launched and switching it off does not close, so the client cases that follow can run.",
       "kind": "run",
       "requires": [
         "control",
@@ -6275,8 +6275,303 @@
           "expect": {
             "ok": true
           }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "closeApp",
+            "value": "com.tvweb.dashboard"
+          },
+          "expect": {
+            "ok": true
+          }
         }
       ]
+    },
+    {
+      "id": "E2E-170",
+      "title": "TV Settings has no Home bar",
+      "purpose": "The Home bar (Home, Apps, Inputs, Search, Quick settings) belongs to Home: on the Settings screen, Up from the first row goes to the subsection pills and no further, and the bar is never focused.",
+      "kind": "run",
+      "screen": "dashboard:game",
+      "script": "settings-no-bar.json",
+      "durationMs": 9000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for the case's time through the app's jailer.",
+        "Read the report and judge the checkpoints.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "checkpoints": [
+          {
+            "name": "top",
+            "path": "barFocus",
+            "equals": false
+          },
+          {
+            "name": "top",
+            "path": "zone",
+            "equals": "tabs"
+          }
+        ]
+      }
+    },
+    {
+      "id": "E2E-171",
+      "title": "Left and Right step a choice row through its values",
+      "purpose": "On a choice row of the TV's Settings (Game, Dark room mode) Right steps to the next value and Left to the previous one, written through the server each time: Off, Level 1, Level 2, back to Level 1 and Off, the row stays focused throughout. The case ends by setting Dark room mode to off through the server.",
+      "kind": "run",
+      "screen": "dashboard:game",
+      "script": "settings-choice-arrows.json",
+      "durationMs": 18000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for the case's time through the app's jailer.",
+        "Read the report and judge the checkpoints.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "checkpoints": [
+          {
+            "name": "on-row",
+            "path": "focus",
+            "equals": "Dark room mode"
+          },
+          {
+            "name": "on-row",
+            "path": "focusValue",
+            "equals": "Off"
+          },
+          {
+            "name": "right-1",
+            "path": "focusValue",
+            "equals": "Level 1"
+          },
+          {
+            "name": "right-2",
+            "path": "focusValue",
+            "equals": "Level 2"
+          },
+          {
+            "name": "left-1",
+            "path": "focusValue",
+            "equals": "Level 1"
+          },
+          {
+            "name": "left-2",
+            "path": "focusValue",
+            "equals": "Off"
+          },
+          {
+            "name": "left-2",
+            "path": "zone",
+            "equals": "rows"
+          }
+        ]
+      },
+      "requires": [
+        "control"
+      ],
+      "cleanup": [
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "darkMode",
+              "value": "off"
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "E2E-172",
+      "title": "Back from Live returns to the Metrics page it was opened from",
+      "purpose": "OK on Live (the first row of Metrics in the TV's Settings) opens the Live readings, and Back returns to Metrics, not to Home.",
+      "kind": "run",
+      "screen": "dashboard:system",
+      "script": "live-back.json",
+      "durationMs": 13000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for the case's time through the app's jailer.",
+        "Read the report and judge the checkpoints.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "checkpoints": [
+          {
+            "name": "metrics",
+            "path": "screen",
+            "equals": "dashboard:system"
+          },
+          {
+            "name": "live",
+            "path": "screen",
+            "equals": "live"
+          },
+          {
+            "name": "back",
+            "path": "screen",
+            "equals": "dashboard:system"
+          }
+        ]
+      }
+    },
+    {
+      "id": "E2E-173",
+      "title": "Live takes a reading twice a second",
+      "purpose": "The Live screen asks the server for the TV's readings every half second (it was every four seconds): after nine seconds the processor's line holds at least twelve samples.",
+      "kind": "run",
+      "screen": "live",
+      "script": "live-refresh.json",
+      "durationMs": 10000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for the case's time through the app's jailer.",
+        "Read the report and judge the checkpoints.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "checkpoints": [
+          {
+            "name": "late",
+            "path": "samples",
+            "atLeast": 12
+          }
+        ]
+      }
+    },
+    {
+      "id": "E2E-174",
+      "title": "Search comes before Quick settings in the Home bar",
+      "purpose": "With the feed on (a TMDB key saved) the bar's focus goes from the last tab to Search and then to Quick settings, the order they are drawn in: from the first tab, Right three times reaches Search and a fourth Quick settings.",
+      "kind": "run",
+      "screen": "home",
+      "script": "home-bar-order.json",
+      "durationMs": 11000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for the case's time through the app's jailer.",
+        "Read the report and judge the checkpoints.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "checkpoints": [
+          {
+            "name": "third",
+            "path": "nav",
+            "equals": 5
+          },
+          {
+            "name": "fourth",
+            "path": "nav",
+            "equals": 4
+          }
+        ]
+      }
+    },
+    {
+      "id": "E2E-175",
+      "title": "One switch turns every LG ad and promotion on or off",
+      "purpose": "The master switch on the dashboards' LG ads page (the lgAds control action) writes all six ad and recommendation switches in one request: switched on, each shows on in /api/lgsettings, and switched off, each shows off again. The case first checks the TV starts with all six off and does nothing on a TV that has others. A run that fails midway leaves the switches as it stopped.",
+      "kind": "api",
+      "requires": [
+        "control"
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Run: check the starting state; change each setting, check the route shows it, put it back and check that.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "flow": [
+        {
+          "api": "GET /api/lgsettings?section=promotions",
+          "expect": {
+            "rows[id=screenSaverAd].on": false,
+            "rows[id=homePromotion].on": false,
+            "rows[id=contentRecommendation].on": false,
+            "rows[id=livePromotion].on": false,
+            "rows[id=aiNudge].on": false,
+            "rows[id=aiSettingsNudge].on": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgAds",
+            "value": true
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions",
+          "expect": {
+            "rows[id=screenSaverAd].on": true,
+            "rows[id=homePromotion].on": true,
+            "rows[id=contentRecommendation].on": true,
+            "rows[id=livePromotion].on": true,
+            "rows[id=aiNudge].on": true,
+            "rows[id=aiSettingsNudge].on": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgAds",
+            "value": false
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions",
+          "expect": {
+            "rows[id=screenSaverAd].on": false,
+            "rows[id=homePromotion].on": false,
+            "rows[id=contentRecommendation].on": false,
+            "rows[id=livePromotion].on": false,
+            "rows[id=aiNudge].on": false,
+            "rows[id=aiSettingsNudge].on": false
+          }
+        }
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      }
     }
   ]
 }

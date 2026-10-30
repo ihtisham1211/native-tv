@@ -131,8 +131,13 @@ void RemoteButtonLogWatcher::pollOnce() {
 }
 
 bool RemoteButtonLogWatcher::refreshTargets() {
-    JsonFile mapFile(dataFile(dataRoot_, "remotekeys.json"), 64 * 1024);
-    JsonFile lgFile(dataFile(dataRoot_, "remotekeys-lg.json"), 256 * 1024);
+    const std::string mapPath = dataFile(dataRoot_, "remotekeys.json");
+    const std::string lgPath = dataFile(dataRoot_, "remotekeys-lg.json");
+    const std::string stamp = fileStamp(mapPath) + "|" + fileStamp(lgPath);
+    if (targetsInitialized_ && stamp == targetsStamp_) return false;
+    targetsStamp_ = stamp;
+    JsonFile mapFile(mapPath, 64 * 1024);
+    JsonFile lgFile(lgPath, 256 * 1024);
     const Json map = mapFile.load().value["keys"];
     const Json lg = lgFile.load().value;
     std::unordered_map<std::string, std::string> targets;

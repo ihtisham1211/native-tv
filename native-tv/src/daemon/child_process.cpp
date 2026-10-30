@@ -242,7 +242,13 @@ ChildResult ChildProcessRunner::run(const ChildOptions &options) {
             ++count;
         }
 
-        int waitMs = 50;
+        // The pipes wake poll for output and exit. Only a cancel from another thread has no
+        // fd, so a child with no deadline (a resident subscription, eight of them at idle)
+        // looks for it every 250 ms; at 50 ms each cost 20 wakeups a second doing nothing.
+        int waitMs = options.timeout.count() > 0 ? 50 : 250;
+        // Both pipes closed: only the exit status is left and nothing will wake poll for it.
+        if (count == 0)
+            waitMs = 5;
         if (terminateSent && !killSent) {
             auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(killAt - now).count();
             if (remaining >= 0 && remaining < waitMs)

@@ -54,6 +54,7 @@ class Renderer : public TextureStore, private BatchHost {
     GLuint buffer_ = 0, white_ = 0;
     // Linked programs by variant bits and kind; the debug variants are built on first use.
     std::map<unsigned, GLuint> programs_;
+    GLuint vertexShader_ = 0; // one for every program: compiling it eight times took 45 ms on the B3
     GLuint program(Program kind, bool singleTexture, unsigned debugVariant);
     std::vector<double> *batchTimes_ = nullptr;
     int width_ = 0, height_ = 0;

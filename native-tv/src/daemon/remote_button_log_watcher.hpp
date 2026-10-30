@@ -72,6 +72,7 @@ class RemoteButtonLogWatcher {
     uint64_t logInode_ = 0;
     bool logCursorInitialized_ = false;
     bool targetsInitialized_ = false;
+    std::string targetsStamp_;
     std::shared_ptr<ToastState> toastState_;
 };
 

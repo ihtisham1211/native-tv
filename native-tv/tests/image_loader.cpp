@@ -284,6 +284,35 @@ void testLeastRecentlyUsedEviction() {
     check(fetches == before + 1, "An evicted picture is fetched again when it is wanted");
 }
 
+// The loop pumps on every wake-up, also the idle ones that draw nothing. Pictures on screen
+// must not turn evictable just because time passed.
+void testIdlePumpsKeepVisiblePictures() {
+    StubStore store;
+    ImageLoader loader(
+        store, [](const std::string &) { return true; }, 100000, 1, solid(100, 100));
+    double now = 0;
+    auto show = [&](const char *id) {
+        return loader.get(id, 100, 100, ImageFit::Cover, now).texture;
+    };
+    for (const char *id : {"a", "b"}) {
+        show(id);
+        loader.provide(id, id, now);
+        for (int i = 0; i < 400 && !show(id); ++i) {
+            loader.pump(1 << 20, now += 16);
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    }
+    check(show("a") && show("b"), "Two pictures fit the budget");
+    show("c");
+    loader.provide("c", "c", now);
+    for (int i = 0; i < 100; ++i) {
+        loader.pump(1 << 20, now += 50);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
+    }
+    check(show("a") && show("b") && !show("c") && store.destroyed == 0,
+          "Idle pumps do not make the pictures on screen evictable");
+}
+
 void testFailureAndRetry() {
     StubStore store;
     int fetches = 0;
@@ -352,6 +381,7 @@ int main() {
         testOffThreadAndFade();
         testUploadOrderAndBudget();
         testLeastRecentlyUsedEviction();
+        testIdlePumpsKeepVisiblePictures();
         testFailureAndRetry();
         testShutdownWithBusyWorkers();
         std::printf("%d image loader checks passed\n", checks);

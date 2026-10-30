@@ -120,6 +120,20 @@ void testBasicSaveAndLastGood(const std::string &root) {
     check(file.path() == path, "file path accessor changed the configured path");
 }
 
+void testFileStampFollowsChanges(const std::string &root) {
+    std::string path = root + "/stamp.json";
+    check(fileStamp(path) == "-", "a missing file should have the missing stamp");
+    JsonFile file(path);
+    std::string error;
+    check(file.save(generation(1), &error), "stamp save failed: " + error);
+    const std::string first = fileStamp(path);
+    check(first != "-" && fileStamp(path) == first, "an untouched file should keep its stamp");
+    check(file.save(generation(1), &error), "stamp re-save failed: " + error);
+    check(fileStamp(path) != first, "rewriting the file, even with the same value, should change the stamp");
+    check(file.save(generation(22), &error), "stamp third save failed: " + error);
+    check(fileStamp(path) != first, "a different value should change the stamp");
+}
+
 void testQuarantineAndRecovery(const std::string &root) {
     std::string path = root + "/recover.json";
     JsonFile file(path);
@@ -191,6 +205,7 @@ int main() {
     try {
         root = temporaryDirectory();
         testBasicSaveAndLastGood(root);
+        testFileStampFollowsChanges(root);
         testQuarantineAndRecovery(root);
         testMissingAndInvalidFiles(root);
         testCrashBeforeRename(root);
