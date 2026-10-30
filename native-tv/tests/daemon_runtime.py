@@ -5998,6 +5998,164 @@ class DaemonRuntimeTests(unittest.TestCase):
                     process.send_signal(signal.SIGTERM)
                     process.communicate(timeout=5)
 
+    def test_native_admin_pin_gates_risky_routes_and_actions(self):
+        binary = Path(sys.argv[1]).resolve()
+        fakeLuna = binary.parent / "native-fake-luna-send"
+        token = "admin-pin-test-token"
+        secret = "admin-pin-proxy-secret-0123456789abcdef"
+        port = unused_port_pair()
+        nodePort = unused_port_pair({port, port + 1})
+
+        with tempfile.TemporaryDirectory(prefix="nativetv-admin-pin-") as folder:
+            root = Path(folder)
+            assets = root / "assets"
+            systemRoot = root / "system"
+            procRoot = root / "proc"
+            dataRoot = root / "data"
+            for directory in (assets, systemRoot, procRoot, dataRoot):
+                directory.mkdir()
+            config = root / "config.json"
+            config.write_text(json.dumps({"host": "127.0.0.1", "port": port, "token": token,
+                                          "allowControl": True}))
+            environment = os.environ.copy()
+            environment["TVWEB_LUNA_SEND"] = str(fakeLuna)
+            environment["TVWEB_DATA_DIR"] = str(dataRoot)
+            environment["TVWEB_PROXY_SECRET"] = secret
+            process = subprocess.Popen(
+                [str(binary), "--config", str(config), "--heartbeat", str(root / "tvweb.beat"),
+                 "--workers", "4", "--listen", "--node-port", str(nodePort),
+                 "--assets-root", str(assets), "--system-root", str(systemRoot),
+                 "--proc-root", str(procRoot)],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=environment)
+
+            def request(path, method="GET", payload=None, session=None):
+                data = None if payload is None else json.dumps(payload).encode("utf-8")
+                headers = {"Authorization": "Bearer " + token}
+                if data is not None:
+                    headers["Content-Type"] = "application/json"
+                if session:
+                    headers["X-Admin-Session"] = session
+                req = Request("http://127.0.0.1:%d%s" % (port, path), data=data,
+                              method=method, headers=headers)
+                try:
+                    with urlopen(req, timeout=12) as response:
+                        return response.status, json.loads(response.read() or b"{}"), response.headers
+                except HTTPError as error:
+                    return error.code, json.loads(error.read() or b"{}"), error.headers
+
+            def needs_pin(status, body):
+                return status == 403 and body.get("pin") is True
+
+            try:
+                deadline = time.monotonic() + 8
+                while True:
+                    try:
+                        request("/api/caps")
+                        break
+                    except (OSError, URLError):
+                        if time.monotonic() > deadline or process.poll() is not None:
+                            self.fail("the daemon did not start")
+                        time.sleep(0.03)
+
+                # With no PIN, nothing asks for one.
+                status, body, _ = request("/api/admin")
+                self.assertEqual((status, body["set"], body["unlocked"]), (200, False, False))
+                status, body, _ = request("/api/apps/uninstall", "POST", {"id": "com.webos.app.settings"})
+                self.assertFalse(needs_pin(status, body))
+                status, body, _ = request("/api/admin/unlock", "POST", {"pin": "0000"})
+                self.assertEqual(status, 409)
+
+                # A PIN is four digits. Setting one unlocks its setter.
+                status, body, _ = request("/api/admin/pin", "POST", {"pin": "12a4"})
+                self.assertEqual(status, 400)
+                status, body, _ = request("/api/admin/pin", "POST", {"pin": "4821"})
+                self.assertEqual(status, 200, body)
+                session = body["session"]
+                pinFile = dataRoot / "admin-pin.json"
+                self.assertEqual(pinFile.stat().st_mode & 0o777, 0o600)
+                self.assertNotIn("4821", pinFile.read_text())
+                status, body, _ = request("/api/admin", session=session)
+                self.assertEqual((body["set"], body["unlocked"], body["defaultPin"]), (True, True, False))
+                status, body, _ = request("/api/admin")
+                self.assertEqual((body["set"], body["unlocked"]), (True, False))
+
+                # Risky routes and control actions now need the session; everyday ones do not.
+                for path, payload in (("/api/apps/uninstall", {"id": "com.webos.app.settings"}),
+                                      ("/api/apps/install/url", {"url": "https://example.invalid/a.ipk"}),
+                                      ("/api/ssh", {"action": "deleteFile"}),
+                                      ("/api/services/toggle", {"id": "x", "off": True}),
+                                      ("/api/backup", {}),
+                                      ("/api/settings", {}),
+                                      ("/api/control", {"action": "reboot"}),
+                                      ("/api/control", {"action": "powerOff"}),
+                                      ("/api/control", {"action": "setDashboardPort", "value": 8090}),
+                                      ("/api/admin/pin", {"pin": "1111"})):
+                    status, body, _ = request(path, "POST", payload)
+                    self.assertTrue(needs_pin(status, body), (path, payload, status, body))
+                    status, body, _ = request(path, "POST", payload, session="0" * 32)
+                    self.assertTrue(needs_pin(status, body), (path, "wrong session", status, body))
+                status, body, _ = request("/api/apps/uninstall", "POST", {"id": "com.webos.app.settings"},
+                                          session)
+                self.assertFalse(needs_pin(status, body), body)
+                status, body, _ = request("/api/control", "POST", {"action": "mute", "value": True})
+                self.assertFalse(needs_pin(status, body), body)
+
+                # Changing the PIN needs a session and ends every session; the setter gets a new one.
+                status, body, _ = request("/api/admin/pin", "POST", {"pin": "9076"})
+                self.assertTrue(needs_pin(status, body))
+                status, body, _ = request("/api/admin/pin", "POST", {"pin": "9076"}, session)
+                self.assertEqual(status, 200, body)
+                changed = body["session"]
+                status, body, _ = request("/api/admin", session=session)
+                self.assertFalse(body["unlocked"])
+                status, body, _ = request("/api/admin", session=changed)
+                self.assertTrue(body["unlocked"])
+
+                # Removing the PIN needs a session too, and opens everything again.
+                status, body, _ = request("/api/admin/pin", "POST", {"remove": True}, changed)
+                self.assertEqual(status, 200, body)
+                self.assertFalse(pinFile.exists())
+                status, body, _ = request("/api/control", "POST", {"action": "reboot"})
+                self.assertFalse(needs_pin(status, body), body)
+
+                # Onboarding sets the default on the TV-only setup route, and the status says so.
+                status, body, _ = request("/api/setup", "POST", {"action": "adminPin", "pin": "12"})
+                self.assertEqual(status, 400)
+                status, body, _ = request("/api/setup", "POST", {"action": "adminPin", "pin": "0000"})
+                self.assertEqual(status, 200, body)
+                status, body, _ = request("/api/admin")
+                self.assertEqual((body["set"], body["defaultPin"]), (True, True))
+                status, body, _ = request("/api/setup", "POST", {"action": "adminPin", "pin": "1357"})
+                self.assertTrue(needs_pin(status, body), "a PIN that is set was replaced without a session")
+
+                # A session ends with lock.
+                status, body, _ = request("/api/admin/unlock", "POST", {"pin": "0000"})
+                self.assertEqual(status, 200, body)
+                opened = body["session"]
+                request("/api/admin/lock", "POST", {}, opened)
+                status, body, _ = request("/api/admin", session=opened)
+                self.assertFalse(body["unlocked"])
+
+                # A wrong PIN is refused; five in a row lock it out, even for the right one.
+                for miss in range(4):
+                    status, body, _ = request("/api/admin/unlock", "POST", {"pin": "4821"})
+                    self.assertEqual((status, body["error"]), (403, "wrong PIN"))
+                status, body, _ = request("/api/admin/unlock", "POST", {"pin": "4821"})
+                self.assertEqual((status, body["retryAfter"]), (403, 30))
+                status, body, headers = request("/api/admin/unlock", "POST", {"pin": "0000"})
+                self.assertEqual(status, 429)
+                self.assertTrue(0 < int(headers["Retry-After"]) <= 30)
+                status, body, _ = request("/api/admin")
+                self.assertGreater(body["lockedFor"], 0)
+            finally:
+                if process.poll() is None:
+                    process.send_signal(signal.SIGTERM)
+                    try:
+                        process.communicate(timeout=6)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.communicate(timeout=3)
+
     def test_front_door_auth_proxy_and_shutdown(self):
         binary = Path(sys.argv[1]).resolve()
         sourceAssets = Path(__file__).resolve().parents[1] / "web"

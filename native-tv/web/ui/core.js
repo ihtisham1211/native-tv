@@ -75,11 +75,36 @@ function clearLease(key) {
 }
 let lastArOff = null;
 
+/* Admin PIN. Once the owner sets one, the risky actions answer 403 with pin:true
+   until a request carries an open unlock session (X-Admin-Session). The session
+   is kept for the tab; the first action that needs it asks for the PIN, from
+   askAdminPin() in server.js, and goes ahead when it is given. */
+let adminSession = '';
+try { adminSession = sessionStorage.getItem('tvweb_admin') || ''; } catch (e) { /* kept in memory only */ }
+function setAdminSession(session) {
+  adminSession = session;
+  try {
+    if (session) sessionStorage.setItem('tvweb_admin', session);
+    else sessionStorage.removeItem('tvweb_admin');
+  } catch (e) { /* kept in memory only */ }
+}
+const isApiUrl = url => String(url).indexOf('/api/') !== -1;
+const netFetch = window.fetch.bind(window);
+const sendFetch = (url, init) => {
+  if (!adminSession || !isApiUrl(url)) return netFetch(url, init);
+  const headers = new Headers(init && init.headers);
+  headers.set('X-Admin-Session', adminSession);
+  return netFetch(url, Object.assign({}, init, { headers }));
+};
 // A request that never reaches the TV rejects with the browser's own wording
 // ("Failed to fetch" in Chrome, "Load failed" in Safari), which reads as a
 // fault in the page rather than a TV that is off.
-const netFetch = window.fetch.bind(window);
-window.fetch = (...a) => netFetch(...a).catch(e => {
+window.fetch = (url, init) => sendFetch(url, init).then(async r => {
+  if (r.status !== 403 || !isApiUrl(url) || String(url).indexOf('/api/admin/unlock') !== -1) return r;
+  const body = await r.clone().json().catch(() => null);
+  if (!body || body.pin !== true || !(await askAdminPin())) return r;
+  return sendFetch(url, init);
+}).catch(e => {
   if (e && e.name === 'AbortError') throw e;
   const x = new Error(t('common.unreachable', 'Can’t reach the TV'));
   x.offline = true;

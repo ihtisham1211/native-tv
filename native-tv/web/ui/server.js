@@ -479,3 +479,115 @@ async function toggleTvApp() {
   loadTvApp();
 }
 
+
+// ---------------------------------------------------------------------------
+// The admin PIN: the card in this tab, and the prompt any risky action raises
+// (core.js asks for it when the server answers pin:true).
+
+function adminMessage(text, bad) {
+  const m = q('admin-msg');
+  m.textContent = text;
+  m.hidden = !text;
+  m.classList.toggle('bad', !!bad);
+}
+
+function renderAdminPin(d) {
+  const state = q('admin-state');
+  state.textContent = !d.set
+    ? t('server.admin.off', 'No admin PIN is set, so anyone who can open this page can do these.')
+    : d.defaultPin
+      ? t('server.admin.default', 'The admin PIN is the default, 0000. Choose your own.')
+      : t('server.admin.on', 'An admin PIN is set.');
+  state.classList.toggle('warn', !d.set || !!d.defaultPin);
+  q('admin-save').textContent = d.set ? t('server.admin.change', 'Change PIN') : t('server.admin.set', 'Set PIN');
+  q('admin-remove').hidden = !d.set;
+}
+
+async function loadAdminPin() {
+  try {
+    const r = await fetch(api('/api/admin'), { cache: 'no-store' });
+    renderAdminPin(await r.json());
+  } catch (e) {
+    adminMessage(t('server.admin.failed', 'Could not read the admin PIN setting — {error}', { error: e.message }), true);
+  }
+}
+
+async function adminPinRequest(body) {
+  const r = await fetch(api('/api/admin/pin'), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!d.ok) throw new Error(d.pin ? t('server.admin.needed', 'The admin PIN was not given.') : d.error || r.status);
+  return d;
+}
+
+async function saveAdminPin() {
+  const input = q('admin-new');
+  if (!/^[0-9]{4}$/.test(input.value)) {
+    adminMessage(t('server.admin.fourDigits', 'The PIN is four digits.'), true);
+    return;
+  }
+  try {
+    const d = await adminPinRequest({ pin: input.value });
+    setAdminSession(d.session); // whoever sets the PIN has it open
+    input.value = '';
+    adminMessage(t('server.admin.saved', 'Admin PIN saved.'));
+    loadAdminPin();
+  } catch (e) { adminMessage(e.message, true); }
+}
+
+async function removeAdminPin() {
+  if (!confirm(t('server.admin.removeConfirm', 'Remove the admin PIN? Installing apps, SSH keys and the other risky actions will no longer ask for it.'))) return;
+  try {
+    await adminPinRequest({ remove: true });
+    setAdminSession('');
+    adminMessage('');
+    loadAdminPin();
+  } catch (e) { adminMessage(e.message, true); }
+}
+
+// One prompt at a time: every request waiting for a PIN shares it.
+let adminPrompt = null;
+function askAdminPin() {
+  if (adminPrompt) return adminPrompt;
+  adminPrompt = new Promise(resolve => {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'admin-pin';
+    dialog.setAttribute('aria-labelledby', 'admin-pin-title');
+    dialog.innerHTML =
+      `<form><h2 id="admin-pin-title">${esc(t('admin.prompt.title', 'Admin PIN'))}</h2>` +
+      `<p>${esc(t('admin.prompt.body', 'Enter the four-digit admin PIN to go on.'))}</p>` +
+      `<input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" ` +
+      `aria-label="${esc(t('admin.prompt.label', 'Admin PIN'))}">` +
+      `<div class="sub bad" role="alert" hidden></div>` +
+      `<div class="btns"><button type="button" class="link-btn" data-cancel>${esc(t('admin.prompt.cancel', 'Cancel'))}</button>` +
+      `<button type="submit">${esc(t('admin.prompt.unlock', 'Unlock'))}</button></div></form>`;
+    document.body.appendChild(dialog);
+    const input = dialog.querySelector('input');
+    const error = dialog.querySelector('[role=alert]');
+    let unlocked = false;
+    dialog.addEventListener('close', () => { dialog.remove(); resolve(unlocked); });
+    dialog.querySelector('[data-cancel]').onclick = () => dialog.close();
+    dialog.querySelector('form').onsubmit = async e => {
+      e.preventDefault();
+      try {
+        const r = await fetch(api('/api/admin/unlock'), {
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: input.value })
+        });
+        const d = await r.json();
+        if (d.ok) { setAdminSession(d.session); unlocked = true; dialog.close(); return; }
+        error.textContent = r.status === 429
+          ? t('admin.prompt.locked', 'Too many wrong PINs. Try again in {seconds} s.', { seconds: d.retryAfter })
+          : d.error === 'wrong PIN'
+            ? t('admin.prompt.wrong', 'That is not the PIN.')
+            : d.error;
+      } catch (err) { error.textContent = err.message; }
+      error.hidden = false;
+      input.value = '';
+      input.focus();
+    };
+    dialog.showModal();
+    input.focus();
+  }).finally(() => { adminPrompt = null; });
+  return adminPrompt;
+}

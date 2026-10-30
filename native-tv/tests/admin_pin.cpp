@@ -40,7 +40,7 @@ int main() {
             "unlock without a PIN was not refused as NotSet");
     require(!pin.set("123") && !pin.set("12345") && !pin.set("12a4") && !pin.set(""),
             "a PIN that is not four digits was accepted");
-    require(pin.set("4821") && pin.configured(), "a four-digit PIN was not stored");
+    require(pin.set("4821") && pin.configured() && !pin.usesDefault(), "a four-digit PIN was not stored");
 
     // The PIN is not in the file, and only the owner can read it.
     const std::string stored = readAll(file);
@@ -89,8 +89,14 @@ int main() {
                 restarted.unlock("4821", session, retryAfter) == AdminPin::Result::Wrong,
             "the PIN was not kept across a restart");
 
+    // 0000 is the default onboarding offers, and says so until another PIN replaces it.
+    require(restarted.set("0000") && restarted.usesDefault(), "0000 was not reported as the default");
+    AdminPin again(file, testClock);
+    require(again.usesDefault() && again.set("1357") && !again.usesDefault(),
+            "the default flag was not kept or not cleared");
+
     // lock() ends one session; clear() removes the PIN.
-    require(restarted.unlock("9076", session, retryAfter) == AdminPin::Result::Ok, "unlock failed");
+    require(restarted.unlock("0000", session, retryAfter) == AdminPin::Result::Ok, "unlock failed");
     restarted.lock(session);
     require(!restarted.sessionValid(session), "lock left the session open");
     require(restarted.clear() && !restarted.configured() && access(file.c_str(), F_OK) != 0,

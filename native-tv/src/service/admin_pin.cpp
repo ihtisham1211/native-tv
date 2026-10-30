@@ -152,6 +152,8 @@ bool writeOwnerOnly(const std::string &path, const std::string &contents) {
 }
 } // namespace
 
+const char *const kDefaultAdminPin = "0000";
+
 bool validAdminPin(const std::string &pin) {
     if (pin.size() != 4)
         return false;
@@ -180,12 +182,18 @@ bool AdminPin::load() const {
     salt_ = document["salt"].string();
     hash_ = document["hash"].string();
     iterations_ = static_cast<unsigned>(document["iterations"].number());
+    default_ = document["default"].boolean();
     return true;
 }
 
 bool AdminPin::configured() const {
     std::lock_guard<std::mutex> lock(mutex_);
     return load();
+}
+
+bool AdminPin::usesDefault() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return load() && default_;
 }
 
 int AdminPin::lockedFor() const {
@@ -270,6 +278,7 @@ bool AdminPin::set(const std::string &pin) {
     document.set("salt", Json::text(toHex(salt, sizeof(salt))));
     document.set("hash", Json::text(toHex(digest.data(), digest.size())));
     document.set("iterations", Json::numeric(kIterations));
+    document.set("default", Json::flag(pin == kDefaultAdminPin));
     std::lock_guard<std::mutex> lock(mutex_);
     if (!writeOwnerOnly(file_, document.dump()))
         return false;
@@ -277,6 +286,7 @@ bool AdminPin::set(const std::string &pin) {
     salt_ = document["salt"].string();
     hash_ = document["hash"].string();
     iterations_ = kIterations;
+    default_ = pin == kDefaultAdminPin;
     sessions_.clear();
     misses_ = 0;
     lockedUntil_ = 0;
@@ -290,6 +300,7 @@ bool AdminPin::clear() {
     loaded_ = true;
     hash_.clear();
     salt_.clear();
+    default_ = false;
     sessions_.clear();
     misses_ = 0;
     lockedUntil_ = 0;

@@ -365,6 +365,64 @@ bool setupJsonContentType(const HttpRequest &request) {
     return contentType.compare(0, 16, "application/json") == 0;
 }
 
+// The routes and /api/control actions that need an unlocked admin session once a PIN is
+// set: they install, remove or restart things, or open the TV to more of the network.
+bool adminRoute(const HttpRequest &request) {
+    if (request.method != "POST")
+        return false;
+    const std::string &uri = request.uri;
+    return uri == "/api/apps/uninstall" || uri == "/api/ssh" || uri == "/api/services/toggle" ||
+           uri == "/api/backup" || uri == "/api/settings" || uri == "/api/admin/pin" ||
+           uri.compare(0, 18, "/api/apps/install/") == 0;
+}
+
+bool adminControlAction(const std::string &action) {
+    return action == "reboot" || action == "powerOff" || action == "setDashboardPort" ||
+           action == "setNetworkDebuggerAllowed";
+}
+
+void sendAdminJson(HttpExchange &exchange, int status, const Json &body,
+                   const std::vector<HttpHeader> &extra = {}) {
+    std::vector<HttpHeader> headers = {{"Content-Type", "application/json"},
+                                       {"Cache-Control", "no-store"},
+                                       {"X-Content-Type-Options", "nosniff"}};
+    headers.insert(headers.end(), extra.begin(), extra.end());
+    (void)exchange.respond(status, headers, body.dump());
+}
+
+// A small JSON body from any client, which an admin route takes (readSetupPayload is the TV's own).
+bool readAdminPayload(HttpExchange &exchange, Json &payload) {
+    if (!setupJsonContentType(exchange.request())) {
+        sendSetupError(exchange, 415, "Content-Type must be application/json");
+        return false;
+    }
+    if (!exchange.setBodyLimit(256)) {
+        sendSetupError(exchange, 413, "request body too large", true);
+        return false;
+    }
+    std::string body;
+    char buffer[256];
+    for (;;) {
+        const int count = exchange.readBody(buffer, sizeof(buffer));
+        if (count == 0)
+            break;
+        if (count < 0) {
+            sendSetupError(exchange, exchange.bodyLimitExceeded() ? 413 : 400,
+                           exchange.bodyLimitExceeded() ? "request body too large"
+                                                        : "invalid request body",
+                           true);
+            return false;
+        }
+        body.append(buffer, static_cast<size_t>(count));
+    }
+    payload = Json::parse(body);
+    if (!payload.isObject()) {
+        sendSetupError(exchange, 400, "malformed JSON");
+        return false;
+    }
+    return true;
+}
+
 bool readAppTileStateFiles(const std::string &hiddenPath,
                            const std::string &flagPath,
                            std::set<std::string> &hiddenIds,
@@ -1213,6 +1271,7 @@ bool setupRead(HttpExchange &exchange, const ServerConfig &config, const std::st
     state.set("writable", Json::flag(config.allowControl));
     state.set("network", Json::flag(setupNetworkIsOpen(config.host)));
     state.set("token", Json::flag(!config.token.empty()));
+    state.set("adminPin", Json::flag(access(dataFilePath(dataRoot, "admin-pin.json").c_str(), F_OK) == 0));
     std::string address = localIpv4Address();
     if (!address.empty()) {
         state.set("address", Json::text(address + ":" + std::to_string(config.port)));
@@ -1687,6 +1746,7 @@ HttpFrontDoor::HttpFrontDoor(ServerConfig config, std::string version, std::stri
       version_(std::move(version)), appCatalogRepos_(config_.document["apps"]["repos"]),
       appCatalog_(version_, std::move(appCatalogFetcher)),
       appPackageFetcher_(std::move(appPackageFetcher)), dataRoot_(std::move(dataRoot)),
+      adminPin_(dataFilePath(dataRoot_, "admin-pin.json")),
       homeContent_(dataRoot_),
       homeDiscover_(dataRoot_),
       homeImageProxy_(dataRoot_),
@@ -11324,6 +11384,8 @@ void HttpFrontDoor::setControl(HttpExchange &exchange) const {
         return;
     }
     const std::string action = payload.isObject() ? payload["action"].string() : "";
+    if (adminControlAction(action) && !adminAllowed(exchange))
+        return;
     {
         Json settingResponse;
         if (serverSettingControl(action, payload["value"], settingResponse)) {
@@ -15199,6 +15261,136 @@ void HttpFrontDoor::sendAppIcon(HttpExchange &exchange) const {
     (void)exchange.finishResponse();
 }
 
+bool HttpFrontDoor::adminAllowed(HttpExchange &exchange) const {
+    if (!adminPin_.configured() ||
+        adminPin_.sessionValid(exchange.request().header("x-admin-session")))
+        return true;
+    Json refusal = Json::object();
+    refusal.set("ok", Json::flag(false));
+    refusal.set("error", Json::text("admin PIN required"));
+    refusal.set("pin", Json::flag(true));
+    sendAdminJson(exchange, 403, refusal);
+    return false;
+}
+
+void HttpFrontDoor::sendAdminStatus(HttpExchange &exchange) const {
+    Json status = Json::object();
+    status.set("ok", Json::flag(true));
+    status.set("set", Json::flag(adminPin_.configured()));
+    status.set("defaultPin", Json::flag(adminPin_.usesDefault()));
+    status.set("unlocked", Json::flag(adminPin_.sessionValid(exchange.request().header("x-admin-session"))));
+    status.set("lockedFor", Json::numeric(adminPin_.lockedFor()));
+    sendAdminJson(exchange, 200, status);
+}
+
+void HttpFrontDoor::handleAdminUnlock(HttpExchange &exchange) const {
+    Json payload;
+    if (!readAdminPayload(exchange, payload))
+        return;
+    std::string session;
+    int retryAfter = 0;
+    const service::AdminPin::Result result =
+        adminPin_.unlock(payload["pin"].string(), session, retryAfter);
+    Json answer = Json::object();
+    if (result == service::AdminPin::Result::Ok) {
+        answer.set("ok", Json::flag(true));
+        answer.set("session", Json::text(session));
+        sendAdminJson(exchange, 200, answer);
+        return;
+    }
+    answer.set("ok", Json::flag(false));
+    if (result == service::AdminPin::Result::NotSet) {
+        answer.set("error", Json::text("no admin PIN is set"));
+        sendAdminJson(exchange, 409, answer);
+        return;
+    }
+    answer.set("retryAfter", Json::numeric(retryAfter));
+    if (result == service::AdminPin::Result::Locked) {
+        answer.set("error", Json::text("too many wrong PINs; try again later"));
+        sendAdminJson(exchange, 429, answer, {{"Retry-After", std::to_string(retryAfter)}});
+        return;
+    }
+    answer.set("error", Json::text("wrong PIN"));
+    sendAdminJson(exchange, 403, answer);
+}
+
+void HttpFrontDoor::handleAdminLock(HttpExchange &exchange) const {
+    adminPin_.lock(exchange.request().header("x-admin-session"));
+    sendAdminJson(exchange, 200, Json::parse("{\"ok\":true}"));
+}
+
+// Sets, changes or removes the PIN. Past the admin gate, so a PIN that is set already needs an
+// unlocked session. The first one is set from the TV, or by a client that has the token: with
+// neither, any machine on the network could set it first and lock the owner out.
+void HttpFrontDoor::handleAdminPin(HttpExchange &exchange) const {
+    Json payload;
+    if (!readAdminPayload(exchange, payload))
+        return;
+    if (!config_.allowControl) {
+        sendSetupError(exchange, 403, "controls disabled in config");
+        return;
+    }
+    if (!adminPin_.configured() && config_.token.empty() &&
+        !isLoopbackPeer(exchange.request().remoteAddress)) {
+        sendSetupError(exchange, 403, "set the first admin PIN on the TV");
+        return;
+    }
+    if (payload["remove"].boolean()) {
+        if (!adminPin_.clear()) {
+            sendSetupError(exchange, 500, "could not remove the PIN");
+            return;
+        }
+        sendAdminJson(exchange, 200, Json::parse("{\"ok\":true}"));
+        return;
+    }
+    const std::string pin = payload["pin"].string();
+    std::string session;
+    int retryAfter = 0;
+    if (!service::validAdminPin(pin)) {
+        sendSetupError(exchange, 400, "the PIN must be four digits");
+        return;
+    }
+    if (!adminPin_.set(pin) ||
+        adminPin_.unlock(pin, session, retryAfter) != service::AdminPin::Result::Ok) {
+        sendSetupError(exchange, 500, "could not save the PIN");
+        return;
+    }
+    Json answer = Json::object();
+    answer.set("ok", Json::flag(true));
+    answer.set("session", Json::text(session)); // the one who set it is unlocked
+    sendAdminJson(exchange, 200, answer);
+}
+
+// Onboarding on the TV: the wizard's own step, on the TV-only setup route.
+void HttpFrontDoor::setupAdminPin(HttpExchange &exchange, const Json &payload) const {
+    if (setupDemo(config_, exchange.request(), payload)) {
+        sendAdminJson(exchange, 200, Json::parse("{\"ok\":true,\"demo\":true}"));
+        return;
+    }
+    if (!config_.allowControl) {
+        sendSetupError(exchange, 403, "controls disabled in config");
+        return;
+    }
+    if (!adminAllowed(exchange))
+        return;
+    const std::string pin = payload["pin"].string();
+    std::string session;
+    int retryAfter = 0;
+    if (!service::validAdminPin(pin)) {
+        sendSetupError(exchange, 400, "the PIN must be four digits");
+        return;
+    }
+    if (!adminPin_.set(pin) ||
+        adminPin_.unlock(pin, session, retryAfter) != service::AdminPin::Result::Ok) {
+        sendSetupError(exchange, 500, "could not save the PIN");
+        return;
+    }
+    Json answer = Json::object();
+    answer.set("ok", Json::flag(true));
+    answer.set("session", Json::text(session));
+    sendAdminJson(exchange, 200, answer);
+}
+
 void HttpFrontDoor::sendHomeChannels(HttpExchange &exchange) const {
     bool tunerAvailable = false;
     const Json channels = homeChannelSnapshot(tunerAvailable);
@@ -17372,6 +17564,24 @@ void HttpFrontDoor::dispatch(HttpExchange &exchange) const {
                                "{\"ok\":false,\"error\":\"bad or missing token\"}");
         return;
     }
+    if (adminRoute(request) && !adminAllowed(exchange))
+        return;
+    if (request.uri == "/api/admin" && request.method == "GET") {
+        sendAdminStatus(exchange);
+        return;
+    }
+    if (request.uri == "/api/admin/unlock" && request.method == "POST") {
+        handleAdminUnlock(exchange);
+        return;
+    }
+    if (request.uri == "/api/admin/lock" && request.method == "POST") {
+        handleAdminLock(exchange);
+        return;
+    }
+    if (request.uri == "/api/admin/pin" && request.method == "POST") {
+        handleAdminPin(exchange);
+        return;
+    }
     if (request.uri == "/api/home/guide" && request.method == "GET") {
         sendHomeGuide(exchange);
         return;
@@ -18124,6 +18334,8 @@ void HttpFrontDoor::dispatch(HttpExchange &exchange) const {
             (void)setAlwaysReady(exchange, config_, luna_, &actionPayload);
         } else if (action == "done") {
             (void)finishSetup(exchange, config_, dataRoot_, &payload);
+        } else if (action == "adminPin") {
+            setupAdminPin(exchange, payload);
         } else if (action == "handoff") {
             (void)setupHandoffAction(exchange, "handoff", &payload);
         } else if (action == "handoffStop") {

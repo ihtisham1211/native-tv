@@ -4,7 +4,7 @@
   "source": "native-tv/src/daemon/http_frontdoor.cpp",
   "authClasses": {
     "public": "No credential is required.",
-    "token": "For /api routes, Bearer or ?k is accepted when a token is configured; an unset token leaves the route open, and a request from the TV loopback address is accepted. Route notes call out stronger per-action checks.",
+    "token": "For /api routes, Bearer or ?k is accepted when a token is configured; an unset token leaves the route open, and a request from the TV loopback address is accepted. Route notes call out stronger per-action checks. Once an admin PIN is set, the routes that install, remove or restart things, and the reboot, power-off, port and network-debugger actions of /api/control, also need an unlocked admin session (X-Admin-Session, from /api/admin/unlock), whatever the peer, the TV itself included.",
     "loopback-TV": "The request must originate from 127.0.0.1 or ::1, except the setup demo mode. The route also passes through the general /api token gate.",
     "handoff-code": "The phone must present the active one-time code generated on the TV; it expires after ten minutes or when setup ends."
   },
@@ -811,6 +811,24 @@
       "bodyLimit": {"max": 1048576, "unit": "JS string code units"},
       "owner": "native",
       "notes": "Native validates and applies uploaded, enabled, disabled and cleared custom host lists through the shared hosts-table store and the command-policy resource lock. Node retains the route as the fallback when the native front door is not active."
+    },
+    {
+      "paths": ["/api/admin"],
+      "methods": ["GET"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Whether an admin PIN is set, whether it is still the default 0000, whether the request's X-Admin-Session is open, and the seconds a lock-out has left. The PIN itself is never returned."
+    },
+    {
+      "paths": ["/api/admin/unlock", "/api/admin/lock", "/api/admin/pin"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 256, "unit": "bytes"},
+      "owner": "native",
+      "notes": "unlock checks the four-digit PIN and answers an X-Admin-Session value good for ten idle minutes; five wrong PINs in a row lock unlocking out for 30 seconds, doubling to an hour (429 with Retry-After). lock ends the session. pin sets or changes the PIN (pin) or removes it (remove: true), and needs an unlocked session once one is set; the first PIN is set from the TV, or by a client that has the token. Onboarding sets it with the TV-only /api/setup action adminPin."
     }
   ],
   "routeGuards": [

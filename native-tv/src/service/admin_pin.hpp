@@ -21,6 +21,8 @@ class AdminPin {
     explicit AdminPin(std::string file, Clock now = Clock());
 
     bool configured() const;
+    // True while the PIN is the default, 0000, which anyone who knows it can use.
+    bool usesDefault() const;
     // Seconds a lock-out has left, 0 when there is none.
     int lockedFor() const;
     // Checks a PIN and, when it is right, opens an unlock session. retryAfter is the
@@ -44,12 +46,15 @@ class AdminPin {
     mutable std::string salt_;
     mutable std::string hash_;
     mutable unsigned iterations_ = 0;
+    mutable bool default_ = false;
     unsigned misses_ = 0;
     int64_t lockedUntil_ = 0;
     std::map<std::string, int64_t> sessions_; // token -> seconds it stays open until
 };
 
 bool validAdminPin(const std::string &pin);
+// What onboarding offers when the owner does not pick one.
+extern const char *const kDefaultAdminPin;
 
 } // namespace service
 } // namespace nativetv

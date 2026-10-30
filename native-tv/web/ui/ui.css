@@ -220,7 +220,7 @@ button.pill.sw[aria-pressed="true"]:not(:disabled):active::before { transform: t
 /* ---------- Inputs ---------- */
 input[type=text], input[type=search], input[type=password], input[type=number], input[type=url], input[type=time], input[type=file], .pill-sel { font: var(--type-body-l); letter-spacing: var(--track-body); color: var(--c-on-surface); }
 .toast-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.toast-form input[type=text], .toast-form input[type=search], .toast-form input[type=file] { flex: 1 1 180px; min-width: 0; height: 48px; padding: 0 16px; border: 0; border-radius: var(--shape-md); background: var(--c-surface-container-highest); outline: none; }
+.toast-form input[type=text], .toast-form input[type=password], .toast-form input[type=search], .toast-form input[type=file] { flex: 1 1 180px; min-width: 0; height: 48px; padding: 0 16px; border: 0; border-radius: var(--shape-md); background: var(--c-surface-container-highest); outline: none; }
 .toast-form input[type=file] { padding: 12px 16px; height: auto; }
 .toast-form input[type=search] { border-radius: var(--shape-full); }
 .toast-form input:focus-visible { box-shadow: inset 0 0 0 2px var(--c-primary); outline: none; }
@@ -428,6 +428,14 @@ dialog { color: var(--c-on-surface); border: 0; padding: 0; background: var(--c-
 dialog::backdrop { background: rgb(0 0 0 / .42); opacity: 0; transition: opacity 340ms cubic-bezier(.23, 1, .32, 1), overlay 340ms allow-discrete, display 340ms allow-discrete; }
 dialog[open]::backdrop { opacity: 1; }
 @starting-style { dialog[open]::backdrop { opacity: 0; } }
+/* The admin PIN prompt: centred, over the page, four wide digits. */
+.admin-pin { position: fixed; inset: 0; margin: auto; width: min(360px, calc(100% - 32px)); height: fit-content; padding: 24px; border-radius: 28px; }
+.admin-pin form { display: grid; gap: 16px; }
+.admin-pin h2 { margin: 0; font: var(--type-headline-s, 600 24px/32px inherit); }
+.admin-pin p { margin: 0; color: var(--c-on-surface-variant); }
+.admin-pin input { height: 56px; border: 0; border-radius: var(--shape-md); background: var(--c-surface-container-highest); color: var(--c-on-surface); text-align: center; font-size: 28px; letter-spacing: .5em; text-indent: .5em; }
+.admin-pin input:focus-visible { box-shadow: inset 0 0 0 2px var(--c-primary); outline: none; }
+.admin-pin .btns { justify-content: flex-end; }
 .sheet { position: fixed; inset: auto 0 0 0; margin: 0 auto; width: min(100%, 640px); max-height: min(90dvh, 760px); border-radius: 28px 28px 0 0; flex-direction: column; background: var(--c-surface-container-low); transform: translateY(100%); transition: transform var(--dur-sheet) var(--ease-sheet), overlay var(--dur-sheet) allow-discrete, display var(--dur-sheet) allow-discrete; box-shadow: var(--elev-4); }
 .sheet[open] { display: flex; transform: none; }
 @starting-style { .sheet[open] { transform: translateY(100%); } }

@@ -2856,6 +2856,55 @@
                   </button>
                 </div>
               </div>
+              <div class="prot-row" id="admin-row">
+                <div class="prot-main">
+                  <div class="prot-title" data-t="server.admin.title">
+                    Admin PIN
+                  </div>
+                  <div class="prot-desc" data-t="server.admin.desc">
+                    Four digits asked before installing or removing apps,
+                    changing SSH keys, restoring a backup, restarting the TV or
+                    switching it off. The TV app asks for it too.
+                  </div>
+                  <div class="prot-desc" id="admin-state"></div>
+                </div>
+                <div>
+                  <form
+                    class="toast-form"
+                    onsubmit="
+                      event.preventDefault();
+                      saveAdminPin();
+                    "
+                  >
+                    <input
+                      type="password"
+                      id="admin-new"
+                      inputmode="numeric"
+                      pattern="[0-9]{4}"
+                      maxlength="4"
+                      autocomplete="new-password"
+                      placeholder="0000"
+                      translate="no"
+                      aria-label="New admin PIN"
+                      data-t-aria-label="server.admin.newPin"
+                    />
+                    <button type="submit" id="admin-save">&mdash;</button>
+                  </form>
+                  <div class="btns acts">
+                    <button
+                      type="button"
+                      class="link-btn"
+                      id="admin-remove"
+                      hidden
+                      onclick="removeAdminPin()"
+                      data-t="server.admin.remove"
+                    >
+                      Remove the PIN
+                    </button>
+                  </div>
+                  <div class="sub" id="admin-msg" hidden></div>
+                </div>
+              </div>
               <div class="prot-row" id="ssh-row">
                 <div class="prot-main">
                   <div class="prot-title" data-t="server.ssh.title">
