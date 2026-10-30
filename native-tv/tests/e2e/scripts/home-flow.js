@@ -125,13 +125,19 @@ function run(index) {
     if (!ok) { print({ done: true, ok: false }); process.exit(1); }
     run(index + 1);
   }
+  // A string that starts with $ is a field an earlier step saved, at any depth of the body.
+  function substitute(node) {
+    for (var key in node) {
+      if (!Object.prototype.hasOwnProperty.call(node, key)) continue;
+      if (typeof node[key] === 'string' && node[key].charAt(0) === '$') node[key] = saved[node[key].slice(1)];
+      else if (node[key] && typeof node[key] === 'object') substitute(node[key]);
+    }
+  }
   if (step.api) {
     var body = step.body;
     if (body && typeof body === 'object') {
       body = JSON.parse(JSON.stringify(body));
-      for (var key in body)
-        if (Object.prototype.hasOwnProperty.call(body, key) && typeof body[key] === 'string' && body[key].charAt(0) === '$')
-          body[key] = saved[body[key].slice(1)];
+      substitute(body);
     }
     request(step.api, body, step.withSession, function (error, status, reply) {
       if (error) return finish(false, String(error));

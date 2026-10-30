@@ -14,7 +14,8 @@
 // the settings behind those through the API). window.confirm answers yes only to the OLED protection
 // question and window.alert is recorded, so a refusal the page announces ends up in __rt.dialogs.
 //
-// window.__tabs = [] runs only the recipes below; window.__recipes = false leaves them out.
+// window.__tabs = [] runs only the recipes below; window.__recipes = false leaves them out; window.__recipeOnly = /regex/
+// on a recipe's ids (or ntp, homescreen) runs only those.
 // window.__rt = { done, log: [{tab, label, type, before, after, restored, ok | skipped}], dialogs: [] }
 window.__rt = { done: false, log: [], current: '', dialogs: [] };
 window.confirm = function (m) { window.__rt.dialogs.push('confirm: ' + String(m).slice(0, 90)); return /burn-in/.test(m); };
@@ -114,7 +115,12 @@ window.alert = function (m) { window.__rt.dialogs.push('ALERT: ' + String(m).sli
       if (e.tagName === 'INPUT') return String(e.checked);
       return e.getAttribute('aria-pressed') || (/\b(on|good)\b/.test(e.className) ? 'on' : 'off');
     };
-    for (const recipe of RECIPES) {
+    const yes = function (m) { window.__rt.dialogs.push('confirm: ' + String(m).slice(0, 90)); return true; };
+    const answered = window.confirm;
+    // The experimental switches ask first; they are answered yes and switched back.
+    RECIPES.push({ tab: 'server', ids: ['exp-tilehiding'], confirm: true });
+    for (const recipe of RECIPES.filter(function (r) { return !window.__recipeOnly || window.__recipeOnly.test(r.ids.join(' ')); })) {
+      window.confirm = recipe.confirm ? yes : answered;
       for (const id of recipe.ids) {
         window.__rt.current = recipe.tab + ' ' + id;
         const rec = { tab: recipe.tab, label: id, type: 'recipe' };
@@ -139,6 +145,56 @@ window.alert = function (m) { window.__rt.dialogs.push('ALERT: ' + String(m).sli
         rec.restored = stateOf(id); rec.ok = rec.after !== rec.before && rec.restored === rec.before;
         window.__rt.log.push(rec);
       }
+    }
+    window.confirm = answered;
+
+    // The time server: a server is entered and saved, which switches the clock on, then switched off and an
+    // empty server saved, which puts the form back as it was.
+    if (!window.__recipeOnly || window.__recipeOnly.test('ntp')) {
+      window.__rt.current = 'server ntp';
+      const ntp = { tab: 'server', label: 'ntp (server entered, then removed)', type: 'recipe' };
+      const field = function () { return document.getElementById('ntp-server'); };
+      const saveServer = async function (value) {
+        field().value = value; field().dispatchEvent(new Event('input', { bubbles: true }));
+        document.getElementById('ntp-save').click(); await wait(4000); await reload('server');
+      };
+      showTab('server'); await wait(3000);
+      ntp.before = stateOf('ntp-toggle') + '/' + field().value;
+      await saveServer('pool.ntp.org'); ntp.after = stateOf('ntp-toggle') + '/' + field().value;
+      if (stateOf('ntp-toggle') !== 'off') { document.getElementById('ntp-toggle').click(); await wait(3000); }
+      await saveServer(''); ntp.restored = stateOf('ntp-toggle') + '/' + field().value;
+      ntp.ok = ntp.after.indexOf('pool.ntp.org') > 0 && ntp.after !== ntp.before && ntp.restored === ntp.before;
+      window.__rt.log.push(ntp);
+    }
+
+    // LG's Home screen layout (experimental): switched on, its tiles are switched one by one, then it is
+    // switched off again. LG's layout is only changed when the TV next starts.
+    if (!window.__recipeOnly || window.__recipeOnly.test('homescreen')) {
+      window.confirm = yes;
+      const tile = { tab: 'server', label: 'exp-homelayout', type: 'recipe' };
+      showTab('server'); await wait(3000);
+      tile.before = stateOf('exp-homelayout');
+      document.getElementById('exp-homelayout').click(); await wait(4000); await reload('server');
+      tile.after = stateOf('exp-homelayout');
+      if (tile.after !== tile.before) {
+        for (const id of ['btn-home-hdmi1', 'btn-home-hdmi2', 'btn-home-hdmi3', 'btn-home-hdmi4', 'btn-home-sideIcons', 'btn-home-quickCards', 'btn-home-recommended']) {
+          window.__rt.current = 'homescreen ' + id;
+          const rec = { tab: 'homescreen', label: id, type: 'recipe' };
+          showTab('homescreen'); await wait(3000);
+          const e = document.getElementById(id);
+          if (!e || e.disabled) { rec.skipped = e ? 'disabled' : 'gone'; window.__rt.log.push(rec); continue; }
+          rec.before = stateOf(id); e.click(); await wait(3500); await reload('homescreen');
+          rec.after = stateOf(id);
+          if (rec.after !== rec.before) { document.getElementById(id).click(); await wait(3500); await reload('homescreen'); }
+          rec.restored = stateOf(id); rec.ok = rec.after !== rec.before && rec.restored === rec.before;
+          window.__rt.log.push(rec);
+        }
+        showTab('server'); await wait(3000);
+        document.getElementById('exp-homelayout').click(); await wait(4000); await reload('server');
+      }
+      tile.restored = stateOf('exp-homelayout'); tile.ok = tile.after !== tile.before && tile.restored === tile.before;
+      window.__rt.log.push(tile);
+      window.confirm = answered;
     }
   }
   window.__rt.done = true;

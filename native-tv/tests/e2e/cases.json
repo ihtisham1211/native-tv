@@ -2195,7 +2195,7 @@
     {
       "id": "E2E-106",
       "title": "Ads, sound and audio switches round-trip on the TV",
-      "purpose": "Each of the six LG ad and recommendation switches, the sound mode, the balance, automatic volume and Bluetooth speaker mode is changed through /api/control, read back from /api/lgsettings (which asks the TV's settings service), and put back. The case first checks the values it expects to start from (ads off, Cinema, balance 0, automatic volume off, Bluetooth speaker mode on) and does nothing on a TV that has others. A run that fails midway leaves the row it was on changed.",
+      "purpose": "Each of the six LG ad and recommendation switches, the sound mode, the balance, automatic volume and Bluetooth speaker mode is changed through /api/control, read back from /api/lgsettings (which asks the TV's settings service), and put back. The case first checks the values it expects to start from (ads off, Cinema, balance 0, automatic volume off, Bluetooth speaker mode on) and does nothing on a TV that has others. A run that fails midway leaves the row it was on changed. The sound mode is whatever the input in front has (LG keeps one per input: Cinema on HDMI 1, Standard on LG's Home, which is where E2E-080 to 083 leave the TV), so the case reads it at the start and puts that one back.",
       "kind": "api",
       "requires": [
         "control"
@@ -2210,10 +2210,12 @@
             "rows[id=livePromotion].on": false,
             "rows[id=aiNudge].on": false,
             "rows[id=aiSettingsNudge].on": false,
-            "rows[id=soundMode].value": "movie",
             "rows[id=audioBalance].value": 0,
             "rows[id=autoVolume].on": false,
             "rows[id=btSpeakerMode].on": true
+          },
+          "save": {
+            "originalSoundMode": "rows[id=soundMode].value"
           }
         },
         {
@@ -2508,7 +2510,7 @@
             "action": "lgSetting",
             "value": {
               "id": "soundMode",
-              "value": "movie"
+              "value": "$originalSoundMode"
             }
           },
           "expect": {
@@ -2521,7 +2523,7 @@
         {
           "api": "GET /api/lgsettings?section=promotions,sound",
           "expect": {
-            "rows[id=soundMode].value": "movie"
+            "ok": true
           }
         },
         {
@@ -5468,8 +5470,8 @@
     },
     {
       "id": "E2E-135",
-      "title": "TV Settings System rows change and come back (1 of 2)",
-      "purpose": "Every switch and choice of the TV's System Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. The timers and IP control are left out, and Power off and Reboot are actions that are not pressed.",
+      "title": "TV Settings System rows change and come back (1 of 3)",
+      "purpose": "Every switch and choice of the TV's System Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. The timers (Sleep timer, On Timer, Off Timer: each is back off within seconds) and IP control are pressed too; Power off and Reboot are actions that are not pressed.",
       "kind": "run",
       "requires": [
         "control"
@@ -5495,8 +5497,8 @@
     },
     {
       "id": "E2E-136",
-      "title": "TV Settings System rows change and come back (2 of 2)",
-      "purpose": "Every switch and choice of the TV's System Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. The timers and IP control are left out, and Power off and Reboot are actions that are not pressed.",
+      "title": "TV Settings System rows change and come back (2 of 3)",
+      "purpose": "Every switch and choice of the TV's System Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. The timers (Sleep timer, On Timer, Off Timer: each is back off within seconds) and IP control are pressed too; Power off and Reboot are actions that are not pressed.",
       "kind": "run",
       "requires": [
         "control"
@@ -5516,7 +5518,7 @@
         "exitCode": 0,
         "framesMin": 30,
         "sweep": {
-          "pressedMin": 7
+          "pressedMin": 8
         }
       }
     },
@@ -5729,6 +5731,552 @@
           "actedMin": 1
         }
       }
+    },
+    {
+      "id": "E2E-149",
+      "title": "TV Settings System rows change and come back (3 of 3)",
+      "purpose": "Every switch and choice of the TV's System Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. The timers (Sleep timer, On Timer, Off Timer: each is back off within seconds) and IP control are pressed too; Power off and Reboot are actions that are not pressed.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:options",
+      "script": "sweep-options-3.json",
+      "durationMs": 240000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 240 s through the app's jailer, with the Settings screen of the options group open.",
+        "The client walks the screen row by row and page by page. On each row the screen calls a switch or a choice it presses OK, waits for the write to come back, checks the row shows another value, and presses OK until the row shows its first value again. It leaves alone the rows the script names.",
+        "Read the report: every pressed row must have changed and come back, and at least 7 rows must have been pressed.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "pressedMin": 3
+        }
+      }
+    },
+    {
+      "id": "E2E-160",
+      "title": "TV Settings Screen Saver: LG default is chosen from the TV",
+      "purpose": "OK on the LG default row of the Screen Saver settings, pressed through the TV's own screen, makes it the screen saver in use: the server reports it once the client has run, and the case then puts Harmonograph at Dim back. The savers are chosen one case each, so that each row is shown to work.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:saver",
+      "script": "sweep-saver-stock.json",
+      "durationMs": 60000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 60 s through the app's jailer, with the Settings screen of the saver group open.",
+        "The client presses what the script names through the TV's own screen.",
+        "Judge the report and, where the case has one, the read-back through the server.",
+        "Always: put the TV back as it started (cleanup); delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "actedMin": 1
+        },
+        "flowOk": true
+      },
+      "after": [
+        {
+          "api": "GET /api/screensaver",
+          "expect": {
+            "current": "stock"
+          }
+        }
+      ],
+      "cleanup": [
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "screensaverMode",
+            "value": {
+              "mode": "harmonograph",
+              "level": "dim"
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "E2E-161",
+      "title": "TV Settings Screen Saver: Clock is chosen from the TV",
+      "purpose": "OK on the Clock row of the Screen Saver settings, pressed through the TV's own screen, makes it the screen saver in use: the server reports it once the client has run, and the case then puts Harmonograph at Dim back. The savers are chosen one case each, so that each row is shown to work.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:saver",
+      "script": "sweep-saver-clock.json",
+      "durationMs": 60000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 60 s through the app's jailer, with the Settings screen of the saver group open.",
+        "The client presses what the script names through the TV's own screen.",
+        "Judge the report and, where the case has one, the read-back through the server.",
+        "Always: put the TV back as it started (cleanup); delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "actedMin": 1
+        },
+        "flowOk": true
+      },
+      "after": [
+        {
+          "api": "GET /api/screensaver",
+          "expect": {
+            "current": "clock"
+          }
+        }
+      ],
+      "cleanup": [
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "screensaverMode",
+            "value": {
+              "mode": "harmonograph",
+              "level": "dim"
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "E2E-162",
+      "title": "TV Settings Screen Saver: Starfield is chosen from the TV",
+      "purpose": "OK on the Starfield row of the Screen Saver settings, pressed through the TV's own screen, makes it the screen saver in use: the server reports it once the client has run, and the case then puts Harmonograph at Dim back. The savers are chosen one case each, so that each row is shown to work.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:saver",
+      "script": "sweep-saver-starfield.json",
+      "durationMs": 60000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 60 s through the app's jailer, with the Settings screen of the saver group open.",
+        "The client presses what the script names through the TV's own screen.",
+        "Judge the report and, where the case has one, the read-back through the server.",
+        "Always: put the TV back as it started (cleanup); delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "actedMin": 1
+        },
+        "flowOk": true
+      },
+      "after": [
+        {
+          "api": "GET /api/screensaver",
+          "expect": {
+            "current": "starfield"
+          }
+        }
+      ],
+      "cleanup": [
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "screensaverMode",
+            "value": {
+              "mode": "harmonograph",
+              "level": "dim"
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "E2E-163",
+      "title": "TV Settings Screen Saver: Fireworks is chosen from the TV",
+      "purpose": "OK on the Fireworks row of the Screen Saver settings, pressed through the TV's own screen, makes it the screen saver in use: the server reports it once the client has run, and the case then puts Harmonograph at Dim back. The savers are chosen one case each, so that each row is shown to work.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:saver",
+      "script": "sweep-saver-fireworks.json",
+      "durationMs": 60000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 60 s through the app's jailer, with the Settings screen of the saver group open.",
+        "The client presses what the script names through the TV's own screen.",
+        "Judge the report and, where the case has one, the read-back through the server.",
+        "Always: put the TV back as it started (cleanup); delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "actedMin": 1
+        },
+        "flowOk": true
+      },
+      "after": [
+        {
+          "api": "GET /api/screensaver",
+          "expect": {
+            "current": "fireworks"
+          }
+        }
+      ],
+      "cleanup": [
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "screensaverMode",
+            "value": {
+              "mode": "harmonograph",
+              "level": "dim"
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "E2E-164",
+      "title": "TV Settings Screen Saver: Bokeh is chosen from the TV",
+      "purpose": "OK on the Bokeh row of the Screen Saver settings, pressed through the TV's own screen, makes it the screen saver in use: the server reports it once the client has run, and the case then puts Harmonograph at Dim back. The savers are chosen one case each, so that each row is shown to work.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:saver",
+      "script": "sweep-saver-bokeh.json",
+      "durationMs": 60000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 60 s through the app's jailer, with the Settings screen of the saver group open.",
+        "The client presses what the script names through the TV's own screen.",
+        "Judge the report and, where the case has one, the read-back through the server.",
+        "Always: put the TV back as it started (cleanup); delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "actedMin": 1
+        },
+        "flowOk": true
+      },
+      "after": [
+        {
+          "api": "GET /api/screensaver",
+          "expect": {
+            "current": "bokeh"
+          }
+        }
+      ],
+      "cleanup": [
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "screensaverMode",
+            "value": {
+              "mode": "harmonograph",
+              "level": "dim"
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "E2E-165",
+      "title": "TV Settings Screen Saver: Harmonograph is chosen from the TV",
+      "purpose": "OK on the Harmonograph row of the Screen Saver settings, pressed through the TV's own screen, makes it the screen saver in use: the server reports it once the client has run, and the case then puts Harmonograph at Dim back. The savers are chosen one case each, so that each row is shown to work.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:saver",
+      "script": "sweep-saver-harmonograph.json",
+      "durationMs": 60000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 60 s through the app's jailer, with the Settings screen of the saver group open.",
+        "The client presses what the script names through the TV's own screen.",
+        "Judge the report and, where the case has one, the read-back through the server.",
+        "Always: put the TV back as it started (cleanup); delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "actedMin": 1
+        },
+        "flowOk": true
+      },
+      "after": [
+        {
+          "api": "GET /api/screensaver",
+          "expect": {
+            "current": "harmonograph"
+          }
+        }
+      ],
+      "cleanup": [
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "screensaverMode",
+            "value": {
+              "mode": "harmonograph",
+              "level": "dim"
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "E2E-166",
+      "title": "TV Settings Screen Saver: Panel vitals is chosen from the TV",
+      "purpose": "OK on the Panel vitals row of the Screen Saver settings, pressed through the TV's own screen, makes it the screen saver in use: the server reports it once the client has run, and the case then puts Harmonograph at Dim back. The savers are chosen one case each, so that each row is shown to work.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:saver",
+      "script": "sweep-saver-vitals.json",
+      "durationMs": 60000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 60 s through the app's jailer, with the Settings screen of the saver group open.",
+        "The client presses what the script names through the TV's own screen.",
+        "Judge the report and, where the case has one, the read-back through the server.",
+        "Always: put the TV back as it started (cleanup); delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "actedMin": 1
+        },
+        "flowOk": true
+      },
+      "after": [
+        {
+          "api": "GET /api/screensaver",
+          "expect": {
+            "current": "vitals"
+          }
+        }
+      ],
+      "cleanup": [
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "screensaverMode",
+            "value": {
+              "mode": "harmonograph",
+              "level": "dim"
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "E2E-146",
+      "title": "TV Settings Service Menu: the lock switch changes and comes back",
+      "purpose": "OK on Lock (Service Menu) unlocks the service menu, after the second OK it asks for, and OK again locks it. The rows that open LG's engineering menus (Open EZ Adjust, Open In Start) are not pressed: they can change panel calibration.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:service",
+      "script": "sweep-service-lock.json",
+      "durationMs": 90000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 90 s through the app's jailer, with the Settings screen of the service group open.",
+        "The client presses what the script names through the TV's own screen.",
+        "Judge the report and, where the case has one, the read-back through the server.",
+        "Always: put the TV back as it started (cleanup); delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "pressedMin": 1
+        }
+      }
+    },
+    {
+      "id": "E2E-148",
+      "title": "TV Settings Privacy: Reset the advertising ID runs without ending the app",
+      "purpose": "OK on Reset the advertising ID (Privacy, Tracking) is pressed through the TV's own screen, with a second OK where it asks to confirm. The TV gets a new advertising ID, which changes nothing else (Limit ad tracking stays on); the case is that the press is handled and the app stays up.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:privacy",
+      "script": "sweep-privacy-adid.json",
+      "durationMs": 90000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 90 s through the app's jailer, with the Settings screen of the privacy group open.",
+        "The client presses what the script names through the TV's own screen.",
+        "Judge the report and, where the case has one, the read-back through the server.",
+        "Always: put the TV back as it started (cleanup); delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "actedMin": 1
+        },
+        "flowOk": true
+      },
+      "after": [
+        {
+          "api": "GET /api/privacy",
+          "expect": {
+            "advertisingId.limitTracking": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "E2E-150",
+      "title": "The pixel refresher cannot be scheduled on this TV, and says so",
+      "purpose": "Schedule a pixel refresher and Cancel a scheduled refresher both ask LG's service, which the B3 on webOS 10.3.2 refuses: the server answers ok:false for each and the refresher stays Idle with its count unchanged. The case expects that refusal, so a TV that accepts the schedule fails it: cancel it in the OLED Care tab.",
+      "kind": "api",
+      "requires": [
+        "control"
+      ],
+      "flow": [
+        {
+          "api": "GET /api/oledcare",
+          "expect": {
+            "refresherStatus": "Idle"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "refresherSchedule"
+          },
+          "expect": {
+            "ok": false
+          }
+        },
+        {
+          "api": "GET /api/oledcare",
+          "expect": {
+            "refresherStatus": "Idle"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "refresherCancel"
+          },
+          "expect": {
+            "ok": false
+          }
+        },
+        {
+          "api": "GET /api/oledcare",
+          "expect": {
+            "refresherStatus": "Idle"
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT).",
+        "Schedule and cancel the refresher; each answer is ok:false and the status stays Idle.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      }
+    },
+    {
+      "id": "E2E-147",
+      "title": "TV Settings Home: the Native Tv Home switch takes the TV over",
+      "purpose": "OK twice (the second confirms, as the switch asks) on the first row of the Home settings, Native Tv Home, switches the takeover on from the TV itself (E2E-080 does it through the server): once the client has run, the server reports Home on and not halted, and the case then switches it off through the server. The client may be replaced by Native Tv Home itself, so only the server's answer is judged. It expects Native Tv Home off at the start.",
+      "kind": "run",
+      "requires": [
+        "control",
+        "takeover"
+      ],
+      "screen": "dashboard:home",
+      "script": "home-takeover-switch.json",
+      "durationMs": 20000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 20 s through the app's jailer, with the Settings screen of the home group open.",
+        "The client presses what the script names through the TV's own screen.",
+        "Judge the report and, where the case has one, the read-back through the server.",
+        "Always: put the TV back as it started (cleanup); delete the script and the lock folder."
+      ],
+      "criteria": {
+        "flowOk": true
+      },
+      "after": [
+        {
+          "api": "GET /api/home",
+          "expect": {
+            "enabled": true,
+            "nativeHome.halted": false
+          }
+        }
+      ],
+      "cleanup": [
+        {
+          "api": "POST /api/home/disable",
+          "expect": {
+            "ok": true
+          }
+        }
+      ]
     }
   ]
 }

@@ -47,7 +47,7 @@ class Registry(unittest.TestCase):
             if case["screen"] == "quick" and holds:
                 self.assertIn("control", case.get("requires", []), case["id"])
         skipped = [case["id"] for case in run.load_registry()["cases"] if "control" in case.get("requires", [])]
-        self.assertEqual(skipped, ["E2E-091", "E2E-092", "E2E-101", "E2E-102", "E2E-103", "E2E-104", "E2E-105", "E2E-106", "E2E-107", "E2E-108", "E2E-109", "E2E-110", "E2E-111", "E2E-112", "E2E-113", "E2E-114", "E2E-115", "E2E-116", "E2E-117", "E2E-118", "E2E-119", "E2E-120", "E2E-121", "E2E-122", "E2E-125", "E2E-130", "E2E-131", "E2E-132", "E2E-133", "E2E-134", "E2E-135", "E2E-136", "E2E-137", "E2E-138", "E2E-139", "E2E-141", "E2E-142", "E2E-143", "E2E-144"])
+        self.assertEqual(skipped, ["E2E-091", "E2E-092", "E2E-101", "E2E-102", "E2E-103", "E2E-104", "E2E-105", "E2E-106", "E2E-107", "E2E-108", "E2E-109", "E2E-110", "E2E-111", "E2E-112", "E2E-113", "E2E-114", "E2E-115", "E2E-116", "E2E-117", "E2E-118", "E2E-119", "E2E-120", "E2E-121", "E2E-122", "E2E-125", "E2E-130", "E2E-131", "E2E-132", "E2E-133", "E2E-134", "E2E-135", "E2E-136", "E2E-137", "E2E-138", "E2E-139", "E2E-141", "E2E-142", "E2E-143", "E2E-144", "E2E-149", "E2E-160", "E2E-161", "E2E-162", "E2E-163", "E2E-164", "E2E-165", "E2E-166", "E2E-146", "E2E-148", "E2E-150", "E2E-147"])
 
     def test_a_navigate_only_script_may_not_press_ok(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -125,6 +125,14 @@ class Registry(unittest.TestCase):
         self.assertIn("game / Sound / D", run.judge({"sweep": stuck}, {"sweep": {}})["sweep"])
         lost = rows + [{"group": "game", "page": "Sound", "row": "E", "restored": False}]
         self.assertIn("game / Sound / E", run.judge({"sweep": lost}, {"sweep": {}})["sweep"])
+
+    def test_a_run_case_may_read_the_tv_back_afterwards_with_get_only(self):
+        client = {"id": "E2E-902", "title": "t", "purpose": "p", "kind": "run", "screen": "home", "durationMs": 5000,
+                  "steps": ["s"], "criteria": {"flowOk": True},
+                  "after": [{"api": "GET /api/home", "expect": {"enabled": True}}]}
+        self.assertEqual(run.check_registry({"cases": [client]}), [])
+        post = dict(client, after=[{"api": "POST /api/home/disable"}])
+        self.assertTrue(any("POST needs control" in problem for problem in run.check_registry({"cases": [post]})))
 
     def test_nothing_personal_is_in_the_folder(self):
         for name in ("cases.json",) + tuple(os.path.join("scripts", n) for n in os.listdir(os.path.join(HERE, "scripts"))):
@@ -232,7 +240,7 @@ class FlowScript(unittest.TestCase):
         server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
         threading.Thread(target=server.serve_forever, daemon=True).start()
         steps = [{"api": "POST /add", "body": {"title": "x"}, "save": {"lp": "launchPointId"}},
-                 {"api": "POST /remove", "body": {"launchPointId": "$lp", "keep": "plain"}}]
+                 {"api": "POST /remove", "body": {"launchPointId": "$lp", "keep": "plain", "inner": {"id": "$lp"}}}]
         try:
             program = ("var PORT = %d;\nvar STEPS = %s;\n" % (server.server_port, json.dumps(steps))).encode()
             with open(os.path.join(HERE, "scripts", "home-flow.js"), "rb") as file:
@@ -241,7 +249,7 @@ class FlowScript(unittest.TestCase):
         finally:
             server.shutdown()
         self.assertEqual(done.returncode, 0, done.stdout)
-        self.assertEqual(bodies[1], {"launchPointId": "4711", "keep": "plain"})
+        self.assertEqual(bodies[1], {"launchPointId": "4711", "keep": "plain", "inner": {"id": "4711"}})
 
     @unittest.skipUnless(shutil.which("node"), "needs node")
     def test_same_compares_two_paths_of_one_reply(self):

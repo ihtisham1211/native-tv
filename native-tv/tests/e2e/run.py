@@ -202,6 +202,8 @@ def check_registry(registry):
         if case.get("kind") == "run":
             if "cleanup" in case:
                 problems += api_problems(case, "cleanup")
+            if "after" in case:
+                problems += api_problems(case, "after")
             if not SCREEN.match(case.get("screen", "")):
                 problems.append("%s: the screen is not a route" % name)
             duration = case.get("durationMs", 0)
@@ -537,6 +539,17 @@ def execute(tv, case, port):
         _, listing, _ = tv.run("ls -l " + files["capture"])
         fields = listing.split()
         metrics["captureBytes"] = int(fields[4]) if len(fields) > 4 and fields[4].isdigit() else 0
+        if case.get("after"):
+            # What the client run did to the TV, read back through the server and judged by `flowOk`.
+            code, out, _ = tv.run("node - %d" % port, flow_program(dict(case, flow=case["after"]), port), timeout=120)
+            flow = []
+            for line in out.splitlines():
+                try:
+                    flow.append(json.loads(line))
+                except ValueError:
+                    pass
+            metrics["flow"] = flow
+            metrics["flowDone"] = any(row.get("done") for row in flow)
         return metrics
     finally:
         if case.get("cleanup"):

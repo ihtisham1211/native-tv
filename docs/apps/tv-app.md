@@ -10,6 +10,19 @@ It is drawn by the Native Tv client in the style of Google TV: a dark page with 
 
 Because the panel is an OLED, no screen of the app holds still at full brightness: thirty seconds without a key or a click dim it to two thirds black, and the first key or click after that only wakes it. This holds for Home, Live, Settings, the catalogue and the setup pages alike; the TV's own screen saver is left as it is set.
 
+### How smooth it is
+
+The app is drawn on the GPU at the display's 60 frames a second, with no browser, JavaScript or garbage collector between the remote and the picture. How it holds that on a TV:
+
+* **Few draw calls.** A frame's shapes, pictures and text are batched by kind, so a row of cards costs one draw per kind, not one per card. A frame never exceeds 40 draw calls (32 is typical), 8192 vertices and 64 MB of textures, and a draw call costs the B3 about 0.03 ms.
+* **Pictures never stall a frame.** Posters and icons are decoded on worker threads at the size they are drawn, uploaded at most 1 MB a frame and faded in over 220 ms.
+* **Motion keeps its momentum.** Focus, rows, drawers and the keyboard move on springs that carry their position and speed over when the next key arrives, so holding a direction glides on instead of restarting.
+* **Keys are read after the wait for the display.** The B3's driver blocks the first GL call of a frame for about 21 ms roughly every seven seconds; the loop takes that wait before it reads the clock and the keys, not after.
+* **Priority.** The TV runs a load average near 30, and a client at normal priority is woken up to several milliseconds late, so the client raises its own priority to -10 where the TV allows it.
+* **Nothing moves, nothing is drawn.** A still screen draws no frames, and slow ambient motion (the hero picture's drift) is paced at 30 frames a second.
+
+Measured on an LG OLED65B3PUA (webOS 10.3.2, 1920×1080) with the load average at about 32, on 29 October 2026: frames came 14 to 19 ms apart at normal priority (95th percentile 18.4 ms) and 15 to 18 ms with the raised priority (95th percentile 17.5 ms), against 16.7 ms for a perfect 60 Hz. The driver's wait shows as one 35 ms interval about every seven seconds, whatever the frame holds. The cases that navigate Home and the Quick drawer on a real TV check the frame intervals against limits ([the testing page](../development/testing.md) has them), and `--perf` writes every frame's interval, draw calls and vertices to a file.
+
 ### Live
 
 The **Live** tab is the TV's own readings as cards: the processor's load with a line of its recent readings, memory and swap, the SoC temperature, the Wi-Fi link and the rate in and out, how long the TV has been up, the panel's hours and when its pixel refresher is due, and the input in front with its resolution, refresh rate, HDR and VRR. It reads the server every four seconds while it is open: numbers count to their new value and the bars grow, instead of jumping. OK reads at once, and Back leaves for Home. A card that has no reading on a TV, such as the thermal sensor on one that has none, shows a dash. Until the first reading arrives, a thin turning arc with a short label stands in for the cards.
