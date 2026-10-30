@@ -433,31 +433,47 @@ Json parseLogCursor(const std::string &cursor) {
 }
 
 std::string redactLogText(const std::string &text) {
+    // Compiled once: compiling them per call made a page of entries take seconds.
+    struct Rule {
+        std::regex pattern;
+        const char *replacement;
+    };
+    static const Rule rules[] = {
+        {std::regex(R"((://[^:]+:)[^@\s]+(@))"),
+         "$1<REDACTED>$2"},
+        {std::regex(R"(((\?|&)(?:k|token|key|api_key|auth)=)[^&\s"'`>]+)",
+            std::regex::icase),
+         "$1<REDACTED>"},
+        {std::regex(R"((Bearer\s+)[A-Za-z0-9_.-]+)", std::regex::icase),
+         "$1<REDACTED>"},
+        {std::regex(
+            R"((["']?(?:password|passwd|secret|client_secret|access_token|refresh_token)["']?\s*[:=]\s*["']?)[^"',\s}]+(["']?))",
+            std::regex::icase),
+         "$1<REDACTED>$2"},
+        {std::regex(
+            R"((["']?(?:serial(?:_?number)?|device_?id|esn)["']?\s*[:=]\s*["']?)[A-Za-z0-9_-]{6,}(["']?))",
+            std::regex::icase),
+         "$1<SERIAL>$2"},
+        {std::regex(
+            R"((["']?(?:zip_?code|post_?code|postal_?code|latitude|longitude)["']?\s*[:=]\s*["']?)[^"',}\r\n]+(["']?))",
+            std::regex::icase),
+         "$1<LOCATION>$2"},
+        {std::regex(R"((ssid["':=\s]+["'])[^\r\n"']*(["']))",
+            std::regex::icase),
+         "$1<SSID>$2"},
+        {std::regex(R"(\b([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})\b)"),
+         "<MAC>"},
+        {std::regex(
+            R"((?:\bfe80:[0-9a-fA-F:]+\b|\b(?:[0-9a-fA-F]{1,4}:){3,7}[0-9a-fA-F]{1,4}\b|\b[0-9a-fA-F]{1,4}::[0-9a-fA-F:]*\b))",
+            std::regex::icase),
+         "<IPV6>"},
+        {std::regex(
+            R"(\b(?!(?:127\.0\.0\.1|0\.0\.0\.0)\b)(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b)"),
+         "<IP>"},
+    };
     std::string value = text;
-    value = replaceRegex(value, std::regex(R"((://[^:]+:)[^@\s]+(@))"), "$1<REDACTED>$2");
-    value = replaceRegex(value, std::regex(R"(((\?|&)(?:k|token|key|api_key|auth)=)[^&\s"'`>]+)",
-                                             std::regex::icase), "$1<REDACTED>");
-    value = replaceRegex(value, std::regex(R"((Bearer\s+)[A-Za-z0-9_.-]+)", std::regex::icase),
-                         "$1<REDACTED>");
-    value = replaceRegex(value, std::regex(
-        R"((["']?(?:password|passwd|secret|client_secret|access_token|refresh_token)["']?\s*[:=]\s*["']?)[^"',\s}]+(["']?))",
-        std::regex::icase), "$1<REDACTED>$2");
-    value = replaceRegex(value, std::regex(
-        R"((["']?(?:serial(?:_?number)?|device_?id|esn)["']?\s*[:=]\s*["']?)[A-Za-z0-9_-]{6,}(["']?))",
-        std::regex::icase), "$1<SERIAL>$2");
-    value = replaceRegex(value, std::regex(
-        R"((["']?(?:zip_?code|post_?code|postal_?code|latitude|longitude)["']?\s*[:=]\s*["']?)[^"',}\r\n]+(["']?))",
-        std::regex::icase), "$1<LOCATION>$2");
-    value = replaceRegex(value, std::regex(R"((ssid["':=\s]+["'])[^\r\n"']*(["']))",
-                                             std::regex::icase), "$1<SSID>$2");
-    value = replaceRegex(value, std::regex(R"(\b([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})\b)"),
-                         "<MAC>");
-    value = replaceRegex(value, std::regex(
-        R"((?:\bfe80:[0-9a-fA-F:]+\b|\b(?:[0-9a-fA-F]{1,4}:){3,7}[0-9a-fA-F]{1,4}\b|\b[0-9a-fA-F]{1,4}::[0-9a-fA-F:]*\b))",
-        std::regex::icase), "<IPV6>");
-    value = replaceRegex(value, std::regex(
-        R"(\b(?!(?:127\.0\.0\.1|0\.0\.0\.0)\b)(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b)"),
-        "<IP>");
+    for (const Rule &rule : rules)
+        value = replaceRegex(value, rule.pattern, rule.replacement);
     return value;
 }
 

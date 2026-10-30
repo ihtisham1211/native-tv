@@ -1106,6 +1106,15 @@
       ],
       "flow": [
         {
+          "api": "POST /api/control",
+          "body": {
+            "action": "screenOn"
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
           "api": "POST /api/home/enable",
           "expect": {
             "ok": true
@@ -1127,7 +1136,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback and reads the app in front from the app manager.",
-        "Run: POST /api/home/enable, wait 1.5 s, then GET /api/home and check enabled, active (the stub is mounted) and nativeHome.halted false.",
+        "Wake the panel first (a key on a dark one only wakes it). Run: POST /api/home/enable, wait 1.5 s, then GET /api/home and check enabled, active (the stub is mounted) and nativeHome.halted false.",
         "Judge each step; the first that fails ends the flow.",
         "Delete the lock folder."
       ],
@@ -1220,6 +1229,15 @@
       ],
       "flow": [
         {
+          "api": "POST /api/control",
+          "body": {
+            "action": "screenOn"
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
           "api": "GET /api/home",
           "expect": {
             "enabled": true,
@@ -1284,7 +1302,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback and reads the app in front from the app manager.",
-        "Run: check Home is on; send Home, give the stub 1.5 s to come and go, and wait for com.tvweb.dashboard within 5 s (the stub is LG's Home's id while Home is on, so a read taken before it arrives would pass at once and the stub then fail the check that follows); send Back and check it stays 3 s; send Home again, wait the same, check it is back within 5 s and stays 3 s; check nativeHome.halted is false and no exit was counted.",
+        "Wake the panel first (a key on a dark one only wakes it). Run: check Home is on; send Home, give the stub 1.5 s to come and go, and wait for com.tvweb.dashboard within 5 s (the stub is LG's Home's id while Home is on, so a read taken before it arrives would pass at once and the stub then fail the check that follows); send Back and check it stays 3 s; send Home again, wait the same, check it is back within 5 s and stays 3 s; check nativeHome.halted is false and no exit was counted.",
         "Judge each step; the first that fails ends the flow.",
         "Delete the lock folder."
       ],
@@ -4961,6 +4979,756 @@
       "requires": [
         "control"
       ]
+    },
+    {
+      "id": "E2E-120",
+      "title": "Edit mode moves and removes an app on Home",
+      "purpose": "A long press on an app card in the Apps tab starts edit mode (as Google TV's does): Right swaps the card with its neighbour, OK saves the order to the server, a second move puts it back, and a long press then Red takes the app off Home. Before the fix there was no way to reorder or remove an app from the TV. The case ends with the order and the hidden list reset to the server's default (empty), which is how a TV that never moved an app stores them. The checks name the B3's first apps (Discovery, LG Channels, Netflix, YouTube); a TV whose first apps differ does not pass.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "home",
+      "script": "home-edit.json",
+      "durationMs": 22500,
+      "cleanup": [
+        {
+          "api": "POST /api/home/layout",
+          "body": {
+            "order": {
+              "app": []
+            },
+            "hidden": {
+              "app": []
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 22.5 s through the app's jailer: Up, Right and Down reach the first app of the Apps tab; a long press starts edit mode; Right moves it, OK saves; a second long press, Left and OK move it back; a long press and Red take it off Home. A checkpoint after each reads the client's state.",
+        "Read the report and judge the checkpoints.",
+        "Always, even after a failure: POST /api/home/layout with an empty app order and an empty hidden list, so the TV is left as it started; delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "checkpoints": [
+          {
+            "name": "first-app",
+            "path": "focusCard",
+            "equals": "com.webos.app.discovery"
+          },
+          {
+            "name": "editing",
+            "path": "editing",
+            "equals": true
+          },
+          {
+            "name": "moved",
+            "path": "rowHead",
+            "equals": "com.webos.app.lgchannels,com.webos.app.discovery,netflix"
+          },
+          {
+            "name": "saved",
+            "path": "editing",
+            "equals": false
+          },
+          {
+            "name": "saved",
+            "path": "rowHead",
+            "equals": "com.webos.app.lgchannels,com.webos.app.discovery,netflix"
+          },
+          {
+            "name": "moved-back",
+            "path": "rowHead",
+            "equals": "com.webos.app.discovery,com.webos.app.lgchannels,netflix"
+          },
+          {
+            "name": "restored",
+            "path": "editing",
+            "equals": false
+          },
+          {
+            "name": "restored",
+            "path": "rowHead",
+            "equals": "com.webos.app.discovery,com.webos.app.lgchannels,netflix"
+          },
+          {
+            "name": "removed",
+            "path": "editing",
+            "equals": false
+          },
+          {
+            "name": "removed",
+            "path": "rowHead",
+            "equals": "com.webos.app.lgchannels,netflix,youtube.leanback.v4"
+          }
+        ]
+      }
+    },
+    {
+      "id": "E2E-121",
+      "title": "A TMDB key that is not 32 hex digits is refused",
+      "purpose": "The Films and series row in the dashboard sets the TMDB key through setTmdbKey. Only 32 letters and digits (0 to 9, a to f) are saved; anything else, a number included, is refused with the reason and the stored key is left alone (a non-string once cleared it). The case sends only values that must be refused, so it never changes or reads the key; a valid key is covered by the daemon runtime test.",
+      "kind": "api",
+      "requires": [
+        "control"
+      ],
+      "flow": [
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setTmdbKey",
+            "value": "not-a-key"
+          },
+          "expect": {
+            "ok": false,
+            "error": "A TMDB API key is 32 letters and digits, 0 to 9 and a to f"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setTmdbKey",
+            "value": "0123456789abcdef0123"
+          },
+          "expect": {
+            "ok": false,
+            "error": "A TMDB API key is 32 letters and digits, 0 to 9 and a to f"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setTmdbKey",
+            "value": 7
+          },
+          "expect": {
+            "ok": false,
+            "error": "A TMDB API key is 32 letters and digits, 0 to 9 and a to f"
+          }
+        },
+        {
+          "api": "GET /api/update",
+          "expect": {
+            "ok": true
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Send setTmdbKey with a word, 20 hex digits and a number; each reply must be ok:false with the reason; then read /api/update, which must still answer.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      }
+    },
+    {
+      "id": "E2E-122",
+      "title": "A feed title has no app of its own to open",
+      "purpose": "Opening a title from the feed goes through kind netflix or youtube. The earlier kind title launched a stand-in app (AnimeMania) and is gone, so it is refused with 400 and nothing is launched.",
+      "kind": "api",
+      "requires": [
+        "control"
+      ],
+      "flow": [
+        {
+          "api": "POST /api/home/open",
+          "body": {
+            "kind": "title",
+            "type": "movie",
+            "id": 42
+          },
+          "status": 400,
+          "expect": {
+            "ok": false,
+            "error": "kind must be app, dev, ch or lg"
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "POST /api/home/open with kind title; the reply must be 400, ok:false and name the kinds that are allowed.",
+        "Judge each step.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      }
+    },
+    {
+      "id": "E2E-123",
+      "title": "Settings and Native Tv Home survive a reboot",
+      "purpose": "The TV is rebooted through the server (the one case that does), and once the server answers again and has had 40 s for its services, what was set before is read back: Native Tv Home is still on and not halted with no crash counted, the order of apps is the default, the TMDB key is still saved (through the dashboard, not config.json), and the privacy and screen saver values that the round-trip cases start from. The case needs --allow reboot, expects the test B3's own settings, and does nothing else: a TV that does not come back within 7 minutes is an error, left for the owner.",
+      "kind": "reboot",
+      "requires": [
+        "reboot"
+      ],
+      "flow": [
+        {
+          "api": "GET /api/home",
+          "expect": {
+            "enabled": true,
+            "active": true,
+            "nativeHome.halted": false,
+            "nativeHome.crashes.recentExits": 0,
+            "layout.sort.app": "custom"
+          }
+        },
+        {
+          "api": "GET /api/update",
+          "expect": {
+            "ok": true,
+            "tmdbKeySet": true
+          }
+        },
+        {
+          "api": "GET /api/privacy",
+          "expect": {
+            "advertisingId.limitTracking": true,
+            "adblock.mode": "off"
+          }
+        },
+        {
+          "api": "GET /api/screensaver",
+          "expect": {
+            "current": "harmonograph",
+            "level": "dim"
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with POST /api/control reboot to the TV's Node over ssh (node - PORT); the reply must be ok.",
+        "Wait for ssh to stop answering (at most 120 s), then to answer again (at most 420 s), then for the server's port, then 40 s for the services.",
+        "Send scripts/home-flow.js with this case's flow, reads only: Native Tv Home on, active and not halted with no recent exit, the apps in their default order, the TMDB key saved, the ad-tracking limit on, the ad blocker off, the screen saver Harmonograph and Dim.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      }
+    },
+    {
+      "id": "E2E-124",
+      "title": "A title's details open on Trailer, with no Open button",
+      "purpose": "OK on the first title of Home opens its details. The page is ready with its first action focused, Trailer (a feed title always has a trailer or a Netflix link, and the Netflix link is off unless the owner turned it on), and there is no Open button: Open launched a stand-in app and is gone. Before the fix the focus stayed on Full overview, the only action the card had before its details arrived. Needs the TMDB key saved, so the TV has a feed.",
+      "kind": "run",
+      "screen": "home",
+      "script": "home-details.json",
+      "durationMs": 14000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 14 s through the app's jailer: once Home has loaded, OK on the focused title opens its details.",
+        "Read the report and judge the checkpoint taken 6.5 s later.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "checkpoints": [
+          {
+            "name": "details",
+            "path": "screen",
+            "equals": "details"
+          },
+          {
+            "name": "details",
+            "path": "contentState",
+            "equals": "ready"
+          },
+          {
+            "name": "details",
+            "path": "focus",
+            "equals": "Trailer"
+          }
+        ]
+      }
+    },
+    {
+      "id": "E2E-125",
+      "title": "Settings choice row cycles through the TV's own screen",
+      "purpose": "OK on a choice row of the TV's Settings (Game, Dark room mode) moves it to its next value and writes it through the server to the LG setting: Off, Level 1, Level 2 and back to Off in three presses 1.8 s apart, each shown on the row once the write has come back. It is the TV-side counterpart of the Game round trip in E2E-107, which sets the same row through the API. The case ends by setting Dark room mode to off through the server, so a run that stops midway leaves nothing changed. It expects the test B3's Game page, whose second row is Dark room mode, starting at Off.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:game",
+      "script": "settings-choice.json",
+      "durationMs": 15500,
+      "cleanup": [
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "darkMode",
+              "value": "off"
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 15.5 s through the app's jailer: Down moves to Dark room mode, OK three times steps it through its values, with a checkpoint after each.",
+        "Read the report and judge the checkpoints.",
+        "Always: set Dark room mode to off through the server, delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "checkpoints": [
+          {
+            "name": "on-row",
+            "path": "focus",
+            "equals": "Dark room mode"
+          },
+          {
+            "name": "on-row",
+            "path": "focusValue",
+            "equals": "Off"
+          },
+          {
+            "name": "first",
+            "path": "focusValue",
+            "equals": "Level 1"
+          },
+          {
+            "name": "second",
+            "path": "focusValue",
+            "equals": "Level 2"
+          },
+          {
+            "name": "cycled",
+            "path": "focusValue",
+            "equals": "Off"
+          },
+          {
+            "name": "cycled",
+            "path": "focusPending",
+            "equals": false
+          }
+        ]
+      }
+    },
+    {
+      "id": "E2E-130",
+      "title": "TV Settings Game rows change and come back",
+      "purpose": "Every switch and choice of the TV's Game Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. The two stabilizer rows (21 values each) are left to E2E-103 and E2E-131.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:game",
+      "script": "sweep-game.json",
+      "durationMs": 120000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 120 s through the app's jailer, with the Settings screen of the game group open.",
+        "The client walks the screen row by row and page by page. On each row the screen calls a switch or a choice it presses OK, waits for the write to come back, checks the row shows another value, and presses OK until the row shows its first value again. It leaves alone the rows the script names.",
+        "Read the report: every pressed row must have changed and come back, and at least 7 rows must have been pressed.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "pressedMin": 7
+        }
+      }
+    },
+    {
+      "id": "E2E-131",
+      "title": "TV Settings White stabilizer goes round its range",
+      "purpose": "Every switch and choice of the TV's Game Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. This case presses White stabilizer alone.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:game",
+      "script": "sweep-game-white.json",
+      "durationMs": 120000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 120 s through the app's jailer, with the Settings screen of the game group open.",
+        "The client walks the screen row by row and page by page. On each row the screen calls a switch or a choice it presses OK, waits for the write to come back, checks the row shows another value, and presses OK until the row shows its first value again. It leaves alone the rows the script names.",
+        "Read the report: every pressed row must have changed and come back, and at least 1 rows must have been pressed.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "pressedMin": 1
+        }
+      }
+    },
+    {
+      "id": "E2E-132",
+      "title": "TV Settings OLED Care protections change and come back",
+      "purpose": "Every switch and choice of the TV's OLED Care Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. The pixel refresher rows are actions and are not pressed. Turning Global sticky reduction or Temporal peak control off asks to press OK again to confirm; the case presses OK a second time, and turning it back on needs none. The case expects both protections on at the start, as E2E-112 does.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:oled",
+      "script": "sweep-oled.json",
+      "durationMs": 90000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 90 s through the app's jailer, with the Settings screen of the oled group open.",
+        "The client walks the screen row by row and page by page. On each row the screen calls a switch or a choice it presses OK, waits for the write to come back, checks the row shows another value, and presses OK until the row shows its first value again. It leaves alone the rows the script names.",
+        "Read the report: every pressed row must have changed and come back, and at least 4 rows must have been pressed.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "pressedMin": 4
+        }
+      }
+    },
+    {
+      "id": "E2E-133",
+      "title": "TV Settings Screen Saver brightness changes and comes back",
+      "purpose": "Every switch and choice of the TV's Screen Saver Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. The screen savers themselves are actions and are not pressed.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:saver",
+      "script": "sweep-saver.json",
+      "durationMs": 90000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 90 s through the app's jailer, with the Settings screen of the saver group open.",
+        "The client walks the screen row by row and page by page. On each row the screen calls a switch or a choice it presses OK, waits for the write to come back, checks the row shows another value, and presses OK until the row shows its first value again. It leaves alone the rows the script names.",
+        "Read the report: every pressed row must have changed and come back, and at least 1 rows must have been pressed.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "pressedMin": 1
+        }
+      }
+    },
+    {
+      "id": "E2E-134",
+      "title": "TV Settings Privacy rows change and come back",
+      "purpose": "Every switch and choice of the TV's Privacy Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. The reset of the advertising ID and the two lists are not pressed. Before the fix, OK on Screen content recognition ended the app (exit 1, No backend operation selected): the heading above the switch and the switch had the same row id, so the press found the heading and its empty command.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:privacy",
+      "script": "sweep-privacy.json",
+      "durationMs": 240000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 240 s through the app's jailer, with the Settings screen of the privacy group open.",
+        "The client walks the screen row by row and page by page. On each row the screen calls a switch or a choice it presses OK, waits for the write to come back, checks the row shows another value, and presses OK until the row shows its first value again. It leaves alone the rows the script names.",
+        "Read the report: every pressed row must have changed and come back, and at least 10 rows must have been pressed.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "pressedMin": 10
+        }
+      }
+    },
+    {
+      "id": "E2E-135",
+      "title": "TV Settings System rows change and come back (1 of 2)",
+      "purpose": "Every switch and choice of the TV's System Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. The timers and IP control are left out, and Power off and Reboot are actions that are not pressed.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:options",
+      "script": "sweep-options-1.json",
+      "durationMs": 240000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 240 s through the app's jailer, with the Settings screen of the options group open.",
+        "The client walks the screen row by row and page by page. On each row the screen calls a switch or a choice it presses OK, waits for the write to come back, checks the row shows another value, and presses OK until the row shows its first value again. It leaves alone the rows the script names.",
+        "Read the report: every pressed row must have changed and come back, and at least 8 rows must have been pressed.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "pressedMin": 8
+        }
+      }
+    },
+    {
+      "id": "E2E-136",
+      "title": "TV Settings System rows change and come back (2 of 2)",
+      "purpose": "Every switch and choice of the TV's System Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. The timers and IP control are left out, and Power off and Reboot are actions that are not pressed.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:options",
+      "script": "sweep-options-2.json",
+      "durationMs": 240000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 240 s through the app's jailer, with the Settings screen of the options group open.",
+        "The client walks the screen row by row and page by page. On each row the screen calls a switch or a choice it presses OK, waits for the write to come back, checks the row shows another value, and presses OK until the row shows its first value again. It leaves alone the rows the script names.",
+        "Read the report: every pressed row must have changed and come back, and at least 7 rows must have been pressed.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "pressedMin": 7
+        }
+      }
+    },
+    {
+      "id": "E2E-137",
+      "title": "TV Settings Home rows change and come back (1 of 3)",
+      "purpose": "Every switch and choice of the TV's Home Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. Native Tv Home's own switch is left out: E2E-080 to 083 turn the takeover on and off.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:home",
+      "script": "sweep-home-1.json",
+      "durationMs": 240000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 240 s through the app's jailer, with the Settings screen of the home group open.",
+        "The client walks the screen row by row and page by page. On each row the screen calls a switch or a choice it presses OK, waits for the write to come back, checks the row shows another value, and presses OK until the row shows its first value again. It leaves alone the rows the script names.",
+        "Read the report: every pressed row must have changed and come back, and at least 10 rows must have been pressed.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "pressedMin": 10
+        }
+      }
+    },
+    {
+      "id": "E2E-138",
+      "title": "TV Settings Home rows change and come back (2 of 3)",
+      "purpose": "Every switch and choice of the TV's Home Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. Native Tv Home's own switch is left out: E2E-080 to 083 turn the takeover on and off.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:home",
+      "script": "sweep-home-2.json",
+      "durationMs": 240000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 240 s through the app's jailer, with the Settings screen of the home group open.",
+        "The client walks the screen row by row and page by page. On each row the screen calls a switch or a choice it presses OK, waits for the write to come back, checks the row shows another value, and presses OK until the row shows its first value again. It leaves alone the rows the script names.",
+        "Read the report: every pressed row must have changed and come back, and at least 10 rows must have been pressed.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "pressedMin": 10
+        }
+      }
+    },
+    {
+      "id": "E2E-139",
+      "title": "TV Settings Home rows change and come back (3 of 3)",
+      "purpose": "Every switch and choice of the TV's Home Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. Native Tv Home's own switch is left out: E2E-080 to 083 turn the takeover on and off.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:home",
+      "script": "sweep-home-3.json",
+      "durationMs": 240000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 240 s through the app's jailer, with the Settings screen of the home group open.",
+        "The client walks the screen row by row and page by page. On each row the screen calls a switch or a choice it presses OK, waits for the write to come back, checks the row shows another value, and presses OK until the row shows its first value again. It leaves alone the rows the script names.",
+        "Read the report: every pressed row must have changed and come back, and at least 10 rows must have been pressed.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "pressedMin": 10
+        }
+      }
+    },
+    {
+      "id": "E2E-141",
+      "title": "TV Settings Apps rows change and come back (1 of 2)",
+      "purpose": "Every switch and choice of the TV's Apps Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. Kept-ready apps and background services; installing and uninstalling are not pressed.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:apps",
+      "script": "sweep-apps-1.json",
+      "durationMs": 240000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 240 s through the app's jailer, with the Settings screen of the apps group open.",
+        "The client walks the screen row by row and page by page. On each row the screen calls a switch or a choice it presses OK, waits for the write to come back, checks the row shows another value, and presses OK until the row shows its first value again. It leaves alone the rows the script names.",
+        "Read the report: every pressed row must have changed and come back, and at least 10 rows must have been pressed.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "pressedMin": 10
+        }
+      }
+    },
+    {
+      "id": "E2E-142",
+      "title": "TV Settings Apps rows change and come back (2 of 2)",
+      "purpose": "Every switch and choice of the TV's Apps Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. Kept-ready apps and background services; installing and uninstalling are not pressed.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:apps",
+      "script": "sweep-apps-2.json",
+      "durationMs": 240000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 240 s through the app's jailer, with the Settings screen of the apps group open.",
+        "The client walks the screen row by row and page by page. On each row the screen calls a switch or a choice it presses OK, waits for the write to come back, checks the row shows another value, and presses OK until the row shows its first value again. It leaves alone the rows the script names.",
+        "Read the report: every pressed row must have changed and come back, and at least 9 rows must have been pressed.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "pressedMin": 9
+        }
+      }
+    },
+    {
+      "id": "E2E-143",
+      "title": "TV Settings Home: Reset the layout runs without ending the app",
+      "purpose": "OK on Reset the layout (Home, More) is pressed through the TV's own screen, with a second OK where it asks to confirm. The layout is already the default on the test B3, so it changes nothing; the case is that the press is handled and the app stays up, as the Screen content recognition press once did not. Reset the layout hides LG's promotions again (LG Channels among them), which the test B3 shows, so the case ends by putting the order, the sort and the hidden lists back to the empty defaults the B3 started with.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:home",
+      "script": "sweep-home-reset.json",
+      "durationMs": 90000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 90 s through the app's jailer, with the Settings screen of the home group open.",
+        "The client walks the screen and presses each action row the script names once (a second OK where it asks to confirm); the client must stay up and the report must show the rows pressed.",
+        "Always, even after a failure: POST /api/home/layout to put the order, the sort and the hidden lists back to the empty defaults; delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "actedMin": 1
+        }
+      },
+      "cleanup": [
+        {
+          "api": "POST /api/home/layout",
+          "body": {
+            "order": {
+              "app": [],
+              "dev": []
+            },
+            "hidden": {
+              "app": [],
+              "dev": []
+            },
+            "sort": {
+              "app": "custom",
+              "dev": "custom",
+              "ch": "custom"
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "E2E-144",
+      "title": "TV Settings OLED Care: Cancel a scheduled refresher runs without ending the app",
+      "purpose": "OK on Cancel a scheduled refresher (OLED Care, Run now) is pressed through the TV's own screen; with no refresher scheduled it has nothing to cancel, and the case is that the press is handled and the app stays up. Schedule a pixel refresher is not pressed: it is a panel operation, not a setting.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:oled",
+      "script": "sweep-oled-cancel.json",
+      "durationMs": 90000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 90 s through the app's jailer, with the Settings screen of the oled group open.",
+        "The client walks the screen and presses each action row the script names once (a second OK where it asks to confirm); the client must stay up and the report must show the rows pressed.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "actedMin": 1
+        }
+      }
     }
   ]
 }

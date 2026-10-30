@@ -6402,6 +6402,10 @@ class DaemonRuntimeTests(unittest.TestCase):
                     if process.poll() is not None:
                         output, _ = process.communicate(timeout=2)
                     self.fail("front door did not become ready: %r\n%s" % (last_error, output))
+                # The daemon publishes the port just after it starts listening.
+                while (not (root / "native" / "client-config.json").exists()
+                       and time.monotonic() < deadline):
+                    time.sleep(0.02)
                 clientConfig = json.loads(
                     (root / "native" / "client-config.json").read_text())
                 self.assertEqual(clientConfig, {"port": port},
@@ -6695,8 +6699,9 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertFalse(caps["setupNeeded"],
                                  "capabilities should reflect native setup completion")
 
-                # The first load builds and compresses the page: 0.1 s here, 3 s under ASan.
-                response = urlopen("http://127.0.0.1:%d/" % port, timeout=20)
+                # The first load builds and compresses the page: 0.1 s here, 3 s under ASan
+                # with libc++, about 40 s with libstdc++'s slower std::regex.
+                response = urlopen("http://127.0.0.1:%d/" % port, timeout=120)
                 dashboard = response.read().decode("utf-8")
                 self.assertEqual(response.status, 200)
                 self.assertEqual(response.headers.get("Cache-Control"), "no-store")

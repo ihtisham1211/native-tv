@@ -1,0 +1,27 @@
+# Builds the Homebrew Channel package into dist/. The TV's runtime is
+# cross-compiled with the webOSbrew SDK, whose only Linux build is arm64, so
+# the job that uses this runs on an Arm runner.
+name: Build the Homebrew Channel package
+runs:
+  using: composite
+  steps:
+    # Pinned, so a new SDK cannot change a build or the glibc symbols it needs.
+    - name: install the webOSbrew SDK
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends cmake ninja-build pkg-config
+        curl -fsSL https://github.com/webosbrew/native-toolchain/releases/download/webos-d7ed7ee.6/arm-webos-linux-gnueabi_sdk-buildroot_linux-aarch64.tar.bz2 | tar -xj -C "$RUNNER_TEMP"
+        "$RUNNER_TEMP/arm-webos-linux-gnueabi_sdk-buildroot/relocate-sdk.sh"
+
+    - name: build the ARM runtime and the TV client
+      shell: bash
+      run: python3 native-tv/build.py --sdk "$RUNNER_TEMP/arm-webos-linux-gnueabi_sdk-buildroot"
+
+    # LG's packager: the store's checks reject packages without the control
+    # fields it writes. Pinned, so a new release of it cannot change a build.
+    # The runtime payload reads the SDK's sysroot from the build, so this has to
+    # run where the SDK was installed.
+    - name: package
+      shell: bash
+      run: npm install -g @webos-tools/cli@3.2.6 && python3 scripts/build-ipk.py

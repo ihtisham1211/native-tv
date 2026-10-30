@@ -58,6 +58,8 @@ SERVICE = "/var/lib/tvweb/native/nativetv-service"
 DATA_ROOT = "/var/lib/tvweb"
 LOCK = "/tmp/nativetv-e2e.lock"
 MAX_DURATION_MS = 60000
+# A sweep of a Settings screen waits for a write to the TV after each press, which takes seconds a row.
+SWEEP_MAX_DURATION_MS = 300000
 KNOWN_REQUIRES = {"takeover", "reboot", "control", "fresh"}
 KNOWN_ALLOW = KNOWN_REQUIRES | {"stage"}
 ENV_NAMES = {"NATIVETV_PROBE_FAULT", "NATIVETV_AMBIENT"}
@@ -77,7 +79,9 @@ VALUE = re.compile(r"^[A-Za-z0-9_,=.-]*$")
 # What the registry and the scripts must never hold: a personal path, an address, a token
 # (a long run of hex digits); the loopback address is the one address the cases use.
 PRIVATE = re.compile(r"/Users/|(?<!/api)/home/[a-z]|\b(?!127\.0\.0\.1\b)\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b|[A-Fa-f0-9]{24,}")
-FORBIDDEN_IN_NAVIGATE_ONLY = ("text", "click", "activate")
+FORBIDDEN_IN_NAVIGATE_ONLY = ("text", "click", "activate", "longPress", "sweep")
+# What a sweep of a Settings screen reports for a row that was pressed and did not behave.
+SWEEP_FAILURES = ("unchanged by OK", "the write did not come back", "not back after the most presses", "out of time")
 
 
 # ---- The registry ---------------------------------------------------------------------------
@@ -113,6 +117,8 @@ def flow_problems(case):
                           (action == "closeApp" and value == APP_ID) or \
                           (action == "rcu" and value in FLOW_KEYS)
                 allowed = allowed and set(body) == {"action", "value"}
+                # Waking the panel, which a flow's keys need: the first key on a dark one only wakes it.
+                allowed = allowed or body == {"action": "screenOn"}
             if not allowed:
                 problems.append(where + " asks for " + json.dumps(step) + ", which a flow may not")
         elif "foreground" in step:
@@ -131,10 +137,10 @@ def flow_problems(case):
     return problems
 
 
-def api_problems(case):
+def api_problems(case, field="flow"):
     """An api case asks GET routes of the server; a POST needs `control`, since it changes a setting."""
     name = case.get("id", "?")
-    flow = case.get("flow")
+    flow = case.get(field)
     if not isinstance(flow, list) or not flow:
         return ["%s: an api case has steps" % name]
     problems = []
@@ -194,11 +200,18 @@ def check_registry(registry):
         if not set(case.get("requires", [])) <= KNOWN_REQUIRES:
             problems.append("%s: requires holds %s" % (name, sorted(set(case["requires"]) - KNOWN_REQUIRES)))
         if case.get("kind") == "run":
+            if "cleanup" in case:
+                problems += api_problems(case, "cleanup")
             if not SCREEN.match(case.get("screen", "")):
                 problems.append("%s: the screen is not a route" % name)
             duration = case.get("durationMs", 0)
-            if not 1000 <= duration <= MAX_DURATION_MS:
-                problems.append("%s: durationMs must be 1000 to %d" % (name, MAX_DURATION_MS))
+            sweeps = False
+            if case.get("script") and os.path.isfile(script_path(case)):
+                with open(script_path(case)) as file:
+                    sweeps = any("sweep" in step for step in json.load(file))
+            limit = SWEEP_MAX_DURATION_MS if sweeps else MAX_DURATION_MS
+            if not 1000 <= duration <= limit:
+                problems.append("%s: durationMs must be 1000 to %d" % (name, limit))
         for key, value in case.get("env", {}).items():
             if key not in ENV_NAMES or not VALUE.match(value):
                 problems.append("%s: environment %s is not allowed" % (name, key))
@@ -214,6 +227,9 @@ def check_registry(registry):
                     problems.append("%s: the script holds a path, address or token" % name)
                 if any("capture" in step or "wallClock" in step for step in steps):
                     problems.append("%s: a script may not capture or set the clock" % name)
+                if any(isinstance(step.get("sweep"), dict) and step["sweep"].get("press", True) for step in steps) \
+                        and "control" not in case.get("requires", []):
+                    problems.append("%s: a script that presses a sweep's rows changes settings, so the case requires control" % name)
                 if case.get("navigateOnly") and any(
                         step.get("key") in ("ok", "back", "red", "delete") or
                         any(field in step for field in FORBIDDEN_IN_NAVIGATE_ONLY) for step in steps):
@@ -287,6 +303,20 @@ def judge(metrics, rules):
         if point is None or value != expected["equals"]:
             broken["checkpoint " + expected["name"] + "." + expected["path"]] = \
                 "checkpoint %s: %s is %r, wanted %r" % (expected["name"], expected["path"], value, expected["equals"])
+    if "sweep" in rules:
+        rows = metrics.get("sweep", [])
+        pressed = [row for row in rows if "restored" in row]
+        failed = [row for row in rows if row.get("restored") is False or row.get("skipped") in SWEEP_FAILURES]
+        if len(pressed) < rules["sweep"].get("pressedMin", 0):
+            broken["sweep.pressedMin"] = "%d rows were pressed and put back, wanted at least %d" % (
+                len(pressed), rules["sweep"]["pressedMin"])
+        acted = [row for row in rows if row.get("acted")]
+        if len(acted) < rules["sweep"].get("actedMin", 0):
+            broken["sweep.actedMin"] = "%d action rows were pressed, wanted at least %d" % (
+                len(acted), rules["sweep"]["actedMin"])
+        if failed:
+            broken["sweep"] = "; ".join("%s / %s / %s: %s" % (row.get("group"), row.get("page"), row.get("row"),
+                                                              row.get("skipped") or "not put back") for row in failed)
     if rules.get("flowOk"):
         bad = [row for row in metrics.get("flow", []) if "step" in row and not row["ok"]]
         if bad or not metrics.get("flowDone"):
@@ -500,6 +530,7 @@ def execute(tv, case, port):
         try:
             parsed = json.loads(report)
             metrics["checkpoints"] = {point["name"]: point["state"] for point in parsed.get("checkpoints", [])}
+            metrics["sweep"] = parsed.get("sweep", [])
             metrics["renderer"] = parsed.get("renderer", "")
         except ValueError:
             metrics["checkpoints"] = {}
@@ -508,6 +539,9 @@ def execute(tv, case, port):
         metrics["captureBytes"] = int(fields[4]) if len(fields) > 4 and fields[4].isdigit() else 0
         return metrics
     finally:
+        if case.get("cleanup"):
+            # What the client run changed on the server and cannot undo itself, put back even when the run failed.
+            tv.run("node - %d" % port, flow_program(dict(case, flow=case["cleanup"]), port), timeout=60)
         tv.run("rm -f %s %s* ; rmdir %s" % (files["script"], "/tmp/nativetv-e2e-" + case["id"], LOCK))
 
 

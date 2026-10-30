@@ -47,15 +47,31 @@ jobs:
       - name: every file the last Node release installed is shipped or retired
         run: ./scripts/check-retired-files.py
 
-  # Its own job, so it builds alongside the rest.
+  # Its own job, so it builds alongside the rest. On an Arm runner: the SDK that
+  # cross-compiles the TV's runtime has no x86_64 Linux build.
   package:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     name: Package build
     steps:
       - uses: actions/checkout@v7
-      - run: npm install -g @webos-tools/cli@3.2.6 && python3 scripts/build-ipk.py
-      # The Homebrew Channel's own compatibility check, as its listing runs it:
-      # it reads every .js file in the package as code for the TV's browser.
+      - uses: ./.github/actions/package-ipk
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ipk
+          path: dist/*.ipk
+
+  # The Homebrew Channel's own compatibility check, as its listing runs it:
+  # it reads every .js file in the package as code for the TV's browser. Its
+  # toolbox is an amd64 package, so it checks the Arm job's package here.
+  package-check:
+    runs-on: ubuntu-latest
+    name: Homebrew Channel compatibility check
+    needs: package
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: ipk
+          path: dist
       - name: Homebrew Channel compatibility check
         run: |
           gh release download -R webosbrew/dev-toolbox-cli -p 'webosbrew-toolbox-*_amd64.deb' -D /tmp/toolbox

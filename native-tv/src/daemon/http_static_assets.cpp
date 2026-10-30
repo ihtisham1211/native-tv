@@ -212,32 +212,36 @@ bool inlineAssetParts(const std::string &root, std::string &html, std::string &m
     rewritten.append(html, cursor, std::string::npos);
     html.swap(rewritten);
 
-    const std::regex scriptRun("(?:[ \\t]*<script src=\"/assets/(?:ui|google-tv)/[A-Za-z0-9_./-]+\\.js\"></script>[ \\t]*\\r?\\n)+");
+    // One tag per match, adjacent ones joined into a run here: libstdc++ recurses
+    // once per character of a repeated group, which overflows a worker's stack
+    // over a page's run of scripts when built with ASan.
+    const std::regex script("[ \\t]*<script src=\"/assets/((?:ui|google-tv)/[A-Za-z0-9_./-]+\\.js)\"></script>[ \\t]*\\r?\\n");
     rewritten.clear();
     cursor = 0;
-    for (std::sregex_iterator item(html.begin(), html.end(), scriptRun), end; item != end; ++item) {
+    std::string scripts;
+    bool inRun = false;
+    for (std::sregex_iterator item(html.begin(), html.end(), script), end; item != end; ++item) {
         const size_t start = static_cast<size_t>(item->position());
-        rewritten.append(html, cursor, start - cursor);
-        const std::string run = item->str();
-        const std::regex script("<script src=\"/assets/((?:ui|google-tv)/[A-Za-z0-9_./-]+\\.js)\"></script>");
-        std::string scripts;
-        bool first = true;
-        for (std::sregex_iterator part(run.begin(), run.end(), script), partEnd;
-             part != partEnd; ++part) {
-            std::string source;
-            const std::string path = (*part)[1].str();
-            if (!readFile(root, path, source, kMaximumUiBytes)) {
-                missing = path;
-                return false;
-            }
-            if (!first)
-                scripts += "\n;\n";
-            scripts += source;
-            first = false;
+        std::string source;
+        const std::string path = (*item)[1].str();
+        if (!readFile(root, path, source, kMaximumUiBytes)) {
+            missing = path;
+            return false;
         }
-        rewritten += "<script>\n" + scripts + "</script>\n";
+        if (inRun && start == cursor) {
+            scripts += "\n;\n";
+        } else {
+            if (inRun)
+                rewritten += "<script>\n" + scripts + "</script>\n";
+            rewritten.append(html, cursor, start - cursor);
+            scripts.clear();
+            inRun = true;
+        }
+        scripts += source;
         cursor = start + static_cast<size_t>(item->length());
     }
+    if (inRun)
+        rewritten += "<script>\n" + scripts + "</script>\n";
     rewritten.append(html, cursor, std::string::npos);
     html.swap(rewritten);
     return html.size() <= kMaximumUiBytes;

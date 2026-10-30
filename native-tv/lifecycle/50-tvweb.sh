@@ -281,10 +281,6 @@ legacy_home_takeover() {
     bootlog "legacy Home takeover skipped: Native Tv Home is disabled"
     return 0
   fi
-  takeover_blank=
-  if [ "$webos_major" = "9" ] && grep -q '"hideLgHomeAtStart"[[:space:]]*:[[:space:]]*true' /var/lib/tvweb/home.json 2>/dev/null; then
-    takeover_blank=--blank-home-layout
-  fi
   mount --bind "$homestage" "$homeapp" 2>/dev/null || true
   bootlog "Native Tv Home: mounted"
   if [ "$webos_major" = "9" ]; then

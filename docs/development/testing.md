@@ -22,7 +22,7 @@ something is wrong, and Home Assistant and the TV's own browser fail quietly.
 | `check-retired-files.py` | A file the last Node release installed that `deploy.sh` no longer ships and `retired_files.cpp` does not delete at start, which an upgrade would leave on the TV for good. The release's file list is `scripts/last-node-release-files.txt`. |
 | `check-route-manifest.js`, `check-test-matrix.js` | A route in `native-tv/contract/routes.json` the daemon does not answer or answers without its guards, and a legacy suite that `native-tv/contract/test-migration.json` does not account for. Run by `native-tv.yml`. |
 | CTest: `native-csrf-policy`, the UI suites | A mutating route without its CSRF defences; the dashboard's scripts and the boot hook's launch decision, run on the host (`native-tv/tests/ui/`). |
-| Package build | The Homebrew Channel `.ipk` still builds, and passes the Homebrew Channel's own compatibility check for webOS 4 and later. |
+| Package build | The Homebrew Channel `.ipk` still builds, from an ARM build with the webOSbrew SDK (pinned in `.github/actions/package-ipk/action.yml`, shared with the release workflow; an Arm runner, as the SDK has no x86_64 Linux build), and passes the Homebrew Channel's own compatibility check for webOS 4 and later (on an x86_64 runner, as that tool is amd64 only). |
 | Native tests | Each part of the daemon, and the daemon as a whole against a stand-in `luna-send` and MQTT broker (`native-tv/tests/daemon_runtime.py`), with a TV that answers, one that answers late, wrongly or not at all, MQTT disabled and a Native Tv Home file missing, checking that the dashboard keeps answering and telemetry keeps flowing. |
 
 ## Running the suites
@@ -514,7 +514,10 @@ the packager defaults to `native-tv/build-webos` and fails when it is missing. T
 observes the canonical `/var/lib/tvweb/native/nativetv-service` process.
 
 `--sanitize --out native-tv/build-sanitize --test` enables the same sanitizer
-checks locally. `tests/smoke/content.json` and `dashboard.json` are bounded,
+checks locally, except leak detection, which only Linux's AddressSanitizer has:
+a leak shows first in CI, and a daemon that leaks exits 1 and fails its test.
+`tests/lsan.supp` hides the leaks inside SDL and the GL driver from the two tests
+that load them. `tests/smoke/content.json` and `dashboard.json` are bounded,
 read-only hardware scripts for `deploy.py --script`. The content script (search, a
 result's details, the Quick drawer and its picture list, Profiles, the profile
 editor) needs TMDB discovery enabled and one profile; run with `--time` against
@@ -555,7 +558,7 @@ a TV (`run.py --check` does the same by hand). The client on the TV is the one a
 `--stage --allow stage` runs `deploy.py` first, which also stages the managed runtime under
 `/var/lib/tvweb/native`.
 
-A case runs one client through the app's jailer for at most 60 s, as `deploy.py --run` does, one
+A case runs one client through the app's jailer for at most 60 s (5 minutes for a settings sweep), as `deploy.py --run` does, one
 at a time under a lock folder in `/tmp`. The runner reads the server's port from the TV and never
 reads or prints the access token. It does not reboot, deploy or restart the daemon or write a TV
 setting, and a navigate-only script is refused when it holds OK, Back, text, a click or a capture.
@@ -563,7 +566,7 @@ A case that needs the takeover or a reboot lists it under `requires` and runs on
 `--allow takeover`, `--allow reboot` or `--allow control`; the four flow cases (`E2E-080` to `E2E-083`)
 require the takeover, since they switch Home on and off, the two Quick cases that hold the volume
 or the brightness (`E2E-091`, `E2E-092`) require `control`, since they change the TV's setting and
-put it back, and none requires a reboot yet.
+put it back, and `E2E-123` requires a reboot.
 
 The api cases (kind `api`, from `E2E-100`) are where a bug found by testing a TV goes, so it is checked on a real TV
 with every change: GET requests to the server's own routes, made from the TV under its Node like the flow cases (loopback,
@@ -575,6 +578,16 @@ change nothing on a TV that has others (`E2E-119` expects the test B3's own leve
 `withSession` sends it back, which `E2E-104` uses to unlock; `save {name: "path"}` keeps a field of a reply and a body value `"$name"` is that field in
 a later step, which `E2E-113` uses for a saved page's id. A path name picks an array item by any value, dots included (`preload[id=com.webos.app.browser].off`). `E2E-103` is a client run, not an api case, with the same permission:
 it presses OK on a number row of the Game settings and goes round its range.
+`E2E-120` is a client run that changes the server: a long press on an app of the Apps tab starts edit mode, a move is saved with
+OK, put back, and an app is taken off Home with Red. A run case may carry a `cleanup` flow of api steps (POSTs need `control`), which the
+runner sends even when the run failed, so `E2E-120` ends with the order and the hidden list at the server's default. The script's
+`longPress` step is the client's hold of OK (650 ms on a real remote), and the Home checkpoint reports `editing`, `focusCard` and `rowHead`
+(the first three cards of the row). `E2E-123` is the reboot case: the one that restarts the TV, run only with `--allow reboot`, which then reads
+back what was set (Native Tv Home, the TMDB key, the privacy and screen saver values) once the server has been up for 40 s.
+
+The sweep cases (`E2E-130` to `E2E-144`) walk each group of the TV's own Settings screen with the remote's keys, row by row and page by page, in one client run: on every row the screen calls a switch or a choice the client presses OK, waits for the write to come back, checks the row shows another value, and presses OK until it shows the first one again (a switch in two presses, a choice after one lap of its values; a row that asks to press OK again to confirm, such as switching off a burn-in protection, is confirmed only where the script names it). The script step is `{"sweep": {"skip": [...], "only": [...], "confirm": [...], "act": [...], "maxRows": n, "startAfter": n, "withinMs": n, "press": false}}` (`withinMs` starts no new row after that long, so a run is not cut off with a row in the other state; `act` names action rows that are pressed once, which `E2E-143` and `E2E-144` use for Reset the layout and Cancel a scheduled refresher, the criterion `actedMin` counting them: what they prove is that the press is handled and the app stays up), implemented in `src/platform/row_sweep.hpp`, and the report holds one entry per row for the criterion `{"sweep": {"pressedMin": n}}`, which fails on a pressed row that did not change, did not come back, or whose write did not return. A sweep waits seconds for each write, so its run may last up to 5 minutes, and a long group is cut in slices with `maxRows` and `startAfter`. The rows it leaves alone are the actions (power, reboot, install, reset), the timers (`E2E-109`, `E2E-119`), IP control, the web dashboard's own switch and Native Tv Home's takeover (`E2E-080` to `E2E-083`), and the two stabilizers are covered by `E2E-103` and `E2E-131`. `press: false` only lists the rows, which is how a TV's rows are found before a case is written. The sweeps found two faults in the TV app that no earlier case reached: OK on Privacy's Screen content recognition ended the app (the section heading and the switch shared an id, so the press found the heading and its empty command), and the LG Promotions & Tips Popups row went back to Active because that service takes 12.3 s to switch and a write was given 8 s; a write may now carry its own time limit.
+
+`scripts/dashboard-controls.js` is the same round trip through the browser dashboard, for the controls a person clicks (it is not run by `run.py`, which has no browser): open the TV's dashboard, paste the file into the console, and read `window.__rt` once `__rt.done` is true. It changes each switch, drop-down, slider and colour chip of the Apps, Home screen, Native Tv Home, OLED Care, Screen savers, Game, Privacy, Advanced and Service menu tabs, shows another tab and comes back so the state is read again from the TV, checks the change held, puts the original back the same way and checks that. A run on the B3 changed 90 controls and restored them all with no error message from the page; a switch that hides a tile moves it in the list, so a control is found again by its label, and a group of chips is restored by selecting the original chip. Its recipes cover the Server tab's switches (watch time, daily backup, Prometheus), the MQTT tab's (the icons, a category and an entity, each saved with Save & restart, which waits for the server to restart) and the Tools tab's log viewer switches, whose state belongs to the view and is checked without leaving it; the time server switch cannot be flipped until a server is entered, and the experimental Home layout and tile hiding switches are left to E2E-102. It skips what powers, installs, deletes or restores, the timers, and the experimental Home layout and screen saver switches, and it answers yes only to the OLED protection question; `window.__tabs` and `window.__only` narrow a run.
 
 A result is **pass** when every criterion holds, **floor** when only the interval limits are missed
 and the case's `floor` limits (what the platform has been seen to keep) hold, **fail** otherwise,
@@ -594,7 +607,7 @@ the texture memory, the checkpoints the script took and the size of the capture.
 | E2E-060 | Catalog navigation, no OK | `catalog` |
 | E2E-070 to 074 | Setup welcome, Home Assistant, summary, standby and network pages, Up and Down only (the phone hand-off page is left out: opening it asks the server for a one-time link) | `setup:` |
 | E2E-076 | Setup name page on the test B3: the keyboard starts with `B3` and the arrows move over the keys, nothing typed | `setup:name` |
-| E2E-077, 078 | First launch from the dashboard tile and from Home opens the setup welcome page (needs a TV whose first-run marker is present: `--allow fresh`) | `dashboard`, `home` |
+| E2E-077, 078 | First launch from the dashboard tile and from Home opens the setup welcome page (needs a TV whose first-run marker, the empty file `/var/lib/tvweb/.setup-pending`, is present: `--allow fresh`; on a TV that has done setup, create the file, run the two cases with Native Tv Home off, and delete it again) | `dashboard`, `home` |
 | E2E-079 | Launch after setup opens the dashboard's own screen | `dashboard` |
 | E2E-090 | Quick drawer navigation, no OK | `quick` |
 | E2E-091, 092 | Hold Left then Right on the Quick drawer's volume or light: it loads, never moves against the key, ends settled (`control`) | `quick` |
@@ -607,6 +620,11 @@ the texture memory, the checkpoints the script took and the size of the capture.
 | E2E-105 | The Home Assistant settings refuse a URL or a space as the broker and markup as the device name (`api`, `control`) | |
 | E2E-106, 107 | LG rows round-trip: the ad switches, sound mode, balance, automatic volume and Bluetooth speaker mode (106); the Game Optimizer rows (107). Each is set, read back from the TV's settings service and put back (`api`, `control`) | |
 | E2E-110 to 119 | The rest of the settings, each set through the server, read back and put back: privacy switches and the ad blocker (110); screen saver and brightness (111); OLED protections, screen shift, logo dimming and the service menu lock (112); app preload and saved web pages, with the id the add gives (113); watch time and screen-time limits (114); NTP server (115); a damaged backup refused (116); an SSH key added and removed, the TV's own keys untouched (117); a 22 KB catalogue app installed and uninstalled (118); volume, mute, brightness, picture mode, energy saving and the sleep timer, from the test B3's own levels (119) (`api`, `control`) | |
+| E2E-120 | Edit mode on the Apps tab: a long press starts it, Right moves an app and OK saves, the move is put back, Red takes an app off Home; the order is reset after (`control`, `cleanup`) | `home` |
+| E2E-121, 122 | A TMDB key that is not 32 hex digits (a word, 20 digits, a number) is refused; `kind: title` is no longer a way to open a feed title (`api`, `control`) | |
+| E2E-125 | OK on Dark room mode in the TV's Game settings steps it Off, Level 1, Level 2, Off through the server and leaves it off (`control`, `cleanup`) | `dashboard:game` |
+| E2E-130 to 144 | Every switch and choice of the TV's Settings groups, pressed through the TV's own screen and put back: Game (130, 131), OLED Care (132), Screen Saver (133), Privacy (134), System (135, 136), Home (137 to 139), Apps (141, 142); the actions Reset the layout (143) and Cancel a scheduled refresher (144) are pressed once (`control`) | `dashboard:<group>` |
+| E2E-123 | Native Tv Home, the TMDB key, the privacy and screen saver values are as they were after a reboot (`reboot`) | |
 | E2E-108, 109 | The Advanced power switches (Quick Boot, Stay connected, Wake-on-LAN, LG logo, standby light, device detection) and the On and Off timers round-trip through `/api/stats` (`api`, `control`) | |
 
 The timing criteria are the target of the client's spec: p50 and p95 of the frame intervals at 60 fps

@@ -2385,6 +2385,8 @@ async function visitHomeUploads(browser, base, problems) {
     release();
     await observer.waitForSelector('#home-wall-slot:not(:disabled)');
     await page.waitForSelector('#home-wall-slot:not(:disabled)');
+    // The pictures are lazy: one far below the fold is never fetched.
+    await page.locator('#home-walls').scrollIntoViewIfNeeded();
     await page.waitForFunction(() => {
       const image = document.querySelector('#home-walls img');
       return image && image.complete && image.naturalWidth;

@@ -3708,8 +3708,12 @@ void HttpFrontDoor::reapplyPreloadAfterBoot() const {
     if (!eventLoop_) return;
     // Late, so configd is up: 3 s after boot-done, waiting at most 3 minutes
     // for a TV that has no such file.
+    // The closure holds itself weakly and each pending timer holds it strongly,
+    // so the chain is freed after its last attempt; a strong self-capture is a
+    // cycle that leaks.
     const auto attempt = std::make_shared<std::function<void(int)>>();
-    *attempt = [this, attempt](int tries) {
+    *attempt = [this, self = std::weak_ptr<std::function<void(int)>>(attempt)](int tries) {
+        const auto keepAlive = self.lock();
         const bool booted = access(rootedSystemPath(systemRoot_, "/tmp/boot-done").c_str(), F_OK) == 0;
         if (booted || tries >= 90) {
             (void)eventLoop_->scheduleAfter(std::chrono::milliseconds(3000), [this]() {
@@ -3757,7 +3761,7 @@ void HttpFrontDoor::reapplyPreloadAfterBoot() const {
             return;
         }
         (void)eventLoop_->scheduleAfter(std::chrono::milliseconds(2000),
-                                        [attempt, tries]() { (*attempt)(tries + 1); });
+                                        [keepAlive, tries]() { (*keepAlive)(tries + 1); });
     };
     (*attempt)(0);
 }

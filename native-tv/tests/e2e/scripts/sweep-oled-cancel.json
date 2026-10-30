@@ -1,0 +1,1 @@
+[{"at":5000,"sweep":{"press":true,"skip":["native tv home","web dashboard","ip control","timer"],"withinMs":40000,"act":["cancel a scheduled"],"only":["cancel a scheduled"]}}]

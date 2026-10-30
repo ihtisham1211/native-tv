@@ -105,6 +105,7 @@ start_app() {
   if app_running; then echo "already running (pid $(cat "$PIDFILE"))"; return 0; fi
   chmod 600 /var/lib/tvweb/config.json 2>/dev/null
   # Overrides for this TV, read at each start; none without the file.
+  # shellcheck disable=SC1090  # a per-TV file whose path is set at run time
   if [ -f "$NATIVE_ENV" ]; then set -a; . "$NATIVE_ENV"; set +a; fi
   # -b detaches and -m writes the pidfile, so the process survives the ssh
   # session closing. `setsid ... &` alone does not.

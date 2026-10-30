@@ -13,7 +13,8 @@ permissions:
 
 jobs:
   package:
-    runs-on: ubuntu-latest
+    # An Arm runner: the SDK that cross-compiles the TV's runtime has no x86_64 Linux build.
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v7
         with:
@@ -27,13 +28,8 @@ jobs:
           tag="${GITHUB_REF_NAME#v}"
           [ "$code" = "$tag" ] || { echo "tag v$tag, but native-tv/VERSION says $code"; exit 1; }
 
-      # LG's packager: the store's checks reject packages without the control
-      # fields it writes. Pinned, so a new release of it cannot change a build.
-      - name: install ares-package
-        run: npm install -g @webos-tools/cli@3.2.6
-
       - name: build
-        run: python3 scripts/build-ipk.py
+        uses: ./.github/actions/package-ipk
 
       - name: attach to the release
         env:

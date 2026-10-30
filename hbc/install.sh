@@ -124,7 +124,7 @@ cp -r "$SRC" "$S" || fail "could not copy the server files"
 done
 chmod +x "$D/tvwebctl" 2>/dev/null
 # The Node server of earlier releases: nothing runs it now.
-rm -rf "$D/tvweb.js" "$D/lib"
+rm -rf "${D:?}/tvweb.js" "${D:?}/lib"
 if [ -f "$D/native/nativetv-service" ] && [ -f "$D/native/nativetv-daemon" ]; then
   chmod 755 "$D/native/nativetv-daemon" "$D/native/nativetv-service" || fail "could not make native runtimes executable"
 fi

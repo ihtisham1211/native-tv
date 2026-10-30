@@ -107,7 +107,7 @@ Switching an app off frees its memory once the app is next closed or the TV rest
 
 ### Turn off background services
 
-Stops background services that most TVs don't need, such as the connected-car listener, the USB camera watcher, LG's diagnostics and telemetry uploaders, its advertising service, Live Plus, push messages and sports alerts, and the ThinQ smart home, cloud and Family Care services. None of them is needed for casting to the TV. Only the services present on the TV are listed. A service switched off stays off across restarts, and is stopped again if something on the TV starts it.
+Stops background services that most TVs don't need, such as the connected-car listener, the USB camera watcher, LG's diagnostics and telemetry uploaders, its advertising service, Live Plus, push messages and sports alerts, and the ThinQ smart home, cloud and Family Care services. None of them is needed for casting to the TV. Only the services present on the TV are listed. A service switched off stays off across restarts, and is stopped again if something on the TV starts it. Most switch in under a second; LG Promotions & Tips Popups takes about 12 seconds, in both directions, so the switch waits that long for the TV.
 
 ## Notes
 

@@ -20,7 +20,9 @@ def frames(intervals, swap=1, start=2000):
 
 
 def last_run_case():
-    return [case for case in run.load_registry()["cases"] if case["kind"] == "run"][-1]
+    # A run that is not a sweep, whose bound is the 60 s of any client run.
+    return [case for case in run.load_registry()["cases"]
+            if case["kind"] == "run" and not str(case.get("script", "")).startswith("sweep-")][-1]
 
 
 class Registry(unittest.TestCase):
@@ -45,7 +47,7 @@ class Registry(unittest.TestCase):
             if case["screen"] == "quick" and holds:
                 self.assertIn("control", case.get("requires", []), case["id"])
         skipped = [case["id"] for case in run.load_registry()["cases"] if "control" in case.get("requires", [])]
-        self.assertEqual(skipped, ["E2E-091", "E2E-092", "E2E-101", "E2E-102", "E2E-103", "E2E-104", "E2E-105", "E2E-106", "E2E-107", "E2E-108", "E2E-109", "E2E-110", "E2E-111", "E2E-112", "E2E-113", "E2E-114", "E2E-115", "E2E-116", "E2E-117", "E2E-118", "E2E-119"])
+        self.assertEqual(skipped, ["E2E-091", "E2E-092", "E2E-101", "E2E-102", "E2E-103", "E2E-104", "E2E-105", "E2E-106", "E2E-107", "E2E-108", "E2E-109", "E2E-110", "E2E-111", "E2E-112", "E2E-113", "E2E-114", "E2E-115", "E2E-116", "E2E-117", "E2E-118", "E2E-119", "E2E-120", "E2E-121", "E2E-122", "E2E-125", "E2E-130", "E2E-131", "E2E-132", "E2E-133", "E2E-134", "E2E-135", "E2E-136", "E2E-137", "E2E-138", "E2E-139", "E2E-141", "E2E-142", "E2E-143", "E2E-144"])
 
     def test_a_navigate_only_script_may_not_press_ok(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -95,6 +97,34 @@ class Registry(unittest.TestCase):
         self.assertEqual(run.check_registry({"cases": [bodyless]}), [])
         getbody = dict(read, flow=[{"api": "GET /api/home", "body": {"a": 1}}])
         self.assertTrue(any("only a POST has a body" in problem for problem in run.check_registry({"cases": [getbody]})))
+
+    def test_a_run_case_may_clean_up_through_the_api_with_control(self):
+        client = {"id": "E2E-901", "title": "t", "purpose": "p", "kind": "run", "screen": "home", "durationMs": 5000,
+                  "steps": ["s"], "criteria": {"exitCode": 0},
+                  "cleanup": [{"api": "POST /api/home/layout", "body": {"order": {"app": []}}}]}
+        self.assertTrue(any("POST needs control" in problem for problem in run.check_registry({"cases": [client]})))
+        self.assertEqual(run.check_registry({"cases": [dict(client, requires=["control"])]}), [])
+        self.assertTrue(run.check_registry({"cases": [dict(client, requires=["control"], cleanup=[{"api": "GET /etc/passwd"}])]}))
+
+    def test_only_a_sweep_may_run_longer_than_a_minute(self):
+        sweep = [case for case in run.load_registry()["cases"] if str(case.get("script", "")).startswith("sweep-")][0]
+        self.assertGreater(sweep["durationMs"], run.MAX_DURATION_MS)
+        self.assertEqual(run.check_registry({"cases": [sweep]}), [])
+        tooLong = dict(sweep, durationMs=run.SWEEP_MAX_DURATION_MS + 1000)
+        self.assertTrue(any("durationMs" in problem for problem in run.check_registry({"cases": [tooLong]})))
+
+    def test_a_sweep_must_put_every_pressed_row_back(self):
+        rows = [{"group": "game", "page": "Picture", "row": "A", "restored": True, "presses": 2},
+                {"group": "game", "page": "Picture", "row": "B", "skipped": "not a switch or a choice"},
+                {"group": "game", "page": "Signal", "row": "C", "restored": True, "presses": 3}]
+        self.assertEqual(run.judge({"sweep": rows}, {"sweep": {"pressedMin": 2}}), {})
+        self.assertIn("sweep.pressedMin", run.judge({"sweep": rows[:2]}, {"sweep": {"pressedMin": 2}}))
+        self.assertIn("sweep.actedMin", run.judge({"sweep": rows}, {"sweep": {"actedMin": 1}}))
+        self.assertEqual(run.judge({"sweep": rows + [{"row": "Reset", "acted": True}]}, {"sweep": {"actedMin": 1}}), {})
+        stuck = rows + [{"group": "game", "page": "Sound", "row": "D", "kind": "toggle", "skipped": "unchanged by OK"}]
+        self.assertIn("game / Sound / D", run.judge({"sweep": stuck}, {"sweep": {}})["sweep"])
+        lost = rows + [{"group": "game", "page": "Sound", "row": "E", "restored": False}]
+        self.assertIn("game / Sound / E", run.judge({"sweep": lost}, {"sweep": {}})["sweep"])
 
     def test_nothing_personal_is_in_the_folder(self):
         for name in ("cases.json",) + tuple(os.path.join("scripts", n) for n in os.listdir(os.path.join(HERE, "scripts"))):
@@ -269,13 +299,19 @@ class RebootRun(unittest.TestCase):
 
 class Commands(unittest.TestCase):
     def test_only_the_runner_s_own_verbs_go_to_the_tv(self):
-        allowed = ("mkdir /tmp/nativetv-e2e.lock", "cat ", "cd " + run.APP, "ls -l /tmp/nativetv-e2e", "rm -f ", "node - ")
+        # "wait for ..." describes what the runner itself waits on while a reboot case's TV is down; it is not sent.
+        allowed = ("mkdir /tmp/nativetv-e2e.lock", "cat ", "cd " + run.APP, "ls -l /tmp/nativetv-e2e", "rm -f ", "node - ",
+                   "rmdir /tmp/nativetv-e2e.lock", "wait for ")
         forbidden = ("reboot", "tvwebctl", "luna-send", "poweroff", "nativetv-daemon", "systemctl", "deploy",
                      "/var/lib/tvweb/home", "access", "token")
         for case in run.load_registry()["cases"]:
             for line in run.commands(case):
                 self.assertTrue(line.startswith(allowed), line)
                 for word in forbidden:
+                    # A reboot case restarts the TV through the server's own control route, never from a shell command.
+                    if word == "reboot" and case["kind"] == "reboot":
+                        self.assertNotRegex(line, r"^(reboot|.*; *reboot)")
+                        continue
                     self.assertNotIn(word, line)
 
     def test_the_target_and_the_ssh_options_come_from_the_environment(self):

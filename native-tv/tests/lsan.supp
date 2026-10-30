@@ -1,0 +1,4 @@
+# For the sanitizer build's tests that load SDL and the GL driver. LeakSanitizer
+# (Linux only) reports allocations they keep until exit: SDL's per-thread error
+# string on a thread it did not start, and the driver's context state.
+leak:libSDL2
