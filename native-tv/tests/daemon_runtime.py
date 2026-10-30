@@ -152,6 +152,8 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertIn("port=8177", output)
                 self.assertIn("HTTP engine=CivetWeb/1.16", output)
                 self.assertIn("resident runtime stopped", output)
+                # The start-up milestone, before the loop runs: milliseconds since main() began.
+                self.assertRegex(output, r"startup: event loop running \d+ ms after main\(\)")
             finally:
                 if process.poll() is None:
                     process.kill()

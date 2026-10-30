@@ -20,8 +20,9 @@ The daemon that was running on the TV (not rebuilt for this work), sampled over 
 | Measure | Value |
 |---|---|
 | Threads | 61 |
-| Context switches, whole daemon | 239 a second (two samples: 239.4 and 238.8) |
-| Six threads, each | 22 a second (21.9 to 22.8) |
+| Context switches, whole daemon, a client talking to it | 239 a second (two samples: 239.4 and 238.8) |
+| Context switches, whole daemon, nobody connected | 142.0 and 142.2 a second, taken just before the deploy |
+| Six threads, each | 22 a second (21.1 to 23.8 across samples) |
 | Event-loop thread | 10.8 to 24.8 a second |
 | Bursty threads | a civetweb worker at 52 a second in one sample and another thread at 62 in the next, while a client was talking to the server |
 | CPU | 4.4 clock ticks a second |

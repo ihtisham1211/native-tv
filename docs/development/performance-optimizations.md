@@ -18,9 +18,9 @@ Files: `src/daemon/child_process.cpp`, `tests/child_process.cpp`.
 |---|---|---|
 | One resident child, 5 s, B3 | 20.2, 20.6, 20.6 switches a second | 4.4, 4.4, 4.6 (**measured on the TV**, the changed file cross-compiled on its own and run from `/tmp`, three paired runs) |
 | One resident child, 3 s, host | 65 and 67 switches | 13 and 13 (**measured on the host**) |
-| The whole daemon on the TV | 239 a second | not measured: the running daemon was not replaced. About 130 a second less is **estimated** from six threads at 22 |
+| The whole daemon on the TV, nobody connected, 20 s samples | 142.0 and 142.2 a second; six threads at 21 to 24 | 35.3, 35.1 and 35.2 a second; the same six at 4.2 (**measured on the TV**, after deploying this build) |
 
-Tests: `testResidentChildWakesRarely` fails on the old code (49 switches in 2 s against a limit of 25) and passes on the new one; `testCancelWithoutDeadlineIsNoticed` and `testExitAfterPipesClose` cover a late cancel and a child that closes its pipes before it exits. **Implemented; the daemon on the TV has not been run with it.**
+Tests: `testResidentChildWakesRarely` fails on the old code (49 switches in 2 s against a limit of 25) and passes on the new one; `testCancelWithoutDeadlineIsNoticed` and `testExitAfterPipesClose` cover a late cancel and a child that closes its pipes before it exits. The six threads account for the whole drop: 6 × 17.8 = 106.8 a second against a measured 106.9. **Measured on the TV end to end.** The build on the TV before was another session's (`f77f44db9644`), not `HEAD`, so thread counts differ (61 and 59); the per-thread rates are the comparison.
 
 ## Two config pollers stop reading files that have not changed
 
@@ -65,7 +65,7 @@ All eight programs use the same vertex shader, and each `link()` compiled it aga
 
 ## Start-up phase times
 
-`--report` gains `startup`: milliseconds from the start of `main` to the window and GL context, the renderer, the atlases, the prewarm and the first swap. The daemon logs `startup: HTTP front door listening` and `startup: event loop running`, with the milliseconds since `main()` began (before `main()` the dynamic loader and static initialisers are not counted). Files: `src/main.cpp`, `src/daemon/main.cpp`, `tests/client_platform.py` (`test_report_lists_startup_phases_in_order`). Host figures are in [the baseline](performance-baseline.md); the client's are read on the B3 (see the baseline); the daemon's two log lines have not been read on the TV.
+`--report` gains `startup`: milliseconds from the start of `main` to the window and GL context, the renderer, the atlases, the prewarm and the first swap. The daemon logs `startup: HTTP front door listening` and `startup: event loop running`, with the milliseconds since `main()` began (before `main()` the dynamic loader and static initialisers are not counted). Files: `src/main.cpp`, `src/daemon/main.cpp`, `tests/client_platform.py` (`test_report_lists_startup_phases_in_order`). Host figures are in [the baseline](performance-baseline.md); the client's are read on the B3 (see the baseline). The daemon's two lines are written at info level, which is block-buffered into `tvweb.log` (see the audit), so they appear there only when the buffer fills or the daemon stops; they were not read on the TV. `test_help_and_runtime_lifecycle` runs the real daemon, stops it and asserts the `event loop running` line with its milliseconds, so the line is known to be emitted; the HTTP-listening line (which needs `--listen`) is not asserted.
 
 ## Input latency and a benchmark runner
 
@@ -79,15 +79,25 @@ Files: `src/main.cpp`, `src/platform/frame_stats.{hpp,cpp}`, `tests/frame_loop.c
 
 - Host test suite (`ctest`, Release), rerun after the last code change: 241 passed, 2 skipped because they need a real TV (`native-tvwebctl`, `native-e2e-tv`). It includes the renderer-on-GPU comparison, the golden captures, the client platform tests and the daemon runtime cases.
 - ARM build of `nativetv-daemon`, `nativetv-tv` and `nativetv-service` with the SDK, rebuilt after the last code change: builds.
+- Deployed to the B3 on 30 October with `deploy.sh --no-app`, at the user's request. It replaced the running daemon (`f77f44db9644`, built by another session from a different working tree) with this build (`e117d5b1a3b8`), and the client in the dashboard and splash apps (`329fde4356ae`) with this build's (`24b47d3f5c04`). The home screen tile was left alone. Whoever relies on the other build has to deploy it again.
 - AddressSanitizer build of the changed test targets: the child, image loader, store and frame-loop tests pass, and so do the client platform tests with the client built under it. `native-ntp-client` aborts in that build on the Mac with and without the NTP change, and passes in the Release build; it is not caused by this work and was not investigated.
 - Route manifest, CSRF policy, test matrix, drift, retired files, strings and UI id checks pass, and `mkdocs build --strict` builds the docs.
-- Not run: the E2E cases on the TV (they need the shared TV's Home takeover off), the dashboard UI suites in `tests/ui/` (no dashboard script changed), the ARM binaries on the TV, and the Linux sanitizer job.
+- Not run: the E2E cases on the TV (they need the shared TV's Home takeover off), the dashboard UI suites in `tests/ui/` (no dashboard script changed), and the Linux sanitizer job.
+
+## On the TV after the deploy
+
+- **E2E cases** (`run.py --all --quick`, no `--allow`, so nothing that changes a setting, takes over Home, reboots or deploys): 18 passed, 11 at the frame-time floor, 7 failed and 38 were skipped because they need an `--allow`. The seven failures:
+  - E2E-030 (Home navigation) needs 45 draw calls against a limit of 40. A client built from the commit before this work (`d3b96fc`) needs 45 too, in all 17 runs, so it predates these changes.
+  - E2E-124, 170, 172, 173, 174 and 176 check UI behaviour (a title's details opening on Trailer, no Home bar in TV Settings, Back from Live, the Live reading rate, Search before Quick settings, the avatar opening Who's watching) that is in the other session's uncommitted working tree and not in this one. That tree's build was on the TV until this deploy replaced it. These were not run against that build, so that they pass there is not confirmed.
+- **Late frames, E2E-030's navigation script, 17 runs of each client interleaved:** the client from before this work and this one are not distinguishable: p95 medians 17.9 to 19.3 ms and 17.7 to 18.2 ms; frames over 33 ms per 17.5 s run, 3.9 on average and 4.5; one run of each had a gap over 100 ms.
+- **15-minute soak of the deployed daemon**, one sample a minute while the E2E cases were running: the same process throughout, 59 threads, 32 to 33 open files, 6 `luna-send` children, no restart. Resident memory rose from 13.6 MB to 25.2 MB over the first 10 minutes, with the E2E cases exercising the API, then stayed at 24.8 to 25.2 MB for the last five samples. That fits caches filling, but 15 minutes cannot exclude a slow leak; a 24-hour run of `scripts/tv-memory-soak.sh` (one sample a minute, read-only) was started detached at 22:45 UTC on 30 October and writes to `~/.cache/nativetv/soak-b3-20261030.log`; `scripts/tv-memory-soak.sh --summary` on that file prints memory, thread, open-file and restart figures at any point. Its result is not in these pages. The 35 minutes after the soak above held resident memory at 24,760 kB.
 
 ## Not changed, and why
 
 | Idea | Why it was left |
 |---|---|
 | Lower the priority of decode and HTTP threads | No contention shows: during Home's first load on the B3, with the threads at `nice -10`, the 58 full-rate frames after start-up had p95 18.0 ms and a maximum of 26.1 ms |
+| Skip a Home reply identical to the last | On the B3, 774 ambient frames over 36 s showed one refresh-time frame (a 10 s refresh: build 11.8 ms, interval 44 ms against 34.7), and the refreshes at 20 s and 30 s showed none; a catalogue reply also starts the "now playing" read, so skipping it is not free of risk |
 | Cache compiled shader programs (`glProgramBinary`) | Would save most of the 142 ms, but needs ES 3 or extension detection, a cache location the jail can write, and invalidation; the other TVs cannot be tested |
 | Draw the glyph prewarm after the first swap | Moves 86 ms from before the first frame to after it; the first frames would then pay for glyphs on demand |
 | Reuse the static layers' geometry between ambient frames | The largest remaining client idle cost (see the audit), but a larger change to the batcher |

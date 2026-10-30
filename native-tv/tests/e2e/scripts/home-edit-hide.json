@@ -1,0 +1,1 @@
+[{"at":6000,"checkpoint":"loaded"},{"at":6500,"key":"up"},{"at":7000,"key":"right"},{"at":7500,"key":"down"},{"at":8200,"checkpoint":"first-app"},{"at":8700,"longPress":true},{"at":9300,"key":"up"},{"at":9700,"checkpoint":"button"},{"at":10000,"key":"ok"},{"at":12500,"checkpoint":"hidden"},{"at":13000,"longPress":true},{"at":13600,"checkpoint":"listed"}]

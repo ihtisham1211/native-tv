@@ -19,7 +19,8 @@ The CPU column of a 10 s run includes about 0.3 to 0.4 s of start-up. For a stea
 - **Client frames and input from the E2E cases.** The commands in `tests/e2e/cases.json` run the installed client under `jailer` with `--screen`, `--script`, `--duration-ms` and `--perf`; the log and its summary record come back as on the host. The Home takeover must be off for the run, because a running Home client blocks it.
 - **Server wakeups.** `NATIVETV_SSH_KEY=… NATIVETV_KNOWN_HOSTS=… scripts/tv-wakeups.sh <tv-ip> --seconds 20` prints context switches a second for each thread of the daemon and the total. Run it with every dashboard closed; an open dashboard shows up as busy HTTP workers.
 - **Server CPU, memory and child processes.** `scripts/footprint.sh <tv-ip> --seconds 60`.
-- **Availability over hours.** `scripts/soak.js`.
+- **Availability over hours.** `scripts/soak.js` times the dashboard's answers (add no `--cycle`, which power-cycles the TV).
+- **Memory, threads and restarts over hours.** `scripts/tv-memory-soak.sh <tv-ip> --hours 24 --interval 60 --out FILE` samples the server's resident memory and peak, threads, open files, `luna-send` children and the load once an interval, and prints a summary at the end; `--summary FILE` prints one for a run still going. Start a long run detached (`start_new_session` in Python, or `nohup setsid` on Linux; macOS has no `setsid`).
 - **Before and after a daemon change.** Take `tv-wakeups.sh` before deploying, deploy with `native-tv/lifecycle/deploy.sh`, wait a minute for the start-up spacing (150 ms between child starts in the first 30 s) to end, and take it again. The daemon on the shared test TV is replaced by a deploy, so check first who else is using it.
 
 ## Scenarios
@@ -35,7 +36,7 @@ The CPU column of a 10 s run includes about 0.3 to 0.4 s of start-up. For a stea
 | G, H. Launching an app, returning | not scripted | Needs a real TV; the E2E cases launch apps |
 | I. Dashboard interactions | not scripted | The E2E cases on a TV exercise the dashboard |
 | J. Repeated launcher activation | not scripted | |
-| K. Long idle | `scripts/soak.js`, `scripts/footprint.sh` | Not run for 24 hours |
+| K. Long idle | `scripts/tv-memory-soak.sh`, `scripts/soak.js`, `scripts/footprint.sh` | A 24-hour run was started on 30 October; its result is not in these pages |
 | L. Memory pressure | not run | |
 
 ## Limits of the method
@@ -55,5 +56,5 @@ The open items in [the audit](performance-audit.md), in this order of value for 
 3. Read the daemon's `startup:` log lines on the TV, and time the first reply from the server, which the client does not log yet.
 4. Warm the Home catalogue snapshots when the server starts instead of on the first client request.
 5. Skip the Home layers under a fully open Recents veil, and extend the start-up prewarm to the settings, live and setup galleries.
-6. Compare each Home reply with the last before parsing and rebuilding (the catalogue reply also triggers the "now playing" read, so it cannot simply be skipped).
+6. Compare each Home reply with the last before parsing and rebuilding. Measured on the B3 to cost one frame stretched by about 10 ms every few refreshes, so it is last in value, and the catalogue reply also triggers the "now playing" read, so it cannot simply be skipped.
 7. Daemon idle timers that remain: the MQTT loop (13 wakeups a second with MQTT on), `signalPoll` (4 a second), and the Luna requests the telemetry timer starts.

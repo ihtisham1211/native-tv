@@ -22,7 +22,7 @@ Ranked by expected benefit for the effort and risk.
 
 | # | Finding | Where | Basis | State |
 |---|---|---|---|---|
-| 1 | Every resident `luna-send -i` child polls its pipes every 50 ms: about 20 wakeups a second each, six to eight children | `src/daemon/child_process.cpp` | measured on the B3 | fixed |
+| 1 | Every resident `luna-send -i` child polls its pipes every 50 ms: about 20 wakeups a second each, six to eight children | `src/daemon/child_process.cpp` | measured on the B3 | fixed; whole daemon 142 to 35 wakeups a second at idle |
 | 2 | The remote-key watcher loads two JSON files every 200 ms; the NTP client reads and parses `config.json` every second; neither checks whether the file changed | `remote_button_log_watcher.cpp`, `ntp_client.cpp` | read | fixed |
 | 3 | The picture cache's LRU clock ticks once per loop iteration, idle wakeups included, so pictures on screen become evictable after about 100 ms of idling | `src/graphics/image_loader.cpp` | read | fixed |
 | 4 | The vertex shader was compiled once per program, eight times, at start-up: 41 to 46 ms on the B3 | `src/graphics/renderer.cpp` | measured on the B3 | fixed (first swap 359 to 306 ms) |
@@ -44,7 +44,8 @@ Ranked by expected benefit for the effort and risk.
 | 20 | `collectLgSettingsData` and `oledStats` hold their mutexes across Luna calls of up to 5 s, so setting writes wait behind them | `http_frontdoor.cpp` | audit | open |
 | 21 | No phase timestamps existed for client or server start, so start-up cost could not be attributed | `main.cpp`, `daemon/main.cpp` | audit | added; the client's are read on the B3 |
 | 22 | The first Home catalogue request starts serial `luna-send` children 150 ms apart; 8 shader programs and about 1,235 single-glyph uploads run before the first frame; on the B3 the glyph prewarm takes 86 ms and the 8 programs 142 to 155 ms (10 ms and not timed on the host) | `http_frontdoor.cpp`, `renderer.cpp`, `main.cpp` | audit | open |
-| 23 | ARM builds use `-O2`, a static libstdc++ and `--as-needed`; there is no section GC, LTO or strip step | `CMakeLists.txt`, SDK toolchain file | read | open; size only |
+| 23 | Info log lines go through block-buffered `std::cout` and only warnings (unbuffered `cerr`) and debug lines are flushed, so on the TV they reach `tvweb.log` when the buffer fills or the daemon stops, and are lost if the watchdog kills it: the log held the stopped daemon's info lines, flushed at its exit, and none from the running one | `src/daemon/logger.cpp` (`defaultSink`) | read, and the TV's `tvweb.log` | open; flushing every line costs a write each, so a flush after the start-up milestones is the cheap fix |
+| 24 | ARM builds use `-O2`, a static libstdc++ and `--as-needed`; there is no section GC, LTO or strip step | `CMakeLists.txt`, SDK toolchain file | read | open; size only |
 
 Finding 9 is small. The client costs about 1.6 % of a core and 3 wakeups a second on a screen that never animates (Apple M1 Pro; the TV was not measured), and optimistic updates hide most reply waits. Waking the loop from the worker is a few lines, but it only pays once the 50 ms idle wait can also be raised, and that needs a next-deadline answer from every screen's timers.
 

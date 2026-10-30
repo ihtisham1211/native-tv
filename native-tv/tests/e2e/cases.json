@@ -6572,6 +6572,215 @@
         "exitCode": 0,
         "flowOk": true
       }
+    },
+    {
+      "id": "E2E-176",
+      "title": "The avatar in the Home bar opens Who's watching? with one profile",
+      "purpose": "The avatar before the tabs is on the bar's path whatever the number of profiles (it was a decoration while there was one): from the first tab, Left reaches it and OK opens the profiles page, where that profile's colour and name are edited.",
+      "kind": "run",
+      "screen": "home",
+      "script": "home-avatar.json",
+      "durationMs": 11000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for the case's time through the app's jailer.",
+        "Read the report and judge the checkpoints.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "checkpoints": [
+          {
+            "name": "avatar",
+            "path": "navigation",
+            "equals": true
+          },
+          {
+            "name": "profiles",
+            "path": "screen",
+            "equals": "profiles"
+          }
+        ]
+      }
+    },
+    {
+      "id": "E2E-177",
+      "title": "The colour of the profile in use is set from the TV",
+      "purpose": "On Who's watching?, Down from the avatars reaches a row of six swatches and Right then OK sets the second colour on the profile in use: the server's profile list shows #f2b8b5 afterwards. The case expects the profile to start on the first colour (#a8c7fa, what a TV that never changed it has) and puts it back.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "home",
+      "script": "profile-colour.json",
+      "durationMs": 13500,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for the case's time through the app's jailer.",
+        "Read the report and judge the checkpoints.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "checkpoints": [
+          {
+            "name": "colours",
+            "path": "onColours",
+            "equals": true
+          },
+          {
+            "name": "picked",
+            "path": "colour",
+            "equals": "#f2b8b5"
+          }
+        ],
+        "flowOk": true
+      },
+      "after": [
+        {
+          "api": "GET /api/home/status",
+          "expect": {
+            "profiles[id=main].color": "#f2b8b5"
+          }
+        }
+      ],
+      "cleanup": [
+        {
+          "api": "POST /api/home/profile",
+          "body": {
+            "action": "rename",
+            "id": "main",
+            "color": "#a8c7fa"
+          },
+          "expect": {
+            "ok": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "E2E-178",
+      "title": "Hide from Home and Show on Home work from edit mode",
+      "purpose": "A long press on an app in the Apps tab starts edit mode with a Hide from Home button above the grid: Up reaches it and OK takes the app off Home (the server's hidden list then holds it). A second long press lists the hidden app, dimmed, after the others. The case ends with the order and the hidden list reset to the default, as E2E-120 does. The checks name the B3's first app (Discovery).",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "home",
+      "script": "home-edit-hide.json",
+      "durationMs": 15000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for the case's time through the app's jailer.",
+        "Read the report and judge the checkpoints.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "checkpoints": [
+          {
+            "name": "first-app",
+            "path": "focusCard",
+            "equals": "com.webos.app.discovery"
+          },
+          {
+            "name": "button",
+            "path": "editing",
+            "equals": true
+          },
+          {
+            "name": "hidden",
+            "path": "editing",
+            "equals": false
+          },
+          {
+            "name": "listed",
+            "path": "editing",
+            "equals": true
+          }
+        ],
+        "flowOk": true
+      },
+      "after": [
+        {
+          "api": "GET /api/home/catalogue",
+          "expect": {
+            "layout.hidden.app[0]": "com.webos.app.discovery"
+          }
+        }
+      ],
+      "cleanup": [
+        {
+          "api": "POST /api/home/layout",
+          "body": {
+            "order": {
+              "app": []
+            },
+            "hidden": {
+              "app": []
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "E2E-179",
+      "title": "TV Settings Screen Saver: the black screen is chosen from the TV",
+      "purpose": "OK on the Black screen row of the Screen Saver settings makes it the screen saver in use (the server reports black once the client has run); the case then puts Harmonograph at Dim back. Black has no brightness, so the Options page holds no Brightness row while it is in use.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:saver",
+      "script": "sweep-saver-black.json",
+      "durationMs": 60000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for the case's time through the app's jailer.",
+        "Read the report and judge the checkpoints.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "actedMin": 1
+        },
+        "flowOk": true
+      },
+      "after": [
+        {
+          "api": "GET /api/screensaver",
+          "expect": {
+            "current": "black"
+          }
+        }
+      ],
+      "cleanup": [
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "screensaverMode",
+            "value": {
+              "mode": "harmonograph",
+              "level": "dim"
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        }
+      ]
     }
   ]
 }
