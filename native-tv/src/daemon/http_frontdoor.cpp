@@ -5491,7 +5491,7 @@ void HttpFrontDoor::setNativeAppTileOperation(HttpExchange &exchange) const {
             ? "could not read app tile state" : stateError);
         return;
     }
-    const Json configured = config_.document["allowTileHiding"];
+    const Json configured = currentConfigDocument()["allowTileHiding"];
     const bool tileHidingAllowed = configured.isBoolean()
         ? configured.boolean() : tileHidingEnabled;
     const bool enabling = action == "enable-all";
@@ -5600,7 +5600,7 @@ void HttpFrontDoor::setNativeAppTileOperation(HttpExchange &exchange) const {
                         expected.set(hiddenId, Json::flag(false));
                 }
             }
-            const Json allowConfig = config_.document["allowTileHiding"];
+            const Json allowConfig = currentConfigDocument()["allowTileHiding"];
             const bool mayRefresh = allowConfig.isBoolean()
                 ? allowConfig.boolean() : resultTileHidingEnabled;
             const bool restarted = mayRefresh && refreshSam(expected);
@@ -5636,7 +5636,7 @@ void HttpFrontDoor::setNativeAppTileOperation(HttpExchange &exchange) const {
             sendSetupError(exchange, 500, "could not persist app tile state");
             return;
         }
-        const Json allowConfig = config_.document["allowTileHiding"];
+        const Json allowConfig = currentConfigDocument()["allowTileHiding"];
         const bool mayRefresh = allowConfig.isBoolean()
             ? allowConfig.boolean() : tileHidingEnabled;
         const bool restarted = mayRefresh && refreshSam(expected);
@@ -5669,7 +5669,7 @@ void HttpFrontDoor::setNativeAppTileOperation(HttpExchange &exchange) const {
             status = publicRoute ? 400 : 500;
         } else {
             result.set("tileHidingEnabled", Json::flag(tileHidingEnabled));
-            const Json allowedConfig = config_.document["allowTileHiding"];
+            const Json allowedConfig = currentConfigDocument()["allowTileHiding"];
             const bool mayRefresh = allowedConfig.isBoolean()
                 ? allowedConfig.boolean() : tileHidingEnabled;
             Json expected = Json::object();
@@ -17949,7 +17949,7 @@ void HttpFrontDoor::dispatch(HttpExchange &exchange) const {
     }
     if (request.uri == "/api/prometheus/metrics" &&
         (request.method == "GET" || request.method == "HEAD")) {
-        const Json prometheusConfig = config_.document["prometheus"];
+        const Json prometheusConfig = currentConfigDocument()["prometheus"];
         if (!prometheusConfig["enabled"].isBoolean() ||
             !prometheusConfig["enabled"].boolean()) {
             (void)exchange.respond(404,
@@ -17962,26 +17962,40 @@ void HttpFrontDoor::dispatch(HttpExchange &exchange) const {
         const Json system = withStatsWindows(service::collectSystem(systemRoot_, dataRoot_), "stats");
         std::string response;
         std::string error;
-        if (!proxy_.requestNodeStats(system, false, response, error, true)) {
-            (void)exchange.respond(502,
-                                   {{"Content-Type", "application/json; charset=utf-8"},
-                                    {"Cache-Control", "no-store"},
-                                    {"X-Content-Type-Options", "nosniff"}},
-                                   "{\"ok\":false,\"error\":\"native service unavailable\"}");
-            return;
+        Json stats, syslog, ntp, watch;
+        if (proxy_.requestNodeStats(system, false, response, error, true)) {
+            const Json enriched = Json::parse(response);
+            if (!enriched["stats"].isObject()) {
+                (void)exchange.respond(502,
+                                       {{"Content-Type", "application/json; charset=utf-8"},
+                                        {"Cache-Control", "no-store"},
+                                        {"X-Content-Type-Options", "nosniff"}},
+                                       "{\"ok\":false,\"error\":\"invalid telemetry response\"}");
+                return;
+            }
+            stats = enriched["stats"];
+            syslog = enriched["syslog"];
+            ntp = enriched["ntp"];
+            watch = enriched["watch"];
+        } else {
+            // No Node to ask, as on a TV: the readings /api/stats serves, and the state of
+            // the modules Node held.
+            stats = statsCollector()->collect(system);
+            if (!stats["ok"].boolean()) {
+                (void)exchange.respond(502,
+                                       {{"Content-Type", "application/json; charset=utf-8"},
+                                        {"Cache-Control", "no-store"},
+                                        {"X-Content-Type-Options", "nosniff"}},
+                                       "{\"ok\":false,\"error\":\"native service unavailable\"}");
+                return;
+            }
+            if (syslogStatus_) syslog = syslogStatus_();
+            if (ntpStatus_) ntp = ntpStatus_();
+            if (historyRecorder_ && historyRecorder_->status()["enabled"].boolean())
+                watch = historyRecorder_->totals(0, std::chrono::duration_cast<std::chrono::milliseconds>(
+                    std::chrono::system_clock::now().time_since_epoch()).count());
         }
-        const Json enriched = Json::parse(response);
-        if (!enriched["stats"].isObject()) {
-            (void)exchange.respond(502,
-                                   {{"Content-Type", "application/json; charset=utf-8"},
-                                    {"Cache-Control", "no-store"},
-                                    {"X-Content-Type-Options", "nosniff"}},
-                                   "{\"ok\":false,\"error\":\"invalid telemetry response\"}");
-            return;
-        }
-        const std::string rendered = service::renderPrometheus(
-            enriched["stats"], version_, enriched["syslog"], enriched["ntp"],
-            enriched["watch"]);
+        const std::string rendered = service::renderPrometheus(stats, version_, syslog, ntp, watch);
         (void)exchange.respond(200,
                                {{"Content-Type", "text/plain; version=0.0.4; charset=utf-8"},
                                 {"Cache-Control", "no-store"},

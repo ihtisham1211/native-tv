@@ -1,7 +1,0 @@
-# Home Assistant entities removed on purpose since the last release, one per
-# line as <domain>.<id>, then why. check-entity-stability.py fails on an
-# entity that has gone without being listed here. Lines can be cleared once
-# the release that removed the entity is out.
-sensor.soc_current  read the SoC's factory leakage figures, fixed per chip, not a live current draw (#476)
-update.server_update  Native Tv self-updater removed in native migration Phase 1
-update.lg_tv_server_update  Native Tv self-updater removed in native migration Phase 1

@@ -5,15 +5,15 @@
 # ///
 """Generate native-tv/assets/app-icons/app-icons.pack from design/app-icons.json.
 
-Every icon is a full-bleed colour square with one white glyph, centred, the
-look of the Homebrew Channel's icon, so apps read as one family. A brand's
-glyph is its monochrome logo from Simple Icons (or, for the brands it dropped,
-Dashboard Icons) on the brand's colour; LG's own apps get a Material Design
-glyph (assets/icons/material) on one shared blue. Only the glyph's shape is
-kept; its colours are replaced. The squares have square corners: the screens
-that show them round them. The daemon looks an app up by its id, then by its
-title, and serves the app's own icon when the pack has neither
-(src/service/app_icons.cpp).
+Every icon sits on one dark rounded-square tile, the same size and padding, so
+the apps read as a set on the TV's dark UI. A brand's logo is drawn as its
+owner publishes it, in its own colours, never recoloured: where the plain logo
+is dark (X, Apple TV, Prime Video, TikTok, Peacock) the brand's own variant for
+dark surfaces is used. The logos are Dashboard Icons'. LG's own apps get a
+Material Design glyph (assets/icons/material) in the kit's accent colour on the
+same tile. The squares have square corners: the screens that show them round
+them. The daemon looks an app up by its id, then by its title, and serves the
+app's own icon when the pack has neither (src/service/app_icons.cpp).
 
 Pack format: "NTVICONS 1\\n", one "key offset length\\n" line per icon with the
 offset counted from the first data byte, an empty line, then the PNGs.
@@ -63,16 +63,29 @@ def shape(art, mask):
     return alpha
 
 
-def tile(art, size, background, foreground, fill, mask=None):
-    """The glyph's shape in `foreground`, fitted to `fill` of a square of `background`."""
-    art.putalpha(shape(art, mask))
+def background(spec):
+    """The tile: a dark square, a little lighter at the top."""
+    size = spec["size"]
+    fade = Image.linear_gradient("L").resize((size, size))  # black at the top, white at the bottom
+    return Image.composite(Image.new("RGB", (size, size), spec["bottom"]),
+                           Image.new("RGB", (size, size), spec["top"]), fade).convert("RGBA")
+
+
+def tile(art, spec, fill, color=None, mask=None):
+    """The art, fitted to `fill` of the tile and centred. Its colours are kept unless `color`
+    (or `mask`, which keeps only a logo's marks, in white) asks for one flat colour."""
+    if mask:
+        art.putalpha(shape(art, mask))
+        color = color or "#FFFFFF"
     art = art.crop(art.getchannel("A").getbbox())
-    glyph = Image.new("RGBA", art.size, foreground)
-    glyph.putalpha(art.getchannel("A"))
-    box = round(size * fill)
-    glyph.thumbnail((box, box), Image.LANCZOS)
-    canvas = Image.new("RGBA", (size, size), background)
-    canvas.alpha_composite(glyph, ((size - glyph.width) // 2, (size - glyph.height) // 2))
+    if color:
+        flat = Image.new("RGBA", art.size, color)
+        flat.putalpha(art.getchannel("A"))
+        art = flat
+    box = round(spec["size"] * fill)
+    art.thumbnail((box, box), Image.LANCZOS)
+    canvas = background(spec)
+    canvas.alpha_composite(art, ((spec["size"] - art.width) // 2, (spec["size"] - art.height) // 2))
     out = io.BytesIO()
     canvas.convert("RGB").save(out, "PNG", optimize=True)
     return out.getvalue()
@@ -89,12 +102,11 @@ def main():
         source = config["sources"][brand["source"]]
         folder = cache / brand["source"]
         folder.mkdir(parents=True, exist_ok=True)
-        art = render(fetch_logo(source, name, folder))
-        blobs[("logo", name)] = tile(art, spec["size"], brand["background"], brand.get("foreground", spec["foreground"]),
-                                     brand.get("fill", spec["fill"]), brand.get("mask"))
+        art = render(fetch_logo(source, brand["name"], folder))
+        blobs[("logo", name)] = tile(art, spec, brand.get("fill", spec["fill"]), brand.get("color"), brand.get("mask"))
     for name in set(config["glyphs"].values()):
         art = render((GLYPHS / (name + ".svg")).read_text())
-        blobs[("glyph", name)] = tile(art, spec["size"], spec["systemBackground"], spec["foreground"], spec["glyphFill"])
+        blobs[("glyph", name)] = tile(art, spec, spec["glyphFill"], spec["glyphColor"])
 
     keys = {}
     for kind, table in (("logo", config["logos"]), ("glyph", config["glyphs"])):

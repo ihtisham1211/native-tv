@@ -57,7 +57,7 @@ MAX_DURATION_MS = 60000
 KNOWN_REQUIRES = {"takeover", "reboot", "control", "fresh"}
 KNOWN_ALLOW = KNOWN_REQUIRES | {"stage"}
 ENV_NAMES = {"NATIVETV_PROBE_FAULT", "NATIVETV_AMBIENT"}
-# What a flow may ask of the TV: the server's Home routes and its remote and launch controls for
+# What a flow may ask of the TV: the server's Home routes and its remote, launch and close controls for
 # an input or the Native Tv app, nothing else.
 FLOW_API = {"GET /api/home", "POST /api/home/enable", "POST /api/home/disable"}
 FLOW_APP = re.compile(r"^(com\.webos\.app\.(hdmi[1-4]|livetv)|com\.tvweb\.dashboard)$")
@@ -103,6 +103,7 @@ def flow_problems(case):
             if step["api"] == "POST /api/control" and isinstance(body, dict):
                 action, value = body.get("action"), body.get("value")
                 allowed = (action == "launchApp" and isinstance(value, str) and bool(FLOW_APP.match(value))) or \
+                          (action == "closeApp" and value == APP_ID) or \
                           (action == "rcu" and value in FLOW_KEYS)
                 allowed = allowed and set(body) == {"action", "value"}
             if not allowed:
@@ -144,6 +145,8 @@ def api_problems(case):
             for field in ("expect", "same"):
                 if field in step and not isinstance(step[field], dict):
                     problems.append("%s: %s is not an object" % (where, field))
+            if "status" in step and not (isinstance(step["status"], int) and 100 <= step["status"] <= 599):
+                problems.append(where + ": status is not an HTTP status")
         elif "wait" in step:
             if not isinstance(step["wait"], int) or not 1 <= step["wait"] <= 30000:
                 problems.append(where + " waits up to 30000 ms")

@@ -8,8 +8,8 @@
 // animated values. Ids stay under 16 characters so building one allocates nothing.
 namespace nativetv {
 namespace home {
-constexpr size_t kGridColumns = static_cast<size_t>(kit::layout::tileCols);
-constexpr float kGridPitch = kit::layout::tileH + kit::layout::tileGapY;
+constexpr size_t kGridColumns = static_cast<size_t>(kit::layout::iconCols);
+constexpr float kGridPitch = kit::layout::iconRowPitch;
 constexpr size_t kSpotlightMax = 6;
 
 // Hue in degrees, saturation and lightness in 0..1.
@@ -71,12 +71,13 @@ inline Rect item(const CardRow &row, size_t rowIndex, size_t column) {
             isApps(row) ? kit::layout::appD : kit::layout::cardH};
 }
 // The apps grid's scroll target while focus is on `column`: the grid follows once focus passes
-// the third row, and stops when the last row is in view.
+// the second row, so focus stays in the middle of the three rows on screen, and stops when the
+// last row is in view.
 inline float gridScrollTarget(size_t column, size_t count) {
     size_t rows = (count + kGridColumns - 1) / kGridColumns, at = column / kGridColumns;
-    float visible = 4;
+    float visible = 3;
     float room = rows > visible ? (static_cast<float>(rows) - visible) * kGridPitch : 0;
-    float wanted = at > 2 ? static_cast<float>(at - 2) * kGridPitch : 0;
+    float wanted = at > 1 ? static_cast<float>(at - 1) * kGridPitch : 0;
     return -(wanted > room ? room : wanted);
 }
 } // namespace home

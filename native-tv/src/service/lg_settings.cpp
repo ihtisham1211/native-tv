@@ -340,6 +340,12 @@ Json settingsInEffect(const Json &settingsByCategory, const Json &dimensionsByCa
     return result;
 }
 
+// The TV client sends a number as a decimal (11.0); every writer here has checked that it is
+// whole, and it is kept as 11 so the TV's settings and each screen reading them show 11.
+Json wholeNumber(const Json &value) {
+    return Json::parse(std::to_string(static_cast<long long>(value.number())));
+}
+
 bool jsTruthy(const Json &value) {
     if (!value.valid())
         return false;
@@ -577,7 +583,7 @@ LgSettingWrite lgGameSettingWrite(const Json &value) {
         std::floor(selected.number()) == selected.number() &&
         selected.number() >= definition->minimum &&
         selected.number() <= definition->maximum) {
-        write.storedValue = selected;
+        write.storedValue = wholeNumber(selected);
         write.valid = true;
         write.error.clear();
     }
@@ -620,7 +626,7 @@ LgSettingWrite lgSettingWrite(const Json &value) {
             selected.number() < row->minimum || selected.number() > row->maximum)
             return write;
         write.storedValue = row->storeAsString
-            ? Json::text(std::to_string(static_cast<int>(selected.number()))) : selected;
+            ? Json::text(std::to_string(static_cast<int>(selected.number()))) : wholeNumber(selected);
     }
     write.valid = true;
     write.error.clear();
@@ -685,7 +691,7 @@ LgSettingWrite lgSettingsRestoreWrite(const std::string &id,
 
     const bool storeAsString = dashboard && dashboard->storeAsString;
     write.storedValue = storeAsString
-        ? Json::text(std::to_string(static_cast<int>(value.number()))) : value;
+        ? Json::text(std::to_string(static_cast<int>(value.number()))) : wholeNumber(value);
     write.valid = true;
     write.error.clear();
     return write;

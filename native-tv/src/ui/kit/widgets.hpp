@@ -184,6 +184,17 @@ struct AppTile {
 };
 void appTile(Paint paint, const AppTile &tile);
 
+// An installed app on the Apps page: a rounded square carrying the app's artwork, its name under it.
+struct AppIcon {
+    Rect rest; // the square at rest; the name is laid out under it
+    std::string id, name;
+    std::string icon;  // generic glyph, for an app that ships no artwork
+    std::string image; // the app's artwork, clipped to the square
+    float focus = 0;
+    Enter enter;
+};
+void appIcon(Paint paint, const AppIcon &app);
+
 struct StatCard {
     Rect rest;
     std::string id, icon, label, value, unit, caption, caption2;

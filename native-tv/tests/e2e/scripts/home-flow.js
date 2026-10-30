@@ -3,11 +3,12 @@
 //
 // Each step prints one JSON line {step, ok, ms, note}; the last line is {done, ok}. The exit code is
 // 0 when every step held. A step is one of:
-//   {api: "POST /api/home/enable", body?, expect?, same?}   a request to the server on this TV (loopback is
+//   {api: "POST /api/home/enable", body?, status?, expect?, same?}   a request to the server on this TV (loopback is
 //                                                     accepted without the token), the reply compared
 //                                                     with expect by dotted path ("nativeHome.halted": false);
 //                                                     same pairs two paths of the reply that must hold the
-//                                                     same value ("rows[id=x].value": "dimensions.sound.x")
+//                                                     same value ("rows[id=x].value": "dimensions.sound.x");
+//                                                     status is the HTTP status the reply must have (for a reply that is not JSON)
 //   {foreground: "com.example", withinMs}            the app in front becomes this one
 //   {stays: "com.example", forMs}                    the app in front is this one throughout
 //   {wait: ms}
@@ -107,6 +108,8 @@ function run(index) {
   if (step.api) {
     request(step.api, step.body, function (error, status, reply) {
       if (error) return finish(false, String(error));
+      if (step.status !== undefined && status !== step.status)
+        return finish(false, 'HTTP ' + status + ', wanted ' + step.status);
       var expect = step.expect || {};
       for (var path in expect) {
         if (Object.prototype.hasOwnProperty.call(expect, path) && dotted(reply, path) !== expect[path])

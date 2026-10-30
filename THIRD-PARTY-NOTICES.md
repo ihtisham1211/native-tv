@@ -15,8 +15,7 @@ the path given, or is the licence named by its SPDX id at the address given.
 | [Roboto](https://github.com/googlefonts/roboto-3-classic) | Text of the dashboards and TV pages, cut to Latin as WOFF | Apache-2.0 | [native-tv/assets/fonts/LICENSE-Roboto.txt](native-tv/assets/fonts/LICENSE-Roboto.txt) |
 | [Figtree](https://github.com/erikdkennedy/figtree) | Text of the native TV client | OFL-1.1 | [native-tv/assets/fonts/LICENSE-Figtree-OFL.txt](native-tv/assets/fonts/LICENSE-Figtree-OFL.txt) |
 | [Material Design Icons](https://pictogrammers.com/library/mdi/) (`@mdi/js`) | The TV client's icons in `native-tv/assets/icons/material/` | Apache-2.0 | [native-tv/assets/icons/material/LICENSE-MaterialDesignIcons.txt](native-tv/assets/icons/material/LICENSE-MaterialDesignIcons.txt) |
-| [Simple Icons](https://simpleicons.org) | The brand glyphs of the themed app icons in `native-tv/assets/app-icons/app-icons.pack` | CC0-1.0 | [Public domain dedication](https://creativecommons.org/publicdomain/zero/1.0/) |
-| [Dashboard Icons](https://github.com/homarr-labs/dashboard-icons) | The glyphs of the brands Simple Icons lacks (Prime Video, Disney+, Hulu, Peacock, Alexa, Xbox, YouTube TV) in the same pack | Apache-2.0 | [native-tv/assets/app-icons/LICENSE-DashboardIcons.txt](native-tv/assets/app-icons/LICENSE-DashboardIcons.txt) |
+| [Dashboard Icons](https://github.com/homarr-labs/dashboard-icons) | The brand logos of the themed app icons in `native-tv/assets/app-icons/app-icons.pack` | Apache-2.0 | [native-tv/assets/app-icons/LICENSE-DashboardIcons.txt](native-tv/assets/app-icons/LICENSE-DashboardIcons.txt) |
 | [Material Symbols](https://fonts.google.com/icons) (Google), Rounded | The icon sprite in `native-tv/web/ui.html` | Apache-2.0 | [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0), the text in the two Apache-2.0 files above |
 
 ## Linked from the webOSbrew SDK

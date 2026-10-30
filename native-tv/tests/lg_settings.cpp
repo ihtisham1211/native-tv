@@ -184,6 +184,19 @@ int main() {
         assert(row(other, "soundOutput")["value"].string() == "external_arc");
     }
 
+    // A number comes from the TV client as a decimal (11.0) and is kept as the whole number it is, so
+    // the TV settings and every screen that reads them show 11, not 11.0.
+    {
+        for (const char *id : {"blackStabilizer", "audioBalance"}) {
+            const LgSettingWrite write = lgSettingWrite(Json::parse(
+                std::string("{\"id\":\"") + id + "\",\"value\":" + (std::string(id) == "audioBalance" ? "-5.0" : "11.0") + "}"));
+            assert(write.valid);
+            assert(write.storedValue.dump() == (std::string(id) == "audioBalance" ? "\"-5\"" : "11"));
+        }
+        const Json current = Json::parse(R"({"min":0,"max":20})");
+        assert(lgSettingsRestoreWrite("blackStabilizer", Json::numeric(7), current).storedValue.dump() == "7");
+    }
+
     // The input names the HDMI rows are shown under.
     {
         const Json inputs = lgSettingsInputNames(Json::parse(

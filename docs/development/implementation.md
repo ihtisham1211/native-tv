@@ -282,28 +282,28 @@ pack has neither. Every route that serves an icon goes through it: the
 dashboard, Native Tv Home and the shared `/icons/<appId>.png` addresses.
 
 The pack is built by `native-tv/tools/gen_app_icons.py` from
-`native-tv/design/app-icons.json`. Every icon is a full-bleed square of one
-colour with one white glyph centred on it, the look of the Homebrew Channel's
-icon, so the apps read as one family on a dark screen. The glyph is the
-brand's monochrome logo from Simple Icons (CC0) or, for the brands Simple Icons
-dropped, from Dashboard Icons (Apache-2.0), both at a pinned commit; only its
-shape is kept. The square is the brand's colour (`brands`), and LG's apps, whose
-glyphs come from `assets/icons/material/`, share one blue. The squares have
+`native-tv/design/app-icons.json`. Every icon sits on one dark rounded-square
+tile with the same size and padding, so the apps read as a set on the TV's dark
+UI. A brand's logo is drawn as its owner publishes it, in its own colours, and
+is never recoloured: Dashboard Icons (Apache-2.0, pinned commit) supplies it,
+and where the plain logo is dark (X, Apple TV, Prime Video, TikTok, Peacock,
+Tidal, SoundCloud) the file names the brand's own variant for dark surfaces
+(`name` in `brands`). LG's apps, whose glyphs come from `assets/icons/material/`,
+get the glyph in the kit's accent colour on the same tile. The tiles have
 square corners: the dashboard rounds them to 8 px at 38 px, and Native Tv Home
 to 10 px at 44 px.
 
-A logo drawn on a tile of its own takes a `mask` (`light` keeps its light marks,
-`dark` everything but its white ones), and a wordmark a larger `fill`, so it
-stays readable at 44 px. To cover another app, add its id or normalised title to
-`logos` (and its brand to `brands`, if new) or `glyphs`, run
+A logo drawn on a tile of its own takes a `mask` (`light` keeps its white marks,
+the brand's reversed logo), and a wordmark a larger `fill`, so it stays readable
+at 44 px. To cover another app, add its id or normalised title to `logos` (and
+its brand to `brands`, if new) or `glyphs`, run
 `uv run native-tv/tools/gen_app_icons.py` and commit the pack. Title keys catch
 store apps whose ids differ between regions; an id key is exact. The pack is
-about 260 KB and installs with the other assets (`deploy.sh` lists it).
+about 340 KB and installs with the other assets (`deploy.sh` lists it).
 
 No set covers every app: Dashboard Icons lacks LG's apps and most regional
-broadcasters, and Simple Icons dropped Prime Video, Disney+, Hulu, Peacock,
-Alexa and Xbox. LG's apps therefore get Material glyphs, and anything unmatched
-keeps its own icon, whatever its look.
+broadcasters. LG's apps therefore get Material glyphs, and anything unmatched
+keeps its own icon, whatever its look, so that no brand is redrawn.
 
 ## Admin PIN
 

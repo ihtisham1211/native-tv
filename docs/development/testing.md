@@ -114,9 +114,11 @@ with `--time` and compares each with its PNG, per pixel with a tolerance,
 writing `<name>.actual.png` and `<name>.diff.png` when one fails;
 `golden.py update` rewrites the PNGs after an intended change. A case may name
 `"fixture": "home"`, which serves the stand-in daemon in `tests/home_fixture.py`
-(an invented catalogue, feed and generated artwork), and a `"script"` of timed
-keys; the Home and Apps cases catch the page at rest, mid-entrance, with the
-pill stretched, after a row snap and with the recent apps open. The Quick drawer
+(an invented catalogue, feed and generated artwork, the app icons in the kinds
+real ones come in: a dark tile, full-bleed colour, a bare glyph on transparency, a white
+square), and a `"script"` of timed keys; the Home and Apps cases catch the page at rest,
+mid-entrance, with the pill stretched, after a row snap, with the Apps grid scrolled and
+with the recent apps open. The Quick drawer
 (mid-slide, at rest, a list of choices, the switches), Profiles (`"profiles": 3`
 gives the fixture three profiles), the profile editor, title details with and
 without the overview sheet and the search with results each have a case; the
@@ -482,7 +484,8 @@ the tile's app and a missing apps folder are left alone.
 The end-to-end cases (`native-tv/tests/e2e`, run against a real TV with `NATIVETV_TV_HOST`) run the client as the tile's
 app. Four flow cases (`E2E-080` to `E2E-083`, `requires: ["takeover"]`, so only with `--allow takeover`) switch Home on,
 send the Home key from an HDMI input and check the Native Tv app is in front within 5 s and stays, send Back and Home on the
-native Home and check it holds, and switch Home off. They run `scripts/home-flow.js` under the TV's Node, which calls the
+native Home and check it holds, and switch Home off and close the client Home started (one left running refuses every case
+that starts one). They run `scripts/home-flow.js` under the TV's Node, which calls the
 server on loopback (no token) and reads the app in front from the app manager; the steps are a closed vocabulary that
 `run.py --check` enforces, and the flow script itself runs on the host against a stand-in server and `luna-send` in
 `test_runner.py`.
@@ -567,8 +570,10 @@ put it back, and none requires a reboot yet.
 The api cases (kind `api`, from `E2E-100`) are where a bug found by testing a TV goes, so it is checked on a real TV
 with every change: GET requests to the server's own routes, made from the TV under its Node like the flow cases (loopback,
 no token), with the reply's fields compared (`expect` a value, `same` two paths of one reply; `rows[id=x].value` picks the
-array item whose `id` is `x`). They need no `--allow`. A case that has to change a setting would POST, which `--check`
-accepts only with `requires: ["control"]`, and puts the setting back.
+array item whose `id` is `x`; `status` is the HTTP status a reply must have, for one that is not JSON). A read-only case
+needs no `--allow`. A case that has to change a setting POSTs, which `--check` accepts only with `requires: ["control"]`,
+and it puts the setting back (`E2E-101` and `E2E-102`). `E2E-103` is a client run, not an api case, with the same permission:
+it presses OK on a number row of the Game settings and goes round its range.
 
 A result is **pass** when every criterion holds, **floor** when only the interval limits are missed
 and the case's `floor` limits (what the platform has been seen to keep) hold, **fail** otherwise,
@@ -594,6 +599,9 @@ the texture memory, the checkpoints the script took and the size of the capture.
 | E2E-091, 092 | Hold Left then Right on the Quick drawer's volume or light: it loads, never moves against the key, ends settled (`control`) | `quick` |
 | E2E-093 | Quick drawer closes with Back onto Home | `quick` |
 | E2E-100 | Advanced tab's Sound output row is the output the TV is using, not the stored HDMI ARC pick (`api`) | |
+| E2E-101 | The Prometheus address opens and closes with its switch, without a restart (`api`, `control`) | |
+| E2E-102 | Tile hiding refuses while its experimental switch is off and not once it is on, without a restart (`api`, `control`) | |
+| E2E-103 | OK on a number row steps it as a whole number (11, not 11.0) and 21 presses come back to the start (`control`) | `dashboard:game` |
 
 The timing criteria are the target of the client's spec: p50 and p95 of the frame intervals at 60 fps
 (17.0 and 16.8 ms), none over 33 ms, at most 40 draws and 8192 vertices a frame and 64 MB of textures.

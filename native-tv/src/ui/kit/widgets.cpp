@@ -483,6 +483,39 @@ void appTile(Paint paint, const AppTile &tile) {
     hit(scene, look.rect, tile.id);
 }
 
+void appIcon(Paint paint, const AppIcon &app) {
+    focus::Look look = focus::lookAt(app.rest, motion::scale::app, app.focus);
+    if (invisible(app.enter) || offCanvas(look.rect))
+        return;
+    Scene &scene = paint.scene;
+    Group page(scene, app.enter);
+    // 22% of the side, the corner of an app icon on a phone; apps ship square art and the kit rounds it.
+    const float rounding = app.rest.w * .22f;
+    {
+        Transform scale = focus::transformAt(app.rest, look.scale);
+        Group lift(scene, Enter(), look.scale != 1 ? &scale : nullptr);
+        // The tile under the art: the same dark face as the themed icons, so artwork that is
+        // transparent (a bare white glyph) stays readable and one still loading leaves no hole.
+        Node &base = scene.shape(app.rest, color::surface2, rounding);
+        base.gradient = gradient(180, {{color::surface3, 0}, {color::surface1, 1}});
+        applyFocus(base, look);
+        if (!app.image.empty())
+            scene.picture(app.rest, 0, rounding).value = app.image;
+        else
+            paint.glyphs.icon(scene, centreOf(app.rest, app.rest.w * .6f), app.icon, color::accent);
+    }
+    // The square grows about its centre, so the name steps down by half of the growth. A name wider
+    // than the square and a little over wraps to a second line rather than into its neighbour or
+    // past the page's margin.
+    float grown = look.rect.y + look.rect.h - (app.rest.y + app.rest.h);
+    float nameY = app.rest.y + app.rest.h + layout::iconLabelGap + grown;
+    float nameW = app.rest.w + 24;
+    text(paint, {app.rest.x - 12, nameY, nameW, type::labelL.line * 2}, app.name, type::labelL,
+         focus::inkAt(color::onSurface2, color::onSurface, app.focus), Node::Align::Center, 2);
+    hit(scene, {look.rect.x, look.rect.y, look.rect.w, nameY + type::labelL.line - look.rect.y},
+        app.id);
+}
+
 void sparkline(Paint paint, Rect area, const std::vector<float> &samples, float shift) {
     if (samples.size() < 2)
         return;

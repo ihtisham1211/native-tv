@@ -482,7 +482,7 @@ int main() {
         home.key(Key::Right);
         clockMs = run(home, clockMs, 1000);
 
-        // Apps: a six-column grid, no horizontal scroll.
+        // Apps: a seven-column grid, no horizontal scroll.
         home.key(Key::Down);
         clockMs = run(home, clockMs, 800);
         check(home.snapshot()["navigation"].boolean() == false && home.snapshot()["row"].number() == 0 &&
@@ -490,13 +490,13 @@ int main() {
               "Down from the Apps tab lands on the first tile");
         home.key(Key::Right);
         home.key(Key::Down);
-        check(home.snapshot()["column"].number() == 7, "Down moves one grid row of six");
+        check(home.snapshot()["column"].number() == 8, "Down moves one grid row of seven");
         for (int i = 0; i < 2; ++i)
             home.key(Key::Down);
-        check(home.snapshot()["column"].number() == 7,
+        check(home.snapshot()["column"].number() == 8,
               "The grid stops at its last row");
         clockMs = run(home, clockMs, 800);
-        check(motion.value("f:0.7") == 1 && motion.value("f:0.0") == 0,
+        check(motion.value("f:0.8") == 1 && motion.value("f:0.0") == 0,
               "The tile focus follows the grid");
 
         // Back goes up one level at a time.

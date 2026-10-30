@@ -53,9 +53,10 @@ def chunk(kind, body):
     return struct.pack(">I", len(body)) + kind + body + struct.pack(">I", zlib.crc32(kind + body))
 
 
-def png(width, height, rows):
+def png(width, height, rows, alpha=False):
     raw = b"".join(b"\0" + row for row in rows)
-    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)) +
+    return (b"\x89PNG\r\n\x1a\n" +
+            chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6 if alpha else 2, 0, 0, 0)) +
             chunk(b"IDAT", zlib.compress(raw, 6)) + chunk(b"IEND", b""))
 
 
@@ -85,19 +86,30 @@ def landscape(width, height, index):
 
 
 def icon(width, color, index):
+    """The kinds of art an installed app comes with, half of them the themed look: a dark tile with
+    a coloured glyph, then a full-bleed colour with a white glyph, a bare white glyph on
+    transparency and a white square with a coloured glyph."""
     r, g, b = (int(color[i:i + 2], 16) for i in (1, 3, 5))
+    kind = (0, 1, 0, 2, 0, 3)[index % 6]
+    bright = mix((r, g, b), (255, 255, 255), .4)
     rows = []
     for y in range(width):
-        row = bytearray(bytes((r, g, b)) * width)
+        row = bytearray()
         for x in range(width):
             dx, dy = x - width / 2, y - width / 2
             inside = (abs(dx) < width * .22 and abs(dy) < width * .22) if index % 3 == 0 else \
                 (dx * dx + dy * dy < (width * .24) ** 2) if index % 3 == 1 else \
                 (abs(dx) + abs(dy) < width * .26)
-            if inside:
-                row[x * 3:x * 3 + 3] = b"\xf4\xf4\xf6"
+            if kind == 0:
+                row += bytes(bright if inside else mix((0x2A, 0x2D, 0x34), (0x17, 0x19, 0x1D), y / width)) + b"\xff"
+            elif kind == 1:
+                row += bytes((0xF4, 0xF4, 0xF6) if inside else (r, g, b)) + b"\xff"
+            elif kind == 2:
+                row += (b"\xf4\xf4\xf6\xff" if inside else b"\0\0\0\0")
+            else:
+                row += bytes((r, g, b) if inside else (0xF2, 0xF2, 0xF4)) + b"\xff"
         rows.append(bytes(row))
-    return png(width, width, rows)
+    return png(width, width, rows, alpha=True)
 
 
 def item(number):
@@ -217,7 +229,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         elif url.path == "/api/home/icon":
             name = query.get("id", [""])[0]
             index = [a for a, _, _ in APPS].index(name) if name in [a for a, _, _ in APPS] else 0
-            self.send(200, icon(110, APPS[index][2], index), "image/png")
+            self.send(200, icon(192, APPS[index][2], index), "image/png")
         elif url.path == "/api/home/image":
             target = urllib.parse.urlsplit(query.get("u", [""])[0]).path
             self.picture(os.path.basename(target), "w1280" in target)

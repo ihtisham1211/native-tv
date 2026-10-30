@@ -45,7 +45,7 @@ class Registry(unittest.TestCase):
             if case["screen"] == "quick" and holds:
                 self.assertIn("control", case.get("requires", []), case["id"])
         skipped = [case["id"] for case in run.load_registry()["cases"] if "control" in case.get("requires", [])]
-        self.assertEqual(skipped, ["E2E-091", "E2E-092"])
+        self.assertEqual(skipped, ["E2E-091", "E2E-092", "E2E-101", "E2E-102", "E2E-103"])
 
     def test_a_navigate_only_script_may_not_press_ok(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -59,6 +59,14 @@ class Registry(unittest.TestCase):
             finally:
                 run.HERE = real
             self.assertTrue(any("navigate-only" in problem for problem in problems), problems)
+
+    def test_a_flow_may_close_only_the_native_tv_app(self):
+        case = next(c for c in run.load_registry()["cases"] if c["id"] == "E2E-083")
+        close = {"api": "POST /api/control", "body": {"action": "closeApp", "value": run.APP_ID}}
+        self.assertIn(close, case["flow"])
+        self.assertEqual(run.check_registry({"cases": [case]}), [])
+        other = dict(case, flow=case["flow"][:-1] + [dict(close, body={"action": "closeApp", "value": "com.webos.app.home"})])
+        self.assertTrue(any("may not" in problem for problem in run.check_registry({"cases": [other]})))
 
     def test_a_run_is_bounded_and_the_environment_is_closed(self):
         case = dict(last_run_case(), durationMs=61000, env={"LD_PRELOAD": "x"})

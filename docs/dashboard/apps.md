@@ -13,7 +13,7 @@ The **Apps** section has three tabs. **Installed**, `/?tab=apps`, is for removin
 
 Lists the apps downloaded from the LG store or installed by hand, with their version, vendor, and storage badge showing disk footprint. Launch opens the application on the TV, while Uninstall deletes an app completely and frees its storage.
 
-Streaming services such as Netflix, YouTube and Prime Video, and LG's own apps such as the Web Browser, Camera and Media Player, show a matching icon, the brand's colour with its logo in white (LG's apps share one blue), like the Homebrew Channel's, so the list looks alike on the dashboard, on Native Tv Home and in Home Assistant. An app the set does not cover shows the icon it ships with. [Adding an app to the set](../development/implementation.md#app-icons) takes a line or two. LG's built-in apps can't be removed this way; they can be hidden instead.
+Streaming services such as Netflix, YouTube and Prime Video, and LG's own apps such as the Web Browser, Camera and Media Player, show a matching icon: the brand's own logo, in its own colours, on one dark rounded tile (LG's apps get a glyph in one accent colour on the same tile), so the list looks alike on the dashboard, on Native Tv Home and in Home Assistant without changing any brand's look. An app the set does not cover shows the icon it ships with. [Adding an app to the set](../development/implementation.md#app-icons) takes a line or two. LG's built-in apps can't be removed this way; they can be hidden instead.
 
 ### Install homebrew apps
 

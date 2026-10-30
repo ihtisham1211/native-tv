@@ -1296,7 +1296,7 @@
     {
       "id": "E2E-083",
       "title": "Home takeover off",
-      "purpose": "Switching Native Tv Home off gives LG's Home its place back: the switch is accepted, Home is off and the stub is unmounted, and the Home key no longer opens the Native Tv app.",
+      "purpose": "Switching Native Tv Home off gives LG's Home its place back: the switch is accepted, Home is off and the stub is unmounted, and the Home key no longer opens the Native Tv app The client Home started is closed, so the cases after it can run.",
       "kind": "flow",
       "screen": "",
       "env": {},
@@ -1338,13 +1338,20 @@
         {
           "stays": "com.webos.app.home",
           "forMs": 3000
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "closeApp",
+            "value": "com.tvweb.dashboard"
+          }
         }
       ],
       "steps": [
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback and reads the app in front from the app manager.",
-        "Run: POST /api/home/disable, wait 2 s, check enabled and active are false; send Home and check com.webos.app.home (LG's) is in front within 5 s and stays 3 s.",
+        "Run: POST /api/home/disable, wait 2 s, check enabled and active are false; send Home and check com.webos.app.home (LG's) is in front within 5 s and stays 3 s; close the Native Tv app Home had started, since a client left running refuses every case that starts one.",
         "Judge each step; the first that fails ends the flow.",
         "Delete the lock folder."
       ],
@@ -1734,6 +1741,218 @@
       ],
       "criteria": {
         "flowOk": true
+      }
+    },
+    {
+      "id": "E2E-101",
+      "title": "Prometheus address follows its switch",
+      "purpose": "The Server tab's Prometheus switch opens /api/prometheus/metrics while on and closes it while off. The route read the config loaded at start, so the switch did nothing until the server restarted. The case ends with the switch off.",
+      "kind": "api",
+      "requires": [
+        "control"
+      ],
+      "flow": [
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setPrometheusEnabled",
+            "value": false
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "api": "GET /api/prometheus/metrics",
+          "status": 404
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setPrometheusEnabled",
+            "value": true
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "api": "GET /api/prometheus/metrics",
+          "status": 200
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setPrometheusEnabled",
+            "value": false
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "api": "GET /api/prometheus/metrics",
+          "status": 404
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Run: switch Prometheus off and check GET /api/prometheus/metrics answers 404; switch it on and check it answers 200 within a second; switch it off and check 404 again.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      }
+    },
+    {
+      "id": "E2E-102",
+      "title": "Tile hiding follows its experimental switch",
+      "purpose": "The Server tab's Home screen tile hiding switch lets the Apps tab hide built-in apps. The server checked the config it read at start, so the switch changed nothing until a restart. An app that does not exist is asked to be hidden: the answer is the refusal while the switch is off and a different error once it is on, and nothing is hidden. The case ends with the switch off.",
+      "kind": "api",
+      "requires": [
+        "control"
+      ],
+      "flow": [
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setTileHidingAllowed",
+            "value": false
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "api": "POST /api/apps/hide",
+          "body": {
+            "id": "com.glasshouse.bogus"
+          },
+          "status": 400,
+          "expect": {
+            "error": "Hiding system apps is turned off on this TV for now. On webOS 10 and later it can leave the picture, the sound and HDMI control off until the TV is unplugged. Apps already hidden come back after the TV is next fully restarted."
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setTileHidingAllowed",
+            "value": true
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "api": "POST /api/apps/hide",
+          "body": {
+            "id": "com.glasshouse.bogus"
+          },
+          "status": 400,
+          "expect": {
+            "error": "appinfo.json not found for com.glasshouse.bogus"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setTileHidingAllowed",
+            "value": false
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1000
+        },
+        {
+          "api": "POST /api/apps/hide",
+          "body": {
+            "id": "com.glasshouse.bogus"
+          },
+          "status": 400,
+          "expect": {
+            "error": "Hiding system apps is turned off on this TV for now. On webOS 10 and later it can leave the picture, the sound and HDMI control off until the TV is unplugged. Apps already hidden come back after the TV is next fully restarted."
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Run: switch tile hiding off and ask to hide an app that does not exist (400, the refusal that says hiding is turned off); switch it on and ask again (400, appinfo.json not found); switch it off and ask a last time (the refusal).",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      }
+    },
+    {
+      "id": "E2E-103",
+      "title": "Settings number steps as a whole number",
+      "purpose": "OK on a number row (Black stabilizer, 0 to 20) raises it by one and wraps. The client sent 11.0, the TV kept the decimal and every screen showed 11.0 beside White stabilizer's 10. Twenty-one presses go round the range and end where it began, so the setting is put back. The presses are 1.4 s apart: the client ignores an OK while the last write is still on its way.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:game",
+      "script": "settings-number.json",
+      "durationMs": 38400,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/settings-number.json to APP/e2e-ID.json over ssh.",
+        "Run the client on the Game settings: Down twice to Black stabilizer, OK once and read the row (11), OK twenty more times and read it again (back at the start).",
+        "Read the report and judge its checkpoints.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "checkpoints": [
+          {
+            "name": "on-row",
+            "path": "focus",
+            "equals": "Black stabilizer"
+          },
+          {
+            "name": "one",
+            "path": "focusValue",
+            "equals": "11"
+          },
+          {
+            "name": "cycled",
+            "path": "focusValue",
+            "equals": "10"
+          },
+          {
+            "name": "cycled",
+            "path": "focusPending",
+            "equals": false
+          }
+        ]
       }
     }
   ]

@@ -206,20 +206,6 @@ void rows(kit::Paint paint, const Frame &frame) {
     }
 }
 
-// The app's own artwork on its tile, scaled and faded with the tile it sits on.
-void tileArt(kit::Paint paint, const kit::AppTile &tile, const std::string &image) {
-    kit::focus::Look look = kit::focus::lookAt(tile.rest, kit::motion::scale::tile, tile.focus);
-    Scene &scene = paint.scene;
-    scene.pushOpacity(tile.enter.alpha);
-    scene.pushTransform(Transform::translate(0, tile.enter.dy));
-    scene.pushTransform(kit::focus::transformAt(tile.rest, look.scale));
-    scene.picture({tile.rest.x + layout::tilePad, tile.rest.y + layout::tilePad, 44, 44}, 0, 10)
-        .value = image;
-    scene.popTransform();
-    scene.popTransform();
-    scene.popOpacity();
-}
-
 void grid(kit::Paint paint, const Frame &frame) {
     const HomeState &home = frame.state.home;
     const Motion &motion = frame.motion;
@@ -235,24 +221,22 @@ void grid(kit::Paint paint, const Frame &frame) {
     // Rows that scroll away disappear under the page title rather than over it.
     bool clipped = scroll < -.5f;
     if (clipped)
-        paint.scene.pushClip({0, kit::layout::gridTop - 28, kit::canvas::width, kit::canvas::height});
+        paint.scene.pushClip({0, kit::layout::iconTop - 28, kit::canvas::width, kit::canvas::height});
     for (size_t i = 0; i < row.cards.size(); ++i) {
-        Rect rest = kit::geometry::appTile(static_cast<int>(i));
+        Rect rest = kit::geometry::appIcon(static_cast<int>(i));
         rest.y += scroll;
-        if (rest.y > kit::canvas::height + 40 || rest.y + rest.h < kit::layout::gridTop - 60)
+        if (rest.y > kit::canvas::height + 40 || rest.y + rest.h < kit::layout::iconTop - 60)
             continue;
         const Card &card = row.cards[i];
-        kit::AppTile tile;
-        tile.rest = rest;
-        tile.id = home::hit(0, i);
-        tile.name = card.title;
-        tile.icon = card.image.empty() ? (card.id == "lg-home" ? "home" : "apps") : "";
-        tile.color = appColor(card);
-        tile.focus = static_cast<float>(motion.value(home::id("f", 0, i)));
-        tile.enter = enterOf(motion, home::id("EC", 0, i));
-        kit::appTile(paint, tile);
-        if (!card.image.empty())
-            tileArt(paint, tile, card.image);
+        kit::AppIcon app;
+        app.rest = rest;
+        app.id = home::hit(0, i);
+        app.name = card.title;
+        app.icon = card.id == "lg-home" ? "home" : "apps";
+        app.image = card.image;
+        app.focus = static_cast<float>(motion.value(home::id("f", 0, i)));
+        app.enter = enterOf(motion, home::id("EC", 0, i));
+        kit::appIcon(paint, app);
     }
     if (clipped)
         paint.scene.popClip();
