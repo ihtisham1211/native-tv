@@ -225,6 +225,21 @@ void detailPanel(Paint paint, const DetailPanel &panel);
 float pillChip(Paint paint, float x, float y, const std::string &label, bool dot = true,
                float alpha = 1);
 
+// ---- Loading
+// -------------------------------------------------------------------------------------
+
+// The indeterminate circular progress indicator of Material and Google TV: a thin arc in the accent
+// colour that turns at a constant rate, with an optional label under it. The scene has no arcs or
+// rotation, so the arc is drawn as small dots along it that thin out toward the tail; the whole
+// thing is under forty nodes and needs no layer of its own.
+struct Loading {
+    Rect area;         // the indicator is centred in it, and the label sits under
+    std::string label; // "Loading..." or what is being read
+    float phase = 0;   // 0..1 of a turn: spinnerPhase() in tuning.hpp turns it at a constant rate
+    Enter enter;
+};
+void loadingIndicator(Paint paint, const Loading &loading);
+
 // ---- Keyboard -----------------------------------------------------------------------------------
 
 struct KeyCap {

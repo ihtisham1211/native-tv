@@ -651,6 +651,46 @@ void statsAndSettings() {
           "The detail panel lays out well, title, body, chips and hint like the prototype");
 }
 
+void loading() {
+    // The loading indicator is a few dozen dots and a label, centred in its area and turning.
+    kit::Loading loading;
+    loading.area = {640, 288, 1200, 740};
+    loading.label = "Loading...";
+    Fixture start, turned, hidden;
+    kit::loadingIndicator(start.paint(), loading);
+    loading.phase = .25f;
+    kit::loadingIndicator(turned.paint(), loading);
+    loading.enter = {0, 0};
+    kit::loadingIndicator(hidden.paint(), loading);
+    size_t dots = countKind(start.scene, Node::Kind::Rectangle);
+    check(dots >= 16 && dots <= 40 && start.scene.nodes.size() <= 41 &&
+              turned.scene.nodes.size() == start.scene.nodes.size(),
+          "The loading indicator is under forty nodes and needs no layer");
+    float centreX = 0, centreY = 0, farthest = 0;
+    for (const auto &node : start.scene.nodes)
+        if (node.kind == Node::Kind::Rectangle) {
+            centreX += node.rect.x + node.rect.w / 2;
+            centreY += node.rect.y + node.rect.h / 2;
+        }
+    centreX /= static_cast<float>(dots);
+    centreY /= static_cast<float>(dots);
+    for (const auto &node : start.scene.nodes)
+        if (node.kind == Node::Kind::Rectangle)
+            farthest = std::max(farthest, std::fabs(node.rect.x + node.rect.w / 2 - 1240) +
+                                              std::fabs(node.rect.y + node.rect.h / 2 - 636));
+    check(textNode(start.scene, "Loading...") &&
+              textNode(start.scene, "Loading...")->rect.y > 636 && farthest < 80 &&
+              std::fabs(centreX - 1240) < 40 && std::fabs(centreY - 636) < 40,
+          "The loading indicator sits in the middle of its area with the label under it");
+    bool moved = false;
+    for (size_t i = 0; i < start.scene.nodes.size() && i < turned.scene.nodes.size(); ++i)
+        if (start.scene.nodes[i].kind == Node::Kind::Rectangle &&
+            !near(start.scene.nodes[i].rect.x, turned.scene.nodes[i].rect.x, .5f))
+            moved = true;
+    check(moved, "The loading indicator's arc moves with the phase");
+    check(hidden.scene.nodes.empty(), "A loading indicator that has not entered draws nothing");
+}
+
 void galleries() {
     // Every designed screen emits a bounded number of nodes, stays balanced and is reachable
     // from `--screen kit:<name>`.
@@ -765,6 +805,7 @@ int main() {
         barAndHero();
         rows();
         statsAndSettings();
+        loading();
         keys();
         galleries();
         realGlyphs();

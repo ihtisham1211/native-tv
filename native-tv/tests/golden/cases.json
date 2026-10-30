@@ -429,6 +429,52 @@
       ]
     },
     {
+      "name": "settings-subsections",
+      "time": 4500,
+      "fixture": "dashboard",
+      "args": [
+        "--screen",
+        "dashboard:apps"
+      ],
+      "script": [
+        {
+          "at": 2500,
+          "key": "up"
+        },
+        {
+          "at": 2700,
+          "key": "right"
+        },
+        {
+          "at": 2900,
+          "key": "right"
+        }
+      ]
+    },
+    {
+      "name": "settings-follows",
+      "time": 4500,
+      "fixture": "dashboard",
+      "args": [
+        "--screen",
+        "dashboard"
+      ],
+      "script": [
+        {
+          "at": 2500,
+          "key": "down"
+        },
+        {
+          "at": 2700,
+          "key": "down"
+        },
+        {
+          "at": 2900,
+          "key": "down"
+        }
+      ]
+    },
+    {
       "name": "catalog-grid",
       "time": 3500,
       "fixture": "dashboard",

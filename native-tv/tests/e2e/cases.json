@@ -450,17 +450,17 @@
     {
       "id": "E2E-050",
       "title": "Settings navigation",
-      "purpose": "Keys move through a Settings section and across sections; no OK is pressed.",
+      "purpose": "Keys move between the list of sections, the subsections of one and its rows; Left and Right never change the section, and Left from the rows returns to the list; no OK is pressed.",
       "kind": "run",
-      "screen": "dashboard:privacy",
+      "screen": "dashboard:apps",
       "script": "settings-nav.json",
-      "durationMs": 16000,
+      "durationMs": 16500,
       "navigateOnly": true,
       "steps": [
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Copy scripts/settings-nav.json to APP/e2e-ID.json over ssh.",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 31 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen dashboard:privacy --duration-ms 16000 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 31 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen dashboard:apps --duration-ms 16500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -474,7 +474,119 @@
         "drawsMax": 40,
         "verticesMax": 8192,
         "textureMbMax": 64,
-        "intervalsMin": 150
+        "intervalsMin": 150,
+        "checkpoints": [
+          {
+            "name": "opened",
+            "path": "zone",
+            "equals": "rows"
+          },
+          {
+            "name": "opened",
+            "path": "section",
+            "equals": "apps"
+          },
+          {
+            "name": "list",
+            "path": "zone",
+            "equals": "sections"
+          },
+          {
+            "name": "list",
+            "path": "section",
+            "equals": "apps"
+          },
+          {
+            "name": "list-stays",
+            "path": "zone",
+            "equals": "sections"
+          },
+          {
+            "name": "list-stays",
+            "path": "section",
+            "equals": "apps"
+          },
+          {
+            "name": "inside",
+            "path": "zone",
+            "equals": "rows"
+          },
+          {
+            "name": "inside",
+            "path": "section",
+            "equals": "apps"
+          },
+          {
+            "name": "tabs",
+            "path": "zone",
+            "equals": "tabs"
+          },
+          {
+            "name": "tabs-moved",
+            "path": "zone",
+            "equals": "tabs"
+          },
+          {
+            "name": "tabs-moved",
+            "path": "page",
+            "equals": "Home screen"
+          },
+          {
+            "name": "tabs-moved",
+            "path": "section",
+            "equals": "apps"
+          },
+          {
+            "name": "rows",
+            "path": "zone",
+            "equals": "rows"
+          },
+          {
+            "name": "list-again",
+            "path": "zone",
+            "equals": "sections"
+          },
+          {
+            "name": "list-again",
+            "path": "section",
+            "equals": "apps"
+          },
+          {
+            "name": "next-section",
+            "path": "zone",
+            "equals": "sections"
+          },
+          {
+            "name": "next-section",
+            "path": "section",
+            "equals": "oled"
+          },
+          {
+            "name": "prev-section",
+            "path": "section",
+            "equals": "apps"
+          },
+          {
+            "name": "stays-in",
+            "path": "zone",
+            "equals": "rows"
+          },
+          {
+            "name": "stays-in",
+            "path": "section",
+            "equals": "apps"
+          },
+          {
+            "name": "end",
+            "path": "zone",
+            "equals": "sections"
+          },
+          {
+            "name": "end",
+            "path": "section",
+            "equals": "apps"
+          }
+        ]
       },
       "floor": {
         "p95Max": 20.0,
@@ -537,17 +649,17 @@
     {
       "id": "E2E-052",
       "title": "Settings sections",
-      "purpose": "Up and Down over the list of Settings sections; no OK is pressed.",
+      "purpose": "Up and Down over the list of sections; the page beside it follows; no OK is pressed.",
       "kind": "run",
       "screen": "dashboard",
       "script": "settings-groups.json",
-      "durationMs": 9500,
+      "durationMs": 10500,
       "navigateOnly": true,
       "steps": [
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Copy scripts/settings-groups.json to APP/e2e-ID.json over ssh.",
-        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 24 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen dashboard --duration-ms 9500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 25 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen dashboard --duration-ms 10500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
         "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
         "Delete the temporary files and the lock folder."
       ],
@@ -561,7 +673,115 @@
         "drawsMax": 40,
         "verticesMax": 8192,
         "textureMbMax": 64,
-        "intervalsMin": 80
+        "intervalsMin": 80,
+        "checkpoints": [
+          {
+            "name": "first",
+            "path": "zone",
+            "equals": "sections"
+          },
+          {
+            "name": "first",
+            "path": "section",
+            "equals": "system"
+          },
+          {
+            "name": "last",
+            "path": "zone",
+            "equals": "sections"
+          },
+          {
+            "name": "last",
+            "path": "section",
+            "equals": "settings"
+          },
+          {
+            "name": "top",
+            "path": "zone",
+            "equals": "sections"
+          },
+          {
+            "name": "top",
+            "path": "section",
+            "equals": "system"
+          }
+        ]
+      },
+      "floor": {
+        "p95Max": 20.0,
+        "over33Max": 3
+      }
+    },
+    {
+      "id": "E2E-053",
+      "title": "Settings bottom of a list",
+      "purpose": "The focus goes to the last row of a Metrics page and stays there through the page's refresh; no OK is pressed.",
+      "kind": "run",
+      "screen": "dashboard:system",
+      "script": "settings-bottom.json",
+      "durationMs": 17500,
+      "navigateOnly": true,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Copy scripts/settings-bottom.json to APP/e2e-ID.json over ssh.",
+        "Run: cd APP && env XDG_RUNTIME_DIR=/tmp/xdg timeout 32 /usr/bin/jailer -t native_devmode -i com.tvweb.dashboard -p APP APP/nativetv-tv '{\"@system_native_app\":true,\"nid\":\"com.tvweb.dashboard\"}' --server http://127.0.0.1:PORT --screen dashboard:system --duration-ms 17500 --script APP/e2e-ID.json --perf /tmp/nativetv-e2e-ID.perf.jsonl --capture /tmp/nativetv-e2e-ID.ppm --report /tmp/nativetv-e2e-ID.report.json",
+        "Read the perf log, the report and the size of the capture, and judge them against the criteria.",
+        "Delete the temporary files and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "p50Max": 17.0,
+        "p95Max": 16.8,
+        "over33Max": 0,
+        "capture": true,
+        "drawsMax": 40,
+        "verticesMax": 8192,
+        "textureMbMax": 64,
+        "intervalsMin": 80,
+        "checkpoints": [
+          {
+            "name": "opened",
+            "path": "zone",
+            "equals": "rows"
+          },
+          {
+            "name": "opened",
+            "path": "focusLast",
+            "equals": false
+          },
+          {
+            "name": "bottom",
+            "path": "focusLast",
+            "equals": true
+          },
+          {
+            "name": "bottom",
+            "path": "zone",
+            "equals": "rows"
+          },
+          {
+            "name": "after-refresh",
+            "path": "focusLast",
+            "equals": true
+          },
+          {
+            "name": "after-refresh",
+            "path": "zone",
+            "equals": "rows"
+          },
+          {
+            "name": "moved-up",
+            "path": "focusLast",
+            "equals": false
+          },
+          {
+            "name": "back-down",
+            "path": "focusLast",
+            "equals": true
+          }
+        ]
       },
       "floor": {
         "p95Max": 20.0,

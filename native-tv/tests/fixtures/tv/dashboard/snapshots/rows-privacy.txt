@@ -1,11 +1,14 @@
+## Overview
 == Tracking and ads overview
 action  3 things are still on = Switch it all off -> Switch it all off <shield>
 info    Advertising = 1 still on <shield>
 info    Tracking = 2 still on <shield>
+## Blocking
 == Ad and tracker blocking
-action  Blocking = Ads & telemetry -> Change (confirms) <shield>
+choice  Blocking = Ads & telemetry -> Change (confirms) {3 values} <shield>
 == System updates
 toggle  Block TV software updates = Allowed [off] -> Turn on <shield>
+## LG ads
 == LG ads and promotions
 toggle  Screen saver ads = Off [off] -> Turn on <shield>
 toggle  Sponsored tiles on Home = Off [off] -> Turn on <apps>
@@ -13,6 +16,7 @@ toggle  Recommendations on Home = Off [off] -> Turn on <shield>
 toggle  Ads while watching = Off [off] -> Turn on <shield>
 toggle  Smart tips = Off [off] -> Turn on <shield>
 toggle  Smart tips in Settings = Off [off] -> Turn on <shield>
+## Tracking
 == Screen content recognition
 toggle  Live Plus = On [on] -> Turn off <shield>
 info    Recognition service = Running, idle <shield>
@@ -20,6 +24,7 @@ info    Capture = Stopped <shield>
 == Advertising identifier
 toggle  Limit ad tracking = Off [off] -> Turn on <shield>
 action  Reset the advertising ID -> Reset <refresh>
+## Data
 == Data consents
 link    Consents switched on = 1 of 1 -> Open <shield>
 link    LG data services running = 1 of 1 -> Open <shield>

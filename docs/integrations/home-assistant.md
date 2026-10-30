@@ -155,7 +155,7 @@ Native Tv can share the TV's app icons with other devices on the network, so a d
 ### Switching it on
 
 1. Open the dashboard's **MQTT** tab, set **Share app icons** to **Enabled**, and select **Save & restart**.
-2. The TV then serves each installed app's icon at `http://<tv-ip>:8082/icons/<appId>.png`. Anyone on the network can fetch them, and so tell which apps are installed.
+2. The TV then serves each installed app's icon at `http://<tv-ip>:8082/icons/<appId>.png`: the shared-tile icon where the [app icon set](../development/implementation.md#app-icons) has one, otherwise the icon the app ships with. Anyone on the network can fetch them, and so tell which apps are installed.
 
 ### What Home Assistant receives
 

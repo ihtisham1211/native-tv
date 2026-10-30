@@ -7,6 +7,7 @@
 #include "daemon/hostname_cache.hpp"
 #include "daemon/http_proxy.hpp"
 #include "daemon/http_static_assets.hpp"
+#include "service/admin_pin.hpp"
 #include "service/app_catalog.hpp"
 #include "service/app_package_inspector.hpp"
 #include "service/app_package_fetcher.hpp"
@@ -221,6 +222,13 @@ class HttpFrontDoor {
     void handleBackupRestore(HttpExchange &exchange, const std::string &body) const;
     void setNativeDailyBackup(HttpExchange &exchange) const;
     void sendAppIcon(HttpExchange &exchange) const;
+    // The admin PIN (service/admin_pin.hpp): its routes, and the check the risky routes share.
+    bool adminAllowed(HttpExchange &exchange) const;
+    void sendAdminStatus(HttpExchange &exchange) const;
+    void handleAdminUnlock(HttpExchange &exchange) const;
+    void handleAdminLock(HttpExchange &exchange) const;
+    void handleAdminPin(HttpExchange &exchange) const;
+    void setupAdminPin(HttpExchange &exchange, const Json &payload) const;
     std::string activeHandoffUrl() const;
     std::string collectCpuMetrics() const;
     Json withStatsWindows(const Json &system, const std::string &reader) const;
@@ -411,6 +419,7 @@ class HttpFrontDoor {
     mutable std::atomic<bool> samRestartedThisRun_{false};
     service::AppPackageDownload appPackageFetcher_;
     std::string dataRoot_;
+    mutable service::AdminPin adminPin_;
     mutable service::HomeContent homeContent_;
     mutable service::HomeDiscover homeDiscover_;
     mutable service::HomeImageProxy homeImageProxy_;

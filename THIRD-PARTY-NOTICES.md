@@ -15,6 +15,7 @@ the path given, or is the licence named by its SPDX id at the address given.
 | [Roboto](https://github.com/googlefonts/roboto-3-classic) | Text of the dashboards and TV pages, cut to Latin as WOFF | Apache-2.0 | [native-tv/assets/fonts/LICENSE-Roboto.txt](native-tv/assets/fonts/LICENSE-Roboto.txt) |
 | [Figtree](https://github.com/erikdkennedy/figtree) | Text of the native TV client | OFL-1.1 | [native-tv/assets/fonts/LICENSE-Figtree-OFL.txt](native-tv/assets/fonts/LICENSE-Figtree-OFL.txt) |
 | [Material Design Icons](https://pictogrammers.com/library/mdi/) (`@mdi/js`) | The TV client's icons in `native-tv/assets/icons/material/` | Apache-2.0 | [native-tv/assets/icons/material/LICENSE-MaterialDesignIcons.txt](native-tv/assets/icons/material/LICENSE-MaterialDesignIcons.txt) |
+| [Dashboard Icons](https://github.com/homarr-labs/dashboard-icons) | The brand logos of the themed app icons in `native-tv/assets/app-icons/app-icons.pack` | Apache-2.0 | [native-tv/assets/app-icons/LICENSE-DashboardIcons.txt](native-tv/assets/app-icons/LICENSE-DashboardIcons.txt) |
 | [Material Symbols](https://fonts.google.com/icons) (Google), Rounded | The icon sprite in `native-tv/web/ui.html` | Apache-2.0 | [Apache-2.0](https://www.apache.org/licenses/LICENSE-2.0), the text in the two Apache-2.0 files above |
 
 ## Linked from the webOSbrew SDK
@@ -44,5 +45,7 @@ Google's TV Design Kit. No file of the kit is included; the values were
 re-created in `native-tv/design/` and `native-tv/assets/google-tv/`. Google,
 Android TV, Google TV and Material Design are trademarks of Google LLC. LG and
 webOS are trademarks of LG Electronics. Native Tv is not affiliated with either.
+The brand logos in the app icon set belong to their owners, who do not endorse
+Native Tv; they are shown only to tell the apps apart.
 
 The project the code descends from is credited in the [README](README.md#credits).

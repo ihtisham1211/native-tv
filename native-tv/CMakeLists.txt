@@ -124,7 +124,7 @@ add_library(nativetv_tv_services src/service/control_commands.cpp
   src/service/app_package_fetcher.cpp src/service/app_package_inspector.cpp
   src/service/app_package_policy.cpp src/service/app_install_preview.cpp
   src/service/app_install_space.cpp
-  src/service/app_icons.cpp src/service/backup.cpp
+  src/service/admin_pin.cpp src/service/app_icons.cpp src/service/backup.cpp
   src/service/quick_access.cpp src/service/screen_time.cpp
   src/service/screensaver_policy.cpp
   src/service/stats_fields.cpp
@@ -382,6 +382,10 @@ if(BUILD_TESTING)
   target_link_libraries(native-home-image-proxy-tests PRIVATE nativetv_tv_services)
   target_compile_options(native-home-image-proxy-tests PRIVATE -Wall -Wextra -Werror -UNDEBUG)
   add_test(NAME native-home-image-proxy COMMAND native-home-image-proxy-tests)
+  add_executable(native-admin-pin-tests tests/admin_pin.cpp)
+  target_link_libraries(native-admin-pin-tests PRIVATE nativetv_tv_services)
+  target_compile_options(native-admin-pin-tests PRIVATE -Wall -Wextra -Werror)
+  add_test(NAME native-admin-pin COMMAND native-admin-pin-tests)
   add_executable(native-app-icons-tests tests/app_icons.cpp)
   target_link_libraries(native-app-icons-tests PRIVATE nativetv_tv_services)
   target_compile_options(native-app-icons-tests PRIVATE -Wall -Wextra -Werror)

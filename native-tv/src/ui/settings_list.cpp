@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <map>
 
 namespace nativetv {
 namespace {
@@ -12,6 +13,8 @@ namespace layout = kit::layout;
 constexpr float kLabelHeight = 40, kLabelGap = 12;
 constexpr size_t kEntranceRows = 12; // rows past the first screenful have no entrance
 constexpr int kPanelOutMs = 80, kPanelInMs = 200;
+constexpr int kFadeMs = 180;        // a list replaced by another in the same place
+constexpr float kPendingFade = .3f; // how much of its strength a row loses while its change is out
 
 float labelHeight(const SettingItem &item) {
     return item.kind == SettingItem::Kind::Heading ? kLabelHeight : layout::srowH;
@@ -36,25 +39,36 @@ std::vector<float> SettingsList::layout(const std::vector<SettingItem> &items, f
     return tops;
 }
 
-// The list follows once focus passes the 4th row, as the kit's fixed-pitch list does, and keeps
-// the section label with the first row under it.
-float SettingsList::scrollTarget(const std::vector<float> &tops, size_t focus, float total) {
+// The list follows once focus passes the middle of what is in view, as the kit's fixed-pitch list
+// does, and keeps the section label with the first row under it.
+float SettingsList::scrollTarget(const std::vector<float> &tops, size_t focus, float total,
+                                 float viewportHeight) {
     if (focus >= tops.size())
         return 0;
     float anchor = tops[focus];
     if (focus && tops[focus - 1] < anchor && anchor - tops[focus - 1] <= kLabelHeight)
         anchor = tops[focus - 1];
-    float visible = layout::listH - layout::srowGap;
+    float pitch = kit::geometry::settingsRowPitch();
+    float visible = viewportHeight - layout::srowGap;
     float room = std::max(0.0f, total - visible);
-    float wanted = anchor - 3 * kit::geometry::settingsRowPitch();
+    int keep = std::max(1, static_cast<int>(visible / pitch) / 2);
+    float wanted = anchor - static_cast<float>(keep) * pitch;
     return -kit::geometry::clamp(wanted, 0, room);
 }
 
-void SettingsList::set(ScreenHost &host, std::vector<SettingItem> items, bool fresh) {
+void SettingsList::set(ScreenHost &host, std::vector<SettingItem> items, Reset reset) {
     Motion &motion = host.motion();
-    std::string focusedTitle = current() ? current()->title : "";
+    const bool fresh = reset != Reset::Keep;
+    std::string focusedId = focusId();
     std::vector<SettingItem> before = std::move(items_);
     items_ = std::move(items);
+    {
+        // A row with no id of its own is named by its title and which of that title it is.
+        std::map<std::string, int> seen;
+        for (SettingItem &item : items_)
+            if (item.id.empty())
+                item.id = item.title + "#" + std::to_string(seen[item.title]++);
+    }
     tops_ = layout(items_, total_);
     if (fresh) {
         motion.erasePrefix(prefix_ + ":");
@@ -63,18 +77,20 @@ void SettingsList::set(ScreenHost &host, std::vector<SettingItem> items, bool fr
             ++focus_;
         Timeline timeline;
         for (size_t i = 0; i < items_.size() && i < kEntranceRows; ++i)
-            timeline.add(id("E", i),
-                         Tween(1, 0, ms::base, kit::easing(kit::motion::ease::out),
-                               kit::motion::stagger::pageBase +
-                                   kit::motion::stagger::pageItem *
-                                       std::min<int>(static_cast<int>(i),
-                                                     kit::motion::stagger::pageItemMax)));
+            timeline.add(id("E", std::to_string(i)),
+                         reset == Reset::Fade
+                             ? Tween(1, 0, kFadeMs, kit::easing(kit::motion::ease::out))
+                             : Tween(1, 0, ms::base, kit::easing(kit::motion::ease::out),
+                                     kit::motion::stagger::pageBase +
+                                         kit::motion::stagger::pageItem *
+                                             std::min<int>(static_cast<int>(i),
+                                                           kit::motion::stagger::pageItemMax)));
         timeline.play(motion);
     } else {
         // The focus follows its row, which may have moved; a row that went leaves it where it was.
         size_t found = items_.size();
         for (size_t i = 0; i < items_.size(); ++i)
-            if (items_[i].focusable() && items_[i].title == focusedTitle) {
+            if (items_[i].focusable() && items_[i].id == focusedId) {
                 found = i;
                 break;
             }
@@ -88,30 +104,48 @@ void SettingsList::set(ScreenHost &host, std::vector<SettingItem> items, bool fr
                 --focus_;
         }
     }
-    for (size_t i = 0; i < items_.size(); ++i) {
-        if (items_[i].kind != SettingItem::Kind::Toggle)
-            continue;
-        double target = items_[i].on ? 1 : 0;
-        bool same = !fresh && i < before.size() && before[i].title == items_[i].title;
-        if (same)
-            motion.tween(id("on", i), target, ms::fast, kit::easing(kit::motion::ease::out));
+    std::map<std::string, const SettingItem *> before_by_id;
+    for (const SettingItem &item : before)
+        before_by_id[item.id] = &item;
+    for (const SettingItem &item : items_) {
+        if (item.kind == SettingItem::Kind::Toggle) {
+            double target = item.on ? 1 : 0;
+            if (!fresh && before_by_id.count(item.id))
+                motion.tween(id("on", item.id), target, ms::fast,
+                             kit::easing(kit::motion::ease::out));
+            else
+                motion.set(id("on", item.id), target);
+        }
+        double pending = item.pending ? 1 : 0;
+        if (!fresh && before_by_id.count(item.id))
+            motion.tween(id("pn", item.id), pending, ms::focus,
+                         kit::easing(kit::motion::ease::out));
         else
-            motion.set(id("on", i), target);
+            motion.set(id("pn", item.id), pending);
     }
     shown_ = focus_;
     swapping_ = false;
     motion.set(prefix_ + ":pd", 0);
     for (size_t i = 0; i < items_.size(); ++i)
-        motion.set(id("f", i), !fresh && onPage_ && i == focus_ ? 1 : 0);
+        motion.set(id("f", items_[i].id), !fresh && onPage_ && i == focus_ ? 1 : 0);
     if (fresh && onPage_ && focus_ < items_.size())
-        motion.tween(id("f", focus_), 1, ms::focus, kit::easing(kit::motion::ease::out),
+        motion.tween(id("f", items_[focus_].id), 1, ms::focus, kit::easing(kit::motion::ease::out),
                      kit::motion::stagger::pageBase);
     retarget(host, fresh);
     host.invalidate();
 }
 
+void SettingsList::moveViewport(ScreenHost &host, Rect viewport) {
+    if (viewport.x == style_.viewport.x && viewport.y == style_.viewport.y &&
+        viewport.w == style_.viewport.w && viewport.h == style_.viewport.h)
+        return;
+    style_.viewport = viewport;
+    retarget(host, true);
+    host.invalidate();
+}
+
 void SettingsList::retarget(ScreenHost &host, bool jump) {
-    double target = scrollTarget(tops_, focus_, total_);
+    double target = scrollTarget(tops_, focus_, total_, style_.viewport.h);
     if (jump)
         host.motion().set(prefix_ + ":sy", target);
     else
@@ -128,13 +162,21 @@ void SettingsList::select(ScreenHost &host, size_t index) {
         return;
     Motion &motion = host.motion();
     if (onPage_) {
-        motion.tween(id("f", focus_), 0, ms::focus, kit::easing(kit::motion::ease::out));
-        motion.tween(id("f", index), 1, ms::focus, kit::easing(kit::motion::ease::out));
+        motion.tween(id("f", items_[focus_].id), 0, ms::focus, kit::easing(kit::motion::ease::out));
+        motion.tween(id("f", items_[index].id), 1, ms::focus, kit::easing(kit::motion::ease::out));
     }
     focus_ = index;
     retarget(host, false);
     startSwap(host);
     host.invalidate();
+}
+
+void SettingsList::selectId(ScreenHost &host, const std::string &wanted) {
+    for (size_t i = 0; i < items_.size(); ++i)
+        if (items_[i].id == wanted && items_[i].focusable()) {
+            select(host, i);
+            return;
+        }
 }
 
 bool SettingsList::move(ScreenHost &host, int direction, int rows) {
@@ -164,17 +206,31 @@ void SettingsList::focusFirst(ScreenHost &host) {
         select(host, first);
 }
 
+void SettingsList::focusLast(ScreenHost &host) {
+    size_t last = items_.size();
+    while (last > 0 && !items_[last - 1].focusable())
+        --last;
+    if (last)
+        select(host, last - 1);
+}
+
 void SettingsList::show(ScreenHost &host, bool onPage) {
     if (onPage == onPage_)
         return;
     onPage_ = onPage;
     if (focus_ < items_.size())
-        host.motion().tween(id("f", focus_), onPage ? 1 : 0, ms::focus,
+        host.motion().tween(id("f", items_[focus_].id), onPage ? 1 : 0, ms::focus,
                             kit::easing(kit::motion::ease::out));
+    if (onPage)
+        startSwap(host);
     host.invalidate();
 }
 
-// The panel dips for the first 80 ms of a change of row, swaps its words while it is hidden, and
+void SettingsList::refreshDetail(ScreenHost &host) {
+    startSwap(host);
+}
+
+// The detail dips for the first 80 ms of a change of row, swaps its words while it is hidden, and
 // comes back (spec 5.9).
 void SettingsList::update(ScreenHost &host) {
     Motion &motion = host.motion();
@@ -204,36 +260,31 @@ void SettingsList::clear(ScreenHost &host) {
     swapping_ = false;
 }
 
-void SettingsList::build(ScreenHost &host, kit::Paint paint, const std::string &empty) {
+void SettingsList::build(ScreenHost &host, kit::Paint paint) {
     Motion &motion = host.motion();
     Scene &scene = paint.scene;
-    if (items_.empty()) {
-        if (!empty.empty())
-            paint.glyphs.text(scene,
-                              {kit::canvas::safeX, layout::listTop + 24, 840, kit::type::body.line},
-                              empty, kit::type::body, kit::color::onSurface2);
+    if (items_.empty())
         return;
-    }
-    const Rect viewport = kit::geometry::settingsViewport();
+    const Rect &viewport = style_.viewport;
     const float scroll = static_cast<float>(motion.value(prefix_ + ":sy"));
     scene.pushClip(viewport);
     for (size_t i = 0; i < items_.size(); ++i) {
         const SettingItem &item = items_[i];
-        Rect rest = {kit::canvas::safeX, viewport.y + layout::srowGap + tops_[i] + scroll,
-                     layout::listW, labelHeight(item)};
+        Rect rest = {style_.rowX, viewport.y + layout::srowGap + tops_[i] + scroll, style_.rowW,
+                     labelHeight(item)};
         if (rest.y + rest.h < viewport.y - 30 || rest.y > viewport.y + viewport.h + 30)
             continue;
-        double hidden = motion.value(id("E", i));
+        double hidden = motion.value(id("E", std::to_string(i)));
         kit::Enter enter = {static_cast<float>(1 - hidden), static_cast<float>(28 * hidden)};
         if (item.kind == SettingItem::Kind::Heading) {
             // A label scrolling under the top edge fades out rather than being cut through.
             float edge = kit::focus::clamp01((rest.y + 14 - viewport.y) / 24);
             scene.pushOpacity(enter.alpha * edge);
             scene.pushTransform(Transform::translate(0, enter.dy));
-            paint.glyphs.text(scene,
-                              {rest.x + layout::srowPadLeft, rest.y + 14, layout::listW - 40,
-                               kit::type::labelM.line},
-                              item.title, kit::type::labelM, kit::color::onSurface3);
+            paint.glyphs.text(
+                scene,
+                {rest.x + layout::srowPadLeft, rest.y + 14, rest.w - 40, kit::type::labelM.line},
+                item.title, kit::type::labelM, kit::color::onSurface3);
             scene.popTransform();
             scene.popOpacity();
             continue;
@@ -245,17 +296,35 @@ void SettingsList::build(ScreenHost &host, kit::Paint paint, const std::string &
         row.title = item.title;
         row.value = item.value;
         row.toggle = item.kind == SettingItem::Kind::Toggle;
-        row.on = static_cast<float>(motion.value(id("on", i)));
-        row.focus = static_cast<float>(motion.value(id("f", i)));
+        row.on = static_cast<float>(motion.value(id("on", item.id)));
+        row.focus = static_cast<float>(motion.value(id("f", item.id)));
         row.enter = enter;
+        row.enter.alpha *= 1 - kPendingFade * static_cast<float>(motion.value(id("pn", item.id)));
         kit::settingsRow(paint, row);
+        float pending = static_cast<float>(motion.value(id("pn", item.id)));
+        if (pending > .01f) {
+            // Its change is on its way: a small dot that breathes at the row's right edge.
+            float phase = kit::spinnerPhase(motion, prefix_ + ":pulse");
+            float pulse = .5f + .5f * std::sin(phase * 6.2831853f);
+            Color ink = kit::focus::mix(kit::color::accent, kit::color::onAccent, row.focus);
+            scene.shape(
+                {rest.x + rest.w - 16, rest.y + (rest.h - 8) / 2, 8, 8},
+                kit::focus::withAlpha(ink, pending * (.35f + .65f * pulse) * row.enter.alpha), 4);
+        }
+        if (style_.marksSelected && i == focus_ && row.focus < 1) {
+            // The section the page shows, while the focus is on the page.
+            Node &mark = scene.shape(rest, kit::alpha::accentDim, kit::radius::lg);
+            mark.opacity = (1 - row.focus) * row.enter.alpha;
+        }
     }
     scene.popClip();
+}
 
+void SettingsList::buildPanel(ScreenHost &host, kit::Paint paint) {
     if (shown_ >= items_.size() || items_[shown_].kind == SettingItem::Kind::Heading)
         return;
     const SettingItem &item = items_[shown_];
-    double dip = motion.value(prefix_ + ":pd");
+    double dip = host.motion().value(prefix_ + ":pd");
     kit::DetailPanel panel;
     panel.icon = item.icon;
     panel.title = item.title;
@@ -266,5 +335,50 @@ void SettingsList::build(ScreenHost &host, kit::Paint paint, const std::string &
     panel.bodyLines = std::max(1, std::min(5, static_cast<int>(std::ceil(bodyWidth / 640))));
     panel.enter = {static_cast<float>(1 - dip), static_cast<float>(10 * dip)};
     kit::detailPanel(paint, panel);
+}
+
+// What the focused row is and does, along the foot of a page: its name, what it reads, what OK
+// does to it, and its words under that.
+void SettingsList::buildStrip(ScreenHost &host, kit::Paint paint, Rect box) {
+    if (shown_ >= items_.size() || items_[shown_].kind == SettingItem::Kind::Heading)
+        return;
+    const SettingItem &item = items_[shown_];
+    Scene &scene = paint.scene;
+    double dip = host.motion().value(prefix_ + ":pd");
+    scene.pushOpacity(static_cast<float>(1 - dip));
+    scene.pushTransform(Transform::translate(0, static_cast<float>(10 * dip)));
+    Node &card = scene.shape(box, kit::color::surface1, kit::radius::xl);
+    card.ring = {1, 0, kit::alpha::outline};
+    const float left = box.x + 28, inner = box.w - 56;
+    float titleWidth = std::min(paint.glyphs.measure(item.title, kit::type::title), inner * .45f);
+    paint.glyphs.text(scene, {left, box.y + 20, titleWidth + 4, kit::type::title.line}, item.title,
+                      kit::type::title, kit::color::onSurface);
+    // The OK hint at the right end, the chips between it and the title.
+    float hintWidth = 0;
+    if (!item.action.empty()) {
+        float capWidth = std::max(30.0f, paint.glyphs.measure("OK", kit::type::cap) + 24);
+        float textWidth = paint.glyphs.measure(item.action, kit::type::labelM);
+        hintWidth = capWidth + 12 + textWidth;
+        float x = box.x + box.w - 28 - hintWidth, y = box.y + 23;
+        scene.shape({x, y, capWidth, 30}, kit::color::surface3, kit::radius::sm);
+        paint.glyphs.text(scene,
+                          {x, y + (30 - kit::type::cap.line) / 2, capWidth, kit::type::cap.line},
+                          "OK", kit::type::cap, kit::color::onSurface2, Node::Align::Center);
+        paint.glyphs.text(scene,
+                          {x + capWidth + 12, y + (30 - kit::type::labelM.line) / 2, textWidth + 8,
+                           kit::type::labelM.line},
+                          item.action, kit::type::labelM, kit::color::onSurface3);
+    }
+    float x = left + titleWidth + 24, limit = box.x + box.w - 28 - hintWidth - 24;
+    for (const std::string &chip : item.chips) {
+        float width = paint.glyphs.measure(chip, kit::type::labelM) + 54;
+        if (x + width > limit)
+            break;
+        x += kit::pillChip(paint, x, box.y + 18, chip) + 10;
+    }
+    paint.glyphs.text(scene, {left, box.y + 66, inner, kit::type::body.line * 3}, item.body,
+                      kit::type::body, kit::color::onSurface2, Node::Align::Left, 3);
+    scene.popTransform();
+    scene.popOpacity();
 }
 } // namespace nativetv

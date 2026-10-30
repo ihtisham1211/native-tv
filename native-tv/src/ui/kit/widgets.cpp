@@ -683,6 +683,33 @@ void detailPanel(Paint paint, const DetailPanel &panel) {
          panel.action, type::labelM, color::onSurface3);
 }
 
+// ---- Loading
+// ----------------------------------------------------------------------------------------
+
+void loadingIndicator(Paint paint, const Loading &loading) {
+    if (invisible(loading.enter))
+        return;
+    constexpr int dots = 28;
+    constexpr float radiusPx = 30, sweep = 4.71238898f, turn = 6.28318531f; // 270 degrees
+    Scene &scene = paint.scene;
+    Group group(scene, loading.enter);
+    float centreX = loading.area.x + loading.area.w / 2,
+          centreY = loading.area.y + loading.area.h / 2 - (loading.label.empty() ? 0 : 22);
+    // The head leads the turn; the tail fades out behind it.
+    for (int i = 0; i < dots; ++i) {
+        float along = static_cast<float>(i) / (dots - 1);
+        float angle = loading.phase * turn + along * sweep - 1.57079633f;
+        float size = 3.0f + 4.0f * along;
+        float strength = along * along;
+        scene.shape({centreX + radiusPx * std::cos(angle) - size / 2,
+                     centreY + radiusPx * std::sin(angle) - size / 2, size, size},
+                    faded(color::accent, .06f + .94f * strength), size / 2);
+    }
+    if (!loading.label.empty())
+        text(paint, {loading.area.x, centreY + radiusPx + 22, loading.area.w, type::body.line},
+             loading.label, type::body, color::onSurface2, Node::Align::Center);
+}
+
 // ---- Keyboard
 // -------------------------------------------------------------------------------------
 

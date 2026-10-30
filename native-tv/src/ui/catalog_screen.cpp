@@ -7,6 +7,7 @@
 #include "ui/dashboard_screens.hpp"
 #include "ui/home_layout.hpp"
 #include "ui/kit/tuning.hpp"
+#include "ui/optimistic.hpp"
 #include "ui/settings_list.hpp"
 #include <algorithm>
 #include <cctype>
@@ -68,7 +69,8 @@ struct App {
 
 class CatalogScreen final : public ScreenView {
   public:
-    CatalogScreen() : list_("catl") {}
+    // The install steps' list is the left half of the page; the kit's panel is the right.
+    CatalogScreen() : list_("catl", {{64, 288, 896, 740}, 80, 816, false}) {}
     std::string name() const override {
         return "catalog";
     }
@@ -162,8 +164,7 @@ class CatalogScreen final : public ScreenView {
                 adopt(host, data);
             else if (owned_)
                 statusAt_ = host.nowMs() + 2000; // the server may be restarting; keep asking
-        } else if (channel == "catalog:write")
-            written(host, response, data, good);
+        }
     }
 
     bool update(ScreenHost &host) override {
@@ -172,6 +173,7 @@ class CatalogScreen final : public ScreenView {
         list_.update(host);
         if (armed_ >= 0 && now >= armedUntil_)
             armed_ = -1;
+        settleAnswers(host);
         if (statusAt_ && now >= statusAt_ && !statusReading_) {
             statusAt_ = 0;
             readStatus(host);
@@ -180,7 +182,7 @@ class CatalogScreen final : public ScreenView {
             const double fraction = progress();
             host.motion().tween("cat:p", fraction, 400, kit::easing(kit::motion::ease::out));
         }
-        return false;
+        return host.optimistic().active();
     }
 
     void build(ScreenHost &host, kit::Paint paint) override {
@@ -202,9 +204,10 @@ class CatalogScreen final : public ScreenView {
             page.subtitle = say::msg("tv.catalog.subtitle", "From the Homebrew Channel catalog.");
         page.enter = {static_cast<float>(1 - head), static_cast<float>(28 * head)};
         kit::pageHead(paint, page);
-        if (now == View::Preview || now == View::Result)
-            list_.build(host, paint, "");
-        else if (now == View::Busy)
+        if (now == View::Preview || now == View::Result) {
+            list_.build(host, paint);
+            list_.buildPanel(host, paint);
+        } else if (now == View::Busy)
             buildBusy(host, paint);
         else
             buildGrid(host, paint);
@@ -221,15 +224,19 @@ class CatalogScreen final : public ScreenView {
                                                   : ""));
         value.set("root", Json::flag(root_));
         value.set("replace", Json::flag(replace_));
-        value.set("busy", Json::flag(busy_));
+        value.set("busy", Json::flag(starting_ || cancelling_));
         return value;
     }
 
   private:
     enum class View { List, Busy, Preview, Result };
-    enum class Write { Fetch, Confirm, Cancel, Uninstall };
+    enum class Step { Fetch, Confirm, Cancel, Uninstall };
 
     View view() const {
+        if (cancelling_)
+            return View::List; // the preview is gone as soon as it is discarded
+        if (starting_)
+            return View::Busy; // the install is under way as soon as OK is pressed
         if (!inst_.valid())
             return View::List;
         std::string state = inst_["state"].string();
@@ -306,7 +313,7 @@ class CatalogScreen final : public ScreenView {
         std::string state = inst_["state"].string();
         if (state == "downloading" && total > 0)
             return std::min(1.0, bytes["bytes"].number(0) / total);
-        return state == "downloading" ? 0.05 : state == "verifying" ? 1 : 1;
+        return !installing(state) || state == "downloading" ? 0.05 : 1;
     }
 
     // ---- the steps --------------------------------------------------------------------------
@@ -463,7 +470,8 @@ class CatalogScreen final : public ScreenView {
                  "cat:cancel");
         cancel.action = say::msg("tv.catalog.discard", "Discard the download");
         items.push_back(cancel);
-        list_.set(host, std::move(items), fresh);
+        list_.set(host, std::move(items),
+                  fresh ? SettingsList::Reset::Stagger : SettingsList::Reset::Keep);
         if (fresh)
             for (size_t i = 0; i < list_.items().size(); ++i)
                 if (list_.items()[i].command.route == "cat:install")
@@ -487,7 +495,7 @@ class CatalogScreen final : public ScreenView {
                             say::msg("common.unknownError", "unknown error"))),
                         "cat:dismiss");
         row.action = say::msg("tv.catalog.returnToCatalog", "Return to the catalog");
-        list_.set(host, {row}, fresh);
+        list_.set(host, {row}, fresh ? SettingsList::Reset::Stagger : SettingsList::Reset::Keep);
     }
     void replayGrid(ScreenHost &host) {
         Timeline timeline;
@@ -569,7 +577,7 @@ class CatalogScreen final : public ScreenView {
             readCatalog(host);
             return;
         }
-        if (focus_ >= apps_.size() || busy_)
+        if (focus_ >= apps_.size())
             return;
         const App &app = apps_[focus_];
         if (app.state == "hbc") {
@@ -584,70 +592,107 @@ class CatalogScreen final : public ScreenView {
                 return;
             }
             armed_ = -1;
-            writeKind_ = Write::Uninstall;
-            send(host, post(Operation::UninstallApp, fields({{"id", Json::text(app.id)}})));
+            send(host, Step::Uninstall, "catalog.uninstall." + app.id,
+                 post(Operation::UninstallApp, fields({{"id", Json::text(app.id)}})), app.title);
         } else {
             owned_ = true;
             dismissed_.clear();
-            writeKind_ = Write::Fetch;
-            send(host, post(Operation::FetchPackage,
-                            fields({{"id", Json::text(app.id)}, {"auto", Json::flag(true)}})));
+            if (send(host, Step::Fetch, "catalog.fetch",
+                     post(Operation::FetchPackage,
+                          fields({{"id", Json::text(app.id)}, {"auto", Json::flag(true)}}))))
+                starting_ = true;
+            refresh(host);
         }
     }
     void confirmInstall(ScreenHost &host) {
         Json pv = inst_["preview"];
-        if (busy_ || inst_["state"].string() != "awaiting-confirm" || !pv.valid())
+        if (inst_["state"].string() != "awaiting-confirm" || !pv.valid())
             return;
         if (pv["storeInstalled"].boolean() && !replace_) {
             host.toast(say::msg("tv.apps.install.store.needOn",
                                 "Switch on Replace the store version first."));
             return;
         }
-        writeKind_ = Write::Confirm;
-        send(host, post(Operation::ConfirmPackage,
-                        fields({{"jobId", inst_["jobId"]},
-                                {"elevate", Json::flag(root_ && pv["vetted"].boolean())},
-                                {"replaceStore", Json::flag(replace_)}})));
+        if (send(host, Step::Confirm, "catalog.confirm",
+                 post(Operation::ConfirmPackage,
+                      fields({{"jobId", inst_["jobId"]},
+                              {"elevate", Json::flag(root_ && pv["vetted"].boolean())},
+                              {"replaceStore", Json::flag(replace_)}}))))
+            starting_ = true;
+        refresh(host);
     }
     void cancelInstall(ScreenHost &host) {
-        if (busy_ || !inst_.valid())
+        if (!inst_.valid())
             return;
-        writeKind_ = Write::Cancel;
-        send(host, post(Operation::CancelPackage, fields({{"jobId", inst_["jobId"]}})));
+        if (send(host, Step::Cancel, "catalog.cancel",
+                 post(Operation::CancelPackage, fields({{"jobId", inst_["jobId"]}}))))
+            cancelling_ = true;
+        refresh(host);
     }
     void dismiss(ScreenHost &host) {
         dismissed_ = inst_["jobId"].dump();
         owned_ = false;
         refresh(host);
     }
-    void send(ScreenHost &host, const Command &command) {
-        if (!host.services().write("catalog:write", command.operation, command.body)) {
-            host.toast(say::msg("tv.settings.busy", "Too many pending requests. Try again."));
-            return;
-        }
-        busy_ = true;
+    // Every change goes through the layer: the page shows it at once (the progress card, the
+    // preview gone) and the layer sends it and takes it back if the TV refuses. The callback holds
+    // the host and leaves the answer in the application's memory for the page to pick up; the page
+    // may be gone by then. False when the same change is already on its way.
+    bool send(ScreenHost &host, Step step, const std::string &key, const Command &command,
+              const std::string &name = "") {
+        ScreenHost *world = &host;
+        Write write;
+        write.operation = command.operation;
+        Json body = command.body;
+        write.body = [body](const Json &) { return body; };
+        write.failure = step == Step::Fetch
+                            ? say::msg("apps.install.failed", "The install could not be started")
+                            : say::msg("tv.failed", "That did not work");
+        const int code = static_cast<int>(step);
+        write.done = [world, code, name](bool ok, const Json &reply) {
+            Json answers = world->memory()["catalog.answers"];
+            if (!answers.isArray())
+                answers = Json::array();
+            answers.add(fields({{"step", Json::numeric(code)},
+                                {"ok", Json::flag(ok)},
+                                {"reply", reply},
+                                {"name", Json::text(name)}}));
+            world->memory()["catalog.answers"] = answers;
+        };
+        return host.optimistic().run(key, write);
     }
-    void written(ScreenHost &host, const Response &, const Json &data, bool good) {
-        busy_ = false;
-        Write kind = writeKind_;
+    // The answers the layer left: what each change came to.
+    void settleAnswers(ScreenHost &host) {
+        auto kept = host.memory().find("catalog.answers");
+        if (kept == host.memory().end())
+            return;
+        Json answers = kept->second;
+        host.memory().erase(kept);
+        for (const Json &answer : answers.items())
+            settled(host, static_cast<Step>(static_cast<int>(answer["step"].number())),
+                    answer["ok"].boolean(), answer["reply"], answer["name"].string());
+    }
+    void settled(ScreenHost &host, Step step, bool good, const Json &data,
+                 const std::string &name) {
+        if (step == Step::Fetch || step == Step::Confirm)
+            starting_ = false;
+        if (step == Step::Cancel)
+            cancelling_ = false;
         if (!good) {
-            if (kind == Write::Fetch)
+            // The layer has said so and the page shows what it showed before.
+            if (step == Step::Fetch)
                 owned_ = false;
-            host.toast(sentence(data["error"].string(
-                kind == Write::Fetch
-                    ? say::msg("apps.install.failed", "The install could not be started")
-                    : say::msg("tv.failed", "That did not work"))));
             readStatus(host);
+            refresh(host);
             return;
         }
-        if (kind == Write::Uninstall) {
+        if (step == Step::Uninstall) {
             host.toast(
-                say::msg("apps.uninstall.done", "Uninstalled {name}.",
-                         vars({{"name", focus_ < apps_.size() ? apps_[focus_].title : ""}})));
+                say::msg("apps.uninstall.done", "Uninstalled {name}.", vars({{"name", name}})));
             readCatalog(host);
             return;
         }
-        if (kind == Write::Cancel) {
+        if (step == Step::Cancel) {
             owned_ = false;
             inst_ = Json();
             refresh(host);
@@ -656,8 +701,10 @@ class CatalogScreen final : public ScreenView {
         }
         if (data["install"].valid())
             adopt(host, data["install"]);
-        else
+        else {
             readStatus(host);
+            refresh(host);
+        }
     }
 
     // ---- drawing ------------------------------------------------------------------------------
@@ -702,6 +749,16 @@ class CatalogScreen final : public ScreenView {
     void buildGrid(ScreenHost &host, kit::Paint paint) {
         Motion &motion = host.motion();
         Scene &scene = paint.scene;
+        if (apps_.empty() && !catalogFailed_ && !catalog_.valid()) {
+            // The first read: the list is on its way.
+            kit::Loading spinner;
+            spinner.area = {kit::canvas::safeX, layout::gridTop,
+                            kit::canvas::width - 2 * kit::canvas::safeX, 560};
+            spinner.label = say::msg("apps.install.loading", "Loading the catalog…");
+            spinner.phase = kit::spinnerPhase(motion, "cat:spin");
+            kit::loadingIndicator(paint, spinner);
+            return;
+        }
         if (apps_.empty()) {
             std::string title =
                 catalogFailed_     ? say::msg("tv.apps.install.unavailable", "Catalog unavailable")
@@ -747,9 +804,13 @@ class CatalogScreen final : public ScreenView {
             tile.color = home::hsl(static_cast<float>(home::hashOf(app.id) % 360), .5f, .36f);
             tile.focus = static_cast<float>(motion.value(gridId("f", i)));
             double hidden = motion.value(gridId("E", i));
-            tile.enter = {static_cast<float>(1 - hidden), static_cast<float>(28 * hidden)};
+            // An app being removed is already dimmed, and says so, until the TV answers.
+            const bool removing = host.optimistic().pending("catalog.uninstall." + app.id);
+            tile.enter = {static_cast<float>(1 - hidden) * (removing ? .55f : 1.0f),
+                          static_cast<float>(28 * hidden)};
             kit::appTile(paint, tile);
-            std::string badge = app.state == "update" ? say::msg("apps.install.update", "Update")
+            std::string badge = removing ? say::msg("tv.catalog.removing", "Removing…")
+                                : app.state == "update" ? say::msg("apps.install.update", "Update")
                                 : app.state == "installed"
                                     ? say::msg("tv.catalog.installed", "Installed")
                                 : app.state == "hbc" ? "Homebrew Channel"
@@ -829,7 +890,8 @@ class CatalogScreen final : public ScreenView {
         std::string state = inst_["state"].string();
         Json bytes = inst_["progress"];
         std::string line =
-            state == "downloading"
+            !installing(state) ? say::msg("tv.catalog.starting", "Starting…")
+            : state == "downloading"
                 ? (bytes["total"].number(0) > 0
                        ? say::msg("apps.install.downloading.of", "Downloading {done} of {total}",
                                   vars({{"done", megabytes(bytes["bytes"].number(0))},
@@ -864,8 +926,9 @@ class CatalogScreen final : public ScreenView {
     std::string job_, dismissed_, error_;
     size_t focus_ = 0;
     View shown_ = View::List;
-    Write writeKind_ = Write::Fetch;
-    bool catalogFailed_ = false, owned_ = false, busy_ = false, statusReading_ = false;
+    // What the person asked for and the TV has not yet answered: the page already shows it.
+    bool starting_ = false, cancelling_ = false;
+    bool catalogFailed_ = false, owned_ = false, statusReading_ = false;
     bool root_ = false, replace_ = false, barWas_ = false;
     int armed_ = -1;
     double armedUntil_ = 0, statusAt_ = 0;

@@ -1,13 +1,13 @@
-== Load
+## Load
 info    Temperature = 59 °C <temp>
 info    CPU load = 6% <cpu>
 info    CPU frequency = 1400 MHz <cpu>
 info    Per-core load = 9%  5%  9% <cpu>
-== Memory and storage
+## Memory and storage
 info    Memory free = 652 MB of 2.0 GB <memory>
 info    Swap free = 503 MB of 600 MB <memory>
 info    eMMC health = >90% (Healthy) <disk>
-== This TV
+## This TV
 info    Model = OLED55C4PUA.DUSQLJR <info>
 info    Firmware = 23.20.35 <info>
 info    webOS = 9.2.0 <info>

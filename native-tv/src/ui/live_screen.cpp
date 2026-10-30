@@ -140,7 +140,15 @@ class LiveScreen final : public ScreenView {
         page.enter = {static_cast<float>(1 - head), static_cast<float>(28 * head)};
         kit::pageHead(paint, page);
         if (view_.cards.empty()) {
-            if (failed_)
+            if (!failed_) {
+                // The first reading is on its way.
+                kit::Loading spinner;
+                spinner.area = {kit::canvas::safeX, kit::layout::gridTop,
+                                kit::canvas::width - 2 * kit::canvas::safeX, 560};
+                spinner.label = say::msg("tv.live.reading", "Reading the TV…");
+                spinner.phase = kit::spinnerPhase(motion, "live:spin");
+                kit::loadingIndicator(paint, spinner);
+            } else
                 paint.glyphs.text(
                     paint.scene,
                     {kit::canvas::safeX, kit::layout::gridTop + 8, 1200, kit::type::body.line},
@@ -253,8 +261,7 @@ class LiveScreen final : public ScreenView {
 
     std::string subtitle(ScreenHost &host) const {
         if (view_.cards.empty())
-            return failed_ ? say::msg("tv.live.noAnswer", "Waiting for the TV")
-                           : say::msg("tv.live.reading", "Reading the TV…");
+            return failed_ ? say::msg("tv.live.noAnswer", "Waiting for the TV") : std::string();
         long seconds = static_cast<long>((host.nowMs() - lastGoodAt_) / 1000);
         Json vars = Json::object();
         vars.set("n", Json::text(std::to_string(seconds / 5 * 5)));

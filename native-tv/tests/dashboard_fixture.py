@@ -18,6 +18,7 @@ import json
 import os
 import sys
 import threading
+import time
 import urllib.parse
 
 import home_fixture
@@ -79,6 +80,10 @@ class Handler(home_fixture.Handler):
         return {"ok": True, "state": "idle"}
 
     def do_GET(self):
+        # NATIVETV_FIXTURE_DELAY_MS makes the sections answer late, to see the loading indicator.
+        delay = float(os.environ.get("NATIVETV_FIXTURE_DELAY_MS", "0")) / 1000
+        if delay and self.path.startswith("/api/") and not self.path.startswith("/api/home"):
+            time.sleep(delay)
         url = urllib.parse.urlsplit(self.path)
         query = urllib.parse.parse_qs(url.query)
         routes = {

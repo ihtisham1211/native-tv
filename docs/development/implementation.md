@@ -272,6 +272,29 @@ two surfaces are the same product. It is served by the TV, so the pages need
 no internet access; the licence text ships alongside it in
 `native-tv/assets/fonts/`.
 
+## App icons
+
+Apps carry their own icons, in whatever shape and padding their vendors chose.
+`readAppIcon` (`src/service/app_icons.cpp`) first looks the app up in
+`assets/app-icons/app-icons.pack`, by its id and then by its title (lower-case
+letters and digits, `+` as `plus`), and serves the app's own icon only when the
+pack has neither. Every route that serves an icon goes through it: the
+dashboard, Native Tv Home and the shared `/icons/<appId>.png` addresses.
+
+The pack is built by `native-tv/tools/gen_app_icons.py` from
+`native-tv/design/app-icons.json`: each brand logo from Dashboard Icons (at the
+pinned commit, Apache-2.0) and each glyph for an LG app from
+`assets/icons/material/` is drawn on one tile, so they match. To cover another
+app, add its id or normalised title to `logos` or `glyphs`, run
+`uv run native-tv/tools/gen_app_icons.py` and commit the pack. Title keys catch
+store apps whose ids differ between regions; an id key is exact. The pack is
+about 300 KB and installs with the other assets (`deploy.sh` lists it).
+
+No pack covers every app: Dashboard Icons lacks LG's apps and most regional
+broadcasters, and Simple Icons, the other large set, dropped Prime Video,
+Disney+, Hulu, Peacock and Alexa. LG's apps therefore get Material glyphs, and
+anything unmatched keeps its own icon.
+
 ## TV pages and their design system
 
 The pages follow Google's TV Design Kit; `shared/common.css` holds the tokens
@@ -1313,7 +1336,7 @@ feature off, or `tvwebctl restore-home` before uninstalling, deletes the webOS
 
 `home_orchestrator` and the `home_*_manager` modules run a home screen of Native Tv's own in place of LG's, opt-in
 from the dashboard's Home tab (webOS 9; webOS 10 and 11 with `allowExperimentalHome`). The screens are the native client's
-(`nativetv-tv`, the app `com.tvweb.native`). LG's Home's place is held by a small web app with no screen, whose files are
+(`nativetv-tv`, run as the Native Tv tile's app `com.tvweb.dashboard`, the one native app sam is told of, which opens the dashboard unless a screen is named). LG's Home's place is held by a small web app with no screen, whose files are
 `assets/home-app/index.html` and its icons: it asks sam to open the client at its Home screen, and is black until the client is in
 front. The page `assets/google-tv/pages/home/index.html` is still in the tree, and nothing opens it.
 
@@ -1421,23 +1444,31 @@ A failed layout restore retains its backup and reports failure for a later retry
 **The client has to hold Home.** The stub has no page to fall back to, so nothing takes LG's Home's place
 for a client that cannot run, and LG's Home comes back for one that cannot stay up.
 
+- *The app.* Only an app sam was told of can be launched, and the install tells it of the tile's app,
+  `com.tvweb.dashboard`, alone (a copy only staged in the apps folder, as `com.tvweb.native` was, is refused:
+  "Luna service rejected the command"). The owner can take the tile off the home screen, so
+  `homeClientRegistration` asks sam (`getAppInfo`, which answers an unknown id with "Invalid appId") at every switch-on
+  and start, ahead of any kept probe verdict. `com.tvweb.native` is deleted at start.
 - *The probe.* `nativetv-tv --probe` (platform/probe.hpp) opens the client's window and context, draws one frame and reads a
   pixel back. `home_probe_gate` runs it, through `jailer` as `deploy.py` starts the client where there is one, with a
   15 s limit, and exit 10 and 11 tried again (the display may still be coming up). The orchestrator's `supported` is the webOS
-  version and the probe; the switch-on route probes afresh, the server's start and the boot hook's `--takeover-home` use a
-  kept verdict. A refusal at the switch-on is an error with the exit in its reason; at start it gives LG's Home the place
-  and leaves Home switched on (`nativeHome.cause` is `probe`), where a webOS version that is not offered still switches
+  version, the app and the probe; the switch-on route probes afresh, the server's start and the boot hook's `--takeover-home` use a
+  kept verdict. A refusal at the switch-on is an error with the reason; at start it gives LG's Home the place
+  and leaves Home switched on (`nativeHome.cause` is `client`), where a webOS version that is not offered still switches
   Home off. `/var/lib/tvweb/native-probe.json` keeps ok, 12 and 13 for the client file's size and time and the firmware.
 - *The watch.* The daemon cannot see the process, so the foreground app tells it. The client leaves the front for LG's Home (the stub,
   which starts it again) or for nothing, and sam's running list read at once no longer has it: an exit. The Home key also takes it out of
   the front, but it stays listed. The stub in front 15 s after it came, with the client not in front: an exit, and one more each
-  15 s it stays. Another app coming to the front, standby, a screen that is off, LG's Home opened on purpose and a takeover that is not in
+  15 s it stays. 2.5 s after the stub came, if it is still in front, the server opens the client itself, as the stub does: where the
+  stub could not call sam this is what opens it, and a refusal (sam does not know the app) gives LG's Home back at once, not three exits
+  later. Another app coming to the front, standby, a screen that is off, LG's Home opened on purpose and a takeover that is not in
   place are not watched. `home_crash_breaker` gives LG's Home back at the third exit within two minutes, as `tvwebctl stop` does
   (`--release-home`: home.json is left as it is), clears the Home key's starting notice and puts LG's auto launch back. The
   escape's return and the wake open find it halted; the server's restart, or switching Home on or off, starts it over.
 - *The Home key.* It reaches LG's filters and opens `com.webos.app.home`, the stub, which asks for the client's Home screen again each time
   it is shown (`visibilitychange`, `webOSRelaunch`) and never while hidden. The client is meant to go to its Home screen on any launch or
-  return to the front, so that it does not depend on sam passing the new parameters to a client that is running.
+  return to the front, so that it does not depend on sam passing the new parameters to a client that is running. The app is also the
+  tile's, so Home's recent apps leave it out, as they do the other apps that are Home itself.
 
 Earlier builds made a separate app, `com.tvweb.home`, the TV's Home
 through `defaultApps.home`, the start-up app settings and the remote key

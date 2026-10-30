@@ -126,7 +126,10 @@ fixture also answers stats, details and search. It can also run alone
 stats (`tests/fixtures/tv/stats-c4-webos9.json`), the ten dashboard sections' replies
 and the Homebrew catalogue with a small install state machine, all from
 `tests/fixtures/tv/dashboard/`. The Live, Settings and Catalog cases use it
-(`live-*`, `settings-*`, `catalog-*`), and it also runs alone for a hand-run client.
+(`live-*`, `settings-*`, `catalog-*`; `settings-subsections` and `settings-follows` show the
+subsection pills and the page following the list), and it also runs alone for a hand-run client;
+`NATIVETV_FIXTURE_DELAY_MS` makes its sections answer late, to see the loading indicator with
+`--duration-ms` (a `--time` run waits for each reply before it draws).
 The Setup cases use
 `"fixture": "setup"` (the first-run routes of `tests/setup_fixture.py` over a wiped data root, so the client opens setup) or `"setup-settled"` (a TV that has done it, so `--screen setup:handoff` stays put); the fixture can run alone
 (`setup_fixture.py ROOT [--no-standby] [--demo]`). The tolerance
@@ -144,14 +147,47 @@ rows (text files in `tests/fixtures/tv/dashboard/snapshots/`; change one on
 purpose and rewrite them with `NATIVETV_UPDATE_SNAPSHOTS=1`). Its screen checks
 drive the application over a fake `Services`: focus paths, the writes OK issues and
 the routes they use, the second OK a risky change waits for, an install from the
-catalog to its result, and what each screen does when a read fails.
+catalog to its result, and what each screen does when a read fails. Settings' two
+panes are checked key by key (Right and OK into the page, Left and Back out, Left
+and Right never changing the section, the subsection pills and the one a section
+reopens on). Every write kind (a switch, a stepper, a confirmed action, the network
+switch, the screen saver's delayed start, the catalog's uninstall and install) is
+checked for the visible state changing in the next frame with no reply, and for a
+refusal putting it back with a message. A refresh while the focus is on the last
+row, also among rows with the same title, must keep the focus, the subsection and
+the scroll. `native-kit` also checks that the loading indicator stays under forty
+nodes and turns.
 
 `native-overlay-screens` (`tests/overlay_screens.cpp`) drives the Quick drawer,
 Profiles, title details and the search and profile editors the same way: focus
-paths, the requests each makes and the replies it takes (volume steps pressed while
-one is in flight go as one request, the light waits for its key to rest, a refused
-write is taken back and says why, a reply to an older request is dropped), the
-eight-deep stack of related titles, and Back returning to Home as it was.
+paths, the requests each makes and the replies it takes (a refused write is taken
+back and says why, a reply to an older request is dropped), the profile avatars and
+their names, a rename shown at once and put back when refused, the eight-deep stack
+of related titles, and Back returning to Home as it was. It shares its fake `Services`
+and clock with `native-quick-drawer` in `tests/overlay_harness.hpp`.
+
+`native-quick-drawer` (`tests/quick_drawer.cpp`) drives the Quick drawer through the
+application: the first opening shows turning circles where nothing has been read, the
+next opening shows last time's values before any reply and reads behind them, a held
+volume or light key (5 to 95 and 95 to 5, replies late and out of order, stale reads
+between) shows every value at once and never moves it against the key, the TV's cap wins
+after the one read-back, a refusal or silence puts the value back with a message (also
+after the drawer has gone), the choices (picture, sound, sleep) and the Home switches
+show at once with the newest winning, and Back, a click beside the drawer and a route to
+Home all leave it. `tests/home_fixture.py` keeps what `/api/control` is told, so a read
+after a write says what was written.
+
+`native-optimistic` (`tests/optimistic.cpp`) holds the optimistic-update layer every page
+writes through (`ui/optimistic.hpp`) to its rules, over a fake `Services` whose replies the test
+holds back, reorders and refuses and a clock the test moves: a changed value shows at once with
+no reply at all, a held key (5 to 95 and 95 to 5, many writes, replies out of order, stale
+reads in between) never moves the shown value backwards, writes leave at most every 120 ms
+and the last always goes, a refusal and eight seconds of silence put the value back with a
+message, a read during a pending write does not overwrite it and the one read-back afterwards
+decides, volume steps are sent as a net sum one at a time, batches and dependent rows follow
+what is shown. `native-optimistic-guard` (`tests/optimistic_guard.py`) fails when a page in
+`src/ui` calls the raw `services().write` instead of `host.optimistic()`; the pages that
+still do are listed in `tests/optimistic_guard.json`, and the counts only go down.
 
 The client's parts have their own tests. `native-motion` checks the springs
 against a reference integrator, velocity kept on retarget, the bezier curves and
@@ -165,15 +201,24 @@ after an intended change), and checks that a shape drawn as a flat core inside a
 distance-field rim paints what one field quad over all of it does, and that the
 field stays on rims; `native-renderer-gl` draws the same scenes on the GPU
 and compares them with that raster, and is skipped (exit 77) with no GL context.
-`native-setup` (`tests/setup_screen.cpp`) drives first-run setup the way a person does,
+`native-tv-name` (`tests/tv_name.cpp`) names the TV from its model (`OLED65B3PUA` is `B3`,
+`OLED42C24LA` `C2`, `55UQ8000PUA` `UQ8000`, nothing known `LGTV`), over the model of every
+`stats-*.json` fixture. `native-setup` (`tests/setup_screen.cpp`) drives first-run setup the way a person does,
 with scripted keys and the server's answers handed back by the test: the whole path on a TV with
-and without Always-on, the restart after the network choice and the trouble page after 60 failed
+and without Always-on, the name step with its optimistic write and refusal (the answers to the layer's
+writes come on `w:<key>` with the sequence it was given), the restart after the network choice and the trouble page after 60 failed
 tries, the phone link refused, expired, never connecting and connecting, Back and Left, Settings'
 phone-only entry, the dry run, typing the broker on the TV (and its refusals), the pointer, the
 keyboard pad (layers, capitals, caret, limits, spring press) and the QR layout (whole-pixel
 modules inside the tile). `native-setup-flow` (`tests/setup_flow.py` with `setup_flow.cpp`) runs the
 same path with the real HTTP adapter against `tests/setup_fixture.py` and checks what the server
-wrote to its wiped data root and in what order. `native-qr-capture` (`tests/qr_capture.py`)
+wrote to its wiped data root and in what order. It also launches the client as the tile, Home and
+Settings do on that wiped root (they must open the welcome page, and Settings' own `setup:handoff`
+entry must stay put) and again once setup is done (they must open what they were asked for).
+`native-setup-daemon` (`tests/setup_daemon.py`) runs the same first run against the real
+`nativetv-daemon` without Node, over a wiped data root and with its stand-in luna-send, as far as
+the broker typed on the TV, and reads back what the daemon wrote (`config.json`, the main profile in
+`home.json`, the restarts it asked for), then marks setup done and launches again. `native-qr-capture` (`tests/qr_capture.py`)
 captures the handoff page and compares every module of the code on it with qrcodegen's matrix
 (no QR decoder is installed, so the pixels are read instead); it skips with no GL context.
 `native-atlas` covers glyph packing, text measuring, ellipsis and wrapping,
@@ -386,7 +431,9 @@ failing: three exits within two minutes trip it, two do not, an exit a window ol
 tripped breaker stays tripped (more exits, and time, do not clear it) until it is reset. The same
 executable as `native-home-orchestrator` goes on to run the watch itself on the virtual clock: three crashes (the client
 gone from the running list as LG's Home comes to the front) and three grace periods with the stub left
-in front each give LG's Home back once, clear the Home key's starting notice and put auto launch back; the Home key (client still
+in front each give LG's Home back once, clear the Home key's starting notice and put auto launch back; a client sam refuses
+(it does not know the app, or would not open it) is given up as the server opens it for the stub, 2.5 s after the stub came, with
+no exit counted; the Home key (client still
 listed), another app opened from Home, a running list that cannot be read, a client that comes up inside the grace,
 standby, a screen that is off, LG's Home opened on purpose, no takeover in place and Home switched off count nothing; a
 tripped orchestrator takes nothing again (no wake open, no later crash counts) until `rearm()`; a failed release is
@@ -399,14 +446,32 @@ tried again (a display that comes up on the third try passes, one that never doe
 not, a verdict that cannot change (ok, 12, 13) is kept in memory and on disk for the same file and firmware and asked
 again for another file, firmware or `force`, one that may be timing (10, 11, a timeout) is never kept, what the status
 route reports follows the file (a replaced client is not reported as refused), and a refusal gives `supported` the
-reason with the exit in it. The runtime suite adds `test_native_home_probe_gate` (the dashboard's
+reason with the exit in it. An app sam does not know is refused ahead of any kept verdict, each time it is asked, and without
+a probe run; a missing file is refused before sam is asked. The runtime suite adds `test_native_home_probe_gate` (the dashboard's
 switch-on refused with the exit, the status route's `supported` and `nativeClient` (a refusal that may be timing leaves the switch
 offered), the switch-on probing again, the boot
 hook's `--takeover-home` exiting 4 on a refusal and on no client file, and the kept verdict sparing the boot's probe) and
 `test_native_home_crash_breaker` (the daemon against the stand-in `luna-send`: foreground and running lists
 scripted from files; the Home key and an app opened from Home counting nothing, three crashes and then three stubs left
 in front each giving LG's Home back with Home still on and the notice cleared, nothing taking the place again, switching
-Home on again doing so, a restart doing so, and a probe that now refuses giving it back at start).
+Home on again doing so, a restart doing so, and a probe that now refuses giving it back at start; the stub staged
+over LG's Home names `com.tvweb.dashboard`, and the retired `com.tvweb.native` counts as nothing) and
+`test_native_home_client_registration` (the tile off the home screen: the switch-on refused with the Server tab
+named, nothing mounted and no probe run, `--takeover-home` exiting 4, the switch working again once the tile is back;
+with Home on, the Home key from an input finding the app refused and LG's Home given back within seconds with no exit
+counted, and a restart doing the same; the developer client `com.tvweb.native` deleted at start with its package folder, the
+tile's app kept).
+
+`native-retired-files` also checks `removeRetiredApps`: the developer client's two folders go whole and count once,
+the tile's app and a missing apps folder are left alone.
+
+The end-to-end cases (`native-tv/tests/e2e`, run against a real TV with `NATIVETV_TV_HOST`) run the client as the tile's
+app. Four flow cases (`E2E-080` to `E2E-083`, `requires: ["takeover"]`, so only with `--allow takeover`) switch Home on,
+send the Home key from an HDMI input and check the Native Tv app is in front within 5 s and stays, send Back and Home on the
+native Home and check it holds, and switch Home off. They run `scripts/home-flow.js` under the TV's Node, which calls the
+server on loopback (no token) and reads the app in front from the app manager; the steps are a closed vocabulary that
+`run.py --check` enforces, and the flow script itself runs on the host against a stand-in server and `luna-send` in
+`test_runner.py`.
 
 `native-tv/tests/tv-metrics.js` runs with the TV's own Node (LG ships one) against its loopback
 API and invokes the native worker directly for snapshot-only fields. It checks
@@ -477,10 +542,13 @@ a TV (`run.py --check` does the same by hand). The client on the TV is the one a
 
 A case runs one client through the app's jailer for at most 60 s, as `deploy.py --run` does, one
 at a time under a lock folder in `/tmp`. The runner reads the server's port from the TV and never
-reads or prints the access token. It does not reboot, deploy or restart the daemon, change the
-Home takeover or write a TV setting, and a navigate-only script is refused when it holds OK, Back,
-text, a click or a capture. A case that needs the takeover or a reboot lists it under `requires`
-and runs only with `--allow takeover` or `--allow reboot`; none does yet.
+reads or prints the access token. It does not reboot, deploy or restart the daemon or write a TV
+setting, and a navigate-only script is refused when it holds OK, Back, text, a click or a capture.
+A case that needs the takeover or a reboot lists it under `requires` and runs only with
+`--allow takeover`, `--allow reboot` or `--allow control`; the four flow cases (`E2E-080` to `E2E-083`)
+require the takeover, since they switch Home on and off, the two Quick cases that hold the volume
+or the brightness (`E2E-091`, `E2E-092`) require `control`, since they change the TV's setting and
+put it back, and none requires a reboot yet.
 
 A result is **pass** when every criterion holds, **floor** when only the interval limits are missed
 and the case's `floor` limits (what the platform has been seen to keep) hold, **fail** otherwise,
@@ -496,9 +564,15 @@ the texture memory, the checkpoints the script took and the size of the capture.
 | E2E-030, 031 | Home navigation, 17 s and 60 s | `home` |
 | E2E-032, 041, 051, 061, 075 | Idle dim after 30 s: the first key only wakes, the next acts | Home, Live, Settings, Catalog, Setup |
 | E2E-040 | Live navigation | `live` |
-| E2E-050, 052 | Settings navigation and the list of sections, no OK | `dashboard:privacy`, `dashboard` |
+| E2E-050, 052, 053 | Settings: the list, the page, the subsection pills and back (checkpoints on the zone and section); the list of sections; the last row of a page through a refresh (checkpoints on `focusLast`), no OK | `dashboard:apps`, `dashboard`, `dashboard:system` |
 | E2E-060 | Catalog navigation, no OK | `catalog` |
 | E2E-070 to 074 | Setup welcome, Home Assistant, summary, standby and network pages, Up and Down only (the phone hand-off page is left out: opening it asks the server for a one-time link) | `setup:` |
+| E2E-076 | Setup name page on the test B3: the keyboard starts with `B3` and the arrows move over the keys, nothing typed | `setup:name` |
+| E2E-077, 078 | First launch from the dashboard tile and from Home opens the setup welcome page (needs a TV whose first-run marker is present: `--allow fresh`) | `dashboard`, `home` |
+| E2E-079 | Launch after setup opens the dashboard's own screen | `dashboard` |
+| E2E-090 | Quick drawer navigation, no OK | `quick` |
+| E2E-091, 092 | Hold Left then Right on the Quick drawer's volume or light: it loads, never moves against the key, ends settled (`control`) | `quick` |
+| E2E-093 | Quick drawer closes with Back onto Home | `quick` |
 
 The timing criteria are the target of the client's spec: p50 and p95 of the frame intervals at 60 fps
 (17.0 and 16.8 ms), none over 33 ms, at most 40 draws and 8192 vertices a frame and 64 MB of textures.

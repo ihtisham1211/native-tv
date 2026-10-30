@@ -1,10 +1,18 @@
-// Settings: the ten sections the TV dashboard had, as a list of sections and then a list of rows
-// with a panel that says what the focused one does (spec 3.5). The rows, and the writes OK makes,
+// Settings: the ten sections the TV dashboard had, as Google TV lays settings out: the list of
+// sections on the left (30%) and the section's page on the right (70%), both always in view. A
+// section with many rows is split into subsections, shown as a row of tabs over its rows; a strip
+// under the rows says what the focused row is and what OK does. The rows, and the writes OK makes,
 // are the ones dashboardRows() builds from the same daemon routes the dashboard page used.
+//
+// Keys: Up and Down in the list move the section and the page follows; Right or OK moves the focus
+// into the page, Left or Back returns it to the list, and Back in the list closes Settings. Left
+// and Right never change the section.
 #include "domain/say.hpp"
 #include "ui/application.hpp"
 #include "ui/dashboard_screens.hpp"
 #include "ui/kit/tuning.hpp"
+#include "ui/optimistic.hpp"
+#include "ui/overlay_routes.hpp"
 #include "ui/settings_list.hpp"
 #include <algorithm>
 #include <map>
@@ -12,141 +20,147 @@
 
 namespace nativetv {
 namespace {
+namespace ms = kit::motion::ms;
 constexpr double kPollMs = 10000;   // Metrics and System refresh while open, as the dashboard did
 constexpr double kConfirmMs = 5000; // the second OK has to come within this
 constexpr double kSaverDelayMs =
     800; // the screen saver ends on the key-up of the OK that starts it
 constexpr double kServerWaitMs = 1000; // between asks while the server restarts
+constexpr double kSettleMs = 180;      // the page waits this long on a section before reading it
 constexpr int kServerTries = 30;
 
-Json vars(std::initializer_list<std::pair<const char *, std::string>> values) {
-    Json result = Json::object();
-    for (const auto &value : values)
-        result.set(value.first, Json::text(value.second));
-    return result;
+// The page, as the design's 30/70 split of the 1760 px between the margins.
+constexpr float kListX = 80, kListW = 520, kPaneX = 640, kPaneW = 1200;
+constexpr float kTop = 288, kBottom = 1028;
+constexpr float kPillH = 52, kPillGap = 12, kPillPad = 22;
+constexpr float kStripH = 168, kStripGap = 12;
+constexpr float kRowReach = 24; // what a focused row grows by on its right, and its ring
+
+Rect listViewport() {
+    return {kListX - 16, kTop, kListW + 16 + 20, kBottom - kTop};
 }
-std::string signature(const Command &command) {
-    return std::to_string(static_cast<int>(command.operation)) + command.route +
-           command.body.dump();
+Rect rowsViewport(bool tabs) {
+    float top = tabs ? kTop + kPillH + 16 : kTop;
+    return {kPaneX - 16, top, kPaneW + 16 + 40, kBottom - kStripH - kStripGap - top};
 }
-// Groups that may not exist on this TV: the dashboard dropped the tab when its data said so.
+Rect stripBox() {
+    return {kPaneX, kBottom - kStripH, kPaneW, kStripH};
+}
+
+// Sections that may not exist on this TV: the dashboard dropped the tab when its data said so.
 bool optionalGroup(const std::string &key) {
     return key == "oled" || key == "game" || key == "saver" || key == "home";
 }
 
 class SettingsScreen final : public ScreenView {
   public:
-    // `group` is the section the route names, or empty for the list of sections.
-    explicit SettingsScreen(const std::string &group) : groups_(settingGroups()), list_("set") {
+    // `group` is the section the route names, or empty for the first one.
+    explicit SettingsScreen(const std::string &group)
+        : groups_(settingGroups()), sections_("sec", {listViewport(), kListX, kListW - 16, true}),
+          rows_("set", {rowsViewport(false), kPaneX, kPaneW - kRowReach, false}) {
         for (size_t i = 0; i < groups_.size(); ++i)
             if (groups_[i].key == group) {
-                group_ = i;
-                level_ = Level::Rows;
-                direct_ = true;
+                section_ = i;
+                zone_ = Zone::Rows;
+                forced_ = group;
             }
     }
-    // The names the older scripts and tests know the dashboard by.
+    // The names the older scripts and tests know the dashboard by: the list, or a section.
     std::string name() const override {
-        return level_ == Level::Rows ? "dashboard:" + groups_[group_].key : "dashboard";
+        return zone_ == Zone::Sections ? "dashboard" : "dashboard:" + groups_[section_].key;
     }
     int barTab() const override {
         return -1; // the gear owns the page
     }
 
     void enter(ScreenHost &host) override {
-        host.motion().set("set:E:head", 1);
-        host.motion().tween("set:E:head", 0, kit::motion::ms::base,
-                            kit::easing(kit::motion::ease::out), kit::motion::stagger::pageBase);
+        host.motion().set("ss:head", 1);
+        host.motion().tween("ss:head", 0, ms::base, kit::easing(kit::motion::ease::out),
+                            kit::motion::stagger::pageBase);
         barWas_ = host.barFocused();
         probe(host);
-        if (level_ == Level::Rows)
-            openGroup(host, group_);
-        else
-            showGroups(host, true);
+        rebuildSections(host, SettingsList::Reset::Stagger);
+        selectSection(host, section_, SettingsList::Reset::Stagger);
+        wantRows_ = zone_ == Zone::Rows;       // a route that names a section opens it for use
+        readAt_ = std::max(1.0, host.nowMs()); // 0 means nothing is waiting to be read
+        syncFocus(host, true);
     }
     void leave(ScreenHost &host) override {
-        for (const char *channel : {"settings:data", "settings:write", "settings:wait"})
-            host.services().cancel(channel);
+        host.services().cancel("settings:wait");
         for (const auto &group : groups_)
-            if (optionalGroup(group.key))
-                host.services().cancel("settings:probe:" + group.key);
-        list_.clear(host);
-        host.motion().erasePrefix("set:");
+            host.services().cancel(dataChannel(group.key));
+        sections_.clear(host);
+        rows_.clear(host);
+        host.motion().erasePrefix("ss:");
     }
     void focus(ScreenHost &host) override {
-        syncFocus(host);
+        syncFocus(host, true);
     }
 
     bool key(ScreenHost &host, Key key) override {
-        if (key == Key::Up) {
-            if (list_.move(host, -1))
-                return true;
-            return false; // the top row: the bar's
+        switch (zone_) {
+        case Zone::Sections:
+            return sectionKey(host, key);
+        case Zone::Tabs:
+            return tabKey(host, key);
+        case Zone::Rows:
+            return rowKey(host, key);
         }
-        if (key == Key::Down || key == Key::PageDown || key == Key::PageUp) {
-            list_.move(host, key == Key::PageUp ? -1 : 1, key == Key::Down ? 1 : 6);
-            return true;
-        }
-        if (key == Key::Ok) {
-            activate(host);
-            return true;
-        }
-        // Left leaves a list inside a section, as the dashboard's Left did.
-        if (key == Key::Left && level_ == Level::Rows && !sub_.empty()) {
-            back(host);
-            return true;
-        }
-        // Left and Right step through the sections, as they did through the dashboard's tabs.
-        if ((key == Key::Left || key == Key::Right) && level_ == Level::Rows && sub_.empty()) {
-            std::vector<size_t> shown = visible();
-            auto at = std::find(shown.begin(), shown.end(), group_);
-            if (at != shown.end()) {
-                size_t position = static_cast<size_t>(at - shown.begin());
-                position = (position + shown.size() + (key == Key::Right ? 1 : -1)) % shown.size();
-                disarm();
-                sub_.clear();
-                openGroup(host, shown[position]);
-            }
-            return true;
-        }
-        return key == Key::Left || key == Key::Right;
+        return false;
     }
     bool back(ScreenHost &host) override {
         if (armed_) {
             disarm();
             host.toast(say::msg("tv.settings.cancelled", "Cancelled"));
-            rebuild(host, false);
+            rebuildRows(host, SettingsList::Reset::Keep);
             return true;
         }
-        if (level_ == Level::Rows && !sub_.empty()) {
+        if (zone_ == Zone::Sections) {
+            // Where Settings was opened from; Home as it was when that was Home.
+            std::string from = host.cameFrom();
+            bool sibling = from.empty() || from.compare(0, 9, "dashboard") == 0 ||
+                           from == "settings" || from == "catalog" || from == "live" ||
+                           from.compare(0, 4, "tab:") == 0;
+            host.open(sibling ? "home" : returnRoute(from));
+            return true;
+        }
+        if (!sub_.empty()) {
             sub_.clear();
-            rebuild(host, true);
+            buildPages(host, SettingsList::Reset::Fade);
             return true;
         }
-        if (level_ == Level::Rows && !direct_) {
-            showGroups(host, true);
-            return true;
-        }
-        return false;
+        setZone(host, Zone::Sections);
+        return true;
     }
     void click(ScreenHost &host, const std::string &hit) override {
         size_t index = 0;
-        if (!list_.parseHit(hit, index))
-            return;
-        if (index == list_.focus())
-            activate(host);
-        else
-            list_.select(host, index);
+        if (sections_.parseHit(hit, index)) {
+            if (index == sections_.focus()) {
+                enterPage(host);
+            } else {
+                sections_.select(host, index);
+                setZone(host, Zone::Sections);
+                sectionMoved(host);
+            }
+        } else if (rows_.parseHit(hit, index)) {
+            setZone(host, Zone::Rows);
+            if (index == rows_.focus())
+                activate(host);
+            else
+                rows_.select(host, index);
+        } else if (hit.compare(0, 9, "set:pill:") == 0) {
+            size_t pill = static_cast<size_t>(std::atoi(hit.c_str() + 9));
+            if (pill < pages_.size()) {
+                setZone(host, Zone::Tabs);
+                selectPage(host, pill);
+            }
+        }
     }
 
     void response(ScreenHost &host, const Response &response) override {
         const std::string &channel = response.channel;
-        if (channel == "settings:data")
-            arrived(host, readingKey_, response, false);
-        else if (channel.compare(0, 15, "settings:probe:") == 0)
-            arrived(host, channel.substr(15), response, true);
-        else if (channel == "settings:write")
-            written(host, response);
+        if (channel.compare(0, 14, "settings:data:") == 0)
+            arrived(host, channel.substr(14), response);
         else if (channel == "settings:wait")
             waited(host, response);
         else if (channel == "caps")
@@ -156,81 +170,195 @@ class SettingsScreen final : public ScreenView {
 
     bool update(ScreenHost &host) override {
         const double now = host.nowMs();
-        syncFocus(host);
-        list_.update(host);
+        syncFocus(host, false);
+        sections_.update(host);
+        rows_.update(host);
         if (capsChanged_) {
             capsChanged_ = false;
-            rebuild(host, false);
+            buildPages(host, SettingsList::Reset::Keep);
         }
         if (armed_ && now >= armedUntil_) {
             disarm();
-            rebuild(host, false);
+            rebuildRows(host, SettingsList::Reset::Keep);
         }
         if (saverAt_ && now >= saverAt_) {
             saverAt_ = 0;
-            write(host, saverCommand_);
+            Write start;
+            start.operation = saverCommand_.operation;
+            Json body = saverCommand_.body;
+            start.body = [body](const Json &) { return body; };
+            host.optimistic().run(saverKey_, start);
+        }
+        auto refused = host.memory().find("settings.switchFailed");
+        if (refused != host.memory().end()) {
+            host.memory().erase(refused);
+            switching_ = false;
+            rebuildRows(host, SettingsList::Reset::Keep);
+        }
+        // The server is restarting to apply the network switch: ask until it answers again.
+        auto restart = host.memory().find("settings.restart");
+        if (restart != host.memory().end()) {
+            host.memory().erase(restart);
+            host.toast(say::msg("tv.net.restarting", "Applying it, the server restarts…"));
+            waitAt_ = now + 1500;
+            waitTries_ = kServerTries;
+            waiting_ = false;
         }
         if (waitAt_ && now >= waitAt_ && !waiting_) {
             waiting_ = host.services().read("settings:wait", Operation::Setup) != 0;
             if (!waiting_)
                 waitAt_ = now + kServerWaitMs;
         }
-        if (level_ == Level::Rows && !busy_ && !waitAt_ && pollAt_ && now >= pollAt_) {
-            pollAt_ = 0;
-            readGroup(host);
+        if (readAt_ && now >= readAt_ && !waitAt_) {
+            readAt_ = 0;
+            readSection(host);
         }
-        return false;
+        if (!readAt_ && pollAt_ && now >= pollAt_ && !waitAt_) {
+            pollAt_ = 0;
+            readSection(host);
+        }
+        // A change the layer holds, answers or takes back moves the rows without any key.
+        if (page_ < pages_.size() && (host.optimistic().active() || held_) &&
+            stateSignature(host) != signature_)
+            rebuildRows(host, SettingsList::Reset::Keep);
+        return host.optimistic().active();
     }
 
     void build(ScreenHost &host, kit::Paint paint) override {
-        double head = host.motion().value("set:E:head");
+        Motion &motion = host.motion();
+        double head = motion.value("ss:head");
         kit::PageHead page;
-        if (level_ == Level::Groups) {
-            page.title = say::msg("tv.settings.title", "Settings");
-            page.subtitle =
-                say::msg("tv.settings.subtitle", "Changes apply as soon as they are made.");
-        } else {
-            const SettingGroup &group = groups_[group_];
-            page.title = sub_.empty() ? group.title : subTitle();
-            page.subtitle = sub_.empty()
-                                ? group.description
-                                : say::msg("tv.settings.backTo", "Back returns to {group}.",
-                                           vars({{"group", group.title}}));
-        }
+        page.title = say::msg("tv.settings.title", "Settings");
+        page.subtitle = say::msg("tv.settings.subtitle", "Changes apply as soon as they are made.");
         page.enter = {static_cast<float>(1 - head), static_cast<float>(28 * head)};
         kit::pageHead(paint, page);
-        list_.build(host, paint, "");
+        sections_.build(host, paint);
+        if (loading()) {
+            kit::Loading spinner;
+            spinner.area = {kPaneX, kTop, kPaneW, kBottom - kStripH - kStripGap - kTop};
+            spinner.label = say::msg("tv.loading", "Loading…");
+            spinner.phase = kit::spinnerPhase(motion, "ss:spin");
+            kit::loadingIndicator(paint, spinner);
+        } else {
+            if (showTabs())
+                buildTabs(host, paint);
+            rows_.build(host, paint);
+        }
+        // The strip names the focused section while the focus is in the list, else the focused row.
+        if (zone_ == Zone::Sections || !loading())
+            (zone_ == Zone::Sections ? sections_ : rows_).buildStrip(host, paint, stripBox());
     }
 
     Json snapshot() const override {
         Json value = Json::object();
-        value.set("level", Json::text(level_ == Level::Groups ? "groups" : "rows"));
-        value.set("group", Json::text(level_ == Level::Rows ? groups_[group_].key : ""));
+        static const char *const zones[] = {"sections", "tabs", "rows"};
+        value.set("zone", Json::text(zones[static_cast<int>(zone_)]));
+        value.set("level", Json::text(zone_ == Zone::Sections ? "groups" : "rows"));
+        value.set("section", Json::text(groups_[section_].key));
+        value.set("group", Json::text(groups_[section_].key));
+        value.set("page", Json::text(pages_.size() > page_ ? pages_[page_].title : ""));
+        value.set("pages", Json::numeric(static_cast<double>(pages_.size())));
         value.set("sub", Json::text(sub_));
-        const SettingItem *item = list_.current();
+        const SettingItem *item = zone_ == Zone::Sections ? sections_.current() : rows_.current();
         value.set("focus", Json::text(item ? item->title : ""));
-        value.set("rows", Json::numeric(static_cast<double>(list_.items().size())));
-        value.set("busy", Json::flag(busy_ || waitAt_ != 0));
+        value.set("focusId", Json::text(item ? item->id : ""));
+        value.set("focusOn", Json::flag(item && item->on));
+        value.set("focusValue", Json::text(item ? item->value : ""));
+        value.set("focusPending", Json::flag(item && item->pending));
+        value.set("rows", Json::numeric(static_cast<double>(rows_.items().size())));
+        value.set("focusLast",
+                  Json::flag(!rows_.items().empty() && rows_.focus() + 1 == rows_.items().size()));
+        value.set("sections", Json::numeric(static_cast<double>(sections_.items().size())));
+        value.set("loading", Json::flag(loading()));
+        value.set("busy", Json::flag(waitAt_ != 0 || switching_));
         value.set("confirming", Json::flag(armed_));
+        value.set("barFocus", Json::flag(barWas_));
         return value;
     }
 
   private:
-    enum class Level { Groups, Rows };
+    enum class Zone { Sections, Tabs, Rows };
+    using Reset = SettingsList::Reset;
 
+    // ---- keys --------------------------------------------------------------------------------
+
+    bool sectionKey(ScreenHost &host, Key key) {
+        if (key == Key::Up || key == Key::Down || key == Key::PageUp || key == Key::PageDown) {
+            int direction = key == Key::Up || key == Key::PageUp ? -1 : 1;
+            bool moved =
+                sections_.move(host, direction, key == Key::Up || key == Key::Down ? 1 : 6);
+            if (moved)
+                sectionMoved(host);
+            return moved || key != Key::Up; // the top section: the bar's
+        }
+        if (key == Key::Right || key == Key::Ok) {
+            enterPage(host);
+            return true;
+        }
+        return key == Key::Left; // never changes the section
+    }
+    bool tabKey(ScreenHost &host, Key key) {
+        if (key == Key::Left) {
+            if (page_ > 0)
+                selectPage(host, page_ - 1);
+            else
+                setZone(host, Zone::Sections);
+            return true;
+        }
+        if (key == Key::Right) {
+            if (page_ + 1 < pages_.size())
+                selectPage(host, page_ + 1);
+            return true;
+        }
+        if (key == Key::Down || key == Key::Ok) {
+            if (!rows_.items().empty())
+                setZone(host, Zone::Rows);
+            return true;
+        }
+        return key != Key::Up; // Up from the tabs is the bar's
+    }
+    bool rowKey(ScreenHost &host, Key key) {
+        if (key == Key::Up || key == Key::Down || key == Key::PageUp || key == Key::PageDown) {
+            int direction = key == Key::Up || key == Key::PageUp ? -1 : 1;
+            bool moved = rows_.move(host, direction, key == Key::Up || key == Key::Down ? 1 : 6);
+            if (!moved && key == Key::Up) {
+                // The first row: the tabs above it, if there are any, else the bar.
+                if (showTabs()) {
+                    setZone(host, Zone::Tabs);
+                    return true;
+                }
+                return false;
+            }
+            return true;
+        }
+        if (key == Key::Ok) {
+            activate(host);
+            return true;
+        }
+        if (key == Key::Left) {
+            if (!sub_.empty())
+                back(host);
+            else
+                setZone(host, Zone::Sections);
+            return true;
+        }
+        return key == Key::Right;
+    }
+
+    // ---- zones, sections and pages --------------------------------------------------------------
+
+    bool loading() const {
+        return !data_.count(groups_[section_].key);
+    }
+    bool showTabs() const {
+        return pages_.size() > 1 && sub_.empty();
+    }
     std::vector<size_t> visible() const {
         std::vector<size_t> shown;
         for (size_t i = 0; i < groups_.size(); ++i)
-            if (!hidden_.count(groups_[i].key))
+            if (!hidden_.count(groups_[i].key) || groups_[i].key == forced_)
                 shown.push_back(i);
         return shown;
-    }
-    std::string subTitle() const {
-        if (sub_ == "consents")
-            return say::msg("tv.privacy.head.dataConsents", "Data consents");
-        if (sub_ == "channels")
-            return say::msg("home.ch.addTitle", "Add channels");
-        return sub_;
     }
     Operation operationOf(size_t group) const {
         for (const Tab &tab : dashboardTabs())
@@ -238,21 +366,88 @@ class SettingsScreen final : public ScreenView {
                 return tab.operation;
         return Operation::None;
     }
+    void setZone(ScreenHost &host, Zone zone) {
+        if (zone == zone_)
+            return;
+        zone_ = zone;
+        syncFocus(host, true);
+        // The strip now speaks of the other list's focus.
+        (zone_ == Zone::Sections ? sections_ : rows_).refreshDetail(host);
+        host.invalidate();
+    }
+    // Right or OK on a section: the focus goes into its page, or waits for it to arrive.
+    void enterPage(ScreenHost &host) {
+        if (loading() || rows_.items().empty()) {
+            wantRows_ = true;
+            setZone(host, Zone::Rows);
+            return;
+        }
+        setZone(host, Zone::Rows);
+        rows_.focusFirst(host);
+    }
+    // The focus moved to another section: the page follows, and reads after the focus settles.
+    void sectionMoved(ScreenHost &host) {
+        std::vector<size_t> shown = visible();
+        if (sections_.focus() >= shown.size())
+            return;
+        size_t group = shown[sections_.focus()];
+        if (group == section_)
+            return;
+        selectSection(host, group, Reset::Fade);
+        readAt_ = host.nowMs() + kSettleMs;
+    }
+    void selectSection(ScreenHost &host, size_t group, Reset reset) {
+        section_ = group;
+        sub_.clear();
+        disarm();
+        pollAt_ = 0;
+        wantRows_ = false;
+        pages_.clear();
+        page_ = 0;
+        // The section list's focus is where the section is.
+        size_t row = 0;
+        for (size_t index : visible()) {
+            if (index == group)
+                break;
+            ++row;
+        }
+        sections_.select(host, row);
+        buildPages(host, reset);
+    }
+    void selectPage(ScreenHost &host, size_t page) {
+        if (page >= pages_.size() || page == page_)
+            return;
+        page_ = page;
+        lastPage_[groups_[section_].key] = pages_[page_].title;
+        rebuildRows(host, Reset::Fade);
+        syncFocus(host, true);
+    }
 
     // ---- data -------------------------------------------------------------------------------
 
-    // The sections that may be missing are asked once, so the list can leave them out.
+    static std::string dataChannel(const std::string &key) {
+        return "settings:data:" + key;
+    }
+    // The sections that may be missing are asked once, so the list can leave them out. What the
+    // last opening read shows at once, and is asked again behind it.
     void probe(ScreenHost &host) {
-        for (size_t i = 0; i < groups_.size(); ++i)
-            if (optionalGroup(groups_[i].key) && !(level_ == Level::Rows && i == group_) &&
-                !data_.count(groups_[i].key))
-                host.services().read("settings:probe:" + groups_[i].key, operationOf(i));
+        for (size_t i = 0; i < groups_.size(); ++i) {
+            const std::string &key = groups_[i].key;
+            auto kept = host.memory().find("settings.data." + key);
+            if (kept != host.memory().end() && !data_.count(key)) {
+                data_[key] = kept->second;
+                if (kept->second["available"].valid() && !kept->second["available"].boolean())
+                    hidden_.insert(key);
+            }
+            if (optionalGroup(key) && i != section_ && !data_.count(key))
+                host.services().read(dataChannel(key), operationOf(i));
+        }
     }
-    void readGroup(ScreenHost &host) {
-        readingKey_ = groups_[group_].key;
-        host.services().read("settings:data", operationOf(group_));
+    void readSection(ScreenHost &host) {
+        host.services().read(dataChannel(groups_[section_].key), operationOf(section_));
     }
-    void arrived(ScreenHost &host, const std::string &key, const Response &response, bool probing) {
+    void arrived(ScreenHost &host, const std::string &key, const Response &response) {
+        const bool probing = key != groups_[section_].key;
         Json data = response.json();
         bool good = response.ok() && data.valid();
         if (!good)
@@ -263,34 +458,42 @@ class SettingsScreen final : public ScreenView {
         if (probing && !good)
             return; // a section stays listed until it says it is not there
         data_[key] = data;
-        if (good && data["available"].valid() && !data["available"].boolean())
+        if (good)
+            host.memory()["settings.data." + key] = data;
+        bool gone = good && data["available"].valid() && !data["available"].boolean();
+        if (gone)
             hidden_.insert(key);
-        if (probing || level_ == Level::Groups) {
-            if (level_ == Level::Groups)
-                showGroups(host, false);
-            return;
+        if (probing || gone) {
+            rebuildSections(host, Reset::Keep);
+            if (gone && key == groups_[section_].key && key != forced_) {
+                // The section that was showing does not exist here: the next one shows.
+                std::vector<size_t> shown = visible();
+                if (!shown.empty())
+                    selectSection(host, shown[std::min(sections_.focus(), shown.size() - 1)],
+                                  Reset::Fade);
+            }
+            if (probing)
+                return;
         }
-        if (key != groups_[group_].key)
-            return;
+        bool first = pages_.empty();
         pollAt_ = host.nowMs() + (key == "system" || key == "options" ? kPollMs : 0);
-        // A section that turned out not to exist leaves the page it was opened from.
-        if (hidden_.count(key) && !direct_) {
-            showGroups(host, true);
-            return;
+        buildPages(host, first ? Reset::Stagger : Reset::Keep);
+        rebuildSections(host, Reset::Keep);
+        // The focus was waiting for the rows (OK on a section that was still loading).
+        if (wantRows_ && !rows_.items().empty()) {
+            wantRows_ = false;
+            rows_.focusFirst(host);
         }
-        rebuild(host, !loadedOnce_.count(key));
-        loadedOnce_.insert(key);
     }
 
     // ---- what is listed -----------------------------------------------------------------------
 
-    void showGroups(ScreenHost &host, bool fresh) {
-        level_ = Level::Groups;
-        sub_.clear();
+    void rebuildSections(ScreenHost &host, Reset reset) {
         std::vector<SettingItem> items;
         for (size_t index : visible()) {
             const SettingGroup &group = groups_[index];
             SettingItem item;
+            item.id = group.key;
             item.kind = SettingItem::Kind::Link;
             item.icon = group.icon;
             item.title = group.title;
@@ -302,54 +505,39 @@ class SettingsScreen final : public ScreenView {
                 item.chips.push_back(item.value);
             items.push_back(item);
         }
-        list_.set(host, std::move(items), fresh);
-        if (fresh)
-            groupFocus(host);
-        pollAt_ = 0;
-        host.invalidate();
-    }
-    // The list of sections is at the section that was left.
-    void groupFocus(ScreenHost &host) {
-        size_t row = 0;
-        for (size_t index : visible()) {
-            if (index == group_)
-                break;
-            ++row;
+        sections_.set(host, std::move(items), reset);
+        if (reset != Reset::Keep) {
+            size_t row = 0;
+            for (size_t index : visible()) {
+                if (index == section_)
+                    break;
+                ++row;
+            }
+            sections_.select(host, row);
         }
-        list_.select(host, row);
     }
-    void openGroup(ScreenHost &host, size_t group) {
-        group_ = group;
-        level_ = Level::Rows;
-        sub_.clear();
-        disarm();
-        busy_ = false;
-        pollAt_ = 0;
-        const std::string &key = groups_[group].key;
-        // What was loaded last time shows at once while the TV is asked again.
-        if (data_.count(key))
-            loadedOnce_.insert(key);
-        else
-            loadedOnce_.erase(key);
-        rebuild(host, true);
-        readGroup(host);
-    }
-    // The rows of the section from the data it last loaded.
-    void rebuild(ScreenHost &host, bool fresh) {
-        if (level_ != Level::Rows)
-            return;
-        const std::string &key = groups_[group_].key;
+    // The pages of the section from the data it last loaded; the page shown stays the page shown.
+    void buildPages(ScreenHost &host, Reset reset) {
+        const std::string &key = groups_[section_].key;
         auto cached = data_.find(key);
-        Json data = cached == data_.end() ? Json() : cached->second;
-        std::vector<MenuRow> rows = dashboardRows(key, data, host.view().caps, sub_);
+        if (cached == data_.end()) {
+            pages_.clear();
+            rows_.set(host, {}, Reset::Fade);
+            return;
+        }
+        std::vector<MenuRow> rows = dashboardRows(key, cached->second, host.view().caps, sub_);
         // The dashboard is dark only; its Theme row would change nothing.
         rows.erase(std::remove_if(rows.begin(), rows.end(),
                                   [](const MenuRow &row) { return row.command.route == "theme"; }),
                    rows.end());
-        std::vector<SettingItem> items = settingItems(key, rows);
+        std::string was = pages_.size() > page_ ? pages_[page_].title : lastPage_[key];
+        pages_ = sub_.empty() ? settingPages(key, rows) : std::vector<SettingPage>{SettingPage()};
+        if (!sub_.empty())
+            pages_[0].items = settingItems(key, rows);
         // Metrics are the page Live shows as cards; the way there is the first row.
         if (key == "system" && sub_.empty()) {
             SettingItem live;
+            live.id = "live-link";
             live.kind = SettingItem::Kind::Link;
             live.icon = "speed";
             live.title = say::msg("tv.settings.liveLink", "Live");
@@ -357,58 +545,156 @@ class SettingsScreen final : public ScreenView {
                                  "The same readings as cards, refreshed every few seconds.");
             live.action = say::msg("tv.settings.open", "Open");
             live.command = navigate("live");
-            items.insert(items.begin(), live);
+            pages_[0].items.insert(pages_[0].items.begin(), live);
         }
-        decorate(items);
-        list_.set(host, std::move(items), fresh);
+        size_t at = 0;
+        bool found = false;
+        for (size_t i = 0; i < pages_.size(); ++i)
+            if (pages_[i].title == was) {
+                at = i;
+                found = true;
+            }
+        // A refresh that no longer has the page that was showing starts over on the first.
+        if (reset == Reset::Keep && !found)
+            reset = Reset::Fade;
+        page_ = at;
+        if (sub_.empty())
+            lastPage_[key] = pages_[page_].title;
+        rebuildRows(host, reset);
+    }
+    void rebuildRows(ScreenHost &host, Reset reset) {
+        if (page_ >= pages_.size()) {
+            rows_.set(host, {}, Reset::Fade);
+            return;
+        }
+        std::vector<SettingItem> items = pages_[page_].items;
+        decorate(host, items);
+        rows_.moveViewport(host, rowsViewport(showTabs()));
+        rows_.set(host, std::move(items), reset);
         host.invalidate();
     }
-    // What the focused row says while it waits for a second OK or for the TV.
-    void decorate(std::vector<SettingItem> &items) const {
+    // What each row reads now: what the TV last said, with what the person has asked for on top
+    // while the layer holds it, and the row's state while a second OK or the TV is awaited.
+    void decorate(ScreenHost &host, std::vector<SettingItem> &items) {
+        Optimistic &layer = host.optimistic();
+        signature_.clear();
+        held_ = false;
         for (SettingItem &item : items) {
-            if (!item.focusable() || item.command.empty() ||
-                item.command.operation == Operation::None)
+            if (!item.focusable())
                 continue;
-            if (armed_ && signature(item.command) == armedSignature_) {
+            const std::string key = writeKey(item);
+            if (item.kind == SettingItem::Kind::Toggle) {
+                const bool server = item.on;
+                item.on = layer.flag(key, item.on);
+                held_ = held_ || item.on != server;
+                item.action = item.on ? say::msg("tv.settings.turnOff", "Turn off")
+                                      : say::msg("tv.settings.turnOn", "Turn on");
+                signature_ += item.on ? 'T' : 'F';
+            } else if (item.kind == SettingItem::Kind::Choice && !item.choices.empty()) {
+                const std::string server = item.value;
+                item.value = layer.text(key, item.value);
+                held_ = held_ || item.value != server;
+                item.chips = {item.value};
+                signature_ += item.value;
+            }
+            item.pending = layer.pending(key);
+            held_ = held_ || item.pending;
+            signature_ += item.pending ? 'p' : '.';
+            if (item.pending) {
+                // Its words describe the state before the change.
+                if (item.kind == SettingItem::Kind::Toggle)
+                    item.chips.clear();
+                item.action.clear();
+            }
+            if (switching_ && item.id == switchingId_) {
+                item.value = say::msg("tv.settings.switching", "Switching…");
+                item.chips = {item.value};
+                item.pending = true;
+            }
+            if (armed_ && item.id == armedId_) {
                 item.value = say::msg("tv.confirm", "Confirm?");
                 item.action = say::msg("tv.settings.pressAgain", "Press OK again to confirm");
                 item.chips = {say::msg("tv.settings.backCancels", "Back cancels")};
-            } else if (busy_ && signature(item.command) == writingSignature_) {
-                item.value = say::msg("tv.settings.working", "Working…");
-                item.action.clear();
             }
         }
+    }
+    // What decorate() would make of the layer's state, as text, without making the rows.
+    std::string stateSignature(ScreenHost &host) const {
+        Optimistic &layer = host.optimistic();
+        std::string text;
+        for (const SettingItem &base : pages_[page_].items) {
+            if (!base.focusable())
+                continue;
+            const std::string key = writeKey(base);
+            if (base.kind == SettingItem::Kind::Toggle)
+                text += layer.flag(key, base.on) ? 'T' : 'F';
+            else if (base.kind == SettingItem::Kind::Choice && !base.choices.empty())
+                text += layer.text(key, base.value);
+            text += layer.pending(key) ? 'p' : '.';
+        }
+        return text;
+    }
+    // The rows draw from this key: the section and the row, so another section's change is not
+    // mistaken for this one's.
+    std::string writeKey(const SettingItem &item) const {
+        return "settings/" + groups_[section_].key + "/" + item.id;
+    }
+    // The rows as the TV last described them (before what is asked for lies on top).
+    const SettingItem *baseOf(const std::string &id) const {
+        if (page_ >= pages_.size())
+            return nullptr;
+        for (const SettingItem &item : pages_[page_].items)
+            if (item.id == id)
+                return &item;
+        return nullptr;
     }
 
     // ---- doing --------------------------------------------------------------------------------
 
     void activate(ScreenHost &host) {
-        const SettingItem *item = list_.current();
-        if (!item || !item->focusable())
+        const SettingItem *shown = rows_.current();
+        if (!shown || !shown->focusable() || shown->command.empty())
             return;
-        if (level_ == Level::Groups) {
-            std::vector<size_t> shown = visible();
-            if (list_.focus() < shown.size())
-                openGroup(host, shown[list_.focus()]);
+        const SettingItem *base = baseOf(shown->id);
+        if (!base)
             return;
-        }
-        if (item->command.empty())
-            return;
-        Command command = item->command;
+        Command command = base->command;
         if (!command.route.empty()) {
             follow(host, command.route);
             return;
         }
-        if (busy_ || waitAt_)
+        if (waitAt_ || switching_)
             return;
-        // A change that is hard to undo asks twice, within a few seconds.
-        if (command.confirm && !(armed_ && armedSignature_ == signature(command))) {
+        // What this press asks for, and the value it ends on.
+        Json target, server;
+        std::string key = writeKey(*base);
+        Optimistic &layer = host.optimistic();
+        if (base->kind == SettingItem::Kind::Toggle) {
+            bool wanted = !layer.flag(key, base->on);
+            command = wanted != base->on ? base->command : base->reverse;
+            target = Json::flag(wanted);
+            server = Json::flag(base->on);
+        } else if (base->kind == SettingItem::Kind::Choice && !base->choices.empty()) {
+            // The next value after the one shown, as OK steps through them.
+            std::string current = layer.text(key, base->value);
+            size_t at = 0;
+            for (size_t i = 0; i < base->choices.size(); ++i)
+                if (base->choices[i].first == current)
+                    at = i + 1;
+            const auto &next = base->choices[at % base->choices.size()];
+            command = next.second;
+            target = Json::text(next.first);
+            server = Json::text(base->value);
+        }
+        // A change that is hard to undo asks twice, within a few seconds; the second OK is the
+        // change.
+        if (command.confirm && !(armed_ && armedId_ == base->id)) {
             armed_ = true;
-            armedSignature_ = signature(command);
+            armedId_ = base->id;
             armedUntil_ = host.nowMs() + kConfirmMs;
             host.toast(
                 say::msg("tv.settings.confirmToast", "Press OK again to confirm. Back cancels."));
-            rebuild(host, false);
+            rebuildRows(host, Reset::Keep);
             return;
         }
         disarm();
@@ -416,107 +702,174 @@ class SettingsScreen final : public ScreenView {
             // Started once the OK that chose it has been let go, or it would end the saver at once.
             saverAt_ = host.nowMs() + kSaverDelayMs;
             saverCommand_ = command;
+            saverKey_ = key;
             host.toast(say::msg("tv.flash.startingSaver", "Starting the screen saver…"));
             return;
         }
-        write(host, command);
+        submit(host, *base, key, command, target, server);
     }
     void disarm() {
         armed_ = false;
-        armedSignature_.clear();
+        armedId_.clear();
     }
     void follow(ScreenHost &host, const std::string &route) {
         if (route == "refresh") {
-            readGroup(host);
+            readSection(host);
             return;
         }
         if (route.compare(0, 4, "sub:") == 0) {
             sub_ = route.substr(4);
-            rebuild(host, true);
+            buildPages(host, Reset::Fade);
             return;
         }
         host.open(route);
     }
-    void write(ScreenHost &host, const Command &command) {
-        if (!host.services().write("settings:write", command.operation, command.body)) {
-            host.toast(say::msg("tv.settings.busy", "Too many pending requests. Try again."));
-            return;
+    // Every change goes through the layer: a switch or a stepper shows its new value from the next
+    // frame, anything else is pending until the TV answers. The callbacks hold the host, never the
+    // page, which may be gone by then.
+    void submit(ScreenHost &host, const SettingItem &item, const std::string &key,
+                const Command &command, const Json &target, const Json &server) {
+        const std::string section = groups_[section_].key;
+        const Operation read = operationOf(section_);
+        const bool network =
+            command.operation == Operation::Setup && command.body["action"].string() == "network";
+        // A switch or a stepper shows its own answer; only the rest says it was saved.
+        const bool quiet =
+            item.kind == SettingItem::Kind::Toggle || item.kind == SettingItem::Kind::Choice;
+        ScreenHost *world = &host;
+        Write write;
+        write.operation = command.operation;
+        Json body = command.body;
+        write.body = [body](const Json &) { return body; };
+        write.failure = say::msg("tv.failed", "That did not work");
+        write.readChannel = dataChannel(section);
+        write.readOperation = read;
+        write.done = [world, quiet, network](bool ok, const Json &) {
+            if (!ok) {
+                if (network) // the switch is off the screen again, and the row can be pressed
+                    world->memory()["settings.switchFailed"] = Json::flag(true);
+                return;
+            }
+            if (network) // the server restarts to apply it: the page waits for it to answer again
+                world->memory()["settings.restart"] = Json::flag(true);
+            else if (!quiet)
+                world->toast(say::msg("tv.settings.saved", "Saved"));
+        };
+        if (target.valid()) {
+            host.optimistic().set(key, target, server, write);
+            if (network) {
+                switching_ = true;
+                switchingId_ = item.id;
+            }
+        } else {
+            // Nothing to show of it but that it is on its way; the section is read again after.
+            write.readOperation = Operation::None;
+            write.done = [world, section, read](bool ok, const Json &) {
+                if (ok) {
+                    world->toast(say::msg("tv.settings.saved", "Saved"));
+                    world->services().read(dataChannel(section), read);
+                }
+            };
+            host.optimistic().run(key, write);
         }
-        busy_ = true;
-        writing_ = command;
-        writingSignature_ = signature(command);
-        rebuild(host, false);
+        rebuildRows(host, Reset::Keep);
     }
-    void written(ScreenHost &host, const Response &response) {
-        busy_ = false;
-        Json data = response.json();
-        bool good = response.ok() && data.valid() && (!data.has("ok") || data["ok"].boolean());
-        if (!good) {
-            host.toast(data["error"].string(say::msg("tv.failed", "That did not work")));
-            readGroup(host);
-            rebuild(host, false);
-            return;
-        }
-        const SettingItem *item = list_.current();
-        bool quiet = item && item->kind == SettingItem::Kind::Toggle; // the switch itself answers
-        if (!quiet)
-            host.toast(say::msg("tv.settings.saved", "Saved"));
-        // Opening or closing the dashboard restarts the server: ask until it answers again.
-        if (writing_.operation == Operation::Setup &&
-            writing_.body["action"].string() == "network") {
-            host.toast(writing_.body["open"].boolean()
-                           ? say::msg("tv.net.opening", "Opening it to your network…")
-                           : say::msg("tv.net.closing", "Keeping it to this TV…"));
-            waitAt_ = host.nowMs() + 1500;
-            waitTries_ = kServerTries;
-            waiting_ = false;
-        } else
-            readGroup(host);
-        rebuild(host, false);
-    }
+    // The server came back from a restart, or did not.
     void waited(ScreenHost &host, const Response &response) {
         waiting_ = false;
         Json data = response.json();
         if (response.ok() && data.valid()) {
             waitAt_ = 0;
-            readGroup(host);
-            rebuild(host, false);
+            switching_ = false;
+            readSection(host);
+            rebuildRows(host, Reset::Keep);
             return;
         }
         if (--waitTries_ <= 0) {
             waitAt_ = 0;
+            switching_ = false;
             host.toast(say::msg("tv.net.notBack", "It did not come back. Try again."));
-            rebuild(host, false);
+            rebuildRows(host, Reset::Keep);
             return;
         }
         waitAt_ = host.nowMs() + kServerWaitMs;
     }
 
-    // The page draws no focus while the top bar has it.
-    void syncFocus(ScreenHost &host) {
+    // ---- drawing ------------------------------------------------------------------------------
+
+    // The page draws no focus while the top bar has it, and only one part of the page has it.
+    void syncFocus(ScreenHost &host, bool force) {
         bool bar = host.barFocused();
-        if (bar == barWas_)
+        if (!force && bar == barWas_)
             return;
         barWas_ = bar;
-        list_.show(host, !bar);
+        sections_.show(host, !bar && zone_ == Zone::Sections);
+        rows_.show(host, !bar && zone_ == Zone::Rows);
+        Motion &motion = host.motion();
+        for (size_t i = 0; i < pages_.size(); ++i)
+            motion.tween("ss:pf:" + std::to_string(i),
+                         !bar && zone_ == Zone::Tabs && i == page_ ? 1 : 0, ms::focus,
+                         kit::easing(kit::motion::ease::out));
+        host.invalidate();
+    }
+    // The subsections as a row of pills over the rows: the shown one is filled, the one with the
+    // focus is lit like the focused row.
+    void buildTabs(ScreenHost &host, kit::Paint paint) {
+        Motion &motion = host.motion();
+        Scene &scene = paint.scene;
+        // The pills' padding gives way where their titles would not fit the page.
+        std::vector<float> text;
+        float words = 0;
+        for (const SettingPage &page : pages_) {
+            text.push_back(paint.glyphs.measure(page.title, kit::type::labelL));
+            words += text.back();
+        }
+        float gaps = kPillGap * static_cast<float>(pages_.size() - 1);
+        float pad = std::max(8.0f, std::min(kPillPad, (kPaneW - gaps - words) /
+                                                          (2 * static_cast<float>(pages_.size()))));
+        float x = kPaneX;
+        for (size_t i = 0; i < pages_.size(); ++i) {
+            float width = text[i] + 2 * pad;
+            Rect rest = {x, kTop, width, kPillH};
+            float focus = static_cast<float>(motion.value("ss:pf:" + std::to_string(i)));
+            bool shown = i == page_;
+            Color fill = kit::focus::mix(shown ? kit::color::pillRest : Color{0, 0, 0, 0},
+                                         kit::color::focusFill, focus);
+            scene.shape(rest, fill, kPillH / 2);
+            Color ink = kit::focus::inkAt(shown ? kit::color::onSurface : kit::color::onSurface2,
+                                          kit::color::onFocus, focus);
+            paint.glyphs.text(
+                scene,
+                {x, kTop + (kPillH - kit::type::labelL.line) / 2, width, kit::type::labelL.line},
+                pages_[i].title, kit::type::labelL, ink, Node::Align::Center);
+            scene.hits.push_back({rest, "set:pill:" + std::to_string(i)});
+            x += width + kPillGap;
+        }
     }
 
     std::vector<SettingGroup> groups_;
-    SettingsList list_;
-    Level level_ = Level::Groups;
-    size_t group_ = 0;
-    bool direct_ = false, barWas_ = false, capsChanged_ = false;
-    std::string sub_, readingKey_;
+    SettingsList sections_, rows_;
+    Zone zone_ = Zone::Sections;
+    size_t section_ = 0, page_ = 0;
+    std::string forced_; // the section the route named: listed even where the TV lacks it
+    std::vector<SettingPage> pages_;
+    std::map<std::string, std::string> lastPage_; // the page each section was left on
+    bool barWas_ = false, capsChanged_ = false, wantRows_ = false;
+    std::string sub_;
     std::map<std::string, Json> data_;
-    std::set<std::string> hidden_, loadedOnce_;
-    double pollAt_ = 0;
-    // A write in flight, and the second OK a risky one waits for.
-    bool busy_ = false, armed_ = false;
-    Command writing_, saverCommand_;
-    std::string writingSignature_, armedSignature_;
+    std::set<std::string> hidden_;
+    double pollAt_ = 0, readAt_ = 0;
+    // The second OK a risky change waits for, and the network switch while the server restarts.
+    bool armed_ = false, switching_ = false;
+    std::string armedId_, switchingId_;
+    Command saverCommand_;
+    std::string saverKey_;
     double armedUntil_ = 0, saverAt_ = 0, waitAt_ = 0;
     bool waiting_ = false;
     int waitTries_ = 0;
+    // What the rows showed of the layer's changes last time: when it differs they are drawn again.
+    std::string signature_;
+    bool held_ = false; // the last rows drew something the layer is holding
 };
 } // namespace
 

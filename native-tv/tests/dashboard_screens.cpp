@@ -4,9 +4,10 @@
 #include "domain/live_cards.hpp"
 #include "domain/settings_items.hpp"
 #include "ui/application.hpp"
+#include "ui/kit/tuning.hpp"
 #include "ui/kit/widgets.hpp"
-#include <cstdio>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <fstream>
 #include <map>
@@ -63,18 +64,21 @@ struct FakeTransport final : Services {
         std::string channel;
         Operation operation;
         Json body;
+        unsigned generation;
     };
     std::vector<Request> requests;
     std::map<std::string, unsigned> revisions;
     bool refuse = false;
     unsigned read(const std::string &channel, Operation operation,
                   const Json &arguments = Json()) override {
-        requests.push_back({channel, operation, arguments});
-        return refuse ? 0 : ++revisions[channel];
+        unsigned generation = refuse ? 0 : ++revisions[channel];
+        requests.push_back({channel, operation, arguments, generation});
+        return generation;
     }
     unsigned write(const std::string &channel, Operation operation, const Json &body) override {
-        requests.push_back({channel, operation, body});
-        return refuse ? 0 : ++revisions[channel];
+        unsigned generation = refuse ? 0 : ++revisions[channel];
+        requests.push_back({channel, operation, body, generation});
+        return generation;
     }
     void cancel(const std::string &channel) override {
         ++revisions[channel];
@@ -85,6 +89,14 @@ struct FakeTransport final : Services {
             if (request.channel == channel)
                 ++count;
         return count;
+    }
+    // The writes the optimistic layer sent, oldest first (they travel on "w:<key>" channels).
+    std::vector<const Request *> writes() const {
+        std::vector<const Request *> found;
+        for (const auto &request : requests)
+            if (request.channel.compare(0, 2, "w:") == 0)
+                found.push_back(&request);
+        return found;
     }
     const Request *last(const std::string &channel) const {
         for (auto it = requests.rbegin(); it != requests.rend(); ++it)
@@ -145,25 +157,31 @@ std::string describe(const LiveView &view) {
     }
     return text;
 }
-std::string describe(const std::vector<SettingItem> &items) {
+std::string describe(const std::vector<SettingPage> &pages) {
     static const char *const kinds[] = {"heading", "info", "toggle", "choice", "action", "link"};
     std::string text;
-    for (const SettingItem &item : items) {
-        std::string kind = kinds[static_cast<int>(item.kind)];
-        if (item.kind == SettingItem::Kind::Heading) {
-            text += "== " + item.title + "\n";
-            continue;
+    for (const SettingPage &page : pages) {
+        if (pages.size() > 1)
+            text += "## " + page.title + "\n";
+        for (const SettingItem &item : page.items) {
+            std::string kind = kinds[static_cast<int>(item.kind)];
+            if (item.kind == SettingItem::Kind::Heading) {
+                text += "== " + item.title + "\n";
+                continue;
+            }
+            text += kind + std::string(8 - kind.size(), ' ') + item.title;
+            if (!item.value.empty())
+                text += " = " + item.value;
+            if (item.kind == SettingItem::Kind::Toggle)
+                text += item.on ? " [on]" : " [off]";
+            if (!item.action.empty())
+                text += " -> " + item.action;
+            if (item.command.confirm)
+                text += " (confirms)";
+            if (!item.choices.empty())
+                text += " {" + std::to_string(item.choices.size()) + " values}";
+            text += " <" + item.icon + ">\n";
         }
-        text += kind + std::string(8 - kind.size(), ' ') + item.title;
-        if (!item.value.empty())
-            text += " = " + item.value;
-        if (item.kind == SettingItem::Kind::Toggle)
-            text += item.on ? " [on]" : " [off]";
-        if (!item.action.empty())
-            text += " -> " + item.action;
-        if (item.command.confirm)
-            text += " (confirms)";
-        text += " <" + item.icon + ">\n";
     }
     return text;
 }
@@ -198,16 +216,16 @@ void models() {
     for (const SettingGroup &group : settingGroups()) {
         auto rows = dashboardRows(group.key, data[group.key], caps);
         check(!rows.empty(), "Every section has rows");
-        snapshot("rows-" + group.key, describe(settingItems(group.key, rows)));
+        snapshot("rows-" + group.key, describe(settingPages(group.key, rows)));
         check(!settingGroupStatus(group.key, data[group.key]).empty() || group.key == "game" ||
                   group.key == "apps" || group.key == "options",
               "A loaded section tells a few words of itself");
     }
     snapshot("rows-privacy-consents",
-             describe(settingItems("privacy",
+             describe(settingPages("privacy",
                                    dashboardRows("privacy", data["privacy"], caps, "consents"))));
     snapshot("rows-privacy-services",
-             describe(settingItems("privacy",
+             describe(settingPages("privacy",
                                    dashboardRows("privacy", data["privacy"], caps, "services"))));
     check(settingGroups().size() == dashboardTabs().size(),
           "Settings lists the ten dashboard sections");
@@ -337,222 +355,452 @@ void live() {
     check(bar.screenName() == "live", "tab:live is the same page");
 }
 
-// ---- Settings
-// --------------------------------------------------------------------------------------
+// ---- Settings ---------------------------------------------------------------------------------
 
-std::string focus(Application &app) {
-    return app.snapshot()["focus"].string();
+std::string zone(Application &app) {
+    return app.snapshot()["zone"].string();
 }
-// Moves down until the focused row is `title`; false when it never is.
-bool goTo(Application &app, const std::string &title) {
-    for (int i = 0; i < 80 && focus(app) != title; ++i)
-        app.key(Key::Down);
-    return focus(app) == title;
+// The hit of the first row of a list ("sec:row:0"): where the list is on the canvas.
+const Hit *hitOf(const Scene &scene, const std::string &id) {
+    for (const auto &hit : scene.hits)
+        if (hit.id == id)
+            return &hit;
+    return nullptr;
 }
+// Sends the reply of the newest write the layer has made, or of the one before it.
+void answerWrite(Application &app, const FakeTransport &transport, bool ok = true,
+                 const std::string &error = "", size_t from_end = 0, const std::string &body = "") {
+    auto writes = transport.writes();
+    check(writes.size() > from_end, "A write was made to answer");
+    const FakeTransport::Request &request = *writes[writes.size() - 1 - from_end];
+    Response response;
+    response.channel = request.channel;
+    response.generation = request.generation;
+    response.status = ok ? 200 : 503;
+    response.bytes = !body.empty() ? body
+                     : ok          ? R"({"ok":true})"
+                                   : std::string(R"({"ok":false,"error":")") + error + "\"}";
+    app.response(response);
+}
+
 void settings() {
     FakeTransport transport;
     Application app(transport, "dashboard");
     uint32_t clock = run(app, 16, 300);
     reply(app, "caps", R"({"ok":true,"allowPower":true})");
-    check(app.screenName() == "dashboard" && app.snapshot()["level"].string() == "groups",
-          "The dashboard route lists the sections");
+    check(app.screenName() == "dashboard" && zone(app) == "sections" &&
+              app.snapshot()["section"].string() == "system",
+          "The dashboard route opens the list of sections, on the first");
     for (const char *key : {"oled", "game", "saver", "home"})
-        check(transport.count(std::string("settings:probe:") + key) == 1,
+        check(transport.count(std::string("settings:data:") + key) == 1,
               "The sections a TV may lack are asked once");
-    check(app.snapshot()["rows"].number() == 10, "All ten sections are listed at first");
-    reply(app, "settings:probe:oled", R"({"ok":true,"available":false})");
-    reply(app, "settings:probe:game", section("game"));
-    clock = run(app, clock, 300);
-    check(app.snapshot()["rows"].number() == 9, "A section that says it is absent leaves the list");
-    check(app.shows("Metrics") && app.shows("Changes apply as soon as they are made."),
-          "The list is drawn");
+    check(transport.count("settings:data:system") == 1, "The section in view is read as it opens");
+    check(app.snapshot()["sections"].number() == 10 && app.snapshot()["loading"].boolean(),
+          "All ten sections are listed at first, and the page waits for its data");
+    check(app.shows("Loading…"), "A section being read shows the loading indicator");
+    {
+        // The indicator is the kit's turning arc: a few dozen nodes, moving from frame to frame.
+        auto dots = [](const Scene &scene) {
+            std::vector<float> xs;
+            for (const auto &node : scene.nodes)
+                if (node.kind == Node::Kind::Rectangle && node.rect.x > 1100 &&
+                    node.rect.x < 1400 && node.rect.y > 450 && node.rect.y < 700 &&
+                    node.rect.w < 12)
+                    xs.push_back(node.rect.x);
+            return xs;
+        };
+        std::vector<float> first = dots(app.frame());
+        clock = run(app, clock, 350);
+        std::vector<float> later = dots(app.frame());
+        check(first.size() >= 16 && first.size() <= 40 && first.size() == later.size() &&
+                  first != later,
+              "The loading indicator is a small turning arc, not a layer");
+    }
+    reply(app, "settings:data:oled", R"({"ok":true,"available":false})");
+    reply(app, "settings:data:game", section("game"));
+    reply(app, "settings:data:system", fixture("stats-c4-webos9.json"));
+    clock = run(app, clock, 800);
+    check(app.snapshot()["sections"].number() == 9,
+          "A section that says it is absent leaves the list");
+    check(!app.snapshot()["loading"].boolean() && app.snapshot()["pages"].number() == 3,
+          "Metrics arrive as three subsections");
+    check(app.shows("Settings") && app.shows("Changes apply as soon as they are made.") &&
+              app.shows("Load") && app.shows("Memory and storage") && app.shows("This TV"),
+          "The list, the title and the subsections' tabs are drawn");
 
+    // The page is 30% list and 70% content, both in view; every row is inside its pane.
+    {
+        const Scene &scene = app.frame();
+        const Hit *section = hitOf(scene, "sec:row:0"), *row = hitOf(scene, "set:row:0");
+        check(section && row, "Both lists are drawn");
+        check(section->rect.x == 80 && section->rect.x + section->rect.w <= 600 &&
+                  row->rect.x >= 640 && row->rect.x + row->rect.w <= 1840,
+              "The sections are the left 30% and the rows the right 70%, inside the margins");
+        check(row->rect.w > 2 * section->rect.w,
+              "The rows are more than twice as wide as the sections");
+    }
+
+    // Up and Down in the list move the section, and the page follows.
     app.key(Key::Down);
-    check(focus(app) == "Apps", "Down moves along the sections");
-    app.key(Key::Ok);
-    check(app.screenName() == "dashboard:apps" &&
-              transport.last("settings:data")->operation == Operation::Apps,
-          "OK opens a section and reads its data");
-    run(app, clock, 200);
-    check(app.shows("Loading…"), "The section says it is loading");
-    reply(app, "settings:data", section("apps"));
-    clock = run(app, clock + 300, 500);
-    check(app.snapshot()["rows"].number() > 8 && app.shows("Uninstall Applications"),
-          "The rows are listed");
+    check(app.snapshot()["section"].string() == "apps" && zone(app) == "sections",
+          "Down moves to the next section");
+    check(transport.count("settings:data:apps") == 0 && app.snapshot()["loading"].boolean(),
+          "The page waits for the focus to settle before it reads");
+    clock = run(app, clock, 300);
+    check(transport.count("settings:data:apps") == 1, "…then reads the section");
+    reply(app, "settings:data:apps", section("apps"));
+    clock = run(app, clock, 700);
+    check(app.snapshot()["pages"].number() == 6 && app.snapshot()["page"].string() == "Installed",
+          "Apps are six short subsections, the first showing");
+    check(app.shows("Quick Access") && app.shows("Kept ready") && app.shows("Services"),
+          "…named after what the dashboard grouped");
+    app.key(Key::Up);
+    check(app.snapshot()["section"].string() == "system" && !app.snapshot()["loading"].boolean(),
+          "Up moves back; a section already read shows at once");
 
-    // A change that is hard to undo asks twice.
-    check(goTo(app, "Homebrew Channel"), "An installed app is a row");
-    size_t writes = transport.count("settings:write");
-    app.key(Key::Ok);
-    check(app.snapshot()["confirming"].boolean() && transport.count("settings:write") == writes,
-          "The first OK on an uninstall only asks");
-    run(app, clock, 100);
-    check(app.shows("Confirm?"), "The row says it is waiting for a second OK");
-    app.key(Key::Back);
-    check(!app.snapshot()["confirming"].boolean() && app.screenName() == "dashboard:apps",
-          "Back cancels the question and stays on the page");
-    app.key(Key::Ok);
-    app.key(Key::Ok);
-    check(transport.count("settings:write") == writes + 1 &&
-              transport.last("settings:write")->operation == Operation::UninstallApp &&
-              transport.last("settings:write")->body["id"].string() == "org.webosbrew.hbchannel",
-          "The second OK uninstalls through the same route the dashboard used");
-    size_t reads = transport.count("settings:data");
-    app.key(Key::Ok);
-    check(transport.count("settings:write") == writes + 1,
-          "Nothing else is sent while a write is out");
-    reply(app, "settings:write", R"({"ok":true})");
-    check(transport.count("settings:data") == reads + 1, "A change reads the section again");
-    run(app, clock + 200, 100);
-    check(app.shows("Saved"), "A change that is not a switch says it was saved");
-
-    // A refused change says why, and the rows come back.
-    check(goTo(app, "Promotions"), "A Home screen part is a switch");
-    app.key(Key::Ok);
-    check(transport.last("settings:write")->operation == Operation::SetLgHomeLayout &&
-              transport.last("settings:write")->body["part"].string() == "promotions" &&
-              transport.last("settings:write")->body["shown"].boolean(),
-          "A switch writes its opposite");
-    reads = transport.count("settings:data");
-    reply(app, "settings:write", R"({"ok":false,"error":"Not allowed on this firmware"})");
-    run(app, clock + 400, 100);
-    check(app.shows("Not allowed on this firmware") &&
-              transport.count("settings:data") == reads + 1,
-          "A refusal is shown and the section is read again");
-
-    // Left and Right step through the sections; Back returns to the list.
+    // Left and Right never change the section.
+    app.key(Key::Down);
+    app.key(Key::Left);
+    check(app.snapshot()["section"].string() == "apps" && zone(app) == "sections",
+          "Left in the list changes nothing");
     app.key(Key::Right);
-    check(app.screenName() == "dashboard:saver" || app.screenName() == "dashboard:game",
-          "Right opens the next section that exists");
+    check(zone(app) == "rows" && app.snapshot()["section"].string() == "apps",
+          "Right moves the focus into the page");
+    app.key(Key::Right);
+    app.key(Key::Right);
+    check(zone(app) == "rows" && app.snapshot()["section"].string() == "apps",
+          "Right in the page does not open another section");
     app.key(Key::Left);
+    check(zone(app) == "sections" && app.snapshot()["section"].string() == "apps",
+          "Left in the page returns to the list");
+    app.key(Key::Ok);
+    check(zone(app) == "rows", "OK on a section moves into it as well");
+    app.key(Key::Back);
+    check(zone(app) == "sections" && app.screenName() == "dashboard",
+          "Back in the page returns to the list");
+
+    // Subsections: a row of tabs over the rows, and the one last shown is remembered.
+    app.key(Key::Right);
+    check(app.snapshot()["focus"].string() == "Install homebrew apps",
+          "The page opens on its first row");
+    app.key(Key::Up);
+    check(zone(app) == "tabs", "Up from the first row reaches the tabs");
+    app.key(Key::Right);
+    app.key(Key::Right);
+    check(app.snapshot()["page"].string() == "Quick Access" &&
+              app.snapshot()["focus"].string() == "1",
+          "Right on the tabs shows the next subsection");
     app.key(Key::Left);
-    check(app.screenName() == "dashboard:system",
-          "Left steps back, over the section that is absent");
+    check(app.snapshot()["page"].string() == "Home screen", "Left steps back");
+    app.key(Key::Down);
+    check(zone(app) == "rows" && app.snapshot()["focus"].string() == "HDMI 1",
+          "Down returns to the rows of that subsection");
     app.key(Key::Back);
-    check(app.screenName() == "dashboard" && app.snapshot()["level"].string() == "groups",
-          "Back returns to the list of sections");
+    app.key(Key::Down);
+    clock = run(app, clock, 300);
+    app.key(Key::Up);
+    check(app.snapshot()["section"].string() == "apps" &&
+              app.snapshot()["page"].string() == "Home screen",
+          "A section opens on the subsection it was left on");
+    app.key(Key::Right);
+    app.key(Key::Up);
+    app.key(Key::Left);
+    check(zone(app) == "tabs" && app.snapshot()["page"].string() == "Installed",
+          "Left on the first tab ends on the first subsection");
+    app.key(Key::Left);
+    check(zone(app) == "sections", "…and then returns to the list");
     app.key(Key::Back);
-    check(app.screenName() == "home", "Back from the list leaves for Home");
+    check(app.screenName() == "home", "Back in the list closes Settings, to where it was opened");
 
-    // A section that does not load says so, and OK asks again.
-    FakeTransport dead;
-    Application unreachable(dead, "dashboard:service");
-    reply(unreachable, "settings:data", "", 503);
-    run(unreachable, 16, 400);
-    check(unreachable.shows("Could not load this screen") && unreachable.shows("did not answer"),
-          "A section that does not answer says so");
-    size_t asked = dead.count("settings:data");
-    unreachable.key(Key::Ok);
-    check(dead.count("settings:data") == asked + 1, "OK on it asks again");
-    reply(unreachable, "settings:data", section("service"));
-    run(unreachable, 500, 400);
-    check(unreachable.shows("Open EZ Adjust"), "…and the rows come once it answers");
-
-    // Metrics link to Live.
-    FakeTransport metrics;
-    Application readings(metrics, "dashboard:system");
-    reply(readings, "settings:data", fixture("stats-c4-webos9.json"));
-    run(readings, 16, 400);
-    check(focus(readings) == "Live", "Metrics start with a way to the Live cards");
-    readings.key(Key::Ok);
-    check(readings.screenName() == "live", "OK opens Live");
-
-    // A section opened by its route goes straight to its rows and Back leaves.
+    // Directly into a section: the page has the focus, Back returns to the list and then leaves.
     FakeTransport direct;
     Application oled(direct, "dashboard:oled");
     run(oled, 16, 100);
-    check(oled.screenName() == "dashboard:oled" &&
-              direct.last("settings:data")->operation == Operation::OledCare,
-          "A section route opens its rows");
-    reply(oled, "settings:data", section("oled"));
-    run(oled, 200, 400);
-    check(oled.shows("Total power-on hours"), "The panel's readings are rows");
-    check(goTo(oled, "Global sticky reduction"), "A protection is a row");
-    oled.key(Key::Ok);
-    check(oled.snapshot()["confirming"].boolean(), "Switching a protection off asks first");
-    oled.key(Key::Ok);
-    check(direct.last("settings:write")->operation == Operation::Control &&
-              direct.last("settings:write")->body["action"].string() == "oledProtection" &&
-              !direct.last("settings:write")->body["value"]["enabled"].boolean(true),
-          "…and then sends it");
-    reply(oled, "settings:write", R"({"ok":true})");
-    reply(oled, "settings:data", section("oled"));
+    check(oled.screenName() == "dashboard:oled" && zone(oled) == "rows" &&
+              direct.last("settings:data:oled")->operation == Operation::OledCare,
+          "A section route opens its page");
+    reply(oled, "settings:data:oled", section("oled"));
+    uint32_t t = run(oled, 200, 700);
+    check(oled.snapshot()["sections"].number() == 10 && oled.snapshot()["pages"].number() == 3 &&
+              oled.snapshot()["focus"].string() == "Total power-on hours",
+          "The list is there too, and the focus is on the page's first row");
     oled.key(Key::Back);
-    check(oled.screenName() == "home", "Back from a section opened by its route goes Home");
+    check(zone(oled) == "sections", "Back goes to the list first");
+    oled.key(Key::Back);
+    check(oled.screenName() == "home", "…then closes Settings");
+    (void)t;
 
-    // Read-only rows do nothing; a toggle slides.
-    FakeTransport system;
-    Application options(system, "dashboard:options");
-    reply(options, "caps", R"({"ok":true,"allowPower":true})");
-    reply(options, "settings:data", optionsStats());
-    uint32_t at = run(options, 16, 400);
-    check(goTo(options, "Quick Boot"), "A power setting is a row");
-    size_t sent = system.count("settings:write");
-    options.key(Key::Ok);
-    check(system.count("settings:write") == sent + 1 &&
-              system.last("settings:write")->body["action"].string() == "quickBoot" &&
-              !system.last("settings:write")->body["value"].boolean(true),
-          "OK on a switch writes the opposite");
+    // A refresh keeps the focus and the scroll where they were, also on the last row, and a row
+    // that shares its title with another stays itself.
+    FakeTransport longer;
+    Application home(longer, "dashboard:home");
+    reply(home, "caps", R"({"ok":true})");
+    reply(home, "settings:data:home", section("home"));
+    t = run(home, 16, 700);
+    home.key(Key::Up);
+    check(zone(home) == "tabs", "The tabs are above the rows");
+    home.key(Key::Right);
+    check(home.snapshot()["page"].string() == "Appearance", "Appearance has the switches");
+    home.key(Key::Down);
+    for (int i = 0; i < 12; ++i)
+        home.key(Key::Down);
+    t = run(home, t, 1200);
+    std::string last = home.snapshot()["focusId"].string();
+    float scrolled = static_cast<float>(home.animation().value("set:sy"));
+    check(last == "Profile#0" && scrolled < -50,
+          "The last row is focused and the list has scrolled");
+    for (int i = 0; i < 3; ++i) {
+        reply(home, "settings:data:home", section("home"));
+        t = run(home, t, 600);
+        check(home.snapshot()["focusId"].string() == last && zone(home) == "rows" &&
+                  std::fabs(home.animation().value("set:sy") - scrolled) < .5 &&
+                  home.snapshot()["page"].string() == "Appearance",
+              "A refresh while on the last row keeps the focus, the page and the scroll");
+    }
+    // Pressing Down past the last row leaves everything where it is.
+    home.key(Key::Down);
+    home.key(Key::Down);
+    t = run(home, t, 600);
+    check(home.snapshot()["focusId"].string() == last &&
+              std::fabs(home.animation().value("set:sy") - scrolled) < .5,
+          "Down on the last row stays on it");
+
+    // Inputs has its own Order row, with the title the Apps page's has: it stays itself.
+    FakeTransport twin;
+    Application order(twin, "dashboard:home");
+    reply(order, "settings:data:home", section("home"));
+    t = run(order, 16, 700);
+    order.key(Key::Up);
+    for (int i = 0; i < 3; ++i)
+        order.key(Key::Right);
+    check(order.snapshot()["page"].string() == "Inputs", "The Inputs subsection");
+    order.key(Key::Down);
+    check(order.snapshot()["focusId"].string() == "Order#1",
+          "Its Order row is the second of that title");
+    reply(order, "settings:data:home", section("home"));
+    run(order, t, 600);
+    check(order.snapshot()["focusId"].string() == "Order#1" &&
+              order.snapshot()["page"].string() == "Inputs",
+          "A refresh leaves the focus on the Order it was on, not the first one");
+}
+
+// Every change shows at once, goes through the layer, and is taken back with a message when the
+// TV refuses.
+void writes() {
+    FakeTransport transport;
+    Application app(transport, "dashboard:options");
+    reply(app, "caps", R"({"ok":true,"allowPower":true})");
+    reply(app, "settings:data:options", optionsStats());
+    uint32_t clock = run(app, 16, 700);
+    check(app.snapshot()["page"].string() == "Power & standby" &&
+              app.snapshot()["focus"].string() == "Quick Boot" &&
+              app.snapshot()["focusOn"].boolean(),
+          "Quick Boot is on, and first");
+    check(transport.writes().empty(), "Nothing is written by looking");
+
+    // A switch flips in the same frame as the key, before any reply.
+    app.key(Key::Ok);
+    check(!app.snapshot()["focusOn"].boolean() && app.snapshot()["focusPending"].boolean(),
+          "The switch is already off, and marked as on its way");
+    check(transport.writes().size() == 1 &&
+              transport.writes()[0]->operation == Operation::Control &&
+              transport.writes()[0]->body["action"].string() == "quickBoot" &&
+              !transport.writes()[0]->body["value"].boolean(true),
+          "…and the write is the same one the dashboard made");
+    clock = run(app, clock, 400);
+    check(!app.snapshot()["focusOn"].boolean() && app.snapshot()["focusPending"].boolean(),
+          "With no reply it stays that way");
+    // Refused: back, with the reason.
+    answerWrite(app, transport, false, "not allowed here");
+    clock = run(app, clock, 200);
+    check(app.snapshot()["focusOn"].boolean() && !app.snapshot()["focusPending"].boolean(),
+          "A refused change goes back");
+    check(app.shows("That did not work") && app.shows("not allowed here"), "…and says why");
+
+    // Accepted: it stays, and the TV is read again for the value it holds.
+    app.key(Key::Ok);
+    clock = run(app, clock, 200);
+    answerWrite(app, transport);
+    clock = run(app, clock, 50);
+    check(!app.snapshot()["focusOn"].boolean() && !app.snapshot()["focusPending"].boolean(),
+          "An accepted change stays");
+    size_t reads = transport.count("settings:data:options");
+    clock = run(app, clock, 1000);
+    check(transport.count("settings:data:options") == reads + 1,
+          "The TV is read once more after the answer");
     Json flipped = optionsStats();
     flipped.set("quickBoot", Json::flag(false));
-    reply(options, "settings:write", R"({"ok":true})");
-    reply(options, "settings:data", flipped);
-    at = run(options, at, 100);
-    run(options, at, 400);
-    check(options.snapshot()["rows"].number() > 10, "The rows stay after a change");
-    check(goTo(options, "Power off"), "Power actions are offered when the server allows them");
-    options.key(Key::Ok);
-    check(options.snapshot()["confirming"].boolean(), "Power off asks twice");
-    options.key(Key::Back);
-    // The system page refreshes by itself.
-    size_t polled = system.count("settings:data");
-    run(options, at + 400, 11000);
-    check(system.count("settings:data") > polled, "System refreshes every ten seconds while open");
+    reply(app, "settings:data:options", flipped);
+    clock = run(app, clock, 400);
+    check(!app.snapshot()["focusOn"].boolean(), "What the TV says is what stays");
 
-    // A list inside a section: Privacy's consents.
-    FakeTransport privacy;
-    Application consents(privacy, "dashboard:privacy");
-    reply(consents, "settings:data", section("privacy"));
-    run(consents, 16, 400);
-    check(goTo(consents, "Consents switched on"), "Privacy links its consents");
-    consents.key(Key::Ok);
-    check(consents.snapshot()["sub"].string() == "consents" &&
-              consents.shows("Viewing information"),
-          "OK opens the consents");
-    consents.key(Key::Left);
-    check(consents.snapshot()["sub"].string().empty() &&
-              consents.screenName() == "dashboard:privacy",
-          "Left from a list inside a section returns to the section");
-    check(goTo(consents, "Consents switched on"), "…at the row that opened it");
-    consents.key(Key::Ok);
-    consents.key(Key::Back);
-    check(consents.snapshot()["sub"].string().empty(), "So does Back");
+    // A second press before the first is answered is the newest wish; a late reply of the older
+    // write does not move the switch back.
+    size_t before = transport.writes().size();
+    app.key(Key::Ok);
+    check(app.snapshot()["focusOn"].boolean(), "The first press turns it on");
+    app.key(Key::Ok);
+    check(!app.snapshot()["focusOn"].boolean(), "The second turns it off again, in the same frame");
+    clock = run(app, clock, 400);
+    auto sent = transport.writes();
+    check(sent.size() == before + 2 && sent[before]->body["value"].boolean() &&
+              !sent[before + 1]->body["value"].boolean(true),
+          "Both are sent, the newest last");
+    answerWrite(app, transport, true, "", 1); // the older write answered late
+    clock = run(app, clock, 100);
+    check(!app.snapshot()["focusOn"].boolean(), "A late answer of an older write changes nothing");
+    answerWrite(app, transport);
+    clock = run(app, clock, 100);
+    check(!app.snapshot()["focusOn"].boolean() && !app.snapshot()["focusPending"].boolean(),
+          "The newest write's answer settles it");
 
-    // The server restarting after the dashboard is opened to the network.
+    // A stepper shows its next value at once.
+    FakeTransport timers;
+    Application sleep(timers, "dashboard:options");
+    reply(sleep, "settings:data:options", optionsStats());
+    uint32_t at = run(sleep, 16, 700);
+    sleep.key(Key::Up);
+    sleep.key(Key::Right);
+    check(sleep.snapshot()["page"].string() == "Timers", "The Timers subsection");
+    sleep.key(Key::Down);
+    check(sleep.snapshot()["focus"].string() == "Sleep timer" &&
+              sleep.snapshot()["focusValue"].string() == "30 min",
+          "The sleep timer reads 30 minutes");
+    sleep.key(Key::Ok);
+    check(sleep.snapshot()["focusValue"].string() == "60 min" &&
+              sleep.snapshot()["focusPending"].boolean(),
+          "OK steps it to 60 at once");
+    check(timers.writes().size() == 1 &&
+              timers.writes()[0]->body["action"].string() == "sleepTimer" &&
+              timers.writes()[0]->body["value"].string() == "60",
+          "…and writes that value");
+    answerWrite(sleep, timers, false, "busy");
+    at = run(sleep, at, 200);
+    check(sleep.snapshot()["focusValue"].string() == "30 min", "A refusal puts the old value back");
+    sleep.key(Key::Ok);
+    check(sleep.snapshot()["focusValue"].string() == "60 min", "OK steps it again");
+    answerWrite(sleep, timers);
+    at = run(sleep, at, 400);
+    sleep.key(Key::Ok);
+    check(sleep.snapshot()["focusValue"].string() == "90 min", "The next press goes on from 60");
+    at = run(sleep, at, 200);
+
+    // An action asks twice, is pending until the TV answers, and says when it did not work.
+    FakeTransport power;
+    Application off(power, "dashboard:options");
+    reply(off, "caps", R"({"ok":true,"allowPower":true})");
+    reply(off, "settings:data:options", optionsStats());
+    uint32_t when = run(off, 16, 700);
+    off.key(Key::Up);
+    for (int i = 0; i < 4; ++i)
+        off.key(Key::Right);
+    check(off.snapshot()["page"].string() == "Power", "The Power subsection");
+    off.key(Key::Down);
+    check(off.snapshot()["focus"].string() == "Power off", "Power off");
+    off.key(Key::Ok);
+    check(off.snapshot()["confirming"].boolean() && power.writes().empty(),
+          "The first OK only asks");
+    off.key(Key::Back);
+    check(!off.snapshot()["confirming"].boolean() && zone(off) == "rows", "Back cancels it");
+    off.key(Key::Ok);
+    off.key(Key::Ok);
+    check(power.writes().size() == 1 && power.writes()[0]->body["action"].string() == "powerOff" &&
+              off.snapshot()["focusPending"].boolean(),
+          "The second OK makes the write, and the row is pending at once");
+    off.key(Key::Ok);
+    check(power.writes().size() == 1, "A second press while it is pending is dropped");
+    answerWrite(off, power, false, "refused");
+    when = run(off, when, 200);
+    check(!off.snapshot()["focusPending"].boolean() && off.shows("refused"),
+          "A refusal clears the pending state and says so");
+
+    // The network switch says it is switching, and waits for the server to come back.
     FakeTransport network;
     Application web(network, "dashboard:settings");
-    reply(web, "settings:data", section("setup"));
-    uint32_t t = run(web, 16, 400);
-    check(goTo(web, "Web dashboard"), "The web dashboard is a switch");
+    reply(web, "settings:data:settings", section("setup"));
+    uint32_t w = run(web, 16, 700);
+    check(web.snapshot()["focus"].string() == "Web dashboard" &&
+              web.snapshot()["focusOn"].boolean(),
+          "The web dashboard is on");
     web.key(Key::Ok);
-    check(network.last("settings:write")->operation == Operation::Setup &&
-              network.last("settings:write")->body["action"].string() == "network" &&
-              !network.last("settings:write")->body["open"].boolean(true),
-          "It writes the opposite to /api/setup");
-    reply(web, "settings:write", R"({"ok":true})");
-    t = run(web, t, 1800);
+    check(!web.snapshot()["focusOn"].boolean() && web.shows("Switching…") &&
+              network.writes().size() == 1 &&
+              network.writes()[0]->body["action"].string() == "network" &&
+              !network.writes()[0]->body["open"].boolean(true),
+          "It reads Switching… the moment OK is pressed, and writes the opposite to /api/setup");
+    answerWrite(web, network);
+    w = run(web, w, 1800);
     check(network.count("settings:wait") == 1 && web.snapshot()["busy"].boolean(),
           "Then it waits for the server to answer again");
     reply(web, "settings:wait", "", 503);
-    t = run(web, t, 1100);
+    w = run(web, w, 1100);
     check(network.count("settings:wait") == 2, "…asking once a second");
+    size_t asked = network.count("settings:data:settings");
     reply(web, "settings:wait", section("setup"));
-    check(!web.snapshot()["busy"].boolean() && network.count("settings:data") >= 2,
+    check(!web.snapshot()["busy"].boolean() && network.count("settings:data:settings") == asked + 1,
           "…and reads the section when it does");
-    // Anything that leaves the page: Home Assistant is B3's page.
-    check(goTo(web, "Home Assistant"), "Home Assistant is a row");
-    web.key(Key::Ok);
-    check(web.screenName() != "dashboard:settings", "Its row opens another page");
+    // A screen saver choice steps at once, and starting one waits for the OK to be let go.
+    FakeTransport savers;
+    Application saver(savers, "dashboard:saver");
+    reply(saver, "settings:data:saver", section("saver"));
+    uint32_t sv = run(saver, 16, 700);
+    saver.key(Key::Up);
+    saver.key(Key::Right);
+    check(saver.snapshot()["page"].string() == "Options", "The saver's Options subsection");
+    saver.key(Key::Down);
+    check(saver.snapshot()["focus"].string() == "Brightness" &&
+              saver.snapshot()["focusValue"].string() == "Dim",
+          "Brightness reads Dim");
+    saver.key(Key::Ok);
+    check(saver.snapshot()["focusValue"].string() != "Dim" &&
+              saver.snapshot()["focusPending"].boolean() && savers.writes().size() == 1,
+          "OK steps the brightness at once and writes it");
+    answerWrite(saver, savers, false, "no screen");
+    sv = run(saver, sv, 200);
+    check(saver.snapshot()["focusValue"].string() == "Dim" && saver.shows("no screen"),
+          "A refused brightness goes back to Dim and says why");
+    saver.key(Key::Down);
+    check(saver.snapshot()["focus"].string() == "Start screen saver", "Start screen saver");
+    saver.key(Key::Ok);
+    sv = run(saver, sv, 100);
+    check(savers.writes().size() == 1 && saver.shows("Starting the screen saver"),
+          "Starting one only says so until the OK is let go");
+    sv = run(saver, sv, 1100);
+    check(savers.writes().size() == 2 &&
+              savers.writes()[1]->body["action"].string() == "screensaver" &&
+              saver.snapshot()["focusPending"].boolean(),
+          "Then it is asked for, and the row is pending");
+    answerWrite(saver, savers, false, "not now");
+    sv = run(saver, sv, 200);
+    check(!saver.snapshot()["focusPending"].boolean() && saver.shows("not now"),
+          "A refused start clears the pending state and says why");
+    // A switch the server refuses is put back, and the row can be pressed again.
+    FakeTransport refusedNetwork;
+    Application refusedWeb(refusedNetwork, "dashboard:settings");
+    reply(refusedWeb, "settings:data:settings", section("setup"));
+    uint32_t refusedAt = run(refusedWeb, 16, 700);
+    refusedWeb.key(Key::Ok);
+    check(refusedWeb.shows("Switching…") && refusedWeb.snapshot()["busy"].boolean(),
+          "A refused network switch also says it is switching until the answer");
+    answerWrite(refusedWeb, refusedNetwork, false, "not allowed");
+    refusedAt = run(refusedWeb, refusedAt, 200);
+    check(refusedWeb.snapshot()["focusOn"].boolean() && !refusedWeb.shows("Switching…") &&
+              !refusedWeb.snapshot()["busy"].boolean() && refusedWeb.shows("not allowed"),
+          "A refused network switch goes back to on, says why, and is not left switching");
+    refusedWeb.key(Key::Ok);
+    check(refusedNetwork.writes().size() == 2, "The row can be pressed again");
+    // A page left while a change is pending still has it answered.
+    FakeTransport left;
+    Application away(left, "dashboard:options");
+    reply(away, "settings:data:options", optionsStats());
+    uint32_t gone = run(away, 16, 700);
+    away.key(Key::Ok);
+    away.key(Key::Left);
+    away.key(Key::Back);
+    check(away.screenName() == "home" && left.writes().size() == 1,
+          "Leaving does not lose the write");
+    answerWrite(away, left);
+    run(away, gone, 100);
 }
 
 // ---- Catalog
@@ -588,35 +836,49 @@ void catalog() {
     // An app that comes from the Homebrew Channel is not installed here.
     for (int i = 0; i < 6 && app.snapshot()["focus"].string() != "org.webosbrew.hbchannel"; ++i)
         app.key(Key::Right);
-    size_t writes = transport.count("catalog:write");
+    size_t writes = transport.writes().size();
     app.key(Key::Ok);
-    check(transport.count("catalog:write") == writes, "The Homebrew Channel updates itself");
+    check(transport.writes().size() == writes, "The Homebrew Channel updates itself");
     // An installed app is uninstalled with a second OK.
     app.key(Key::Left);
     check(app.snapshot()["focus"].string() == "org.example.devmanager", "Dev Manager is installed");
     app.key(Key::Ok);
-    check(transport.count("catalog:write") == writes, "The first OK on an installed app only asks");
+    check(transport.writes().size() == writes, "The first OK on an installed app only asks");
     app.key(Key::Ok);
-    check(transport.last("catalog:write")->operation == Operation::UninstallApp &&
-              transport.last("catalog:write")->body["id"].string() == "org.example.devmanager",
+    check(transport.writes().back()->operation == Operation::UninstallApp &&
+              transport.writes().back()->body["id"].string() == "org.example.devmanager",
           "The second OK uninstalls it");
-    reply(app, "catalog:write", R"({"ok":true})");
-    check(transport.count("catalog:list") == 2, "The list is read again");
+    clock = run(app, clock, 100);
+    check(app.shows("Removing…"), "The app is marked as being removed at once");
+    answerWrite(app, transport, false, "busy");
+    clock = run(app, clock, 100);
+    check(!app.shows("Removing…") && app.shows("busy") && transport.count("catalog:list") == 1,
+          "A refused removal puts the tile back and says why");
+    app.key(Key::Ok);
+    app.key(Key::Ok);
+    check(transport.writes().back()->operation == Operation::UninstallApp,
+          "It can be asked for again");
+    answerWrite(app, transport);
+    clock = run(app, clock, 50);
+    check(transport.count("catalog:list") == 2 && app.shows("Uninstalled Dev Manager"),
+          "The list is read again, and the toast names the app");
 
     // Choosing a new app fetches it; the preview waits for OK on Install.
     for (int i = 0; i < 8 && app.snapshot()["focus"].string() != "org.example.photos"; ++i)
         app.key(Key::Right);
     check(app.snapshot()["focus"].string() == "org.example.photos", "Photo Frame is a new app");
     app.key(Key::Ok);
-    check(transport.last("catalog:write")->operation == Operation::FetchPackage &&
-              transport.last("catalog:write")->body["id"].string() == "org.example.photos" &&
-              transport.last("catalog:write")->body["auto"].boolean(),
+    check(transport.writes().back()->operation == Operation::FetchPackage &&
+              transport.writes().back()->body["id"].string() == "org.example.photos" &&
+              transport.writes().back()->body["auto"].boolean(),
           "OK on a new app asks the server to fetch it");
+    check(app.snapshot()["view"].string() == "busy" && app.shows("Starting…"),
+          "…and the page is already under way, before the server answers");
     Json preview = section("install-preview");
     Json fetched = Json::object();
     fetched.set("ok", Json::flag(true));
     fetched.set("install", preview);
-    reply(app, "catalog:write", fetched);
+    answerWrite(app, transport, true, "", 0, fetched.dump());
     clock = run(app, clock + 800, 600);
     check(app.snapshot()["view"].string() == "preview" &&
               app.snapshot()["focus"].string() == "Install",
@@ -632,14 +894,15 @@ void catalog() {
     app.key(Key::Down);
     app.key(Key::Down);
     app.key(Key::Ok);
-    check(transport.last("catalog:write")->operation == Operation::ConfirmPackage &&
-              transport.last("catalog:write")->body["jobId"].string() == "job-1" &&
-              transport.last("catalog:write")->body["elevate"].boolean() &&
-              !transport.last("catalog:write")->body["replaceStore"].boolean(true),
+    check(transport.writes().back()->operation == Operation::ConfirmPackage &&
+              transport.writes().back()->body["jobId"].string() == "job-1" &&
+              transport.writes().back()->body["elevate"].boolean() &&
+              !transport.writes().back()->body["replaceStore"].boolean(true),
           "Install confirms the job with the chosen privileges");
+    check(app.snapshot()["view"].string() == "busy", "…and the progress card is up at once");
     Json running = Json::parse(
         R"({"ok":true,"install":{"state":"downloading","jobId":"job-1","progress":{"bytes":2600000,"total":5200000}}})");
-    reply(app, "catalog:write", running);
+    answerWrite(app, transport, true, "", 0, running.dump());
     clock = run(app, clock + 100, 600);
     check(app.snapshot()["view"].string() == "busy" && app.shows("Downloading 2 MB of 5 MB"),
           "A running install shows its progress");
@@ -668,10 +931,12 @@ void catalog() {
     check(again.snapshot()["view"].string() == "preview",
           "A preview that is waiting is shown on opening");
     again.key(Key::Back);
-    check(second.last("catalog:write")->operation == Operation::CancelPackage &&
-              second.last("catalog:write")->body["jobId"].string() == "job-1",
+    check(second.writes().back()->operation == Operation::CancelPackage &&
+              second.writes().back()->body["jobId"].string() == "job-1",
           "Back on the preview cancels the job");
-    reply(again, "catalog:write", R"({"ok":true,"install":{"state":"idle"}})");
+    check(again.snapshot()["view"].string() == "list", "…and the preview is gone at once");
+    answerWrite(again, second, true, "", 0, R"({"ok":true,"install":{"state":"idle"}})");
+    run(again, 700, 100);
     check(again.snapshot()["view"].string() == "list", "…and shows the catalog");
     again.key(Key::Back);
     check(again.screenName() == "dashboard:apps", "Back from the catalog returns to Apps");
@@ -688,6 +953,39 @@ void catalog() {
     size_t listed = failing.count("catalog:list");
     failed.key(Key::Ok);
     check(failing.count("catalog:list") == listed + 1, "OK tries again");
+
+    // A refused fetch goes back to the grid with a message; one refused on the preview goes back
+    // to the preview.
+    {
+        FakeTransport refusing;
+        Application tried(refusing, "catalog");
+        reply(tried, "catalog:list", section("catalog"));
+        reply(tried, "catalog:status", R"({"ok":true,"state":"idle"})");
+        uint32_t at = run(tried, 16, 600);
+        for (int i = 0; i < 8 && tried.snapshot()["focus"].string() != "org.example.photos"; ++i)
+            tried.key(Key::Right);
+        tried.key(Key::Ok);
+        check(tried.snapshot()["view"].string() == "busy", "The fetch shows at once");
+        answerWrite(tried, refusing, false, "no space");
+        at = run(tried, at, 300);
+        check(tried.snapshot()["view"].string() == "list" && tried.shows("no space") &&
+                  tried.shows("The install could not be started"),
+              "A refused fetch returns to the grid and says why");
+        // The preview, then Install refused: the preview is back.
+        tried.key(Key::Ok);
+        Json fetched = Json::object();
+        fetched.set("ok", Json::flag(true));
+        fetched.set("install", section("install-preview"));
+        answerWrite(tried, refusing, true, "", 0, fetched.dump());
+        at = run(tried, at, 600);
+        check(tried.snapshot()["view"].string() == "preview", "The preview is up");
+        tried.key(Key::Ok);
+        check(tried.snapshot()["view"].string() == "busy", "Install is under way at once");
+        answerWrite(tried, refusing, false, "disk full");
+        run(tried, at, 300);
+        check(tried.snapshot()["view"].string() == "preview" && tried.shows("disk full"),
+              "A refused install returns to the preview");
+    }
 }
 // ---- Idle dimming: every screen, not only Home -------------------------------------------------
 
@@ -743,6 +1041,7 @@ int main() {
         panel();
         live();
         settings();
+        writes();
         catalog();
         idle();
         std::printf("%d dashboard screen checks passed\n", checks);

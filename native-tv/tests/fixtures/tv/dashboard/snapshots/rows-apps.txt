@@ -1,24 +1,29 @@
+## Installed
 == Install Homebrew Applications
 link    Install homebrew apps = Browse -> Open <apps>
 == Uninstall Applications
 action  Homebrew Channel = 2.3 MB -> Uninstall (confirms) <apps>
 action  Dev Manager = 7.0 MB -> Uninstall (confirms) <apps>
 action  Media Center = 89.6 MB -> Uninstall (confirms) <apps>
+## Home screen
 == Home screen layout
 toggle  HDMI 1 = On Home [on] -> Turn off <hdmi>
 toggle  HDMI 2 = Not on Home [off] -> Turn on <hdmi>
 toggle  Promotions = Hidden [off] -> Turn on <apps>
 toggle  Banner = Shown [on] -> Turn off <apps>
 action  Put back LG’s Home screen = Put back -> Put back (confirms) <refresh>
-== Quick Access
+## Quick Access
 info    1 = HDMI 1 <apps>
 info    2 = Nothing set <apps>
+## System apps
 == Hide Home Screen System Apps
 toggle  System App Hiding = Enabled [on] -> Turn off <apps>
 toggle  Live TV = Hidden [off] -> Turn on <apps>
 toggle  Music = Visible [on] -> Turn off <apps>
+## Kept ready
 == Apps kept ready in the background
 toggle  LG Discover = Kept ready [on] -> Turn off <apps>
 toggle  Web Browser = Switched off [off] -> Turn on <apps>
+## Services
 == Turn Off Background Services
 toggle  Content recognition = Active [on] -> Turn off <shield>

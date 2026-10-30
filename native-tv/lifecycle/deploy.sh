@@ -191,6 +191,8 @@ for f in \$(find . -type f); do
 done
 if [ ! -f "\$D/config.json" ] && [ -f config.seed.json ]; then
   mv config.seed.json "\$D/config.json" && echo "config set up from this computer's copy"
+  # A first install shows the setup screens on the TV, as the Homebrew Channel install does.
+  : > "\$D/.setup-pending"
 fi
 chmod 600 "\$D/config.json" 2>/dev/null
 chmod +x "\$D/tvwebctl"

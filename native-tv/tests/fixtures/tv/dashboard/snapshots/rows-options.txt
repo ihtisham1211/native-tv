@@ -1,21 +1,23 @@
-== Power & standby
+## Power & standby
 toggle  Quick Boot = On [on] -> Turn off <power>
 toggle  Stay connected when off = On [on] -> Turn off <power>
 toggle  Always Ready = Off [off] -> Turn on <power>
-action  Nightly power-down = 02:00–07:00 -> Move it an hour later <power>
+choice  Nightly power-down = 02:00–07:00 -> Move it an hour later {24 values} <power>
 toggle  Wake-on-LAN = On [on] -> Turn off <power>
-== Timers
-action  Sleep timer = 30 min -> Change <timer>
+## Timers
+choice  Sleep timer = 30 min -> Change {6 values} <timer>
 toggle  On Timer = Off (07:00, repeats Mon Tue Wed Thu Fri) [off] -> Turn on <timer>
 toggle  Off Timer = 23:30, once [on] -> Turn off <timer>
+## Sound and HDMI
 == Sound
-choice  Sound output = TV speakers -> Change <volume>
-choice  Sound mode = Standard -> Change <volume>
-choice  Digital sound output = PCM -> Change <volume>
+choice  Sound output = TV speakers -> Change {8 values} <volume>
+choice  Sound mode = Standard -> Change {8 values} <volume>
+choice  Digital sound output = PCM -> Change {3 values} <volume>
 info    Balance = 0 <volume>
 toggle  Automatic volume = Off [off] -> Turn on <volume>
 toggle  Bluetooth speaker mode = Off [off] -> Turn on <volume>
 toggle  eARC = Off [off] -> Turn on <volume>
+## Display and devices
 == Display
 toggle  LG logo = Shown [on] -> Turn off <settings>
 == Devices
@@ -25,6 +27,6 @@ toggle  IP control = Off [off] -> Turn on <settings>
 toggle  Auto device detection = On [on] -> Turn off <settings>
 == Front lights
 toggle  Standby light = On [on] -> Turn off <bulb>
-== Power
+## Power
 action  Power off -> Power off (confirms) <power>
 action  Reboot -> Reboot (confirms) <power>

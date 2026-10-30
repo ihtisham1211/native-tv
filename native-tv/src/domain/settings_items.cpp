@@ -22,6 +22,34 @@ std::string groupedNumber(long long value) {
     }
     return value < 0 ? "-" + result : result;
 }
+// `value` with its first true-or-false turned over: what a switch's command says, said the other
+// way.
+Json flippedOnce(const Json &value, bool &done) {
+    if (value.isBoolean() && !done) {
+        done = true;
+        return Json::flag(!value.boolean());
+    }
+    if (value.isObject()) {
+        Json copy = Json::object();
+        for (const std::string &key : value.keys())
+            copy.set(key, flippedOnce(value[key], done));
+        return copy;
+    }
+    if (value.isArray()) {
+        Json copy = Json::array();
+        for (const Json &item : value.items())
+            copy.add(flippedOnce(item, done));
+        return copy;
+    }
+    return value;
+}
+Command flipped(const Command &command) {
+    Command other = command;
+    other.confirm = false;
+    bool done = false;
+    other.body = flippedOnce(command.body, done);
+    return other;
+}
 std::string lower(std::string text) {
     std::transform(text.begin(), text.end(), text.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
@@ -188,17 +216,33 @@ bool settingToggleValue(const std::string &value, bool &on) {
     return true;
 }
 
-std::vector<SettingItem> settingItems(const std::string &group, const std::vector<MenuRow> &rows) {
-    std::vector<SettingItem> items;
+std::vector<SettingPage> settingPages(const std::string &group, const std::vector<MenuRow> &rows) {
+    std::vector<SettingPage> pages(1);
+    std::map<std::string, int> seen; // how many rows of a title came before: the id of a repeat
     for (const MenuRow &row : rows) {
+        if (row.heading && row.label.empty() && !row.page.empty()) {
+            // A page marker; nothing before it means the first page is this one.
+            if (pages.back().items.empty() && pages.back().title.empty())
+                pages.back().title = row.page;
+            else {
+                pages.push_back(SettingPage());
+                pages.back().title = row.page;
+            }
+            continue;
+        }
         SettingItem item;
         item.title = row.label;
         item.value = row.value;
         item.body = row.hint;
         item.command = row.command;
+        item.id =
+            row.label + "#" + std::to_string(seen[(row.heading ? "head:" : "") + row.label]++);
         if (row.heading) {
+            // The page's own title already says it.
+            if (pages.back().items.empty() && row.label == pages.back().title)
+                continue;
             item.kind = SettingItem::Kind::Heading;
-            items.push_back(item);
+            pages.back().items.push_back(item);
             continue;
         }
         item.icon = iconOf(group, row.label);
@@ -210,13 +254,17 @@ std::vector<SettingItem> settingItems(const std::string &group, const std::vecto
         else if (row.state >= 0) {
             item.kind = SettingItem::Kind::Toggle;
             item.on = row.state == 1;
-        } else if (!row.action.empty())
+        } else if (!row.choices.empty())
+            item.kind = SettingItem::Kind::Choice;
+        else if (!row.action.empty())
             item.kind = SettingItem::Kind::Action;
         else if (settingToggleValue(row.value, on)) {
             item.kind = SettingItem::Kind::Toggle;
             item.on = on;
         } else
             item.kind = row.value.empty() ? SettingItem::Kind::Action : SettingItem::Kind::Choice;
+        item.choices = row.choices;
+        item.reverse = row.reverse.empty() ? flipped(row.command) : row.reverse;
         switch (item.kind) {
         case SettingItem::Kind::Toggle:
             item.action = item.on ? say::msg("tv.settings.turnOff", "Turn off")
@@ -237,12 +285,28 @@ std::vector<SettingItem> settingItems(const std::string &group, const std::vecto
         if (!row.action.empty() && item.kind != SettingItem::Kind::Toggle &&
             item.kind != SettingItem::Kind::Info)
             item.action = row.action;
-        if (!row.value.empty())
+        // A switch shows its state itself; its words matter only where they say more than that.
+        bool plainWord = false;
+        if (!row.value.empty() &&
+            !(item.kind == SettingItem::Kind::Toggle && settingToggleValue(row.value, plainWord)))
             item.chips.push_back(row.value);
         if (row.command.confirm)
             item.chips.push_back(say::msg("tv.settings.asksFirst", "Asks to confirm"));
-        items.push_back(item);
+        pages.back().items.push_back(item);
     }
+    // A page that ended up with nothing (a marker the model did not fill) is left out.
+    pages.erase(std::remove_if(pages.begin(), pages.end(),
+                               [](const SettingPage &page) { return page.items.empty(); }),
+                pages.end());
+    if (pages.empty())
+        pages.push_back(SettingPage());
+    return pages;
+}
+
+std::vector<SettingItem> settingItems(const std::string &group, const std::vector<MenuRow> &rows) {
+    std::vector<SettingItem> items;
+    for (const SettingPage &page : settingPages(group, rows))
+        items.insert(items.end(), page.items.begin(), page.items.end());
     return items;
 }
 } // namespace nativetv

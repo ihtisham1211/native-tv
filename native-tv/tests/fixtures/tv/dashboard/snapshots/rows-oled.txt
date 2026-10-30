@@ -1,15 +1,15 @@
-== Panel life
+## Panel life
 info    Total power-on hours = 4,210 <power>
 info    Panel maintenance in = 1 h <display>
 info    Pixel refresher in = 612 h <refresh>
 info    Short cycles completed = 1,052 <display>
 info    Pixel refresher cycles = 2 <refresh>
 info    GSR stress events = 3 <display>
-== Protections
+## Protections
 toggle  Global sticky reduction = On [on] -> Turn off (confirms) <shield>
 toggle  Temporal peak control = On [on] -> Turn off (confirms) <shield>
 toggle  Screen shift = on [on] -> Turn off <display>
-action  Logo dimming = light -> Change <display>
-== Run now
+choice  Logo dimming = light -> Change {3 values} <display>
+## Run now
 action  Schedule a pixel refresher -> Schedule <refresh>
 action  Cancel a scheduled refresher -> Cancel <refresh>

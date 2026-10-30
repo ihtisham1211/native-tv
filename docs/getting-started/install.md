@@ -113,7 +113,7 @@ Any choice made during setup can be changed at any time from the TV app's **Sett
 
 For headless installs, multi-TV households, or users who prefer configuring files directly, Native Tv reads its settings from `/var/lib/tvweb/config.json` on the TV.
 
-To pre-configure a TV before installation, create a `native-tv/lifecycle/config.json` file (or `native-tv/lifecycle/config.<tv-ip>.json` if deploying to multiple TVs) in your cloned repository before running `deploy.sh`. The installer automatically seeds the TV with that configuration on first deploy.
+To pre-configure a TV before installation, create a `native-tv/lifecycle/config.json` file (or `native-tv/lifecycle/config.<tv-ip>.json` if deploying to multiple TVs) in your cloned repository before running `deploy.sh`. The installer automatically seeds the TV with that configuration on first deploy, and a first deploy also shows the setup screens on the TV the first time its app is opened.
 
 #### Core settings
 

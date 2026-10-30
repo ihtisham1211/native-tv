@@ -154,3 +154,4 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
 * [StevenBlack/hosts](https://github.com/StevenBlack/hosts): the advertising hosts reviewed for the blocker (MIT)
 * [Roboto](https://github.com/googlefonts/roboto-3-classic) and [Figtree](https://github.com/erikdkennedy/figtree): fonts (Apache-2.0, OFL-1.1)
 * [Material Design Icons](https://pictogrammers.com/library/mdi/) and [Material Symbols](https://fonts.google.com/icons): icons (Apache-2.0)
+* [Dashboard Icons](https://github.com/homarr-labs/dashboard-icons): the brand logos of the app icons (Apache-2.0)

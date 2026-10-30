@@ -1,25 +1,27 @@
-== Native Tv Home
+## Native Tv Home
 toggle  Native Tv Home = On [on] -> Turn off (confirms) <home>
 toggle  Hide LG’s Home while the TV starts = Off [off] -> Turn on (confirms) <home>
 toggle  Power-on screen = Native Tv Home [on] -> Turn off <power>
-== Appearance
+## Appearance
 toggle  Show app names = On [on] -> Turn off <home>
 toggle  Show inputs = On [on] -> Turn off <hdmi>
 toggle  Show Live = Off [off] -> Turn on <home>
 toggle  Show the LG Home tile = On [on] -> Turn off <apps>
 toggle  Picture details = Off [off] -> Turn on <home>
-action  Clock format = 12-hour -> Change <clock>
+choice  Clock format = 12-hour -> Change {2 values} <clock>
 link    Profile -> Open <access>
-== Apps
-action  Order = Your order -> Change <home>
+## Apps
+choice  Order = Your order -> Change {2 values} <home>
 toggle  Streamline = Shown [on] -> Turn off <home>
 toggle  Tunes = Shown [on] -> Turn off <home>
 toggle  Arcade = Shown [on] -> Turn off <home>
 toggle  Lens = Shown [on] -> Turn off <home>
-== Inputs
-action  Order = Your order -> Change <home>
+## Inputs
+choice  Order = Your order -> Change {2 values} <home>
 toggle  Game Console = Shown [on] -> Turn off <game>
+## Channels
 link    Add channels = Browse -> Open <home>
+## More
 == Wallpaper
 info    Wallpaper = Black <home>
 == More

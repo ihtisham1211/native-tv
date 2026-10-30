@@ -2,6 +2,7 @@
 #include "core/json.hpp"
 #include "core/operations.hpp"
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace nativetv {
@@ -26,6 +27,16 @@ struct MenuRow {
     std::string action = std::string();
     // 1 or 0 for a switch whose value is not On or Off (a timer, a tile), -1 for anything else.
     int state = -1;
+    // A row that steps through values: each value it can read, with the command that sets it, in
+    // the order OK steps through them. Empty for a row that is not a stepper.
+    std::vector<std::pair<std::string, Command>> choices =
+        std::vector<std::pair<std::string, Command>>();
+    // A switch's way back: the command that sets the other state, where it is not `command` with
+    // its flag turned over (which is what the Settings screen uses when this is empty).
+    Command reverse = Command();
+    // On a heading with no label: the title of the subsection that starts here, for the Settings
+    // screen's tabs. Rows keep their order, so a model with no subsections is one list.
+    std::string page = std::string();
 };
 struct Card {
     std::string id, kind, title, subtitle, image, backdrop;

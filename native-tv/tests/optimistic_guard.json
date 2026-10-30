@@ -1,8 +1,6 @@
 {
   "_note": "Pages that still write through host.services(); each count may only go down. The layer is src/ui/optimistic.hpp.",
   "pagesStillWriting": {
-    "settings_screen.cpp": 1,
-    "catalog_screen.cpp": 1,
     "setup_screen.cpp": 2
   },
   "reasons": {
