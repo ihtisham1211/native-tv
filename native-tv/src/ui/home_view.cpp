@@ -206,6 +206,23 @@ void rows(kit::Paint paint, const Frame &frame) {
     }
 }
 
+// The app's own art, large and centred on its tile (which is the colour the app declares, so art drawn
+// on that colour melts into it), scaled and faded with the tile.
+constexpr float kArtSide = 104, kArtTop = 16, kArtRadius = 24;
+void tileArt(kit::Paint paint, const kit::AppTile &tile, const std::string &image) {
+    kit::focus::Look look = kit::focus::lookAt(tile.rest, kit::motion::scale::tile, tile.focus);
+    Scene &scene = paint.scene;
+    scene.pushOpacity(tile.enter.alpha);
+    scene.pushTransform(Transform::translate(0, tile.enter.dy));
+    scene.pushTransform(kit::focus::transformAt(tile.rest, look.scale));
+    scene.picture({tile.rest.x + (tile.rest.w - kArtSide) / 2, tile.rest.y + kArtTop, kArtSide, kArtSide}, 0,
+                  kArtRadius)
+        .value = image;
+    scene.popTransform();
+    scene.popTransform();
+    scene.popOpacity();
+}
+
 void grid(kit::Paint paint, const Frame &frame) {
     const HomeState &home = frame.state.home;
     const Motion &motion = frame.motion;
@@ -214,29 +231,43 @@ void grid(kit::Paint paint, const Frame &frame) {
     const CardRow &row = home.rows[0];
     kit::PageHead head;
     head.title = "Apps";
-    head.subtitle = std::to_string(row.cards.size()) + " installed";
+    // The tiles carry no names, so the page says which app is focused.
+    size_t focused = 0;
+    double strongest = 0;
+    for (size_t i = 0; i < row.cards.size(); ++i) {
+        const double amount = motion.value(home::id("f", 0, i));
+        if (amount > strongest) {
+            strongest = amount;
+            focused = i;
+        }
+    }
+    head.subtitle = (strongest > .5 ? row.cards[focused].title + " \xc2\xb7 " : std::string()) +
+                    std::to_string(row.cards.size()) + " installed";
     head.enter = enterOf(motion, "EH");
     kit::pageHead(paint, head);
     const float scroll = static_cast<float>(motion.value("gy"));
     // Rows that scroll away disappear under the page title rather than over it.
     bool clipped = scroll < -.5f;
     if (clipped)
-        paint.scene.pushClip({0, kit::layout::iconTop - 28, kit::canvas::width, kit::canvas::height});
+        paint.scene.pushClip({0, kit::layout::gridTop - 28, kit::canvas::width, kit::canvas::height});
     for (size_t i = 0; i < row.cards.size(); ++i) {
-        Rect rest = kit::geometry::appIcon(static_cast<int>(i));
+        Rect rest = kit::geometry::appTile(static_cast<int>(i));
         rest.y += scroll;
-        if (rest.y > kit::canvas::height + 40 || rest.y + rest.h < kit::layout::iconTop - 60)
+        if (rest.y > kit::canvas::height + 40 || rest.y + rest.h < kit::layout::gridTop - 60)
             continue;
         const Card &card = row.cards[i];
-        kit::AppIcon app;
-        app.rest = rest;
-        app.id = home::hit(0, i);
-        app.name = card.title;
-        app.icon = card.id == "lg-home" ? "home" : "apps";
-        app.image = card.image;
-        app.focus = static_cast<float>(motion.value(home::id("f", 0, i)));
-        app.enter = enterOf(motion, home::id("EC", 0, i));
-        kit::appIcon(paint, app);
+        kit::AppTile tile;
+        tile.rest = rest;
+        tile.id = home::hit(0, i);
+        tile.name = card.title;
+        tile.icon = card.image.empty() ? (card.id == "lg-home" ? "home" : "apps") : "";
+        tile.color = appColor(card);
+        tile.centred = true;
+        tile.focus = static_cast<float>(motion.value(home::id("f", 0, i)));
+        tile.enter = enterOf(motion, home::id("EC", 0, i));
+        kit::appTile(paint, tile);
+        if (!card.image.empty())
+            tileArt(paint, tile, "own:" + card.image.substr(4));
     }
     if (clipped)
         paint.scene.popClip();

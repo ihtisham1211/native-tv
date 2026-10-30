@@ -57,6 +57,29 @@ int main() {
         "telemetry interval must be between 1000 and 600000 ms",
         "device id must be 1-64 characters of a-z, 0-9 or _"}));
 
+    // A broker address is a host name or an address: a pasted URL or a stray space made a setting that
+    // could never connect, and a device name with markup went to Home Assistant as it was typed.
+    for (const char *host : {"mqtt://broker.local", "broker.local/mqtt", "bro ker"}) {
+        input = Json::parse(std::string(R"json({"mqtt":{"host":")json") + host +
+            R"json(","telemetryIntervalMs":10000},"device":{"id":"lg_tv"}})json");
+        assert(!validateDashboardSettings(input, patch, errors));
+        assert((errors == std::vector<std::string>{
+            "the broker address is a host name or IP address: no spaces, no mqtt:// and no path"}));
+    }
+    for (const char *host : {"broker.local", "192.168.1.5", "::1", "[fe80::1]"}) {
+        input = Json::parse(std::string(R"json({"mqtt":{"host":")json") + host +
+            R"json(","telemetryIntervalMs":10000},"device":{"id":"lg_tv"}})json");
+        assert(validateDashboardSettings(input, patch, errors));
+    }
+    for (const char *name : {"<script>x</script>", "a>b", "tab\\there"}) {
+        input = Json::parse(std::string(R"json({"mqtt":{"telemetryIntervalMs":10000},"device":{"id":"lg_tv","name":")json") +
+            name + R"json("}})json");
+        assert(!validateDashboardSettings(input, patch, errors));
+        assert((errors == std::vector<std::string>{"device name cannot contain < or > or control characters"}));
+    }
+    input = Json::parse(R"json({"mqtt":{"telemetryIntervalMs":10000},"device":{"id":"lg_tv","name":"Living Room & TV"}})json");
+    assert(validateDashboardSettings(input, patch, errors));
+
     // test/test-routes.js validateSettings: what an empty form owes, and the defaults.
     errors.clear();
     assert(!validateDashboardSettings(Json::parse("{}"), patch, errors));

@@ -84,6 +84,14 @@ bool parseInteger(const Json &value, bool allowNull, long long &number, bool &is
     return true;
 }
 
+bool badBrokerHost(const std::string &value) {
+    for (size_t i = 0; i < value.size(); ++i) {
+        const unsigned char character = static_cast<unsigned char>(value[i]);
+        if (std::isspace(character) || character == '/') return true;
+    }
+    return false;
+}
+
 bool badTopic(const std::string &value) {
     if (value.empty() || value[0] == '/' || value[value.size() - 1] == '/')
         return true;
@@ -138,6 +146,8 @@ bool buildPhoneMqttSettings(const Json &payload, const Json &config,
     mqtt.set("host", Json::text(host));
     if (host.empty())
         addError(errors, "a broker address is required to enable MQTT");
+    else if (badBrokerHost(host))
+        addError(errors, "the broker address is a host name or IP address: no spaces, no mqtt:// and no path");
 
     long long port = 0;
     bool nullPort = false;

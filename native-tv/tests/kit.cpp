@@ -402,47 +402,17 @@ void circlesAndTiles() {
               sameRect(textAt(appTile.scene, "Plex")->rect, {396, 471 + 153 - 20 - 28, 232, 28}),
           "An app tile is 272x153 with a 150 degree gradient and its name at the bottom left");
 
-    check(sameRect(kit::geometry::appIcon(0), {80, 316, 152, 152}) &&
-              sameRect(kit::geometry::appIcon(6), {1688, 316, 152, 152}) &&
-              sameRect(kit::geometry::appIcon(8), {348, 552, 152, 152}),
-          "The Apps page is seven 152 px icons per row, from the left margin to the right one");
-    Fixture appIcon;
-    kit::AppIcon icon;
-    icon.rest = kit::geometry::appIcon(8);
-    icon.id = "tile:8";
-    icon.name = "Plex";
-    icon.image = "/icon/plex";
-    kit::appIcon(appIcon.paint(), icon);
-    const Node &face = appIcon.scene.nodes[0];
-    const Node &art = appIcon.scene.nodes[1];
-    check(sameRect(face.rect, icon.rest) && near(face.radius, 152 * .22f) &&
-              face.gradient.stops == 2 && art.kind == Node::Kind::Image &&
-              art.value == "/icon/plex" && sameRect(art.rect, icon.rest) &&
-              near(art.radius, face.radius) && face.ring.outer == 0,
-          "An app icon is the app's art on a neutral face, both rounded to 22% of the side, "
-          "with no ring at rest");
-    check(sameRect(textAt(appIcon.scene, "Plex")->rect, {336, 704 + 14, 176, 56}) &&
-              textAt(appIcon.scene, "Plex")->align == Node::Align::Center &&
-              sameRect(hitFor(appIcon.scene, "tile:8")->rect, {348, 552, 152, 152 + 14 + 28}),
-          "The name is centred 14 px under the square and the hit area takes both");
-    Fixture bare;
-    icon.image.clear();
-    icon.icon = "apps";
-    kit::appIcon(bare.paint(), icon);
-    check(bare.scene.nodes[1].value == "local:icons/material/apps.svg" &&
-              sameColor(bare.scene.nodes[1].color, kit::color::accent) &&
-              near(bare.scene.nodes[1].rect.w, 152 * .6f),
-          "An app with no art gets the generic glyph in the accent colour on the face");
-    Fixture lifted;
-    icon.image = "/icon/plex";
-    icon.focus = 1;
-    kit::appIcon(lifted.paint(), icon);
-    check(near(lifted.scene.nodes[0].group.sx, 1.1f, 1e-5f) && lifted.scene.nodes[0].ring.outer == 3 &&
-              near(textAt(lifted.scene, "Plex")->group.sx, 1, 1e-5f) &&
-              near(textAt(lifted.scene, "Plex")->rect.y, 704 + 14 + 7.6f) &&
-              sameColor(textAt(lifted.scene, "Plex")->color, kit::color::onSurface),
-          "A focused app icon grows 10% with the ring, and its name stays its size, steps "
-          "down with the square and brightens");
+    // A banner tile (the Apps tab) is one flat colour with no name on it and the glyph in the middle;
+    // a light colour takes dark ink.
+    Fixture banner;
+    kit::AppTile bannerTile = gridTile;
+    bannerTile.centred = true;
+    bannerTile.color = kit::rgb(0xFFFFFF);
+    kit::appTile(banner.paint(), bannerTile);
+    check(banner.scene.nodes[0].gradient.stops == 0 && !textAt(banner.scene, "Plex") &&
+              sameRect(banner.scene.nodes[0].rect, {376, 471, 272, 153}) &&
+              hitFor(banner.scene, "tile:7"),
+          "A banner tile is one flat colour with no name on it");
 }
 
 void barAndHero() {

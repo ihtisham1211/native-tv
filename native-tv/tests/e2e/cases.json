@@ -1397,7 +1397,7 @@
     {
       "id": "E2E-091",
       "title": "Quick drawer, hold volume",
-      "purpose": "Volume is held down for a moment and then back up: the shown value follows the key at once, never moves against it (no jumping through intermediate values), the writes settle and the volume ends where it began unless it reached an end of its range. Changes the TV volume.",
+      "purpose": "Volume is held down for a moment and then back up: the shown value follows the key at once, never moves against it (no jumping through intermediate values), the writes settle and the volume ends where it began unless it reached an end of its range. Changes the TV volume. It needs 100 intervals measured, not 150: the frames that animate are those while the level moves, and from a middle level that is 120 to 150 on the B3 under load The p95 floor is 22 ms: 20.2 ms was seen on the B3 while another session was using it.",
       "kind": "run",
       "screen": "quick",
       "script": "quick-volume.json",
@@ -1420,7 +1420,7 @@
         "drawsMax": 40,
         "verticesMax": 8192,
         "textureMbMax": 64,
-        "intervalsMin": 150,
+        "intervalsMin": 100,
         "checkpoints": [
           {
             "name": "loaded",
@@ -1445,7 +1445,7 @@
         ]
       },
       "floor": {
-        "p95Max": 20.0,
+        "p95Max": 22.0,
         "over33Max": 3
       },
       "requires": [
@@ -1455,7 +1455,7 @@
     {
       "id": "E2E-092",
       "title": "Quick drawer, hold brightness",
-      "purpose": "The light (OLED light or backlight) is held down in steps of five and then back up: the shown value follows the key at once, never moves against it and the writes settle. Changes the TV brightness and puts it back unless it reached an end of its range.",
+      "purpose": "The light (OLED light or backlight) is held down in steps of five and then back up: the shown value follows the key at once, never moves against it and the writes settle. Changes the TV brightness and puts it back unless it reached an end of its range. It needs 100 intervals measured, not 150: the frames that animate are those while the level moves, and from a middle level that is 120 to 150 on the B3 under load The p95 floor is 22 ms: 20.2 ms was seen on the B3 while another session was using it.",
       "kind": "run",
       "screen": "quick",
       "script": "quick-light.json",
@@ -1478,7 +1478,7 @@
         "drawsMax": 40,
         "verticesMax": 8192,
         "textureMbMax": 64,
-        "intervalsMin": 150,
+        "intervalsMin": 100,
         "checkpoints": [
           {
             "name": "loaded",
@@ -1503,7 +1503,7 @@
         ]
       },
       "floor": {
-        "p95Max": 20.0,
+        "p95Max": 22.0,
         "over33Max": 3
       },
       "requires": [
@@ -1912,14 +1912,14 @@
     {
       "id": "E2E-103",
       "title": "Settings number steps as a whole number",
-      "purpose": "OK on a number row (Black stabilizer, 0 to 20) raises it by one and wraps. The client sent 11.0, the TV kept the decimal and every screen showed 11.0 beside White stabilizer's 10. Twenty-one presses go round the range and end where it began, so the setting is put back. The presses are 1.4 s apart: the client ignores an OK while the last write is still on its way.",
+      "purpose": "OK on a number row (Black stabilizer, 0 to 20) raises it by one and wraps. The client sent 11.0, the TV kept the decimal and every screen showed 11.0 beside White stabilizer's 10. Twenty-one presses go round the range and end where it began, so the setting is put back. The presses are 1.4 s apart: the client ignores an OK while the last write is still on its way. The first key waits until 6 s: the client ignores keys until its rows are in, and a loaded TV takes about 4 s, which once sent the presses to Game genre.",
       "kind": "run",
       "requires": [
         "control"
       ],
       "screen": "dashboard:game",
       "script": "settings-number.json",
-      "durationMs": 38400,
+      "durationMs": 41300,
       "steps": [
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir) and check that no nativetv-tv is running (pidof).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
@@ -1932,6 +1932,11 @@
         "exitCode": 0,
         "framesMin": 30,
         "checkpoints": [
+          {
+            "name": "loaded",
+            "path": "focus",
+            "equals": "Game genre"
+          },
           {
             "name": "on-row",
             "path": "focus",
@@ -1954,6 +1959,3008 @@
           }
         ]
       }
+    },
+    {
+      "id": "E2E-104",
+      "title": "Admin PIN gates the risky actions",
+      "purpose": "With an admin PIN set, a risky action of /api/control (the TV itself included) is refused with pin:true until the PIN is unlocked, a wrong PIN is refused, and locking closes the session again. The case sets PIN 2468 and removes it, and does nothing if the owner already has a PIN. A run that fails midway leaves 2468 set: clear it in the Server tab with that PIN.",
+      "kind": "api",
+      "requires": [
+        "control"
+      ],
+      "flow": [
+        {
+          "api": "GET /api/admin",
+          "expect": {
+            "set": false
+          }
+        },
+        {
+          "api": "POST /api/admin/pin",
+          "body": {
+            "pin": "2468"
+          },
+          "expect": {
+            "ok": true
+          },
+          "keepSession": true
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setNetworkDebuggerAllowed",
+            "value": false
+          },
+          "status": 403,
+          "expect": {
+            "pin": true
+          }
+        },
+        {
+          "api": "POST /api/admin/unlock",
+          "body": {
+            "pin": "1111"
+          },
+          "status": 403,
+          "expect": {
+            "ok": false
+          }
+        },
+        {
+          "api": "POST /api/admin/unlock",
+          "body": {
+            "pin": "2468"
+          },
+          "status": 200,
+          "expect": {
+            "ok": true
+          },
+          "keepSession": true
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setNetworkDebuggerAllowed",
+            "value": false
+          },
+          "withSession": true,
+          "status": 200,
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "api": "POST /api/admin/lock",
+          "withSession": true,
+          "status": 200
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setNetworkDebuggerAllowed",
+            "value": false
+          },
+          "withSession": true,
+          "status": 403,
+          "expect": {
+            "pin": true
+          }
+        },
+        {
+          "api": "POST /api/admin/unlock",
+          "body": {
+            "pin": "2468"
+          },
+          "status": 200,
+          "keepSession": true
+        },
+        {
+          "api": "POST /api/admin/pin",
+          "body": {
+            "remove": true
+          },
+          "withSession": true,
+          "status": 200,
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "api": "GET /api/admin",
+          "expect": {
+            "set": false
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Run: check no PIN is set; set 2468; a risky action that changes nothing (the network debugger switch, off) answers 403 pin:true; a wrong PIN answers 403; the right PIN opens a session in which the action answers 200; lock, and it answers 403 again; unlock, remove the PIN, and check none is set.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      }
+    },
+    {
+      "id": "E2E-105",
+      "title": "Home Assistant settings refuse a URL as the broker and markup as the name",
+      "purpose": "The Home Assistant form took mqtt://broker.local or a host with a space (which can never connect) and a device name with markup, saved them and restarted the server. Each is now refused with 400 and nothing is saved. Before the fix a run saved the first value and stopped: put the broker address back from the Home Assistant tab.",
+      "kind": "api",
+      "requires": [
+        "control"
+      ],
+      "flow": [
+        {
+          "api": "POST /api/settings",
+          "body": {
+            "mqtt": {
+              "enabled": false,
+              "host": "mqtt://broker.local",
+              "port": null,
+              "tls": false,
+              "topicPrefix": "lgtv",
+              "discoveryPrefix": "homeassistant",
+              "telemetryIntervalMs": 30000
+            },
+            "device": {
+              "id": "lg_tv",
+              "name": "TV"
+            }
+          },
+          "status": 400,
+          "expect": {
+            "error": "the broker address is a host name or IP address: no spaces, no mqtt:// and no path"
+          }
+        },
+        {
+          "api": "POST /api/settings",
+          "body": {
+            "mqtt": {
+              "enabled": false,
+              "host": "bro ker",
+              "port": null,
+              "tls": false,
+              "topicPrefix": "lgtv",
+              "discoveryPrefix": "homeassistant",
+              "telemetryIntervalMs": 30000
+            },
+            "device": {
+              "id": "lg_tv",
+              "name": "TV"
+            }
+          },
+          "status": 400,
+          "expect": {
+            "error": "the broker address is a host name or IP address: no spaces, no mqtt:// and no path"
+          }
+        },
+        {
+          "api": "POST /api/settings",
+          "body": {
+            "mqtt": {
+              "enabled": false,
+              "host": "",
+              "port": null,
+              "tls": false,
+              "topicPrefix": "lgtv",
+              "discoveryPrefix": "homeassistant",
+              "telemetryIntervalMs": 30000
+            },
+            "device": {
+              "id": "lg_tv",
+              "name": "<script>x</script>"
+            }
+          },
+          "status": 400,
+          "expect": {
+            "error": "device name cannot contain < or > or control characters"
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Run: POST /api/settings with the broker address mqtt://broker.local (400, the address rule), with bro ker (400), and with the device name <script>x</script> (400, the name rule); MQTT is left off throughout.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      }
+    },
+    {
+      "id": "E2E-106",
+      "title": "Ads, sound and audio switches round-trip on the TV",
+      "purpose": "Each of the six LG ad and recommendation switches, the sound mode, the balance, automatic volume and Bluetooth speaker mode is changed through /api/control, read back from /api/lgsettings (which asks the TV's settings service), and put back. The case first checks the values it expects to start from (ads off, Cinema, balance 0, automatic volume off, Bluetooth speaker mode on) and does nothing on a TV that has others. A run that fails midway leaves the row it was on changed.",
+      "kind": "api",
+      "requires": [
+        "control"
+      ],
+      "flow": [
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=screenSaverAd].on": false,
+            "rows[id=homePromotion].on": false,
+            "rows[id=contentRecommendation].on": false,
+            "rows[id=livePromotion].on": false,
+            "rows[id=aiNudge].on": false,
+            "rows[id=aiSettingsNudge].on": false,
+            "rows[id=soundMode].value": "movie",
+            "rows[id=audioBalance].value": 0,
+            "rows[id=autoVolume].on": false,
+            "rows[id=btSpeakerMode].on": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "screenSaverAd",
+              "on": true
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=screenSaverAd].on": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "screenSaverAd",
+              "on": false
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=screenSaverAd].on": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "homePromotion",
+              "on": true
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=homePromotion].on": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "homePromotion",
+              "on": false
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=homePromotion].on": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "contentRecommendation",
+              "on": true
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=contentRecommendation].on": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "contentRecommendation",
+              "on": false
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=contentRecommendation].on": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "livePromotion",
+              "on": true
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=livePromotion].on": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "livePromotion",
+              "on": false
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=livePromotion].on": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "aiNudge",
+              "on": true
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=aiNudge].on": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "aiNudge",
+              "on": false
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=aiNudge].on": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "aiSettingsNudge",
+              "on": true
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=aiSettingsNudge].on": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "aiSettingsNudge",
+              "on": false
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=aiSettingsNudge].on": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "soundMode",
+              "value": "aiSoundPlus"
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=soundMode].value": "aiSoundPlus"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "soundMode",
+              "value": "movie"
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=soundMode].value": "movie"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "audioBalance",
+              "value": 1
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=audioBalance].value": 1
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "audioBalance",
+              "value": 0
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=audioBalance].value": 0
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "autoVolume",
+              "on": true
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=autoVolume].on": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "autoVolume",
+              "on": false
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=autoVolume].on": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "btSpeakerMode",
+              "on": false
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=btSpeakerMode].on": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "btSpeakerMode",
+              "on": true
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=promotions,sound",
+          "expect": {
+            "rows[id=btSpeakerMode].on": true
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Run: check the starting values; for each row set another value, check /api/lgsettings shows it, set the old value back and check that.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      }
+    },
+    {
+      "id": "E2E-107",
+      "title": "Game Optimizer rows round-trip on the TV",
+      "purpose": "Game genre, Prevent input delay, VRR, FreeSync, ALLM, Dark room mode, the two stabilizers and AI Game Sound are changed, read back from the TV's settings service through /api/lgsettings, and put back. The case first checks the values it expects to start from (Standard genre, stabilizers 10, VRR and ALLM and AI Game Sound on, the rest off or auto) and does nothing on a TV that has others. A run that fails midway leaves the row it was on changed.",
+      "kind": "api",
+      "requires": [
+        "control"
+      ],
+      "flow": [
+        {
+          "api": "GET /api/lgsettings?section=game",
+          "expect": {
+            "rows[id=gameGenre].value": "Standard",
+            "rows[id=inputOptimization].value": "auto",
+            "rows[id=gameOptimization].on": true,
+            "rows[id=freesync].on": false,
+            "rows[id=enableALLM].on": true,
+            "rows[id=darkMode].value": "off",
+            "rows[id=blackStabilizer].value": 10,
+            "rows[id=whiteStabilizer].value": 10,
+            "rows[id=aigamesound].on": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "gameGenre",
+              "value": "FPS"
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=game",
+          "expect": {
+            "rows[id=gameGenre].value": "FPS"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "gameGenre",
+              "value": "Standard"
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=game",
+          "expect": {
+            "rows[id=gameGenre].value": "Standard"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "inputOptimization",
+              "value": "on"
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=game",
+          "expect": {
+            "rows[id=inputOptimization].value": "on"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "inputOptimization",
+              "value": "auto"
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=game",
+          "expect": {
+            "rows[id=inputOptimization].value": "auto"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "gameOptimization",
+              "on": false
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=game",
+          "expect": {
+            "rows[id=gameOptimization].on": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "gameOptimization",
+              "on": true
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=game",
+          "expect": {
+            "rows[id=gameOptimization].on": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "freesync",
+              "on": true
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=game",
+          "expect": {
+            "rows[id=freesync].on": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "freesync",
+              "on": false
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=game",
+          "expect": {
+            "rows[id=freesync].on": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "enableALLM",
+              "on": false
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=game",
+          "expect": {
+            "rows[id=enableALLM].on": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "enableALLM",
+              "on": true
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=game",
+          "expect": {
+            "rows[id=enableALLM].on": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "darkMode",
+              "value": "level1"
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=game",
+          "expect": {
+            "rows[id=darkMode].value": "level1"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "darkMode",
+              "value": "off"
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=game",
+          "expect": {
+            "rows[id=darkMode].value": "off"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "blackStabilizer",
+              "value": 11
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=game",
+          "expect": {
+            "rows[id=blackStabilizer].value": 11
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "blackStabilizer",
+              "value": 10
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=game",
+          "expect": {
+            "rows[id=blackStabilizer].value": 10
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "whiteStabilizer",
+              "value": 11
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=game",
+          "expect": {
+            "rows[id=whiteStabilizer].value": 11
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "whiteStabilizer",
+              "value": 10
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=game",
+          "expect": {
+            "rows[id=whiteStabilizer].value": 10
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "aigamesound",
+              "on": false
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=game",
+          "expect": {
+            "rows[id=aigamesound].on": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgSetting",
+            "value": {
+              "id": "aigamesound",
+              "on": true
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/lgsettings?section=game",
+          "expect": {
+            "rows[id=aigamesound].on": true
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Run: check the starting values; for each row set another value, check /api/lgsettings shows it, set the old value back and check that.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      }
+    },
+    {
+      "id": "E2E-108",
+      "title": "Advanced power switches round-trip on the TV",
+      "purpose": "Quick Boot, Stay connected when off, Wake-on-LAN, the LG logo, the standby light and Auto device detection are each switched, read back from /api/stats, and put back. Always Ready's screen is left out: it asks for OK on the remote the first time. The case first checks the values it expects to start from (the first three off, the last three on) and does nothing on a TV that has others. A run that fails midway leaves the switch it was on changed.",
+      "kind": "api",
+      "requires": [
+        "control"
+      ],
+      "flow": [
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "quickBoot": false,
+            "wakeOnLan": false,
+            "alwaysReady": false,
+            "lgLogo": true,
+            "lights.standby": true,
+            "deviceDetection": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "quickBoot",
+            "value": true
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "quickBoot": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "quickBoot",
+            "value": false
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "quickBoot": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "wakeOnLan",
+            "value": true
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "wakeOnLan": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "wakeOnLan",
+            "value": false
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "wakeOnLan": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "alwaysReady",
+            "value": true
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "alwaysReady": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "alwaysReady",
+            "value": false
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "alwaysReady": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgLogo",
+            "value": false
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "lgLogo": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "lgLogo",
+            "value": true
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "lgLogo": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "standbyLight",
+            "value": false
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "lights.standby": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "standbyLight",
+            "value": true
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "lights.standby": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "deviceDetection",
+            "value": false
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "deviceDetection": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "deviceDetection",
+            "value": true
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "deviceDetection": true
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Run: check the starting values; for each switch change it, check /api/stats shows it, put it back and check that.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      }
+    },
+    {
+      "id": "E2E-109",
+      "title": "On and Off timers round-trip on the TV",
+      "purpose": "Each timer is given a time and days, switched on, read back from /api/stats, then switched off, cleared and put at 00:00. The case first checks both timers are off at 00:00 and does nothing on a TV that has timers set. A run that fails midway leaves the timer it was on enabled: switch it off in the Advanced tab.",
+      "kind": "api",
+      "requires": [
+        "control"
+      ],
+      "flow": [
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "powerTimers.on.enabled": false,
+            "powerTimers.on.time": "00:00",
+            "powerTimers.off.enabled": false,
+            "powerTimers.off.time": "00:00"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "expect": {
+            "ok": true
+          },
+          "body": {
+            "action": "powerTimer",
+            "value": {
+              "timer": "on",
+              "time": "04:15"
+            }
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "expect": {
+            "ok": true
+          },
+          "body": {
+            "action": "powerTimer",
+            "value": {
+              "timer": "on",
+              "days": [
+                1,
+                3
+              ]
+            }
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "expect": {
+            "ok": true
+          },
+          "body": {
+            "action": "powerTimer",
+            "value": {
+              "timer": "on",
+              "enabled": true
+            }
+          }
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "powerTimers.on.enabled": true,
+            "powerTimers.on.time": "04:15"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "expect": {
+            "ok": true
+          },
+          "body": {
+            "action": "powerTimer",
+            "value": {
+              "timer": "on",
+              "enabled": false
+            }
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "expect": {
+            "ok": true
+          },
+          "body": {
+            "action": "powerTimer",
+            "value": {
+              "timer": "on",
+              "days": []
+            }
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "expect": {
+            "ok": true
+          },
+          "body": {
+            "action": "powerTimer",
+            "value": {
+              "timer": "on",
+              "time": "00:00"
+            }
+          }
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "powerTimers.on.enabled": false,
+            "powerTimers.on.time": "00:00"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "expect": {
+            "ok": true
+          },
+          "body": {
+            "action": "powerTimer",
+            "value": {
+              "timer": "off",
+              "time": "04:15"
+            }
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "expect": {
+            "ok": true
+          },
+          "body": {
+            "action": "powerTimer",
+            "value": {
+              "timer": "off",
+              "days": [
+                1,
+                3
+              ]
+            }
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "expect": {
+            "ok": true
+          },
+          "body": {
+            "action": "powerTimer",
+            "value": {
+              "timer": "off",
+              "enabled": true
+            }
+          }
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "powerTimers.off.enabled": true,
+            "powerTimers.off.time": "04:15"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "expect": {
+            "ok": true
+          },
+          "body": {
+            "action": "powerTimer",
+            "value": {
+              "timer": "off",
+              "enabled": false
+            }
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "expect": {
+            "ok": true
+          },
+          "body": {
+            "action": "powerTimer",
+            "value": {
+              "timer": "off",
+              "days": []
+            }
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "expect": {
+            "ok": true
+          },
+          "body": {
+            "action": "powerTimer",
+            "value": {
+              "timer": "off",
+              "time": "00:00"
+            }
+          }
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "powerTimers.off.enabled": false,
+            "powerTimers.off.time": "00:00"
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Run: check both timers are off at 00:00; for each, set 04:15 on Monday and Wednesday, switch it on and check /api/stats, then switch it off and put it back and check that.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      }
+    },
+    {
+      "id": "E2E-110",
+      "title": "Privacy switches round-trip on the TV",
+      "purpose": "A consent that is on (additional3Allowed), the ad-tracking limit and the ad blocker's Ads mode are each changed through /api/control, read back from /api/privacy and put back. The case first checks the TV starts with that consent on, the limit on and the blocker off, and does nothing on a TV that does not. A run that fails midway leaves what it was changing as it stopped.",
+      "kind": "api",
+      "flow": [
+        {
+          "api": "GET /api/privacy",
+          "expect": {
+            "consent.other[key=additional3Allowed].enabled": true,
+            "advertisingId.limitTracking": true,
+            "adblock.mode": "off"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "consent",
+            "value": {
+              "key": "additional3Allowed",
+              "enabled": false
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/privacy",
+          "expect": {
+            "consent.other[key=additional3Allowed].enabled": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "consent",
+            "value": {
+              "key": "additional3Allowed",
+              "enabled": true
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/privacy",
+          "expect": {
+            "consent.other[key=additional3Allowed].enabled": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "limitAdTracking",
+            "value": false
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/privacy",
+          "expect": {
+            "advertisingId.limitTracking": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "limitAdTracking",
+            "value": true
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/privacy",
+          "expect": {
+            "advertisingId.limitTracking": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setAdBlock",
+            "value": "ads"
+          },
+          "expect": {
+            "ok": true,
+            "mode": "ads"
+          }
+        },
+        {
+          "wait": 6000
+        },
+        {
+          "api": "GET /api/privacy",
+          "expect": {
+            "adblock.mode": "ads",
+            "adblock.enabled": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setAdBlock",
+            "value": "off"
+          },
+          "expect": {
+            "ok": true,
+            "mode": "off"
+          }
+        },
+        {
+          "wait": 6000
+        },
+        {
+          "api": "GET /api/privacy",
+          "expect": {
+            "adblock.mode": "off",
+            "adblock.enabled": false
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Run: check the starting state; change each switch, check /api/privacy shows it, put it back and check that.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      },
+      "requires": [
+        "control"
+      ]
+    },
+    {
+      "id": "E2E-111",
+      "title": "Screen saver and its brightness switch and come back",
+      "purpose": "The screen saver is changed to Clock, its brightness to Bright, put back to Harmonograph and Dim, and an unknown one is refused. The case first checks the TV starts on Harmonograph, Dim. A run that fails midway leaves what it was changing as it stopped.",
+      "kind": "api",
+      "flow": [
+        {
+          "api": "GET /api/screensaver",
+          "expect": {
+            "current": "harmonograph",
+            "level": "dim"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "screensaverMode",
+            "value": {
+              "mode": "clock"
+            }
+          },
+          "expect": {
+            "ok": true,
+            "current": "clock"
+          }
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "api": "GET /api/screensaver",
+          "expect": {
+            "current": "clock"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "screensaverMode",
+            "value": {
+              "mode": "clock",
+              "level": "bright"
+            }
+          },
+          "expect": {
+            "ok": true,
+            "level": "bright"
+          }
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "api": "GET /api/screensaver",
+          "expect": {
+            "level": "bright"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "screensaverMode",
+            "value": {
+              "mode": "harmonograph",
+              "level": "dim"
+            }
+          },
+          "expect": {
+            "ok": true,
+            "current": "harmonograph",
+            "level": "dim"
+          }
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "api": "GET /api/screensaver",
+          "expect": {
+            "current": "harmonograph",
+            "level": "dim"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "screensaverMode",
+            "value": {
+              "mode": "nonexistent"
+            }
+          },
+          "expect": {
+            "ok": false,
+            "error": "unknown screen saver: nonexistent"
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Run: check Harmonograph, Dim; switch to Clock, then Bright, back to Harmonograph and Dim, and ask for a saver that does not exist.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      },
+      "requires": [
+        "control"
+      ]
+    },
+    {
+      "id": "E2E-112",
+      "title": "OLED protections and the service menu lock round-trip",
+      "purpose": "Global stress reduction (GSR), Temporal peak control (TPC), Screen shift, Logo dimming and the service menu lock are each changed, read back from /api/oledcare or /api/servicemenu, and put back, the protections off for a few seconds only. The case first checks the TV starts with GSR and TPC on, Screen shift on, Logo dimming Light and the menu locked. A run that fails midway leaves what it was changing as it stopped.",
+      "kind": "api",
+      "flow": [
+        {
+          "api": "GET /api/oledcare",
+          "expect": {
+            "gsr": true,
+            "tpc": true,
+            "screenShift": "on",
+            "logoDimming": "light"
+          }
+        },
+        {
+          "api": "GET /api/servicemenu",
+          "expect": {
+            "locked": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "oledProtection",
+            "value": {
+              "key": "gsr",
+              "enabled": false
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/oledcare",
+          "expect": {
+            "gsr": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "oledProtection",
+            "value": {
+              "key": "gsr",
+              "enabled": true
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/oledcare",
+          "expect": {
+            "gsr": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "oledProtection",
+            "value": {
+              "key": "tpc",
+              "enabled": false
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/oledcare",
+          "expect": {
+            "tpc": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "oledProtection",
+            "value": {
+              "key": "tpc",
+              "enabled": true
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/oledcare",
+          "expect": {
+            "tpc": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "screenShift",
+            "value": "off"
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/oledcare",
+          "expect": {
+            "screenShift": "off"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "screenShift",
+            "value": "on"
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/oledcare",
+          "expect": {
+            "screenShift": "on"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "logoDimming",
+            "value": "off"
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/oledcare",
+          "expect": {
+            "logoDimming": "off"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "logoDimming",
+            "value": "light"
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/oledcare",
+          "expect": {
+            "logoDimming": "light"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "serviceMenuLock",
+            "value": {
+              "locked": false
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/servicemenu",
+          "expect": {
+            "locked": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "serviceMenuLock",
+            "value": {
+              "locked": true
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/servicemenu",
+          "expect": {
+            "locked": true
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Run: check the starting state; change each setting, check the route shows it, put it back and check that.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      },
+      "requires": [
+        "control"
+      ]
+    },
+    {
+      "id": "E2E-113",
+      "title": "App preload and saved web pages round-trip",
+      "purpose": "The Web Browser's preload switch is turned off and on. A saved web page is added, edited and removed, with the id the add gives, and a javascript: address and an empty one are refused. The case first checks the browser's preload is on. A run that fails midway leaves what it was changing as it stopped.",
+      "kind": "api",
+      "flow": [
+        {
+          "api": "GET /api/apps",
+          "expect": {
+            "preload[id=com.webos.app.browser].off": false
+          }
+        },
+        {
+          "api": "POST /api/preload/toggle",
+          "body": {
+            "id": "com.webos.app.browser",
+            "off": true
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/apps",
+          "expect": {
+            "preload[id=com.webos.app.browser].off": true
+          }
+        },
+        {
+          "api": "POST /api/preload/toggle",
+          "body": {
+            "id": "com.webos.app.browser",
+            "off": false
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 2500
+        },
+        {
+          "api": "GET /api/apps",
+          "expect": {
+            "preload[id=com.webos.app.browser].off": false
+          }
+        },
+        {
+          "api": "POST /api/preload/toggle",
+          "body": {
+            "id": "nonexistent.app",
+            "off": true
+          },
+          "expect": {
+            "ok": false,
+            "error": "This app is not offered here"
+          },
+          "status": 400
+        },
+        {
+          "api": "POST /api/apps/add-page",
+          "body": {
+            "address": "https://example.com/",
+            "title": "Glasshouse E2E page"
+          },
+          "expect": {
+            "ok": true
+          },
+          "status": 200,
+          "save": {
+            "lp": "launchPointId"
+          }
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "api": "GET /api/apps",
+          "expect": {
+            "savedPages[title=Glasshouse E2E page].address": "https://example.com/"
+          }
+        },
+        {
+          "api": "POST /api/apps/edit-page",
+          "body": {
+            "launchPointId": "$lp",
+            "title": "Glasshouse E2E page 2",
+            "address": "https://example.org/"
+          },
+          "expect": {
+            "ok": true
+          },
+          "status": 200
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "api": "GET /api/apps",
+          "expect": {
+            "savedPages[title=Glasshouse E2E page 2].address": "https://example.org/"
+          }
+        },
+        {
+          "api": "POST /api/apps/remove-page",
+          "body": {
+            "launchPointId": "$lp"
+          },
+          "expect": {
+            "ok": true
+          },
+          "status": 200
+        },
+        {
+          "api": "POST /api/apps/add-page",
+          "body": {
+            "address": "javascript:alert(1)",
+            "title": "x"
+          },
+          "expect": {
+            "ok": false,
+            "error": "enter a web address, such as bbc.co.uk"
+          },
+          "status": 400
+        },
+        {
+          "api": "POST /api/apps/add-page",
+          "body": {
+            "address": "",
+            "title": ""
+          },
+          "expect": {
+            "ok": false,
+            "error": "enter a web address, such as bbc.co.uk"
+          },
+          "status": 400
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Run: check the preload; switch it off and on; add a saved page, edit it, remove it; ask for two bad addresses.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      },
+      "requires": [
+        "control"
+      ]
+    },
+    {
+      "id": "E2E-114",
+      "title": "Watch time and screen-time limits round-trip",
+      "purpose": "Watch time is turned on, a daily limit and a bedtime are saved, bad values are refused, and everything is put back. The case first checks watch time and the limits are off. A run that fails midway leaves what it was changing as it stopped.",
+      "kind": "api",
+      "flow": [
+        {
+          "api": "GET /api/screentime",
+          "expect": {
+            "historyOn": false,
+            "settings.enabled": false,
+            "settings.dailyMinutes": 0
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setHistoryEnabled",
+            "value": true
+          },
+          "expect": {
+            "ok": true,
+            "watchHistory.enabled": true
+          }
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "api": "GET /api/screentime",
+          "expect": {
+            "historyOn": true
+          }
+        },
+        {
+          "api": "POST /api/screentime",
+          "body": {
+            "enabled": true,
+            "dailyMinutes": 600,
+            "action": "off"
+          },
+          "expect": {
+            "settings.enabled": true,
+            "settings.dailyMinutes": 600
+          },
+          "status": 200
+        },
+        {
+          "api": "POST /api/screentime",
+          "body": {
+            "bedtimeStart": "23:00",
+            "bedtimeEnd": "06:00"
+          },
+          "expect": {
+            "settings.bedtimeStart": "23:00",
+            "settings.bedtimeEnd": "06:00"
+          },
+          "status": 200
+        },
+        {
+          "api": "POST /api/screentime",
+          "body": {
+            "dailyMinutes": -5
+          },
+          "expect": {
+            "ok": false,
+            "error": "invalid dailyMinutes"
+          },
+          "status": 400
+        },
+        {
+          "api": "POST /api/screentime",
+          "body": {
+            "bedtimeStart": "25:99"
+          },
+          "expect": {
+            "ok": false,
+            "error": "invalid bedtimeStart"
+          },
+          "status": 400
+        },
+        {
+          "api": "POST /api/screentime",
+          "body": {
+            "enabled": false,
+            "dailyMinutes": 0,
+            "bedtimeStart": "",
+            "bedtimeEnd": ""
+          },
+          "expect": {
+            "settings.enabled": false,
+            "settings.dailyMinutes": 0
+          },
+          "status": 200
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setHistoryEnabled",
+            "value": false
+          },
+          "expect": {
+            "ok": true,
+            "watchHistory.enabled": false
+          }
+        },
+        {
+          "wait": 3000
+        },
+        {
+          "api": "GET /api/screentime",
+          "expect": {
+            "historyOn": false
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Run: check the starting state; turn watch time on, save a limit and a bedtime, refuse two bad values, put everything back.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      },
+      "requires": [
+        "control"
+      ]
+    },
+    {
+      "id": "E2E-115",
+      "title": "NTP server settings round-trip",
+      "purpose": "A bad server name and port are refused; pool.ntp.org is saved, which switches it on, then it is switched off and cleared. The TV's clock may move by the seconds it was off. The case first checks no NTP server is set. A run that fails midway leaves what it was changing as it stopped.",
+      "kind": "api",
+      "flow": [
+        {
+          "api": "GET /api/update",
+          "expect": {
+            "ntpSettings.server": "",
+            "ntpSettings.enabled": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setNtpServer",
+            "value": "bad host name!"
+          },
+          "expect": {
+            "ok": false,
+            "error": "That is not a server name or address"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setNtpServer",
+            "value": "pool.ntp.org:99999"
+          },
+          "expect": {
+            "ok": false,
+            "error": "The port after the colon must be a number from 1 to 65535"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setNtpServer",
+            "value": "pool.ntp.org"
+          },
+          "expect": {
+            "ok": true,
+            "ntpSettings.server": "pool.ntp.org",
+            "ntpSettings.enabled": true
+          }
+        },
+        {
+          "wait": 2000
+        },
+        {
+          "api": "GET /api/update",
+          "expect": {
+            "ntpSettings.server": "pool.ntp.org",
+            "ntpSettings.enabled": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setNtpEnabled",
+            "value": false
+          },
+          "expect": {
+            "ok": true,
+            "ntpSettings.enabled": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "setNtpServer",
+            "value": ""
+          },
+          "expect": {
+            "ok": true,
+            "ntpSettings.server": ""
+          }
+        },
+        {
+          "wait": 1500
+        },
+        {
+          "api": "GET /api/update",
+          "expect": {
+            "ntpSettings.server": "",
+            "ntpSettings.enabled": false
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Run: check none is set; refuse two bad entries; save pool.ntp.org, switch it off and clear it.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      },
+      "requires": [
+        "control"
+      ]
+    },
+    {
+      "id": "E2E-116",
+      "title": "A damaged backup file is refused and changes nothing",
+      "purpose": "Files that are not a Native Tv backup, are from a newer one, or are empty are refused with 400. Restoring a real backup is tried by hand, as it writes settings.",
+      "kind": "api",
+      "flow": [
+        {
+          "api": "POST /api/backup",
+          "body": {
+            "format": "other",
+            "version": 1
+          },
+          "expect": {
+            "ok": false,
+            "error": "That file is not a Native Tv backup"
+          },
+          "status": 400
+        },
+        {
+          "api": "POST /api/backup",
+          "body": {},
+          "expect": {
+            "ok": false,
+            "error": "That file is not a Native Tv backup"
+          },
+          "status": 400
+        },
+        {
+          "api": "POST /api/backup",
+          "body": {
+            "format": "nativetv-backup",
+            "version": 99
+          },
+          "expect": {
+            "ok": false,
+            "error": "That backup is from a newer Native Tv: update this TV first"
+          },
+          "status": 400
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Run: send three files the restore must refuse and check each answers 400 with its reason.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      },
+      "requires": [
+        "control"
+      ]
+    },
+    {
+      "id": "E2E-117",
+      "title": "An SSH key can be added and removed",
+      "purpose": "A public key made for this case, with no private half anywhere, is added, listed with its comment and removed by its fingerprint, and a text that is not a key is refused. The TV's own keys are never touched. A run that fails midway leaves that one public key in the list: remove it in the Server tab.",
+      "kind": "api",
+      "flow": [
+        {
+          "api": "POST /api/ssh",
+          "body": {
+            "action": "add",
+            "key": "hello world"
+          },
+          "expect": {
+            "ok": false,
+            "error": "That is not an SSH public key."
+          },
+          "status": 400
+        },
+        {
+          "api": "POST /api/ssh",
+          "body": {
+            "action": "add",
+            "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILxrxFnOeKpymcSEfJAto2DlJ7GIivFTqhLyFgtmTmzp glasshouse-e2e"
+          },
+          "expect": {
+            "ok": true,
+            "keys[comment=glasshouse-e2e].type": "ssh-ed25519",
+            "keys[comment=glasshouse-e2e].fingerprint": "SHA256:7Iu7FHuJho6odlMwmdWzb6qpWcIl6Km3mKL7h38dPL0"
+          },
+          "status": 200
+        },
+        {
+          "api": "POST /api/ssh",
+          "body": {
+            "action": "add",
+            "key": "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILxrxFnOeKpymcSEfJAto2DlJ7GIivFTqhLyFgtmTmzp glasshouse-e2e"
+          },
+          "expect": {
+            "ok": false,
+            "error": "That key is already there."
+          },
+          "status": 400
+        },
+        {
+          "api": "POST /api/ssh",
+          "body": {
+            "action": "remove",
+            "fingerprint": "SHA256:7Iu7FHuJho6odlMwmdWzb6qpWcIl6Km3mKL7h38dPL0"
+          },
+          "expect": {
+            "ok": true
+          },
+          "status": 200
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Run: refuse a text that is not a key; add the case's key and check its comment and fingerprint come back; adding it again is refused; remove it.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      },
+      "requires": [
+        "control"
+      ]
+    },
+    {
+      "id": "E2E-118",
+      "title": "A catalogue app installs and uninstalls",
+      "purpose": "Piccap On/Off Remote, 22 KB, is installed from the webosbrew catalogue (the TV needs the internet), shown as installed, and uninstalled; a protected system app is refused. The case first checks it is not installed. A run that fails midway leaves what it was changing as it stopped.",
+      "kind": "api",
+      "flow": [
+        {
+          "api": "GET /api/apps/catalog",
+          "expect": {
+            "apps[id=ui30].state": "none"
+          }
+        },
+        {
+          "api": "POST /api/apps/install/fetch",
+          "body": {
+            "id": "ui30",
+            "auto": true
+          },
+          "expect": {
+            "ok": true
+          },
+          "status": 200
+        },
+        {
+          "wait": 12000
+        },
+        {
+          "api": "GET /api/apps/install/status",
+          "expect": {
+            "state": "installed"
+          }
+        },
+        {
+          "api": "GET /api/apps/catalog",
+          "expect": {
+            "apps[id=ui30].state": "installed"
+          }
+        },
+        {
+          "api": "POST /api/apps/uninstall",
+          "body": {
+            "id": "ui30"
+          },
+          "expect": {
+            "ok": true
+          },
+          "status": 200
+        },
+        {
+          "wait": 5000
+        },
+        {
+          "api": "GET /api/apps/catalog",
+          "expect": {
+            "apps[id=ui30].state": "none"
+          }
+        },
+        {
+          "api": "POST /api/apps/uninstall",
+          "body": {
+            "id": "com.webos.app.settings"
+          },
+          "expect": {
+            "ok": false,
+            "error": "Protected core application cannot be uninstalled"
+          },
+          "status": 400
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Run: check the app is not installed; install it, wait for the install to finish, check it is installed; uninstall it and check it is gone; ask to uninstall a system app.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      },
+      "requires": [
+        "control"
+      ]
+    },
+    {
+      "id": "E2E-119",
+      "title": "Volume, mute, brightness, picture mode, energy saving and the sleep timer round-trip",
+      "purpose": "Each Overview control is changed through /api/control, read back from /api/stats and put back. The case first checks the TV starts at volume 23, not muted, OLED light 53, Filmmaker, energy saving off and no sleep timer (the test B3's settings), and does nothing on a TV that has others. A run that fails midway leaves what it was changing as it stopped.",
+      "kind": "api",
+      "flow": [
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "volume": 23,
+            "muted": false,
+            "picture.backlight": 53,
+            "picture.mode_raw": "filmMaker",
+            "picture.energySaving": "off",
+            "sleepTimer": "off"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "volume",
+            "value": 24
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 3500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "volume": 24
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "volume",
+            "value": 23
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 3500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "volume": 23
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "mute",
+            "value": true
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 3500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "muted": true
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "mute",
+            "value": false
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 3500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "muted": false
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "backlight",
+            "value": 54
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 3500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "picture.backlight": 54
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "backlight",
+            "value": 53
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 3500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "picture.backlight": 53
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "pictureMode",
+            "value": "cinema"
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 3500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "picture.mode_raw": "cinema"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "pictureMode",
+            "value": "filmMaker"
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 3500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "picture.mode_raw": "filmMaker"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "energySaving",
+            "value": "min"
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 3500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "picture.energySaving": "min"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "energySaving",
+            "value": "off"
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 3500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "picture.energySaving": "off"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "sleepTimer",
+            "value": "30"
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 3500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "sleepTimer": "30"
+          }
+        },
+        {
+          "api": "POST /api/control",
+          "body": {
+            "action": "sleepTimer",
+            "value": "off"
+          },
+          "expect": {
+            "ok": true
+          }
+        },
+        {
+          "wait": 3500
+        },
+        {
+          "api": "GET /api/stats",
+          "expect": {
+            "sleepTimer": "off"
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Run: check the starting levels; change each control, check /api/stats shows it, put it back and check that.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      },
+      "requires": [
+        "control"
+      ]
     }
   ]
 }

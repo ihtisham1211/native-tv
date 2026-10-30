@@ -125,12 +125,6 @@ constexpr Rect appTile(int index) {
             layout::gridTop + (index / layout::tileCols) * (layout::tileH + layout::tileGapY),
             layout::tileW, layout::tileH};
 }
-// The Apps page's icon squares; the name sits under each one.
-constexpr Rect appIcon(int index) {
-    return {canvas::safeX + (index % layout::iconCols) * (layout::iconSide + layout::iconGapX),
-            layout::iconTop + (index / layout::iconCols) * layout::iconRowPitch, layout::iconSide,
-            layout::iconSide};
-}
 constexpr Rect statCard(int index) {
     return {canvas::safeX + (index % layout::statCols) * (layout::statW + layout::statGapX),
             layout::gridTop + (index / layout::statCols) * (layout::statH + layout::statGapY),

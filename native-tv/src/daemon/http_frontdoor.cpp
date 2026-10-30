@@ -15236,7 +15236,12 @@ void HttpFrontDoor::sendAppIcon(HttpExchange &exchange) const {
                               "{\"ok\":false,\"error\":\"icon not found\"}");
         return;
     }
-    const service::AppIconFile icon = service::readAppIcon(appId, systemRoot_, assetsRoot_);
+    // own=1 is the app's own art, as it ships, for a screen that composes it on the app's colour
+    // (the Apps tab); without it the themed icon from the pack, where the pack has one.
+    std::string own;
+    const bool ownArt = uniqueQueryParameter(request.query, "own", own) && own == "1";
+    const service::AppIconFile icon =
+        service::readAppIcon(appId, systemRoot_, ownArt ? std::string() : assetsRoot_);
     if (!icon.found) {
         (void)exchange.respond(404, {{"Content-Type", "application/json"}},
                               "{\"ok\":false,\"error\":\"icon not found\"}");

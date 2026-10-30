@@ -45,7 +45,7 @@ Connecting Native Tv to Home Assistant takes only a few minutes.
 ### Setting it up from the dashboard
 
 1. Open the dashboard in a browser, then navigate to the **MQTT** tab (`/?tab=mqtt`).
-2. Fill in the broker address, port (`1883`), and credentials.
+2. Fill in the broker address (a host name or IP address, without `mqtt://`, a path or spaces), port (`1883`), and credentials.
 3. Switch **MQTT bridge** to **On** and save.
 
 The server saves `config.json` on the TV and restarts itself; the dashboard reconnects automatically after a few seconds. Home Assistant discovers the TV within seconds of the bridge connecting under **Settings** → **Devices & Services** → **MQTT**.

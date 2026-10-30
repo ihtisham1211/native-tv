@@ -65,6 +65,11 @@ def main():
             "largeIcon": "assets/icon.png"
         }))
         (app / "assets/icon.png").write_bytes(icon)
+        # A themed icon in the pack wins for this app, unless the app's own art is asked for.
+        themed = b"\x89PNG\r\n\x1a\nthemed-icon"
+        (assets / "app-icons").mkdir()
+        (assets / "app-icons/app-icons.pack").write_bytes(
+            b"NTVICONS 1\ncom.example.app 0 %d\n\n" % len(themed) + themed)
         config = root / "config.json"
         config.write_text(json.dumps({
             "host": "127.0.0.1", "port": port, "token": token,
@@ -99,6 +104,8 @@ def main():
 
             path = "/api/home/icon?id=com.example.app"
             status, headers, body = request(port, path, token)
+            assert status == 200 and body == themed
+            status, _, body = request(port, path + "&own=1", token)
             assert status == 200 and body == icon
             assert headers.get("content-type") == "image/png"
             assert headers.get("cache-control") == "public, max-age=86400"
@@ -108,7 +115,7 @@ def main():
             status, _, body = request(port, path, token, {"If-None-Match": etag})
             assert status == 304 and not body
             status, _, app_icon = request(port, "/api/apps/icon?id=com.example.app", token)
-            assert status == 200 and app_icon == icon
+            assert status == 200 and app_icon == themed
 
             status, _, body = request(port, "/api/home/icon?id=com.example.missing", token)
             assert status == 404

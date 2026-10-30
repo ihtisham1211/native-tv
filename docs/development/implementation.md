@@ -301,6 +301,11 @@ its brand to `brands`, if new) or `glyphs`, run
 store apps whose ids differ between regions; an id key is exact. The pack is
 about 340 KB and installs with the other assets (`deploy.sh` lists it).
 
+The themed icons are for the dashboard, Home Assistant and Home's round row. The
+Apps tab on the TV shows each app's own art instead (`/api/home/icon?id=...&own=1`
+skips the pack): a flat tile in the colour the app declares, the art large in the
+middle, so a brand's art is never redrawn.
+
 No set covers every app: Dashboard Icons lacks LG's apps and most regional
 broadcasters. LG's apps therefore get Material glyphs, and anything unmatched
 keeps its own icon, whatever its look, so that no brand is redrawn.

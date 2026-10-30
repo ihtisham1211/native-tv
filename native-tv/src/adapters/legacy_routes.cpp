@@ -5,6 +5,9 @@ namespace nativetv {
 std::string legacyAssetRoute(const std::string &asset) {
     if (asset.compare(0, 4, "app:") == 0)
         return "/api/home/icon?id=" + encode(asset.substr(4));
+    // The app's own art, not the themed icon: the Apps tab composes it on the app's colour.
+    if (asset.compare(0, 4, "own:") == 0)
+        return "/api/home/icon?id=" + encode(asset.substr(4)) + "&own=1";
     if (asset.compare(0, 8, "youtube:") == 0)
         return "/api/home/image?u=" +
                encode("https://i.ytimg.com/vi/" + asset.substr(8) + "/hqdefault.jpg");

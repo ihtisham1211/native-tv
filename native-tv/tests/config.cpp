@@ -239,6 +239,12 @@ void testPhoneMqttSettingsAndAtomicSave(const std::string &root) {
               error.find("port must be between 1 and 65535") != std::string::npos &&
               error.find("device id must") != std::string::npos,
           "invalid phone MQTT settings did not report all validation failures");
+
+    // The address typed on the phone is a host name or address, not a URL.
+    Json scheme = Json::parse("{\"host\":\"mqtt://broker.local\",\"port\":1883}");
+    check(!buildPhoneMqttSettings(scheme, config, Json(), mqtt, device, error) &&
+              error.find("no mqtt://") != std::string::npos,
+          "a phone MQTT address with a scheme was accepted: " + error);
 }
 
 void testObjectSectionPatchPreservesConfig(const std::string &root) {

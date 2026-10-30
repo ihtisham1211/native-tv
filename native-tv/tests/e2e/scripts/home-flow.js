@@ -8,7 +8,11 @@
 //                                                     with expect by dotted path ("nativeHome.halted": false);
 //                                                     same pairs two paths of the reply that must hold the
 //                                                     same value ("rows[id=x].value": "dimensions.sound.x");
-//                                                     status is the HTTP status the reply must have (for a reply that is not JSON)
+//                                                     status is the HTTP status the reply must have (for a reply that is not JSON);
+//                                                     keepSession holds the reply's admin session and withSession sends it back
+//                                                     (X-Admin-Session), for the admin PIN's unlock;
+//                                                     save {name: "path"} keeps a field of the reply, and a body value "$name"
+//                                                     is that field in a later step (an id a first step was given)
 //   {foreground: "com.example", withinMs}            the app in front becomes this one
 //   {stays: "com.example", forMs}                    the app in front is this one throughout
 //   {wait: ms}
@@ -20,16 +24,19 @@ var execFile = require('child_process').execFile;
 var POLL_MS = 250;
 var started = Date.now();
 var failed = false;
+var adminSession = '';
+var saved = {};
 
 function print(row) { process.stdout.write(JSON.stringify(row) + '\n'); }
 
-function request(call, body, done) {
+function request(call, body, withSession, done) {
   var parts = call.split(' ');
   // The server answers an empty JSON body with 400 malformed JSON, so a POST with nothing to say sends {}.
   var text = body !== undefined ? JSON.stringify(body) : (parts[0] === 'POST' ? '{}' : '');
+  var headers = parts[0] === 'POST' ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(text) } : {};
+  if (withSession && adminSession) headers['X-Admin-Session'] = adminSession;
   var req = http.request({
-    host: '127.0.0.1', port: PORT, method: parts[0], path: parts[1],
-    headers: parts[0] === 'POST' ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(text) } : {}
+    host: '127.0.0.1', port: PORT, method: parts[0], path: parts[1], headers: headers
   }, function (res) {
     var chunks = '';
     res.on('data', function (chunk) { chunks += chunk; });
@@ -45,9 +52,22 @@ function request(call, body, done) {
   req.end();
 }
 
+// The names of a path: split at the dots outside [..], since an id picked by rows[id=com.example.app] has dots.
+function splitPath(path) {
+  var names = [], current = '', depth = 0;
+  for (var i = 0; i < path.length; i++) {
+    var ch = path.charAt(i);
+    if (ch === '[') depth++;
+    if (ch === ']') depth--;
+    if (ch === '.' && depth === 0) { names.push(current); current = ''; } else current += ch;
+  }
+  names.push(current);
+  return names;
+}
+
 function dotted(object, path) {
   var value = object;
-  var names = path.split('.');
+  var names = splitPath(path);
   for (var i = 0; i < names.length; i++) {
     if (value === null || typeof value !== 'object') return undefined;
     var pick = /^(.+)\[(.+)=(.+)\]$/.exec(names[i]);
@@ -106,8 +126,18 @@ function run(index) {
     run(index + 1);
   }
   if (step.api) {
-    request(step.api, step.body, function (error, status, reply) {
+    var body = step.body;
+    if (body && typeof body === 'object') {
+      body = JSON.parse(JSON.stringify(body));
+      for (var key in body)
+        if (Object.prototype.hasOwnProperty.call(body, key) && typeof body[key] === 'string' && body[key].charAt(0) === '$')
+          body[key] = saved[body[key].slice(1)];
+    }
+    request(step.api, body, step.withSession, function (error, status, reply) {
       if (error) return finish(false, String(error));
+      for (var name in (step.save || {}))
+        if (Object.prototype.hasOwnProperty.call(step.save, name)) saved[name] = dotted(reply, step.save[name]);
+      if (step.keepSession && reply && reply.session) adminSession = reply.session;
       if (step.status !== undefined && status !== step.status)
         return finish(false, 'HTTP ' + status + ', wanted ' + step.status);
       var expect = step.expect || {};

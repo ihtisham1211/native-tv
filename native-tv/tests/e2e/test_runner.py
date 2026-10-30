@@ -45,7 +45,7 @@ class Registry(unittest.TestCase):
             if case["screen"] == "quick" and holds:
                 self.assertIn("control", case.get("requires", []), case["id"])
         skipped = [case["id"] for case in run.load_registry()["cases"] if "control" in case.get("requires", [])]
-        self.assertEqual(skipped, ["E2E-091", "E2E-092", "E2E-101", "E2E-102", "E2E-103"])
+        self.assertEqual(skipped, ["E2E-091", "E2E-092", "E2E-101", "E2E-102", "E2E-103", "E2E-104", "E2E-105", "E2E-106", "E2E-107", "E2E-108", "E2E-109", "E2E-110", "E2E-111", "E2E-112", "E2E-113", "E2E-114", "E2E-115", "E2E-116", "E2E-117", "E2E-118", "E2E-119"])
 
     def test_a_navigate_only_script_may_not_press_ok(self):
         with tempfile.TemporaryDirectory() as folder:
@@ -68,6 +68,14 @@ class Registry(unittest.TestCase):
         other = dict(case, flow=case["flow"][:-1] + [dict(close, body={"action": "closeApp", "value": "com.webos.app.home"})])
         self.assertTrue(any("may not" in problem for problem in run.check_registry({"cases": [other]})))
 
+    def test_a_reboot_case_requires_reboot_and_only_reads_afterwards(self):
+        case = {"id": "E2E-900", "title": "t", "purpose": "p", "kind": "reboot", "steps": ["s"], "criteria": {"flowOk": True},
+                "requires": ["reboot"], "flow": [{"api": "GET /api/caps", "expect": {"ok": True}}]}
+        self.assertEqual(run.check_registry({"cases": [case]}), [])
+        self.assertTrue(any("must require reboot" in p for p in run.check_registry({"cases": [dict(case, requires=[])]})))
+        post = dict(case, requires=["reboot", "control"], flow=[{"api": "POST /api/control", "body": {"action": "mute"}}])
+        self.assertTrue(any("GET requests" in p for p in run.check_registry({"cases": [post]})))
+
     def test_a_run_is_bounded_and_the_environment_is_closed(self):
         case = dict(last_run_case(), durationMs=61000, env={"LD_PRELOAD": "x"})
         problems = run.check_registry({"cases": [case]})
@@ -83,8 +91,10 @@ class Registry(unittest.TestCase):
         self.assertEqual(run.check_registry({"cases": [dict(post, requires=["control"])]}), [])
         outside = dict(read, flow=[{"api": "GET /etc/passwd"}])
         self.assertTrue(run.check_registry({"cases": [outside]}))
-        bodyless = dict(post, requires=["control"], flow=[{"api": "POST /api/control"}])
-        self.assertTrue(any("body" in problem for problem in run.check_registry({"cases": [bodyless]})))
+        bodyless = dict(post, requires=["control"], flow=[{"api": "POST /api/admin/lock"}])
+        self.assertEqual(run.check_registry({"cases": [bodyless]}), [])
+        getbody = dict(read, flow=[{"api": "GET /api/home", "body": {"a": 1}}])
+        self.assertTrue(any("only a POST has a body" in problem for problem in run.check_registry({"cases": [getbody]})))
 
     def test_nothing_personal_is_in_the_folder(self):
         for name in ("cases.json",) + tuple(os.path.join("scripts", n) for n in os.listdir(os.path.join(HERE, "scripts"))):
@@ -139,6 +149,71 @@ class FlowScript(unittest.TestCase):
         self.assertEqual(code, 0, rows)
 
     @unittest.skipUnless(shutil.which("node"), "needs node")
+    def test_an_admin_session_is_kept_and_sent_back_only_when_asked(self):
+        import http.server
+        import threading
+        seen = []
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def do_POST(self):
+                self.rfile.read(int(self.headers.get("Content-Length", 0)))
+                seen.append((self.path, self.headers.get("X-Admin-Session")))
+                body = json.dumps({"ok": True, "session": "abc"} if self.path == "/unlock" else {"ok": True}).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+        server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        steps = [{"api": "POST /before", "withSession": True}, {"api": "POST /unlock", "body": {}, "keepSession": True},
+                 {"api": "POST /plain"}, {"api": "POST /after", "withSession": True}]
+        try:
+            program = ("var PORT = %d;\nvar STEPS = %s;\n" % (server.server_port, json.dumps(steps))).encode()
+            with open(os.path.join(HERE, "scripts", "home-flow.js"), "rb") as file:
+                program += file.read()
+            done = subprocess.run(["node", "-"], input=program, capture_output=True, timeout=60)
+        finally:
+            server.shutdown()
+        self.assertEqual(done.returncode, 0, done.stdout)
+        self.assertEqual(seen, [("/before", None), ("/unlock", None), ("/plain", None), ("/after", "abc")])
+
+    @unittest.skipUnless(shutil.which("node"), "needs node")
+    def test_a_saved_field_fills_a_later_body(self):
+        import http.server
+        import threading
+        bodies = []
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def do_POST(self):
+                bodies.append(json.loads(self.rfile.read(int(self.headers.get("Content-Length", 0)))))
+                body = json.dumps({"ok": True, "launchPointId": "4711"}).encode()
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+        server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        steps = [{"api": "POST /add", "body": {"title": "x"}, "save": {"lp": "launchPointId"}},
+                 {"api": "POST /remove", "body": {"launchPointId": "$lp", "keep": "plain"}}]
+        try:
+            program = ("var PORT = %d;\nvar STEPS = %s;\n" % (server.server_port, json.dumps(steps))).encode()
+            with open(os.path.join(HERE, "scripts", "home-flow.js"), "rb") as file:
+                program += file.read()
+            done = subprocess.run(["node", "-"], input=program, capture_output=True, timeout=60)
+        finally:
+            server.shutdown()
+        self.assertEqual(done.returncode, 0, done.stdout)
+        self.assertEqual(bodies[1], {"launchPointId": "4711", "keep": "plain"})
+
+    @unittest.skipUnless(shutil.which("node"), "needs node")
     def test_same_compares_two_paths_of_one_reply(self):
         reply = {"rows": [{"id": "a", "value": 1}, {"id": "x", "value": "tv_speaker"}],
                  "dimensions": {"sound": {"x": "tv_speaker"}}}
@@ -148,8 +223,48 @@ class FlowScript(unittest.TestCase):
         code, rows = self.run_flow([agree], {"/r": stale})
         self.assertEqual(code, 1)
         self.assertIn("external_arc", rows[-2]["note"])
+        # an id with dots in it can be picked: the dots inside [..] are not path separators
+        dotted = {"rows": [{"id": "com.example.app", "v": 7}], "other": 7}
+        self.assertEqual(self.run_flow([{"api": "GET /r", "same": {"rows[id=com.example.app].v": "other"}}], {"/r": dotted})[0], 0)
         # a field that is missing on both sides is not agreement
         self.assertEqual(self.run_flow([agree], {"/r": {"rows": [], "dimensions": {}}})[0], 1)
+
+
+class RebootRun(unittest.TestCase):
+    """execute() for a reboot case against a stand-in TV that goes down and comes back."""
+
+    def test_the_run_sends_the_reboot_waits_for_the_tv_and_then_runs_the_case_s_flow(self):
+        reply = '{"step":0,"ok":true,"ms":1,"note":"HTTP 200"}\n{"done":true,"ok":true}\n'
+
+        class FakeTv:
+            def __init__(self):
+                self.nodes = []
+                self.pings = [0, 255, 255, 0, 0, 0]          # up, down, down, up
+
+            def run(self, remote, data=None, timeout=60):
+                if remote == "true":
+                    return (self.pings.pop(0) if self.pings else 0), "", ""
+                if remote.startswith("node - "):
+                    self.nodes.append(data.decode())
+                    return 0, reply, ""
+                return 0, "", ""
+
+            def port(self):
+                return 8080
+
+        case = {"id": "E2E-900", "kind": "reboot", "flow": [{"api": "GET /api/caps", "expect": {"ok": True}}]}
+        tv = FakeTv()
+        sleep, settle = run.time.sleep, run.REBOOT_SETTLE_S
+        run.time.sleep, run.REBOOT_SETTLE_S = (lambda seconds: None), 0
+        try:
+            metrics = run.execute(tv, case, 8080)
+        finally:
+            run.time.sleep, run.REBOOT_SETTLE_S = sleep, settle
+        self.assertEqual(len(tv.nodes), 2)
+        self.assertIn('"action": "reboot"', tv.nodes[0])
+        self.assertIn("GET /api/caps", tv.nodes[1])
+        self.assertTrue(metrics["flowDone"] and metrics["exitCode"] == 0 and "backAfterSeconds" in metrics)
+        self.assertEqual(run.judge(metrics, {"flowOk": True}), {})
 
 
 class Commands(unittest.TestCase):

@@ -1,6 +1,5 @@
 #include "ui/application.hpp"
 #include "ui/controller_helpers.hpp"
-#include "ui/home_layout.hpp"
 #include <algorithm>
 
 namespace nativetv {
@@ -56,16 +55,16 @@ void Application::key(Key key) {
         } else if (!home.rows.empty()) {
             bool grid = home.tabs[home.tab].key == "apps";
             if (key == Key::Up) {
-                if (grid && home.column >= home::kGridColumns)
-                    home.column -= home::kGridColumns;
+                if (grid && home.column >= 6)
+                    home.column -= 6;
                 else if (home.row)
                     --home.row;
                 else
                     home.navigation = true;
             }
             if (key == Key::Down) {
-                if (grid && home.column + home::kGridColumns < home.rows[home.row].cards.size())
-                    home.column += home::kGridColumns;
+                if (grid && home.column + 6 < home.rows[home.row].cards.size())
+                    home.column += 6;
                 else if (!grid && home.row + 1 < home.rows.size())
                     ++home.row;
             }

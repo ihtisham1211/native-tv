@@ -73,6 +73,20 @@ bool badTopic(const std::string &value) {
     return false;
 }
 
+// A broker address is a host name or an address, with no scheme, path or space.
+bool badBrokerHost(const std::string &value) {
+    for (unsigned char character : value)
+        if (std::isspace(character) || character == '/') return true;
+    return false;
+}
+
+// What goes to Home Assistant as the device's name is text, not markup.
+bool badDeviceName(const std::string &value) {
+    for (unsigned char character : value)
+        if (character < 0x20 || character == 0x7f || character == '<' || character == '>') return true;
+    return false;
+}
+
 bool validEntityId(const std::string &value) {
     if (value.empty() || value.size() > 64) return false;
     for (unsigned char character : value) {
@@ -99,6 +113,8 @@ bool validateDashboardSettings(const Json &input, Json &patch,
     mqtt.set("host", Json::text(host));
     if (mqtt["enabled"].boolean() && host.empty())
         errors.push_back("a broker address is required to enable MQTT");
+    else if (badBrokerHost(host))
+        errors.push_back("the broker address is a host name or IP address: no spaces, no mqtt:// and no path");
 
     const Json portInput = mqttInput["port"];
     if (!portInput.valid() || (portInput.isString() && portInput.string().empty())) {
@@ -168,7 +184,10 @@ bool validateDashboardSettings(const Json &input, Json &patch,
     if (!validDeviceId)
         errors.push_back("device id must be 1-64 characters of a-z, 0-9 or _");
     device.set("id", Json::text(deviceId));
-    device.set("name", Json::text(trim(stringValue(deviceInput["name"]))));
+    const std::string deviceName = trim(stringValue(deviceInput["name"]));
+    if (badDeviceName(deviceName))
+        errors.push_back("device name cannot contain < or > or control characters");
+    device.set("name", Json::text(deviceName));
 
     patch = Json::object();
     patch.set("mqtt", mqtt);

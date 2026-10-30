@@ -114,11 +114,9 @@ with `--time` and compares each with its PNG, per pixel with a tolerance,
 writing `<name>.actual.png` and `<name>.diff.png` when one fails;
 `golden.py update` rewrites the PNGs after an intended change. A case may name
 `"fixture": "home"`, which serves the stand-in daemon in `tests/home_fixture.py`
-(an invented catalogue, feed and generated artwork, the app icons in the kinds
-real ones come in: a dark tile, full-bleed colour, a bare glyph on transparency, a white
-square), and a `"script"` of timed keys; the Home and Apps cases catch the page at rest,
-mid-entrance, with the pill stretched, after a row snap, with the Apps grid scrolled and
-with the recent apps open. The Quick drawer
+(an invented catalogue, feed and generated artwork), and a `"script"` of timed
+keys; the Home and Apps cases catch the page at rest, mid-entrance, with the
+pill stretched, after a row snap and with the recent apps open. The Quick drawer
 (mid-slide, at rest, a list of choices, the switches), Profiles (`"profiles": 3`
 gives the fixture three profiles), the profile editor, title details with and
 without the overview sheet and the search with results each have a case; the
@@ -388,7 +386,7 @@ went with the Node server), so they need no Node. The Prometheus golden carries 
 again, the Live TV no-channel switch to Home and its absence on webOS 3-5, bad times and days refused); the stored
 settings come from the file in `NATIVETV_FAKE_TIME_SETTINGS_FILE` and a Home app missing from the marker named by
 `NATIVETV_FAKE_NO_HOME_APP`. `test-routes.js` is in `test_native_json_body_guards` (content type, origin and JSON
-shape before any action), `native-config-settings` (the defaults, an empty form's two errors, the icon switch) and `native-config`
+shape before any action), `native-config-settings` (the defaults, an empty form's two errors, a broker address with a scheme, path or space and a device name with `<`, `>` or a control character refused, the icon switch) and `native-config`
 (a writer behind a live config lock is waited for, its update kept). `test-apps.js` adds the protected ids
 (`native-app-list`; an empty id is protected) and `test_native_tile_hiding_flag_and_hidden_list` (the flag file, a hidden list
 with no flag, an explicit 0, protected ids dropped from the list). `test-privacy.js` adds the built-in tables to
@@ -572,7 +570,10 @@ with every change: GET requests to the server's own routes, made from the TV und
 no token), with the reply's fields compared (`expect` a value, `same` two paths of one reply; `rows[id=x].value` picks the
 array item whose `id` is `x`; `status` is the HTTP status a reply must have, for one that is not JSON). A read-only case
 needs no `--allow`. A case that has to change a setting POSTs, which `--check` accepts only with `requires: ["control"]`,
-and it puts the setting back (`E2E-101` and `E2E-102`). `E2E-103` is a client run, not an api case, with the same permission:
+and it puts the setting back (`E2E-101`, `E2E-102`, `E2E-104` to `E2E-119`). The round-trip cases begin by checking the values they expect to start from and
+change nothing on a TV that has others (`E2E-119` expects the test B3's own levels for volume and brightness). The dashboard port change, a reboot and a power-off have no case: the first moves the server under the flow, the other two take the TV away. `keepSession` holds the admin session a reply carries and
+`withSession` sends it back, which `E2E-104` uses to unlock; `save {name: "path"}` keeps a field of a reply and a body value `"$name"` is that field in
+a later step, which `E2E-113` uses for a saved page's id. A path name picks an array item by any value, dots included (`preload[id=com.webos.app.browser].off`). `E2E-103` is a client run, not an api case, with the same permission:
 it presses OK on a number row of the Game settings and goes round its range.
 
 A result is **pass** when every criterion holds, **floor** when only the interval limits are missed
@@ -602,6 +603,11 @@ the texture memory, the checkpoints the script took and the size of the capture.
 | E2E-101 | The Prometheus address opens and closes with its switch, without a restart (`api`, `control`) | |
 | E2E-102 | Tile hiding refuses while its experimental switch is off and not once it is on, without a restart (`api`, `control`) | |
 | E2E-103 | OK on a number row steps it as a whole number (11, not 11.0) and 21 presses come back to the start (`control`) | `dashboard:game` |
+| E2E-104 | The admin PIN gates a risky action until unlocked, refuses a wrong PIN and closes on lock; sets PIN 2468 and removes it (`api`, `control`) | |
+| E2E-105 | The Home Assistant settings refuse a URL or a space as the broker and markup as the device name (`api`, `control`) | |
+| E2E-106, 107 | LG rows round-trip: the ad switches, sound mode, balance, automatic volume and Bluetooth speaker mode (106); the Game Optimizer rows (107). Each is set, read back from the TV's settings service and put back (`api`, `control`) | |
+| E2E-110 to 119 | The rest of the settings, each set through the server, read back and put back: privacy switches and the ad blocker (110); screen saver and brightness (111); OLED protections, screen shift, logo dimming and the service menu lock (112); app preload and saved web pages, with the id the add gives (113); watch time and screen-time limits (114); NTP server (115); a damaged backup refused (116); an SSH key added and removed, the TV's own keys untouched (117); a 22 KB catalogue app installed and uninstalled (118); volume, mute, brightness, picture mode, energy saving and the sleep timer, from the test B3's own levels (119) (`api`, `control`) | |
+| E2E-108, 109 | The Advanced power switches (Quick Boot, Stay connected, Wake-on-LAN, LG logo, standby light, device detection) and the On and Off timers round-trip through `/api/stats` (`api`, `control`) | |
 
 The timing criteria are the target of the client's spec: p50 and p95 of the frame intervals at 60 fps
 (17.0 and 16.8 ms), none over 33 ms, at most 40 draws and 8192 vertices a frame and 64 MB of textures.

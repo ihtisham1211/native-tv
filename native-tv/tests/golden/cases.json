@@ -178,41 +178,6 @@
       ]
     },
     {
-      "name": "apps-scroll",
-      "time": 3400,
-      "fixture": "home",
-      "args": [
-        "--screen",
-        "home"
-      ],
-      "script": [
-        {
-          "at": 1500,
-          "key": "up"
-        },
-        {
-          "at": 1510,
-          "key": "right"
-        },
-        {
-          "at": 1600,
-          "key": "ok"
-        },
-        {
-          "at": 2200,
-          "key": "down"
-        },
-        {
-          "at": 2260,
-          "key": "down"
-        },
-        {
-          "at": 2320,
-          "key": "down"
-        }
-      ]
-    },
-    {
       "name": "home-recents",
       "time": 3000,
       "fixture": "home",

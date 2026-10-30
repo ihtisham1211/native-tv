@@ -36,6 +36,10 @@ The api cases (kind "api") are the regression cases for what testing the dashboa
 GET requests to the server's own routes, from the TV itself like a flow, and the reply's fields
 compared (`expect` a value, `same` two paths of one reply). A case that must change a setting
 (POST) requires `control`, and puts the setting back.
+
+A reboot case (kind "reboot", which requires `reboot`) sends the server's own reboot action, waits for
+the TV to go down and come back, gives the services time to start, and then runs the case's flow (GET
+requests) on the TV, to see that its settings survived.
 """
 import argparse
 import json
@@ -62,6 +66,9 @@ ENV_NAMES = {"NATIVETV_PROBE_FAULT", "NATIVETV_AMBIENT"}
 FLOW_API = {"GET /api/home", "POST /api/home/enable", "POST /api/home/disable"}
 FLOW_APP = re.compile(r"^(com\.webos\.app\.(hdmi[1-4]|livetv)|com\.tvweb\.dashboard)$")
 FLOW_KEYS = {"home", "back"}
+# What a reboot case asks first. The server answers, and the TV goes down.
+REBOOT_STEP = {"api": "POST /api/control", "body": {"action": "reboot"}, "expect": {"ok": True}}
+REBOOT_DOWN_S, REBOOT_UP_S, REBOOT_SETTLE_S = 120, 420, 40
 API_GET = re.compile(r"^GET /api/[A-Za-z0-9_/?=&,.-]*$")
 API_POST = re.compile(r"^POST /api/[A-Za-z0-9_/-]*$")
 CASE_ID = re.compile(r"^E2E-\d{3}$")
@@ -140,13 +147,18 @@ def api_problems(case):
             if not (isinstance(call, str) and (API_GET.match(call) or
                                                (API_POST.match(call) and "control" in case.get("requires", [])))):
                 problems.append(where + " asks for " + json.dumps(call) + ", which an api case may not (POST needs control)")
-            if ("body" in step) != (isinstance(call, str) and call.startswith("POST ")):
-                problems.append(where + ": only a POST has a body, and every POST has one")
+            if "body" in step and not (isinstance(call, str) and call.startswith("POST ")):
+                problems.append(where + ": only a POST has a body")
             for field in ("expect", "same"):
                 if field in step and not isinstance(step[field], dict):
                     problems.append("%s: %s is not an object" % (where, field))
             if "status" in step and not (isinstance(step["status"], int) and 100 <= step["status"] <= 599):
                 problems.append(where + ": status is not an HTTP status")
+            if "save" in step and not (isinstance(step["save"], dict) and all(isinstance(v, str) for v in step["save"].values())):
+                problems.append(where + ": save maps names to reply paths")
+            for field in ("keepSession", "withSession"):
+                if field in step and step[field] is not True:
+                    problems.append("%s: %s is true or left out" % (where, field))
         elif "wait" in step:
             if not isinstance(step["wait"], int) or not 1 <= step["wait"] <= 30000:
                 problems.append(where + " waits up to 30000 ms")
@@ -167,8 +179,14 @@ def check_registry(registry):
         for field in ("title", "purpose", "kind", "steps", "criteria"):
             if not case.get(field):
                 problems.append("%s: no %s" % (name, field))
-        if case.get("kind") not in ("probe", "run", "flow", "api"):
-            problems.append("%s: kind must be probe, run, flow or api" % name)
+        if case.get("kind") not in ("probe", "run", "flow", "api", "reboot"):
+            problems.append("%s: kind must be probe, run, flow, api or reboot" % name)
+        if case.get("kind") == "reboot":
+            problems += api_problems(case)
+            if "reboot" not in case.get("requires", []):
+                problems.append("%s: a reboot case must require reboot" % name)
+            if any(step.get("api", "").startswith("POST ") for step in case.get("flow", []) if isinstance(step, dict)):
+                problems.append("%s: what a reboot case checks after the boot is GET requests" % name)
         if case.get("kind") == "flow":
             problems += flow_problems(case)
         if case.get("kind") == "api":
@@ -351,6 +369,13 @@ def commands(case, port="PORT"):
     files = remote_files(case)
     if case["kind"] == "probe":
         return [jailer(["--probe"], case.get("env"), 40)]
+    if case["kind"] == "reboot":
+        return ["mkdir " + LOCK,
+                "node - %s   # scripts/home-flow.js with POST /api/control reboot" % port,
+                "wait for ssh to stop answering (at most %d s), then to answer again (at most %d s)" % (REBOOT_DOWN_S, REBOOT_UP_S),
+                "wait for the server's port, then %d s for the services" % REBOOT_SETTLE_S,
+                "node - PORT   # scripts/home-flow.js with this case's flow",
+                "rmdir " + LOCK]
     if case["kind"] in ("flow", "api"):
         return ["mkdir " + LOCK,
                 "node - %s   # scripts/home-flow.js with this case's flow, over ssh" % port,
@@ -374,6 +399,19 @@ def flow_program(case, port):
     return ("var PORT = %d;\nvar STEPS = %s;\n" % (port, json.dumps(case["flow"]))).encode() + body
 
 
+def wait_for(condition, seconds, every):
+    """Whether `condition` becomes true within `seconds`, tried every `every` seconds."""
+    deadline = time.time() + seconds
+    while time.time() < deadline:
+        try:
+            if condition():
+                return True
+        except (subprocess.TimeoutExpired, OSError):
+            pass
+        time.sleep(every)
+    return False
+
+
 def execute(tv, case, port):
     """Runs one case on the TV and returns its metrics."""
     files = remote_files(case)
@@ -391,6 +429,38 @@ def execute(tv, case, port):
     code, _, _ = tv.run("mkdir " + LOCK)
     if code != 0:
         raise RuntimeError("another run holds " + LOCK + "; remove it only when no client is running")
+    if case["kind"] == "reboot":
+        try:
+            started = time.time()
+            tv.run("node - %d" % port, flow_program(dict(case, flow=[REBOOT_STEP]), port), timeout=60)
+            tv.run("rmdir " + LOCK)          # /tmp does not survive the reboot, and the lock goes with it
+            if not wait_for(lambda: tv.run("true", timeout=12)[0] != 0, REBOOT_DOWN_S, 3):
+                raise RuntimeError("the TV did not go down within %d s of the reboot" % REBOOT_DOWN_S)
+            if not wait_for(lambda: tv.run("true", timeout=12)[0] == 0, REBOOT_UP_S, 5):
+                raise RuntimeError("the TV did not answer over ssh within %d s" % REBOOT_UP_S)
+            booted = round(time.time() - started, 1)
+            serving = []
+
+            def serves():
+                try:
+                    serving.append(tv.port())
+                    return True
+                except (RuntimeError, ValueError, subprocess.TimeoutExpired, OSError):
+                    return False
+            if not wait_for(serves, REBOOT_UP_S, 5):
+                raise RuntimeError("the TV is back but the server's port was not read")
+            time.sleep(REBOOT_SETTLE_S)
+            code, out, _ = tv.run("node - %d" % serving[-1], flow_program(case, serving[-1]), timeout=180)
+            rows = []
+            for line in out.splitlines():
+                try:
+                    rows.append(json.loads(line))
+                except ValueError:
+                    pass
+            return {"exitCode": code, "flow": rows, "flowDone": any(row.get("done") for row in rows),
+                    "wallSeconds": round(time.time() - started, 1), "backAfterSeconds": booted}
+        finally:
+            tv.run("rmdir " + LOCK, timeout=15)
     if case["kind"] in ("flow", "api"):
         try:
             program = flow_program(case, port)
@@ -546,7 +616,7 @@ def main(argv=None):
             row.update(result="skipped", notes=["needs --allow " + " --allow ".join(sorted(missing))])
         else:
             try:
-                if port is None and case["kind"] in ("run", "flow", "api"):
+                if port is None and case["kind"] in ("run", "flow", "api", "reboot"):
                     port = tv.port()
                 row["metrics"] = execute(tv, case, port)
                 row["result"], row["notes"] = verdict(row["metrics"], case)

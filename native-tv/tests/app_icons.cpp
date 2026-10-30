@@ -92,6 +92,9 @@ int main() {
             "an app the pack lacks lost its own icon");
     require(!service::readAppIcon("broken.id", systemRoot, assets).found,
             "pack entry past the end of the file was served");
+    // With no assets root the pack is skipped: that is how the route serves an app's own art (own=1).
+    require(service::readAppIcon("com.example.titled", systemRoot, "").bytes == icon,
+            "an empty assets root did not serve the app's own icon");
     unlink(pack.c_str());
     require(service::readAppIcon("com.example.titled", systemRoot, assets).bytes == icon,
             "missing pack did not fall back to the app's own icon");

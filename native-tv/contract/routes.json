@@ -582,7 +582,7 @@
       "csrf": "not applicable",
       "bodyLimit": {"max": 0, "unit": "bytes"},
       "owner": "native",
-      "notes": "The daemon uses the native app-icon resolver, preserving appinfo icon selection, path containment, ETag and cache headers. Node retains the standalone fallback route."
+      "notes": "The daemon uses the native app-icon resolver, preserving appinfo icon selection, path containment, ETag and cache headers. It serves the themed icon from the icon pack where the pack has one; own=1 skips the pack and serves the app's own art, which the TV's Apps tab composes on the app's colour. Node retains the standalone fallback route."
     },
     {
       "paths": ["/api/home/channels"],
