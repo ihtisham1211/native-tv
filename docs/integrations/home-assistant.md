@@ -23,7 +23,7 @@ Home Assistant connects to local devices and bridges using standard communicatio
 
 In this setup:
 
-1. **The TV as Publisher & Subscriber**: The TV publishes state updates (such as power state, active input, or volume) whenever they change, and subscribes to command topics to receive actions from Home Assistant. Readings that drift rather than change, such as CPU load, network rate and temperature, are published every 30 seconds by default; the **Telemetry interval** on the MQTT tab sets it, and an interval saved earlier stays as it was.
+1. **The TV as Publisher & Subscriber**: The TV publishes state updates (such as power state, active input, or volume) whenever they change, and subscribes to command topics to receive actions from Home Assistant. Readings that drift rather than change, such as CPU load, network rate and temperature, are published every 30 seconds by default; the **Telemetry interval** on the Home Assistant tab sets it, and an interval saved earlier stays as it was.
 2. **The MQTT Broker**: Communication flows through an **MQTT broker** — a lightweight server on your local network that relays messages between devices. The standard choice for Home Assistant is the official [Mosquitto broker add-on](https://github.com/home-assistant/addons/tree/master/mosquitto), which can be installed with a single click.
 3. **Automatic MQTT Discovery**: Native Tv follows Home Assistant's **MQTT Discovery** standard. As soon as the TV connects to the broker, it publishes configuration payloads that automatically register the TV and all its sensors, switches, buttons, and select menus. No manual YAML configuration is required.
 
@@ -44,7 +44,7 @@ Connecting Native Tv to Home Assistant takes only a few minutes.
 
 ### Setting it up from the dashboard
 
-1. Open the dashboard in a browser, then navigate to the **MQTT** tab (`/?tab=mqtt`).
+1. Open the dashboard in a browser, then navigate to the **Home Assistant** tab (`/?tab=mqtt`).
 2. Fill in the broker address (a host name or IP address, without `mqtt://`, a path or spaces), port (`1883`), and credentials.
 3. Switch **MQTT bridge** to **On** and save.
 
@@ -76,7 +76,7 @@ For config-file deployments, `deploy.sh` checks for `native-tv/lifecycle/config.
 
 The dashboard can change the broker, credentials, topic prefix and device identity — the settings that decide *where* telemetry goes.
 
-`port`, `host`, `allowControl`, `allowPower` and `token` are file-only. They decide *who can reach the server at all*, and a web UI able to widen its own exposure would defeat the point of setting them. `syslog` is file-only too. `allowTileHiding`, `allowExperimentalScreensavers`, `allowNetworkDebugger`, `prometheus.enabled` and `ntp` can be set in `config.json` or from the Server tab, and `iconServer` from the MQTT tab ([App icons](#app-icons-for-launchers)).
+`host`, `allowControl`, `allowPower` and `token` are file-only, apart from `host` also being set by the network choice in the TV's first-run setup. They decide *who can reach the server at all*, and a web UI able to widen its own exposure would defeat the point of setting them. `port` can also be changed under **Server and backup** → **Advanced** → **Dashboard port**. `syslog` is file-only too. `allowTileHiding`, `allowExperimentalScreensavers`, `allowNetworkDebugger`, `prometheus.enabled` and `ntp` can be set in `config.json` or from the Server tab, and `iconServer` from the Home Assistant tab ([App icons](#app-icons-for-launchers)).
 
 Edit those in `config.json` and redeploy, or edit `/var/lib/tvweb/config.json` on the TV and restart.
 
@@ -91,17 +91,11 @@ Edit those in `config.json` and redeploy, or edit `/var/lib/tvweb/config.json` o
 
 ### Running one half without the other
 
-| Mode | `web.enabled` | `mqtt.enabled` |
-| :--- | :------------ | :------------- |
-| Dashboard and MQTT | `true` | `true` |
-| Dashboard only *(default)* | `true` | `false` |
-| MQTT only | `false` | `true` |
-
-With the dashboard disabled, the server acts purely as an MQTT bridge with no web interface, which is the safer shape if everything is driven from Home Assistant (the dashboard is an unauthenticated control endpoint unless `token` is set). Note that this also removes the settings UI, so an MQTT-only install is configured by file. With both disabled, the server exits rather than idling.
+The dashboard is always served: the server does not read `web.enabled`, so the file cannot switch it off. MQTT is switched separately by `mqtt.enabled`, which is off by default. For an install driven only from Home Assistant, set `host` to `127.0.0.1` so the dashboard's port is closed to the network; the TV app and MQTT keep working. A dashboard that is open on the network is an unauthenticated control endpoint unless `token` is set.
 
 ### PicCap ambient lighting
 
-[PicCap](https://github.com/TBSniller/piccap) captures the TV's screen for a Hyperion server, which drives an ambient light behind the TV. Where PicCap is installed, the Advanced tab has a **PicCap capture** switch that starts and stops capture, and Home Assistant receives a **PicCap Capture** switch under Controls & Media. Nothing is asked of PicCap on a TV without it. Its Home Assistant entity can be switched off like any other, which also stops the server polling PicCap's state every 30 seconds.
+[PicCap](https://github.com/TBSniller/piccap) captures the TV's screen for a Hyperion server, which drives an ambient light behind the TV. Where PicCap is installed, the Advanced tab has a **PicCap capture** switch that starts and stops capture, and Home Assistant receives a **PicCap Capture** switch under Controls & Media. Nothing is asked of PicCap on a TV without it. Its Home Assistant entity can be switched off like any other,.
 
 The retained state topic `<topicPrefix>/state/piccap/power` carries `ON` or `OFF`, and the command topic `<topicPrefix>/command/piccap/power` accepts `ON` or `OFF` (commands require `allowControl`). Telemetry includes the boolean `piccap.power` while PicCap answers.
 
@@ -123,14 +117,14 @@ Once connected to the MQTT broker, Home Assistant discovers the TV as a single d
 
 ### Entity Selection
 
-You can choose which entity categories are published from the **MQTT** tab in the dashboard (`/?tab=mqtt`), or fine-tune individual entities. When a category or entity is disabled, `tvweb` publishes an empty discovery payload so Home Assistant unregisters the entity immediately, without leaving orphaned unavailable entities.
+You can choose which entity categories are published from the **Home Assistant** tab in the dashboard (`/?tab=mqtt`), or fine-tune individual entities. When a category or entity is disabled, `tvweb` publishes an empty discovery payload so Home Assistant unregisters the entity immediately, without leaving orphaned unavailable entities.
 
 Categories:
 * **Controls & Media** (`controls`): Power, volume, mute, playback buttons, apps, and input sources.
 * **OLED Care** (`oled`): Panel on-time, pixel refresher countdowns, and burn-in protections.
 * **Video & HDMI Signal** (`video`): Active picture mode, dynamic range, refresh rate, VRR, ALLM, and link mode.
 * **System & Telemetry** (`system`): CPU, RAM, swap, SoC temperature, network rates, and storage health.
-* **Diagnostics & Settings** (`diagnostics`): Standby light, logo light, sleep timer, ad blocker, and update status.
+* **Diagnostics & Settings** (`diagnostics`): Remote battery, audio format, standby LED, sleep timer, and ad blocker.
 
 ---
 
@@ -154,7 +148,7 @@ Native Tv can share the TV's app icons with other devices on the network, so a d
 
 ### Switching it on
 
-1. Open the dashboard's **MQTT** tab, set **Share app icons** to **Enabled**, and select **Save & restart**.
+1. Open the dashboard's **Home Assistant** tab, set **Share app icons** to **Enabled**, and select **Save & restart**.
 2. The TV then serves each installed app's icon at `http://<tv-ip>:8082/icons/<appId>.png`: the dark-tile icon with the brand's logo where the [app icon set](../development/implementation.md#app-icons) has one, otherwise the icon the app ships with. Anyone on the network can fetch them, and so tell which apps are installed.
 
 ### What Home Assistant receives
@@ -242,9 +236,8 @@ Trigger an ambient lighting scene whenever 4K Dolby Vision playback begins:
 ```yaml
 alias: "Cinema: Dim Lights on Dolby Vision"
 trigger:
-  - platform: state
-    entity_id: sensor.lg_tv_dynamic_range
-    to: "Dolby Vision"
+  - platform: template
+    value_template: "{{ states('sensor.lg_tv_dynamic_range').startswith('Dolby Vision') }}"
 action:
   - service: scene.turn_on
     target:
@@ -294,12 +287,12 @@ media_player:
       volume_up:
         service: mqtt.publish
         data:
-          topic: "lgtv/command/volume"
-          payload: "+1"
+          topic: "lgtv/command/volumeStep"
+          payload: "1"
       volume_down:
         service: mqtt.publish
         data:
-          topic: "lgtv/command/volume"
+          topic: "lgtv/command/volumeStep"
           payload: "-1"
       volume_set:
         service: number.set_value
@@ -349,7 +342,7 @@ When the TV is switched off, its entities stay available and show a switched-off
 
 A TV in standby is asleep and cannot receive commands, so it is switched back on over the network with Wake-on-LAN.
 
-1. Turn on **Wake-on-LAN** on the TV: in the web dashboard under **Control &rarr; Advanced**, on the TV dashboard under **System &rarr; Power**, or in LG's menu under **Settings &rarr; General &rarr; Mobile TV On**. Wake-on-LAN works over Ethernet and, on most models, Wi-Fi.
+1. Turn on **Wake-on-LAN** on the TV: in the web dashboard under **Advanced &rarr; Power**, on the TV dashboard under **System &rarr; Power**, or in LG's menu under **Settings &rarr; General &rarr; Mobile TV On**. Wake-on-LAN works over Ethernet and, on most models, Wi-Fi.
 2. In Home Assistant, add the **Wake on LAN** integration (**Settings &rarr; Devices &amp; services &rarr; Add integration &rarr; Wake on LAN**) with the TV's MAC address. The address is listed under **Connections** on the TV's device page in Home Assistant, and as the **MAC Address** sensor.
 
 This creates a button that wakes the TV from standby. To make one switch that shows whether the TV is on and turns it on or off, add a template switch to `configuration.yaml`, with the TV's MAC address:
@@ -380,4 +373,4 @@ switch:
         icon_template: mdi:television
 ```
 
-The `wake_on_lan.send_magic_packet` action needs `wake_on_lan:` in `configuration.yaml` if the integration was not added through the UI. Entity IDs start with the device name, `lg_tv` by default; a TV with its own name in `config.json` uses that instead.
+The `wake_on_lan.send_magic_packet` action needs `wake_on_lan:` in `configuration.yaml` if the integration was not added through the UI. Entity IDs start with the device id (`device.id` in `config.json`), `lg_tv` unless it is changed.

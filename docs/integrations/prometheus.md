@@ -41,7 +41,7 @@ scrape_configs:
       - targets: ["192.168.1.20:8080"]
 ```
 
-Each scrape runs the same stats collection as the dashboard, behind its 1.5 s cache, so 15 s is the recommended minimum scrape interval. At that rate it costs about the same as the MQTT bridge's 10 s publish.
+Each scrape runs the same stats collection as the dashboard, behind its 1.5 s cache, so 15 s is the recommended minimum scrape interval. The MQTT bridge publishes every 30 s by default.
 
 ## Testing locally
 
@@ -107,7 +107,7 @@ The NTP families have samples only while [setting the clock from NTP](../develop
 | `nativetv_emmc_life_used_ratio`                 | gauge   | `type`                                  | eMMC estimated life used, in steps of 0.1                   |
 | `nativetv_app_storage_size_bytes`               | gauge   |                                         | Size of the app storage filesystem                          |
 | `nativetv_app_storage_available_bytes`          | gauge   |                                         | Space available there for new apps                          |
-| `nativetv_remote_battery_ratio`                 | gauge   |                                         | Magic Remote battery, read from the remote over Bluetooth   |
+| `nativetv_remote_battery_ratio`                 | gauge   |                                         | Magic Remote battery, read over Bluetooth on webOS 9 and 10 and from LG's remote service on webOS 4   |
 | `nativetv_adblock_enabled`                      | gauge   |                                         | 1 when ad blocking is in place                              |
 | `nativetv_oled_panel_usage_seconds_total`       | counter |                                         | Time the panel has been in use                              |
 | `nativetv_oled_last_compensation_usage_seconds` | gauge   |                                         | Panel usage at the last short compensation cycle            |

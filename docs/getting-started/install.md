@@ -9,7 +9,7 @@ description: "Install Native Tv on a rooted LG webOS TV: build the ARM server wi
 
 1. Root the TV and install the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel).
 2. Clone this repository on a computer on the same network as the TV.
-3. Build the ARM native service with the webOSbrew SDK, as described below.
+3. Build the ARM server and TV app with the webOSbrew SDK, as described below.
 4. Run `native-tv/lifecycle/deploy.sh <tv-ip>` from the repository root.
 5. Open `http://<tv-ip>:8080/` in a browser.
 
@@ -18,7 +18,7 @@ That's it. The dashboard is ready to use.
 ## Requirements
 
 * A rooted LG webOS TV ([Root tool here](https://github.com/throwaway96/dejavuln-autoroot/)) with the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel).
-* A computer on the same network with Git, Bash, Python 3, CMake and a compatible webOSbrew native SDK. Current source installs require the ARM service runtime. The TV does not need internet access during installation.
+* A computer on the same network with Git, Bash, Python 3, CMake and a compatible webOSbrew native SDK. A source install needs the ARM build of the server, its metrics worker and the TV app. The TV does not need internet access during installation.
 
 The MQTT bridge also needs an MQTT broker on the network. Home Assistant's Mosquitto add-on is one option, but any compatible MQTT broker works.
 
@@ -40,17 +40,19 @@ cd native-tv
 
 ### 2. Install the dashboard
 
-Find the TV's address under Settings → Network on the TV, or in the router's list of devices. The installer automatically uses SSH if the TV has it, and falls back to the Homebrew Channel's telnet if not.
+Find the TV's address under Settings → Network on the TV, or in the router's list of devices. The installer uses SSH when key-based login to `root@<tv-ip>` works (the computer's own keys, or the key named by `NATIVETV_SSH_KEY` in `~/.config/nativetv/deploy.env`), and otherwise falls back to the Homebrew Channel's telnet. It never asks for an SSH password.
 
 > [!CAUTION]
 > Rooting an LG TV will often open an unauthenticated telnet server by default, leaving a root shell open on the local network. It is good practice to turn telnet off and turn SSH on, for more secure access — [moving from telnet to SSH](../administration/security.md#moving-from-telnet-to-ssh) takes about five minutes and is strongly recommended.
 
-Build the native service from the repository root using a compatible
+Build the server and the TV app from the repository root using a compatible
 [webOSbrew native SDK](https://github.com/webosbrew/native-toolchain):
 
 ```bash
-python3 native-tv/build.py --sdk /path/to/arm-webos-linux-gnueabi_sdk-buildroot --service-only
+python3 native-tv/build.py --sdk /path/to/arm-webos-linux-gnueabi_sdk-buildroot
 ```
+
+Do not add `--service-only`: it leaves out the TV app, which `deploy.sh` packages too, so the deploy would stop.
 
 The default output is `native-tv/build-webos`. A different build directory can
 be selected with `--native-build=DIR` during deployment. Missing or invalid ARM
@@ -74,13 +76,13 @@ native-tv/lifecycle/deploy.sh 192.168.1.50
 The script takes about ten seconds to copy the server files and verify that the service is running. Once complete:
 
 * **In your browser:** Open **`http://<tv-ip>:8080/`** on any phone, tablet, or computer on your home network.
-* **On the TV:** Open the new **Native Tv** tile on your TV's home screen using your remote (see [The TV app](../apps/tv-app.md)).
+* **On the TV:** Open the new **Native Tv** tile on your TV's home screen using your remote (see [The TV app](../apps/tv-app.md)). Not every TV accepts the app, and without it the dashboard is still open from a phone or computer.
 
 > [!TIP]
 > **Static IP recommendation:** Reserving a fixed DHCP IP address for the TV in your home router settings ensures the dashboard address never changes.
 
 > [!NOTE]
-> **Private & local by default:** The server runs directly on the TV and talks only to your local network. No analytics or telemetry leave your home. The TV reaches the internet only when checking for new Native Tv releases.
+> **Private & local by default:** The server runs directly on the TV and talks only to your local network. No analytics or telemetry leave your home. The server reaches the internet only for features that need it: the Homebrew app catalogue and its downloads, and Native Tv Home's titles and posters.
 
 ## Configuration options
 
@@ -93,14 +95,15 @@ Native Tv can be configured in two ways:
 
 ### Option 1: On-screen setup in the TV app
 
-When Native Tv is installed, opening the app on the TV for the first time starts an interactive setup wizard designed for the remote.
+When Native Tv is installed from the Homebrew Channel, or deployed with a `config.json` seed (see Option 2), opening the app on the TV for the first time starts an interactive setup wizard designed for the remote. A plain `deploy.sh` install without a seed keeps the defaults and shows no wizard.
 
 ![Network access selection in the Native Tv TV app setup wizard](../screenshots/tv-app-setup-network.png)
 
 *Choosing whether the web dashboard is open to devices on the home network or TV-local only.*
 
-The wizard asks you to name the TV (it suggests its model's series, such as `B3`) and then guides you through three key choices:
+The wizard asks you to name the TV (it suggests its model's series, such as `B3`) and then guides you through four key choices:
 
+* **Admin PIN**: Four digits that the TV and the web dashboard ask for before the risky actions; the step is skipped when the TV already has a PIN. See [The TV app](../apps/tv-app.md#first-run-setup-wizard).
 * **Web dashboard access**: Choose between opening the web dashboard to phones and computers on your home network, or keeping it private to this TV only (`127.0.0.1`).
 * **Home Assistant integration**: Connect your TV to Home Assistant via MQTT. The TV displays a QR code to scan with your phone, allowing you to enter your MQTT broker credentials easily from your mobile browser without typing on the TV remote. An on-screen keyboard beside the code takes them from the remote instead.
 * **Active Standby (Always-on)**: On TVs that support Always Ready / Active Standby (such as the LG C2 or G2), choose whether Native Tv and Home Assistant remain connected with the screen off so the TV can be controlled and turned back on over the network.
@@ -164,7 +167,7 @@ Advanced settings can be adjusted in `config.json` or through the dashboard's Se
 | `allowExperimentalHome` | `false` | Experimental: offers [Native Tv Home](../dashboard/home.md) on webOS 11, where it is untried. |
 | `allowExperimentalScreensavers` | `false` | Experimental: allows custom QML screensavers on webOS 12 and newer, which are untried there. Named `allowOnWebos10` before 0.105; that name is still read, and renamed when the server starts. |
 | `allowNetworkDebugger` | `false` | Exposes the webOS app inspector on port `9998` over the local network for developers using `ares-inspect`. |
-| `iconServer` | `false` | Serves installed apps' icons, read-only and without a token, at `http://<tv-ip>:8082/icons/<appId>.png` (the dashboard's port plus two), for launchers on other devices. Home Assistant's Launch App select then lists each icon's address in `app_icons`. Also switched from the MQTT tab. |
+| `iconServer` | `false` | Serves installed apps' icons, read-only and without a token, at `http://<tv-ip>:8082/icons/<appId>.png` (the dashboard's port plus two), for launchers on other devices. Home Assistant's Launch App select then lists each icon's address in `app_icons`. Also switched from the Home Assistant tab. |
 
 #### Command-line flags
 
@@ -191,6 +194,6 @@ Logging verbosity is the `logging.level` setting (`quiet`, `info` or `debug`); t
 
 ## Troubleshooting
 
-* **Connection refused or password prompt during install.** The installer tries passwordless SSH first, then telnet. If SSH prompts for a password, make sure telnet is toggled **ON** in the TV's Homebrew Channel app settings, or run `native-tv/lifecycle/deploy.sh <tv-ip> --telnet` to connect directly over telnet.
+* **Connection refused during install.** The installer tries key-based SSH first, then telnet, and never prompts for an SSH password. If SSH has no key for the TV, make sure telnet is toggled **ON** in the TV's Homebrew Channel app settings, or run `native-tv/lifecycle/deploy.sh <tv-ip> --telnet` to connect directly over telnet.
 * **Nothing on port 8080.** On the TV, `/var/lib/tvweb/tvwebctl status` says whether the server is running and `/var/lib/tvweb/tvweb.log` says why it is not.
 * **Panel hours and OLED Care missing on an OLED TV**, or showing on an LCD one. Panel detection went the wrong way: set `"panel": "oled"` or `"panel": "lcd"` in `native-tv/lifecycle/config.json` before a first deploy, or in `/var/lib/tvweb/config.json` on a TV that already has one.

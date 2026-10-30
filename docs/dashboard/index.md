@@ -4,7 +4,7 @@ description: "The Native Tv web dashboard for LG webOS TVs: five sections for co
 
 # The dashboard
 
-The dashboard has five sections, and tabs inside four of them. Each tab has a deep link, `/?tab=` and its name below, and the links of earlier releases (`control`, `metrics`, `system`) still open the right place. OLED care appears on OLED TVs only, and Game mode and Native Tv Home where the TV offers them.
+The dashboard has five sections, and tabs inside three of them. Each tab has a deep link, `/?tab=` and its name below, and the links of earlier releases (`control`, `metrics`, `system`) still open the right place. OLED care appears on OLED TVs only, and Game mode and Native Tv Home where the TV offers them.
 
 The sections are a bar along the bottom on a phone, a rail down the left on a tablet and a drawer down the left on a computer. The keys **1** to **5** open them. The **Remote** button, bottom right on every screen, opens the D-pad and the remote's keys.
 

@@ -64,7 +64,7 @@ All choices made during setup can be changed at any time from the TV app's **Set
 *The final summary screen confirming your settings before opening the dashboard.*
 
 > [!TIP]
-> **Testing the setup wizard**: To test or verify the setup flow without modifying TV settings, start the server with the `--emulate-setup` flag, or open the web dashboard in a browser with `?setup=1`.
+> **Testing the setup wizard**: To try the setup flow without changing the TV, set `"emulateSetup": true` in `/var/lib/tvweb/config.json`: the TV app then opens setup, and its actions change nothing. A browser can open the same screens at `/assets/google-tv/pages/dashboard/index.html?setup=1` on the server's address.
 
 ### The admin PIN prompt
 

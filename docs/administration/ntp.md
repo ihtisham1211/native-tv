@@ -14,14 +14,11 @@ The TV normally gets its time from LG's servers. The ad blocker's **Everything**
 
 On the [Server tab](../dashboard/server.md), open **Advanced** and switch on **Set the clock from a time server**. Type the time server's address and press **Save**: a name such as `time.lan`, or an address such as `192.168.1.1`. A port other than the usual 123 goes after a colon, as in `time.lan:1123`.
 
-The tab then shows whether the server answered:
-
-* **On**, with when the clock was last set and last checked.
-* **No answer**, with the reason. The TV keeps the time it has, and the server is asked again every 30 seconds.
+The tab then shows a status line: when the clock was last set and last checked or, if the server did not answer, the reason in red. The TV keeps the time it has, and the server is asked again every 30 seconds.
 
 Switching it off stops it and keeps the address, so switching it back on needs no retyping.
 
-The same setting can be made in `/var/lib/tvweb/config.json` on the TV, followed by a restart of the server. `enabled` is optional, and on unless it is `false`:
+The same setting can be made in `/var/lib/tvweb/config.json` on the TV, which the server picks up within a few seconds, with no restart. `enabled` is optional, and on unless it is `false`:
 
 ```json
 "ntp": { "server": "time.lan", "port": 123, "enabled": true }

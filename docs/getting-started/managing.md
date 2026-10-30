@@ -13,17 +13,20 @@ ssh root@<tv-ip> /var/lib/tvweb/tvwebctl status    # start | stop | restart | st
 Native Tv no longer checks for or installs its own server releases. Update a
 TV by deploying the server or installing the Homebrew Channel package.
 
-**Deployed from a git checkout.** Pull the desired release or commit, then run
-the deploy script again:
+**Deployed from a git checkout.** Pull the desired release or commit, rebuild,
+then run the deploy script again. The deploy script packages whatever is in the
+build folder and does not rebuild it, so skipping the build installs the old
+binaries beside the new files:
 
 ```bash
 cd native-tv
 git pull
+python3 native-tv/build.py --sdk /path/to/arm-webos-linux-gnueabi_sdk-buildroot
 native-tv/lifecycle/deploy.sh <tv-ip>
 ```
 
 The deploy replaces server files and keeps the TV's configuration and data.
-To return to an earlier release, check it out and deploy it again.
+To return to an earlier release, check it out, rebuild and deploy it again.
 
 **Installed from the Homebrew Channel or as an `.ipk`.** Update the package
 through the Homebrew Channel once the package is listed there. Until then,

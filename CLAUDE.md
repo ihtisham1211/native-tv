@@ -19,6 +19,29 @@ pushed:
 - Anything the server changes on the TV: docs/administration/tv-changes.md.
 - What contributors must do differently: docs/development/contributing.md.
 - A finding about how LG's software works: docs/development/tv-research.md.
+- Build, install, update or deploy steps (`build.py` flags, `deploy.sh`,
+  `tvwebctl`, the Homebrew package): the install steps in README.md, and
+  docs/getting-started/install.md and managing.md. Readers copy these
+  commands, so they must work as written.
+- A dashboard section, tab, setting label or default, the webOS versions a
+  feature needs, or an experimental switch: docs/dashboard/index.md (the
+  sections and tabs), the tab's page, and docs/administration/experimental.md.
+- A Home Assistant entity, MQTT topic, config key or Prometheus metric:
+  docs/integrations/ (entity names as discovery publishes them, when each is
+  published, and the metrics table).
+- A TV app screen or a setup wizard step: docs/apps/tv-app.md and the wizard
+  summary in docs/getting-started/install.md.
+
+Write what the code does, not what a feature was meant to do: check a flag, a
+default, a label or a version against the source before it goes in a page. A
+count or a list that several pages repeat (TVs tested, entities, tabs) changes
+in all of them: README.md, docs/index.md and the page that holds the data.
+
+The published site is `docs/` and `mkdocs.yml`, built by `mkdocs build
+--strict` (docs.yml) and deployed to GitHub Pages when merged. Its look follows
+Google's Material 3 (`docs/stylesheets/extra.css`: the palette, rounded shapes
+and state layers); keep new content inside Material's components so it
+inherits that.
 
 # Code map
 
@@ -92,7 +115,8 @@ Before pushing, run what CI runs: `python3 native-tv/build.py --service-only
 the ARM build (`build.py --sdk ... --target nativetv-daemon`) when daemon
 code changed; the contract checks in `native-tv/tests/contract/`
 (`check-route-manifest.js`, `check-csrf-policy.py`, `check-test-matrix.js`);
-the UI suites in `native-tv/tests/ui/`; and `scripts/check-ui-ids.py`,
+the UI suites in `native-tv/tests/ui/`; `mkdocs build --strict` when `docs/`
+or `mkdocs.yml` changed; and `scripts/check-ui-ids.py`,
 `check-strings.py`, `check-screensavers.py`, `check-drift.py`,
 `check-entity-stability.py`, `check-es5.py` (the TV pages), `check-retired-files.py` and
 `check-entities.py --stats native-tv/tests/fixtures/tv/stats-b8-webos4.json`.

@@ -1117,7 +1117,7 @@ ahead of `/proc/uptime`.
   and none of the Homebrew Channel's code runs in them: whatever calls the
   service waits on LG, under a load average near 32 on 4 cores. `startup.sh`
   follows 4 s later. On a G5 (webOS 10.3.1) the same step took 12 s: the
-  service at 22.9 s after `core-boot-done` at 10.7 s ([boot-speed notes](https://github.com/ArnoldDeRuiter/webos-home-customizer/blob/main/2026-10-04-boot-speed-research.md)).
+  service at 22.9 s after `core-boot-done` at 10.7 s ([boot-speed notes](https://github.com/ArnoldDeRuiter/webos-home-customizer/blob/master/2026-10-04-boot-speed-research.md)).
 - **Process start times** (s): `ls-hubd` 1, `bootd` 2, `sam` 7, the first
   `WebAppMgr` 24, `activitymanager` 58. In webOS OSE the Activity Manager is in
   `webos-rbd.target`, started at `rest-boot-done`; LG's build matches that here.

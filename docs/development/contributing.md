@@ -13,7 +13,8 @@ python3 native-tv/build.py --service-only --test --sanitize --out native-tv/buil
 ```
 
 The ARM build, which `deploy.sh` and the Homebrew package need, takes the webOSbrew SDK:
-`python3 native-tv/build.py --sdk /path/to/arm-webos-linux-gnueabi_sdk-buildroot --service-only --target nativetv-daemon`.
+`python3 native-tv/build.py --sdk /path/to/arm-webos-linux-gnueabi_sdk-buildroot`, which builds the daemon, its worker
+and the TV app. To check only that a daemon change cross-compiles, add `--service-only --target nativetv-daemon`.
 [Testing and CI](testing.md) lists every check CI runs and how to run
 each one locally. Code compiles with `-Wall -Wextra -Werror`.
 

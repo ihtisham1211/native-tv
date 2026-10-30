@@ -75,7 +75,7 @@ Native Tv installs over SSH from a computer on the same network as the TV. The T
 
 1. Root the TV and install the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel).
 2. Clone this repository on the computer: `git clone https://github.com/ihtisham1211/native-tv.git`.
-3. Build the ARM server with the [webOSbrew native SDK](https://github.com/webosbrew/native-toolchain): `python3 native-tv/build.py --sdk /path/to/arm-webos-linux-gnueabi_sdk-buildroot --service-only`.
+3. Build the ARM server and TV app with the [webOSbrew native SDK](https://github.com/webosbrew/native-toolchain): `python3 native-tv/build.py --sdk /path/to/arm-webos-linux-gnueabi_sdk-buildroot`.
 4. Run `native-tv/lifecycle/deploy.sh <tv-ip>` from the repository root.
 5. Open `http://<tv-ip>:8080/` in a browser.
 

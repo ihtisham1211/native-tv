@@ -19,11 +19,12 @@ it before exposing it more widely.
 - **Set an admin PIN.** Four digits, asked in the TV's first-run setup, where
   0000 is offered as the default. Once one is set, the risky actions need it on
   top of the token: installing and removing apps (including from a URL or a
-  file), SSH keys, restoring a backup, the Server tab's settings, background
-  services, and reboot, power off, changing the dashboard's port and the
+  file), SSH keys, restoring a backup, the Home Assistant tab's broker settings,
+  background services, and reboot, power off, changing the dashboard's port and the
   network debugger. The TV app asks for it too, so holding the remote does not
   get round it. Everyday controls (volume, input, picture, launching apps) and
-  reading the dashboard do not ask. Entering the PIN opens a session of ten idle
+  reading the dashboard do not ask, and neither do the Server tab's other
+  switches (the time server, experimental features, history, backups). Entering the PIN opens a session of ten idle
   minutes, kept by the browser tab or the TV app. Five wrong PINs in a row lock
   the check for 30 seconds, doubling to an hour, for the dashboard and the TV
   together, so someone on the network can keep the owner waiting but cannot
@@ -34,7 +35,7 @@ it before exposing it more widely.
   unaffected**: they are a separate channel. The default 0000 is public
   knowledge, so it stops accidents and casual use and nobody who is trying;
   choose your own in the Server tab. A forgotten PIN is removed by deleting
-  `/var/lib/tvweb/admin-pin.json` over ssh. The first PIN can be set from the
+  `/var/lib/tvweb/admin-pin.json` over ssh and restarting the server (`/var/lib/tvweb/tvwebctl restart`). The first PIN can be set from the
   TV, or by a client that has the token, so with neither a machine on the
   network cannot set it first and lock the owner out.
 - **A browser without the token signs in with the PIN.** Where a token is set
@@ -60,16 +61,14 @@ it before exposing it more widely.
 - **`"allowPower": false`** hides and refuses power off, power on and reboot,
   in the dashboard and in Home Assistant, for a TV that should never be
   switched off over the network. The other controls stay.
-- **Turn the dashboard off if you do not use it.** `"web": { "enabled": false }`
-  removes the HTTP endpoint altogether, which is stronger than gating it with a
-  token. An MQTT-only install has no reason to expose one. The on-TV app runs on
-  the same server, so it stops working too; a first install in this state does
-  not add it.
-- **The upgrade and install endpoints install code.** `allowControl` gates
-  them along with everything else, so on a default install anyone who can reach
-  the port can move the TV to the current release, and can install any app in
-  the Homebrew Channel catalog. The upgrade comes from a fixed repository over
-  verified TLS. A catalog install must use https and match the sha256 hash the
+- **Close the dashboard's port if nothing on the network uses it.**
+  `"host": "127.0.0.1"` closes the port to everything but the TV itself, which
+  is stronger than gating it with a token, and the TV app keeps working. The
+  server has no setting that turns the dashboard off: `web.enabled` is not
+  read. An MQTT-only install has no reason to expose one.
+- **The install endpoints install code.** `allowControl` gates them along
+  with everything else, so on a default install anyone who can reach the port
+  can install any app in the Homebrew Channel catalog. A catalog install must use https and match the sha256 hash the
   catalog lists, and the package must keep to its own ids: nothing under
   `com.webos.`, `com.palm.` or `com.lge.`, nothing already on the TV's system
   partition, and not the Homebrew Channel or the dashboard's own package. That
@@ -87,7 +86,8 @@ it before exposing it more widely.
   request a page on another site can send without a preflight. Once sideloading
   is on, a client that can reach the port can run any package on the TV, so
   turn it on only with a token or a closed port. `apps.sideload` without a
-  token opens exactly that, and the server logs a warning at start.
+  token opens exactly that. Switching it on from the dashboard logs a warning;
+  setting it in `config.json` does not.
 - **A catalog app can be given root.** On a default install, a client that can
   reach the port can install an app from the Homebrew Channel catalog and run
   its services as root, as the Homebrew Channel itself would. An app from the
@@ -156,14 +156,12 @@ it before exposing it more widely.
 | Setting                        | Browser on the network                                                   | App on the TV | MQTT  |
 | :----------------------------- | :----------------------------------------------------------------------- | :------------ | :---- |
 | `"token": "your-secret-token"` | with `?k=your-secret-token` or `Authorization: Bearer your-secret-token` | works         | works |
-| Admin PIN set                  | install, remove, SSH keys, restore, server settings and power need `X-Admin-Session`, from the PIN | asks for the PIN | unaffected |
+| Admin PIN set                  | install, remove, SSH keys, restore, Home Assistant settings, services, the dashboard port and power need `X-Admin-Session`, from the PIN | asks for the PIN | unaffected |
 | `"host": "0.0.0.0"`            | over IPv4 only                                                           | works         | works |
 | `"host": "127.0.0.1"`          | no — port 8080 is closed to the network                                  | works         | works |
-| `"web": { "enabled": false }`  | no                                                                       | does not work | works |
 
 `"host": "127.0.0.1"` is the one to use to keep the on-TV app while closing the port to everything else.
 
-The app runs on the same server, so switching the web server off entirely leaves its tile with nothing to open — remove it from the **Server** tab first; a first install with the web server off does not add it.
 
 ## Moving from telnet to SSH
 
