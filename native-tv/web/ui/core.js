@@ -78,7 +78,9 @@ let lastArOff = null;
 /* Admin PIN. Once the owner sets one, the risky actions answer 403 with pin:true
    until a request carries an open unlock session (X-Admin-Session). The session
    is kept for the tab; the first action that needs it asks for the PIN, from
-   askAdminPin() in server.js, and goes ahead when it is given. */
+   askAdminPin() in server.js, and goes ahead when it is given. A 401 is the
+   other case: the TV does not know this browser's token, so the passcode screen
+   (askPin(true)) asks for the PIN, which hands the token over. */
 let adminSession = '';
 try { adminSession = sessionStorage.getItem('tvweb_admin') || ''; } catch (e) { /* kept in memory only */ }
 function setAdminSession(session) {
@@ -100,7 +102,12 @@ const sendFetch = (url, init) => {
 // ("Failed to fetch" in Chrome, "Load failed" in Safari), which reads as a
 // fault in the page rather than a TV that is off.
 window.fetch = (url, init) => sendFetch(url, init).then(async r => {
-  if (r.status !== 403 || !isApiUrl(url) || String(url).indexOf('/api/admin/unlock') !== -1) return r;
+  // The sign-in and unlock calls answer for themselves; /api/admin/pin may need an unlock like any other.
+  const answersItself = /\/api\/admin\/(unlock|lock|login)/.test(String(url));
+  if (!isApiUrl(url) || answersItself) return r;
+  // The TV does not know this browser's token: ask for the passcode, which gets it (and reloads).
+  if (r.status === 401) { await askPin(true); return r; }
+  if (r.status !== 403) return r;
   const body = await r.clone().json().catch(() => null);
   if (!body || body.pin !== true || !(await askAdminPin())) return r;
   return sendFetch(url, init);

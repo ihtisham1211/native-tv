@@ -33,9 +33,10 @@ class KeyboardPad {
         Rect origin = kit::metrics::setup::key1; // top-left of the first key
         size_t maximum = 80;         // characters
         bool address = false;        // "." where a name has "'"
+        bool digits = false;         // a number: only the digits, over delete and Done
         std::string doneLabel = "Done", doneIcon = "check";
     };
-    // Sets the text (caret at its end), puts focus on "q" and clears the layers.
+    // Sets the text (caret at its end), puts focus on "q" (on "1" for digits) and clears the layers.
     void begin(Motion &motion, const std::string &value, const Options &options);
     // Arrows move focus, OK presses the key, Delete erases before the caret.
     Result key(Motion &motion, double nowMs, Key key);

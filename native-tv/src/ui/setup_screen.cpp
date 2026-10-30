@@ -79,6 +79,10 @@ class SetupScreen final : public ScreenView {
     bool hasBar() const override {
         return false;
     }
+    // First-run setup has its own PIN step; the Settings entry (the phone link) has none.
+    bool takesAdminPin() const override {
+        return fromSettings_;
+    }
     void enter(ScreenHost &host) override {
         // Answers a page before this one left behind are not this page's.
         for (auto it = host.memory().begin(); it != host.memory().end();)
@@ -113,7 +117,14 @@ class SetupScreen final : public ScreenView {
     void afterHomeAssistant(ScreenHost &host) {
         goTo(host, setupHasStandby(state_) ? SetupStep::Standby : SetupStep::Summary);
     }
+    // Where Back from the network question, and Done on the name, lead: the PIN when it is asked.
+    SetupStep afterName() const {
+        return askPin_ ? SetupStep::Pin : SetupStep::Network;
+    }
     void activate(ScreenHost &host);
+    void choosePin(ScreenHost &host);
+    void acceptPin(ScreenHost &host);
+    void writePin(ScreenHost &host, const std::string &pin);
     void chooseNetwork(ScreenHost &host);
     void chooseStandby(ScreenHost &host);
     void openDashboard(ScreenHost &host);
@@ -135,6 +146,7 @@ class SetupScreen final : public ScreenView {
     void beginField(ScreenHost &host);
     void fieldDone(ScreenHost &host);
     void beginName(ScreenHost &host);
+    void beginPin(ScreenHost &host);
     void acceptName(ScreenHost &host);
     void answered(ScreenHost &host, const std::string &name, bool ok, const Json &data);
     // What the server holds, what the page shows: the optimistic layer's view of the choices.
@@ -157,15 +169,18 @@ class SetupScreen final : public ScreenView {
     bool hasAction() const {
         return !page_.action.empty() || step_ == SetupStep::Trouble;
     }
-    // The keyboard is on screen: the name's page, and the handoff's while it takes typing.
+    // The keyboard is on screen: the name's and the PIN's pages, and the handoff's while it takes
+    // typing.
     bool usesKeys() const {
-        return step_ == SetupStep::Name ||
+        return step_ == SetupStep::Name || step_ == SetupStep::PinOwn ||
                (step_ == SetupStep::Handoff && (link_ == Link::Preparing || link_ == Link::Ready));
     }
     // The page is waiting on the server (a write that restarts it, the broker being saved): it says
-    // so with a breathing dot and "Saving…", the moment the key was pressed.
+    // so with a breathing dot and "Saving…", the moment the key was pressed. The PIN's own write
+    // is quick and its pages' lead is long: those only hold the keys.
     bool waitsOnServer() const {
-        return busy_ || (step_ == SetupStep::Handoff && link_ == Link::Sending && !joined_);
+        const bool pinPage = step_ == SetupStep::Pin || step_ == SetupStep::PinOwn;
+        return (busy_ && !pinPage) || (step_ == SetupStep::Handoff && link_ == Link::Sending && !joined_);
     }
     bool showsCode() const {
         return step_ == SetupStep::Handoff && link_ == Link::Ready && !url_.empty();
@@ -181,6 +196,11 @@ class SetupScreen final : public ScreenView {
     SetupStep step_, entry_;
     int next_ = -1;          // the step to show once the page has left
     bool fromSettings_ = false, loaded_ = false, busy_ = false, netChosen_ = false;
+    // The PIN: asked on this run (the TV had none when setup opened, so the step counts stay put
+    // once the PIN exists), what has been written, and that it is the default.
+    bool askPin_ = true, pinDefault_ = false;
+    std::string pinWritten_;
+    size_t dotCount_ = 0;
     Json state_;             // the server's /api/setup
     SetupPage page_;
     size_t selected_ = 0, leadShown_ = 0, rev_ = 0;
@@ -200,12 +220,14 @@ class SetupScreen final : public ScreenView {
     std::vector<SetupChoice> linkChoices_;
     std::vector<SetupField> fields_ = brokerFields();
     HandoffWords words_ = handoffWords();
+    PinWords pinWords_ = pinWords();
     std::string savingText_ = say::msg("setup.saving", "Saving\xe2\x80\xa6");
     std::string connectingText_ = say::msg("setup.broker.connecting", "Connecting to the broker\xe2\x80\xa6");
     std::vector<std::string> entered_ = std::vector<std::string>(4);
     // The first step: what the main profile is called, and what the server holds (nothing, so
     // its own default, until it is written).
     std::string tvName_;
+    std::string pinSent_; // the PIN on its way to the server
     std::string summaryKey_; // what the summary page was last built from
     KeyboardPad pad_;
 };
@@ -225,6 +247,7 @@ void SetupScreen::serverAnswered(ScreenHost &host) {
     switch (after_) {
     case After::Start:
         loaded_ = true;
+        askPin_ = setupAsksPin(state_);
         tvName_ = setupDefaultName(state_);
         showStep(host, entry_);
         break;
@@ -232,6 +255,7 @@ void SetupScreen::serverAnswered(ScreenHost &host) {
         goTo(host, SetupStep::HomeAssistant);
         break;
     case After::Retry:
+        askPin_ = setupAsksPin(state_);
         goTo(host, fromSettings_ ? SetupStep::Handoff : SetupStep::Welcome);
         break;
     }
@@ -254,8 +278,8 @@ void SetupScreen::showStep(ScreenHost &host, SetupStep step) {
         motion.tween(id("e", item), 0, ms::base, Easing::out(),
                      kit::motion::stagger::pageBase + kit::motion::stagger::pageItem * std::min(item, 14));
     }
-    const size_t count = setupDotCount(state_);
-    for (size_t dot = 0; dot < count; ++dot)
+    dotCount_ = setupDotCount(shownState(host));
+    for (size_t dot = 0; dot < dotCount_; ++dot)
         motion.tween(id("dot", dot), static_cast<int>(dot) < page_.dots ? 1 : 0, ms::fast,
                      Easing::out());
     if (step_ == SetupStep::Handoff)
@@ -263,6 +287,10 @@ void SetupScreen::showStep(ScreenHost &host, SetupStep step) {
     if (step_ == SetupStep::Name) {
         message_.clear();
         beginName(host);
+    }
+    if (step_ == SetupStep::PinOwn) {
+        message_.clear();
+        beginPin(host);
     }
     host.invalidate();
 }
@@ -295,6 +323,12 @@ void SetupScreen::activate(ScreenHost &host) {
         break;
     case SetupStep::Name:
         acceptName(host);
+        break;
+    case SetupStep::Pin:
+        choosePin(host);
+        break;
+    case SetupStep::PinOwn:
+        acceptPin(host);
         break;
     case SetupStep::Network:
         chooseNetwork(host);
@@ -331,6 +365,36 @@ void SetupScreen::activate(ScreenHost &host) {
     case SetupStep::Restarting:
         break;
     }
+}
+// "Use 0000" writes the default; "Choose my own" opens the keyboard for the four digits.
+void SetupScreen::choosePin(ScreenHost &host) {
+    if (page_.choices[selected_].id == "own")
+        goTo(host, SetupStep::PinOwn);
+    else
+        writePin(host, kDefaultAdminPin);
+}
+void SetupScreen::acceptPin(ScreenHost &host) {
+    const std::string pin = pad_.value();
+    if (pin.size() != kAdminPinLength) {
+        message_ = pinWords_.incomplete;
+        return;
+    }
+    message_.clear();
+    writePin(host, pin);
+}
+// The PIN is the one answer the next page waits for: the server may refuse it, and what it answers
+// is the session every later request carries (answered()). The same PIN again, after Back, needs
+// no second write.
+void SetupScreen::writePin(ScreenHost &host, const std::string &pin) {
+    if (pin == pinWritten_) {
+        goTo(host, SetupStep::Network);
+        return;
+    }
+    busy_ = true;
+    pinSent_ = pin;
+    Write write = waitedWrite(host, Operation::Setup, withDemo(pinBody(pin)), "pin");
+    write.failure = say::msg("setup.pin.failed", "The PIN could not be saved");
+    host.optimistic().run("setup:pin", write);
 }
 void SetupScreen::chooseNetwork(ScreenHost &host) {
     const bool open = page_.choices[selected_].id == "open";
@@ -395,13 +459,15 @@ std::string SetupScreen::serverName(ScreenHost &host) const {
 // /api/setup as the page shows it: the standby choice as made, not as the TV last said.
 Json SetupScreen::shownState(ScreenHost &host) {
     Json view = Json::parse(state_.dump());
+    view.set("adminPin", Json::flag(!askPin_));
+    view.set("adminPinDefault", Json::flag(pinDefault_));
     if (setupHasStandby(view))
         view.set("alwaysReady", Json::flag(host.optimistic().flag("setup:standby", serverStandby(host))));
     return view;
 }
 std::string SetupScreen::pageKey(ScreenHost &host) {
     return std::string(host.optimistic().flag("setup:standby", serverStandby(host)) ? "1" : "0") +
-           shownName(host);
+           (pinDefault_ ? "1" : "0") + shownName(host);
 }
 std::string SetupScreen::shownName(ScreenHost &host) {
     return host.optimistic().text("setup:name", serverName(host));
@@ -454,8 +520,14 @@ bool SetupScreen::back(ScreenHost &host) {
     case SetupStep::Name:
         goTo(host, SetupStep::Welcome);
         return true;
-    case SetupStep::Network:
+    case SetupStep::Pin:
         goTo(host, SetupStep::Name);
+        return true;
+    case SetupStep::PinOwn:
+        goTo(host, SetupStep::Pin);
+        return true;
+    case SetupStep::Network:
+        goTo(host, askPin_ ? SetupStep::Pin : SetupStep::Name);
         return true;
     case SetupStep::HomeAssistant:
         goTo(host, SetupStep::Network);
@@ -544,7 +616,16 @@ void SetupScreen::response(ScreenHost &host, const Response &reply) {
 }
 // The answer to a write the page waited for (waitedWrite): what it was for decides what follows.
 void SetupScreen::answered(ScreenHost &host, const std::string &name, bool ok, const Json &data) {
-    if (name == "handoff") {
+    if (name == "pin") {
+        busy_ = false;
+        if (ok && (step_ == SetupStep::Pin || step_ == SetupStep::PinOwn)) {
+            // A dry run answers no session: nothing was set.
+            host.services().adminSession(data["session"].string());
+            pinWritten_ = pinSent_;
+            pinDefault_ = pinSent_ == kDefaultAdminPin;
+            goTo(host, SetupStep::Network);
+        }
+    } else if (name == "handoff") {
         if (step_ != SetupStep::Handoff || link_ != Link::Preparing)
             return;
         if (!ok || data["url"].string().empty()) {
@@ -651,6 +732,14 @@ void SetupScreen::beginName(ScreenHost &host) {
     pad_.begin(host.motion(), shownName(host), options);
     pad_.setDone(nameWords().done, "arrowright");
 }
+void SetupScreen::beginPin(ScreenHost &host) {
+    KeyboardPad::Options options;
+    options.id = "setup:kb";
+    options.maximum = kAdminPinLength;
+    options.digits = true;
+    pad_.begin(host.motion(), "", options);
+    pad_.setDone(pinWords_.done, "arrowright");
+}
 // The name on the keyboard is the main profile's. It shows as the name at once and the next
 // question comes; the write goes out behind it, and a refusal puts the old name back with a
 // message. The TV's own series stays the server's default, so nothing is written for it.
@@ -672,11 +761,15 @@ void SetupScreen::acceptName(ScreenHost &host) {
         };
         host.optimistic().set("setup:name", Json::text(name), Json::text(serverName(host)), write);
     }
-    goTo(host, SetupStep::Network);
+    goTo(host, afterName());
 }
 void SetupScreen::fieldDone(ScreenHost &host) {
     if (step_ == SetupStep::Name) {
         acceptName(host);
+        return;
+    }
+    if (step_ == SetupStep::PinOwn) {
+        acceptPin(host);
         return;
     }
     entered_[field_] = pad_.value();
@@ -717,7 +810,7 @@ bool SetupScreen::update(ScreenHost &host) {
     Motion &motion = host.motion();
     const double now = host.nowMs();
     bool draw = false;
-    for (const char *name : {"handoff", "save"}) {
+    for (const char *name : {"handoff", "save", "pin"}) {
         bool ok = false;
         Json data;
         if (takeReply(host, name, ok, data)) {
@@ -790,9 +883,10 @@ std::string SetupScreen::leadText() const {
             return connectingText_;
         return link_ == Link::Preparing ? words_.preparing : words_.scan;
     }
-    if (!page_.choices.empty() && !page_.choices[0].readOnly &&
-        leadShown_ < page_.choices.size())
-        return page_.choices[leadShown_].hint;
+    // A page with its own lead keeps it above the focused row's words.
+    if (!page_.choices.empty() && !page_.choices[0].readOnly && leadShown_ < page_.choices.size())
+        return page_.lead.empty() ? page_.choices[leadShown_].hint
+                                  : page_.lead + " " + page_.choices[leadShown_].hint;
     return page_.lead;
 }
 void SetupScreen::drawLeft(ScreenHost &host, kit::Paint paint) {
@@ -916,6 +1010,10 @@ void SetupScreen::drawEntry(ScreenHost &host, kit::Paint paint) {
     if (step_ == SetupStep::Name) {
         label = nameWords().label;
         placeholder = setupDefaultName(state_);
+    } else if (step_ == SetupStep::PinOwn) {
+        label = pinWords_.label;
+        placeholder = pinWords_.placeholder;
+        secret = true;
     } else {
         label = fields_[field_].label;
         placeholder = fields_[field_].placeholder;
@@ -936,7 +1034,7 @@ void SetupScreen::drawFooter(ScreenHost &host, kit::Paint paint) {
     if (page_.dots > 0 && !fromSettings_) {
         kit::StepDots dots;
         dots.origin = kDots;
-        for (size_t i = 0; i < setupDotCount(state_); ++i)
+        for (size_t i = 0; i < dotCount_; ++i)
             dots.on.push_back(static_cast<float>(motion.value(id("dot", i))));
         dots.enter = enterOf(host, Dots);
         kit::stepDots(paint, dots);
@@ -1000,6 +1098,8 @@ Json SetupScreen::snapshot() const {
     value.set("selected", Json::numeric(static_cast<double>(selected_)));
     value.set("fromSettings", Json::flag(fromSettings_));
     value.set("tvName", Json::text(tvName_));
+    value.set("pinSet", Json::flag(!pinWritten_.empty()));
+    value.set("pinDefault", Json::flag(pinDefault_));
     if (usesKeys()) {
         value.set("typed", Json::text(pad_.value()));
         value.set("focusedKey", Json::text(pad_.focusedKey()));
@@ -1017,7 +1117,7 @@ Json SetupScreen::snapshot() const {
 std::unique_ptr<ScreenView> makeSetupScreen(const std::string &route) {
     SetupStep step;
     if (route.compare(0, 6, "setup:") != 0 || !setupStepFromName(route.substr(6), step) ||
-        step == SetupStep::Restarting || step == SetupStep::Trouble)
+        step == SetupStep::Restarting || step == SetupStep::Trouble || step == SetupStep::PinOwn)
         return nullptr;
     return std::unique_ptr<ScreenView>(new SetupScreen(step));
 }

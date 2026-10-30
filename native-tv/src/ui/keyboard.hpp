@@ -6,12 +6,13 @@ namespace nativetv {
 class Keyboard {
     std::string value_;
     size_t cursor_ = 0, maximum_ = 80;
-    bool upper_ = false, symbols_ = false, address_ = false;
+    bool upper_ = false, symbols_ = false, address_ = false, digits_ = false;
 
   public:
     // `address`: a host name or IP is being typed, so the letters layer offers "." where a name
-    // offers an apostrophe.
-    void reset(const std::string &value, size_t maximum, bool address = false);
+    // offers an apostrophe. `digits`: a number is being typed (a PIN), so only the digits go in and
+    // the pad is a row of them over delete and Done.
+    void reset(const std::string &value, size_t maximum, bool address = false, bool digits = false);
     bool insert(const std::string &text);
     bool erase();
     bool press(const std::string &key);

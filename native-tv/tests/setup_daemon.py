@@ -5,8 +5,9 @@
 
 The daemon runs as tvwebctl starts it on the TV (TVWEB_NODE_FREE=1) with its stand-in luna-send, so
 the TV is an OLED65B3PUA and a restart is a script that notes it. The client's first run goes through
-the name, the network choice and the phone link to the broker typed on the TV; what the daemon wrote
-(config.json, home.json) is then read back, and a launch after "Open dashboard" opens the dashboard.
+the name, the admin PIN (the default 0000), the network choice and the phone link to the broker typed
+on the TV, which the daemon takes only under the PIN's session; what the daemon wrote (config.json,
+home.json, admin-pin.json) is then read back, and a launch after "Open dashboard" opens the dashboard.
 """
 import json
 import os
@@ -122,6 +123,11 @@ def main():
             assert profiles[0]["id"] == "main" and profiles[0]["name"] == "Den", profiles
             with open(restarts) as file:
                 assert len([line for line in file if line.strip()]) >= 2, "a restart for the network and one for the broker"
+            assert os.path.exists(os.path.join(data, "admin-pin.json")), "the PIN step set the admin PIN"
+            status, setup = get(port, "/api/setup")
+            assert setup["adminPin"] is True, setup
+            status, admin = get(port, "/api/admin")
+            assert admin["set"] is True and admin["defaultPin"] is True and admin["unlocked"] is False, admin
             assert os.path.exists(os.path.join(data, ".setup-pending")), "setup is not done yet"
             print("setup_daemon: the daemon wrote the network, the profile's name and the broker")
 

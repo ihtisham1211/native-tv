@@ -6,7 +6,9 @@
 namespace nativetv {
 // First-run setup as a page per step, the words and choices of setup.js. The screen reads these;
 // nothing here draws or talks to the server.
-enum class SetupStep { Welcome, Name, Network, HomeAssistant, Handoff, Standby, Summary, Restarting, Trouble };
+enum class SetupStep {
+    Welcome, Name, Pin, PinOwn, Network, HomeAssistant, Handoff, Standby, Summary, Restarting, Trouble
+};
 const char *setupStepName(SetupStep step); // "welcome", "network", "ha", "handoff", ...
 bool setupStepFromName(const std::string &name, SetupStep &step);
 
@@ -28,7 +30,13 @@ std::string setupDefaultName(const Json &state);
 // The server's /api/setup answer says what this TV has: an `alwaysReady` field means LG's
 // Always-on exists and the standby step is asked.
 bool setupHasStandby(const Json &state);
+// The admin PIN step is asked unless `state["adminPin"]` says the TV has a PIN already. The screen
+// passes the answer it got when setup opened, not the live one: the PIN it writes itself must not
+// change the count of steps half way through.
+bool setupAsksPin(const Json &state);
 size_t setupDotCount(const Json &state);
+// The page's `state` is /api/setup, with `adminPin` as above and, for the summary,
+// `adminPinDefault`: the PIN chosen on this run is 0000.
 // `netChosen`: the person has already answered the network question, so the TV's state (which
 // starts closed on a fresh install) decides the preselected row. `fromSettings`: only the phone
 // handoff runs, so there are no dots and Back returns to Settings. `tvName`: the name chosen on
@@ -49,6 +57,17 @@ struct NameWords {
     std::string label, done;
 };
 NameWords nameWords();
+
+// The admin PIN: the default the first choice offers, the length asked, and the words around the
+// field of the second choice, where the PIN is typed.
+constexpr const char *kDefaultAdminPin = "0000";
+constexpr size_t kAdminPinLength = 4;
+struct PinWords {
+    std::string label, placeholder, done, incomplete;
+};
+PinWords pinWords();
+// The /api/setup body that sets the PIN.
+Json pinBody(const std::string &pin);
 // The /api/home/profile body that names the main profile.
 Json nameBody(const std::string &name);
 

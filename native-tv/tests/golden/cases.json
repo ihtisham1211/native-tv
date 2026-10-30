@@ -222,6 +222,57 @@
     },
     {
       "name": "setup-network",
+      "time": 4500,
+      "fixture": "setup",
+      "args": [
+        "--screen",
+        "setup:welcome"
+      ],
+      "script": [
+        {
+          "at": 1500,
+          "key": "ok"
+        },
+        {
+          "at": 2300,
+          "key": "down"
+        },
+        {
+          "at": 2340,
+          "key": "down"
+        },
+        {
+          "at": 2380,
+          "key": "down"
+        },
+        {
+          "at": 2420,
+          "key": "right"
+        },
+        {
+          "at": 2460,
+          "key": "right"
+        },
+        {
+          "at": 2500,
+          "key": "right"
+        },
+        {
+          "at": 2540,
+          "key": "right"
+        },
+        {
+          "at": 2580,
+          "key": "ok"
+        },
+        {
+          "at": 3300,
+          "key": "ok"
+        }
+      ]
+    },
+    {
+      "name": "setup-pin",
       "time": 3600,
       "fixture": "setup",
       "args": [
@@ -264,6 +315,65 @@
         {
           "at": 2580,
           "key": "ok"
+        }
+      ]
+    },
+    {
+      "name": "setup-pin-own",
+      "time": 4700,
+      "fixture": "setup",
+      "args": [
+        "--screen",
+        "setup:welcome"
+      ],
+      "script": [
+        {
+          "at": 1500,
+          "key": "ok"
+        },
+        {
+          "at": 2300,
+          "key": "down"
+        },
+        {
+          "at": 2340,
+          "key": "down"
+        },
+        {
+          "at": 2380,
+          "key": "down"
+        },
+        {
+          "at": 2420,
+          "key": "right"
+        },
+        {
+          "at": 2460,
+          "key": "right"
+        },
+        {
+          "at": 2500,
+          "key": "right"
+        },
+        {
+          "at": 2540,
+          "key": "right"
+        },
+        {
+          "at": 2580,
+          "key": "ok"
+        },
+        {
+          "at": 3300,
+          "key": "down"
+        },
+        {
+          "at": 3400,
+          "key": "ok"
+        },
+        {
+          "at": 4300,
+          "text": "12"
         }
       ]
     },
@@ -335,6 +445,21 @@
       "args": [
         "--screen",
         "setup:summary"
+      ]
+    },
+    {
+      "name": "pin-prompt",
+      "time": 2600,
+      "fixture": "setup-settled",
+      "args": [
+        "--screen",
+        "pin"
+      ],
+      "script": [
+        {
+          "at": 1500,
+          "text": "12"
+        }
       ]
     },
     {

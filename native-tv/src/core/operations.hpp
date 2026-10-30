@@ -44,6 +44,7 @@ enum class Operation {
     FetchPackage,
     ConfirmPackage,
     CancelPackage,
-    Settings // /api/settings: the dashboard's MQTT and device settings (setup's broker entry)
+    Settings, // /api/settings: the dashboard's MQTT and device settings (setup's broker entry)
+    AdminUnlock // /api/admin/unlock: the four-digit admin PIN, answered with a session
 };
 }

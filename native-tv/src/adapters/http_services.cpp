@@ -115,6 +115,14 @@ void HttpServices::cancel(const std::string &channel) {
     ++generations_[channel];
     lock.unlock();
 }
+// The server's session is 32 hex characters; anything else (a header line would break on it) is
+// not kept.
+void HttpServices::adminSession(const std::string &session) {
+    const bool valid = session.size() <= 64 &&
+                       session.find_first_not_of("0123456789abcdef") == std::string::npos;
+    std::lock_guard<std::mutex> lock(mutex_);
+    adminSession_ = valid ? session : std::string();
+}
 std::vector<Response> HttpServices::drain() {
     std::unique_lock<std::mutex> lock(mutex_);
     std::vector<Response> result;
@@ -148,6 +156,7 @@ void HttpServices::run(bool image) {
         }
         Request request = std::move(queue.front());
         queue.pop_front();
+        const std::string session = image ? std::string() : adminSession_;
         bool current = generations_[request.channel] == request.generation;
         if (current)
             ++working_;
@@ -197,9 +206,13 @@ void HttpServices::run(bool image) {
                 curl_easy_setopt(curl, CURLOPT_PROXY, "");
                 curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 0L);
                 curl_slist *headers = nullptr;
-                if (request.post) {
+                if (request.post)
                     headers = curl_slist_append(headers, "Content-Type: application/json");
+                if (!session.empty())
+                    headers = curl_slist_append(headers, ("X-Admin-Session: " + session).c_str());
+                if (headers)
                     curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+                if (request.post) {
                     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, request.body.c_str());
                     curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE,
                                      static_cast<long>(request.body.size()));

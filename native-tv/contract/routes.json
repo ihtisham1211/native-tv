@@ -822,6 +822,15 @@
       "notes": "Whether an admin PIN is set, whether it is still the default 0000, whether the request's X-Admin-Session is open, and the seconds a lock-out has left. The PIN itself is never returned."
     },
     {
+      "paths": ["/api/admin/login"],
+      "methods": ["POST"],
+      "auth": "public",
+      "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 256, "unit": "bytes"},
+      "owner": "native",
+      "notes": "The way in for a browser that has no token: the four-digit admin PIN, checked like unlock and under the same lock-out, answers the configured token (when there is one) and an admin session. Refused while the PIN is still the default 0000, which anyone on the network could try. The token gate lets this one route through without a credential."
+    },
+    {
       "paths": ["/api/admin/unlock", "/api/admin/lock", "/api/admin/pin"],
       "methods": ["POST"],
       "auth": "token",

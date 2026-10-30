@@ -282,18 +282,62 @@ pack has neither. Every route that serves an icon goes through it: the
 dashboard, Native Tv Home and the shared `/icons/<appId>.png` addresses.
 
 The pack is built by `native-tv/tools/gen_app_icons.py` from
-`native-tv/design/app-icons.json`: each brand logo from Dashboard Icons (at the
-pinned commit, Apache-2.0) and each glyph for an LG app from
-`assets/icons/material/` is drawn on one tile, so they match. To cover another
-app, add its id or normalised title to `logos` or `glyphs`, run
+`native-tv/design/app-icons.json`. Every icon is a full-bleed square of one
+colour with one white glyph centred on it, the look of the Homebrew Channel's
+icon, so the apps read as one family on a dark screen. The glyph is the
+brand's monochrome logo from Simple Icons (CC0) or, for the brands Simple Icons
+dropped, from Dashboard Icons (Apache-2.0), both at a pinned commit; only its
+shape is kept. The square is the brand's colour (`brands`), and LG's apps, whose
+glyphs come from `assets/icons/material/`, share one blue. The squares have
+square corners: the dashboard rounds them to 8 px at 38 px, and Native Tv Home
+to 10 px at 44 px.
+
+A logo drawn on a tile of its own takes a `mask` (`light` keeps its light marks,
+`dark` everything but its white ones), and a wordmark a larger `fill`, so it
+stays readable at 44 px. To cover another app, add its id or normalised title to
+`logos` (and its brand to `brands`, if new) or `glyphs`, run
 `uv run native-tv/tools/gen_app_icons.py` and commit the pack. Title keys catch
 store apps whose ids differ between regions; an id key is exact. The pack is
-about 300 KB and installs with the other assets (`deploy.sh` lists it).
+about 260 KB and installs with the other assets (`deploy.sh` lists it).
 
-No pack covers every app: Dashboard Icons lacks LG's apps and most regional
-broadcasters, and Simple Icons, the other large set, dropped Prime Video,
-Disney+, Hulu, Peacock and Alexa. LG's apps therefore get Material glyphs, and
-anything unmatched keeps its own icon.
+No set covers every app: Dashboard Icons lacks LG's apps and most regional
+broadcasters, and Simple Icons dropped Prime Video, Disney+, Hulu, Peacock,
+Alexa and Xbox. LG's apps therefore get Material glyphs, and anything unmatched
+keeps its own icon, whatever its look.
+
+## Admin PIN
+
+`service/admin_pin.{hpp,cpp}` keeps the PIN: four digits stretched with
+PBKDF2-HMAC-SHA256 (20,000 rounds, about 0.1 s on the TV) over a random salt,
+in `admin-pin.json` beside the other state, with a flag for the default 0000.
+Unlocking checks the digits and opens a session, 128 random bits kept in
+memory for ten idle minutes (sixteen at most, so a restart or a new PIN ends
+them all). Five wrong PINs in a row start a lock-out of 30 seconds that doubles
+to an hour; it is one counter for the whole TV, so guessing from several
+machines gains nothing, at the price that a machine on the network can keep
+the check locked for the owner. A client sends the session as
+`X-Admin-Session`.
+
+The front door checks it once, after the token gate: `adminRoute()` lists the
+`POST` routes that need a session (app install and uninstall, `/api/ssh`,
+`/api/services/toggle`, `/api/backup`, `/api/settings`, `/api/admin/pin`) and
+`adminControlAction()` the `/api/control` actions (`reboot`, `powerOff`,
+`setDashboardPort`, `setNetworkDebuggerAllowed`). Both apply to the TV's own
+loopback requests, which the token gate trusts, so the TV app asks too. Those
+answer 403 `{"pin":true}` until the request carries an open session; with no PIN
+set the check passes, so an install with none behaves as before. To guard
+another route, add it to those lists and to the manifest note in
+`contract/routes.json`. MQTT commands do not pass through it.
+
+The dashboard keeps the session in `sessionStorage`. `ui/core.js` wraps `fetch`
+to send it on API requests and, on a 403 with `pin:true`, to raise the prompt
+(`askPin()` in `ui/server.js`) and retry the request once. A 401 raises the
+same prompt as the passcode screen: `POST /api/admin/login` checks the PIN under
+the same lock-out and answers the configured token, which the page stores as a
+link would. It is refused while the PIN is the default, since anyone on the
+network could try 0000 and would get the token. Onboarding sets the PIN on the
+TV-only setup route (`action: "adminPin"`), and the first PIN from the network
+needs the token, so a machine on a token-less install cannot set it first.
 
 ## TV pages and their design system
 

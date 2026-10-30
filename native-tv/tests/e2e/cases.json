@@ -1235,6 +1235,9 @@
           }
         },
         {
+          "wait": 1500
+        },
+        {
           "foreground": "com.tvweb.dashboard",
           "withinMs": 5000
         },
@@ -1255,6 +1258,9 @@
             "action": "rcu",
             "value": "home"
           }
+        },
+        {
+          "wait": 1500
         },
         {
           "foreground": "com.tvweb.dashboard",
@@ -1278,7 +1284,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback and reads the app in front from the app manager.",
-        "Run: check Home is on; send Home and wait for com.tvweb.dashboard within 5 s; send Back and check it stays 3 s; send Home again and check it is back within 5 s and stays 3 s; check nativeHome.halted is false and no exit was counted.",
+        "Run: check Home is on; send Home, give the stub 1.5 s to come and go, and wait for com.tvweb.dashboard within 5 s (the stub is LG's Home's id while Home is on, so a read taken before it arrives would pass at once and the stub then fail the check that follows); send Back and check it stays 3 s; send Home again, wait the same, check it is back within 5 s and stays 3 s; check nativeHome.halted is false and no exit was counted.",
         "Judge each step; the first that fails ends the flow.",
         "Delete the lock folder."
       ],
@@ -1704,6 +1710,30 @@
             "equals": "dashboard"
           }
         ]
+      }
+    },
+    {
+      "id": "E2E-100",
+      "title": "Sound output row is the output the TV is using",
+      "purpose": "The Advanced tab's Sound output reads the LG settings route. The settings service keeps the last HDMI ARC pick in `settings.soundOutput` while the TV plays through its speaker; the output in use is `dimension.soundOutput`, and the row must show that one.",
+      "kind": "api",
+      "flow": [
+        {
+          "api": "GET /api/lgsettings?section=sound",
+          "same": {
+            "rows[id=soundOutput].value": "dimensions.sound.soundOutput"
+          }
+        }
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Under the TV's Node, over ssh: GET /api/lgsettings?section=sound from 127.0.0.1 (loopback needs no token).",
+        "Compare the soundOutput row's value with dimensions.sound.soundOutput of the same reply.",
+        "Remove the lock folder."
+      ],
+      "criteria": {
+        "flowOk": true
       }
     }
   ]

@@ -2,10 +2,13 @@
 """A stand-in for the daemon's first-run routes, over a data root that starts wiped.
 
 The routes and their answers are those of contract/routes.json (/api/caps, /api/setup,
-/api/setup/{network,always-ready,handoff,handoff-stop,done}, /api/settings, /api/home/profile); what the daemon
+/api/setup/{network,always-ready,handoff,handoff-stop,done}, /api/settings, /api/home/profile,
+/api/admin/unlock); what the daemon
 keeps in files, the marker `.setup-pending` and `config.json`, this keeps in the root it is given,
 so a test reads what the TV client wrote. A write that restarts the real server makes the next
-requests fail for `restart_ms`.
+requests fail for `restart_ms`. Once the setup action adminPin has set the PIN, POST /api/settings
+(one of the routes the daemon guards with it) answers 403 `pin: true` unless the request carries
+the X-Admin-Session the PIN step answered.
 
   setup_fixture.py ROOT [--port N] [--no-standby] [--demo] [--settled]
 """
@@ -14,6 +17,7 @@ import contextlib
 import http.server
 import json
 import os
+import secrets
 import sys
 import threading
 import time
@@ -34,6 +38,8 @@ class State:
         self.broker = None
         self.always = False
         self.profile = None  # the main profile's name once the client has renamed it
+        self.pin = None      # the admin PIN once the setup step has set it
+        self.sessions = set()
         self.model = model
         os.makedirs(root, exist_ok=True)
         if pending:
@@ -88,6 +94,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         config = state.config()
         answer = {"ok": True, "needed": state.pending(), "writable": True,
                   "network": config["host"] != "127.0.0.1", "token": False,
+                  "adminPin": state.pin is not None,
                   "address": "192.168.1.42:3000", "hostname": "lgwebostv", "model": state.model,
                   "homeAssistant": {"configured": bool(state.broker),
                                     "state": "connected" if state.broker else "unknown"},
@@ -135,6 +142,28 @@ class Handler(http.server.BaseHTTPRequestHandler):
         url = urllib.parse.urlsplit(self.path).path
         with state.lock:
             state.calls.append("POST %s %s" % (url, json.dumps(body, sort_keys=True)))
+            session = self.headers.get("X-Admin-Session")
+            denied = {"ok": False, "error": "admin PIN required", "pin": True}
+            if url == "/api/setup" and body.get("action") == "adminPin":
+                if body.get("demo"):
+                    return self.send(200, {"ok": True, "demo": True})
+                pin = body.get("pin", "")
+                if state.pin is not None and session not in state.sessions:
+                    return self.send(403, denied)
+                if not (len(pin) == 4 and pin.isdigit()):
+                    return self.send(400, {"ok": False, "error": "the PIN must be four digits"})
+                state.pin = pin
+                session = secrets.token_hex(16)
+                state.sessions.add(session)
+                return self.send(200, {"ok": True, "session": session})
+            if url == "/api/admin/unlock":
+                if state.pin is None:
+                    return self.send(409, {"ok": False, "error": "no admin PIN is set"})
+                if body.get("pin") != state.pin:
+                    return self.send(403, {"ok": False, "error": "wrong PIN"})
+                session = secrets.token_hex(16)
+                state.sessions.add(session)
+                return self.send(200, {"ok": True, "session": session})
             if url == "/api/setup/network":
                 config = state.config()
                 config["host"] = "0.0.0.0" if body.get("open") else "127.0.0.1"
@@ -157,6 +186,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     os.remove(state.path(".setup-pending"))
                 return self.send(200, {"ok": True})
             if url == "/api/settings":
+                if state.pin is not None and session not in state.sessions:
+                    return self.send(403, denied)
                 mqtt = body.get("mqtt", {})
                 if not mqtt.get("host") or not isinstance(mqtt.get("telemetryIntervalMs"), int):
                     return self.send(400, {"ok": False, "error": "a broker address is required"})

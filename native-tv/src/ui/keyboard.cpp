@@ -34,16 +34,18 @@ std::vector<std::string> split(const std::string &value) {
     return keys;
 }
 } // namespace
-void Keyboard::reset(const std::string &value, size_t maximum, bool address) {
+void Keyboard::reset(const std::string &value, size_t maximum, bool address, bool digits) {
     value_ = value;
     maximum_ = maximum;
     address_ = address;
+    digits_ = digits;
     cursor_ = value_.size();
     upper_ = symbols_ = false;
 }
 bool Keyboard::insert(const std::string &text) {
     if (text.empty() || length(value_) + length(text) > maximum_ ||
-        text.find_first_of("\r\n\t") != std::string::npos)
+        text.find_first_of("\r\n\t") != std::string::npos ||
+        (digits_ && text.find_first_not_of("0123456789") != std::string::npos))
         return false;
     value_.insert(cursor_, text);
     cursor_ += text.size();
@@ -95,6 +97,8 @@ std::vector<std::vector<std::string>> Keyboard::rows() const {
             {"symbols", "left", "right", "space", "-", "_", "done"}};
 }
 std::vector<std::vector<std::string>> Keyboard::padRows() const {
+    if (digits_)
+        return {split("1234567890"), {"delete", "done"}};
     std::vector<std::string> fourth = split(symbols_ ? "-_,\"'<>~" : "zxcvbnm");
     if (!symbols_)
         fourth.insert(fourth.begin(), "shift");

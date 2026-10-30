@@ -168,6 +168,22 @@ int main() {
         assert(!lgSettingsRestoreWrite("audioBalance", Json::numeric(11), range).valid);
     }
 
+    // A B3 on its speaker: the stored soundOutput is the last HDMI ARC pick, the dimension is the output in use.
+    {
+        const Json r = lgSettingsResponse(
+            {"sound"},
+            Json::parse(R"({"sound":{"soundOutput":"external_arc","soundMode":"movie"}})"), Json::parse("{}"),
+            Json::parse(R"({"sound":{"audioInput":"hdmi1","soundMode":"movie","soundOutput":"tv_speaker"}})"),
+            Json::object());
+        assert(row(r, "soundOutput")["value"].string() == "tv_speaker");
+        assert(row(r, "soundMode")["value"].string() == "movie");
+        // A key the dimension does not name keeps the stored value.
+        const Json other = lgSettingsResponse(
+            {"sound"}, Json::parse(R"({"sound":{"soundOutput":"external_arc"}})"), Json::parse("{}"),
+            Json::parse(R"({"sound":{"audioInput":"hdmi1"}})"), Json::object());
+        assert(row(other, "soundOutput")["value"].string() == "external_arc");
+    }
+
     // The input names the HDMI rows are shown under.
     {
         const Json inputs = lgSettingsInputNames(Json::parse(

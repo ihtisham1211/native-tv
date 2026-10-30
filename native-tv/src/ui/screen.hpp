@@ -67,6 +67,11 @@ class ScreenView {
     virtual bool paintsWall() const {
         return false;
     }
+    // Whether the application may open the admin PIN prompt over this screen when the server refuses
+    // an action for want of the PIN. First-run setup says no: it sets the PIN itself.
+    virtual bool takesAdminPin() const {
+        return true;
+    }
     virtual void enter(ScreenHost &) {}
     virtual void leave(ScreenHost &) {}
     // True when the key was used. An unused Up with focus at the page's top row moves the focus

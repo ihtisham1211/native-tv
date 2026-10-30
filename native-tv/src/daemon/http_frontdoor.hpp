@@ -225,7 +225,9 @@ class HttpFrontDoor {
     // The admin PIN (service/admin_pin.hpp): its routes, and the check the risky routes share.
     bool adminAllowed(HttpExchange &exchange) const;
     void sendAdminStatus(HttpExchange &exchange) const;
-    void handleAdminUnlock(HttpExchange &exchange) const;
+    // unlock opens an admin session; login is the same check for a browser with no token,
+    // and answers the token as well.
+    void handleAdminUnlock(HttpExchange &exchange, bool login) const;
     void handleAdminLock(HttpExchange &exchange) const;
     void handleAdminPin(HttpExchange &exchange) const;
     void setupAdminPin(HttpExchange &exchange, const Json &payload) const;

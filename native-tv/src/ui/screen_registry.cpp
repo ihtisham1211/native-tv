@@ -1,5 +1,6 @@
 #include "ui/dashboard_screens.hpp"
 #include "ui/overlay_routes.hpp"
+#include "ui/pin_screen.hpp"
 #include "ui/screen.hpp"
 #include "ui/setup_screen.hpp"
 
@@ -19,5 +20,6 @@ void registerScreens(ScreenRegistry &registry) {
     registry.add(makeProfilesScreen);
     registry.add(makeDetailsScreen);
     registry.add(makeEditorScreen);
+    registry.add(makePinScreen);
 }
 } // namespace nativetv

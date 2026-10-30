@@ -25,7 +25,8 @@ void Application::route(const std::string &path) {
         if (std::unique_ptr<ScreenView> screen = registry_.create(path)) {
             screen_ = std::move(screen);
             currentRoute_ = path;
-            cameFrom_ = origin;
+            if (origin != "pin")
+                cameFrom_ = origin;
             state_.screen = Screen::Kit; // no older view draws while a registered screen does
             state_.kitComponent = path;
             screen_->enter(*this);
@@ -130,6 +131,15 @@ void Application::execute(const Command &command) {
         toast("Too many pending requests. Try again.");
     }
     dirty_ = true;
+}
+// Any refusal for want of the admin PIN (403 with `pin: true`), whatever path made the request,
+// opens the PIN prompt. It is not opened twice, nor over a screen that handles the PIN itself.
+void Application::askAdminPin(const Response &response) {
+    if (response.status != 403 || !response.json()["pin"].boolean())
+        return;
+    if (screen_ && (currentRoute_ == "pin" || !screen_->takesAdminPin()))
+        return;
+    route("pin");
 }
 // Title details are a registered screen; Home hands it the title by type and id.
 void Application::openDetails(const Json &item) {

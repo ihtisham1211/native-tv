@@ -16,6 +16,34 @@ it before exposing it more widely.
   the token in the URL; the browser remembers it and the page takes it out of
   the address bar, so it stays out of history and shared links. This gates the HTTP API only &mdash; **MQTT and the Home
   Assistant integration are unaffected**, since they use a separate channel.
+- **Set an admin PIN.** Four digits, asked in the TV's first-run setup, where
+  0000 is offered as the default. Once one is set, the risky actions need it on
+  top of the token: installing and removing apps (including from a URL or a
+  file), SSH keys, restoring a backup, the Server tab's settings, background
+  services, and reboot, power off, changing the dashboard's port and the
+  network debugger. The TV app asks for it too, so holding the remote does not
+  get round it. Everyday controls (volume, input, picture, launching apps) and
+  reading the dashboard do not ask. Entering the PIN opens a session of ten idle
+  minutes, kept by the browser tab or the TV app. Five wrong PINs in a row lock
+  the check for 30 seconds, doubling to an hour, for the dashboard and the TV
+  together, so someone on the network can keep the owner waiting but cannot
+  guess four digits. The PIN is stored as a salted PBKDF2-SHA256 hash in
+  `/var/lib/tvweb/admin-pin.json` (mode 0600); anyone with root on the TV can
+  read that file and try the 10,000 possibilities offline, and root is open
+  anyway while telnet is. **MQTT and the Home Assistant integration are
+  unaffected**: they are a separate channel. The default 0000 is public
+  knowledge, so it stops accidents and casual use and nobody who is trying;
+  choose your own in the Server tab. A forgotten PIN is removed by deleting
+  `/var/lib/tvweb/admin-pin.json` over ssh. The first PIN can be set from the
+  TV, or by a client that has the token, so with neither a machine on the
+  network cannot set it first and lock the owner out.
+- **A browser without the token signs in with the PIN.** Where a token is set
+  and a browser has none (or a stale one), the dashboard shows an **Enter
+  passcode** screen in place of "Unauthorised". The PIN, which is the passcode,
+  gets the browser the token, so the long link is only needed once, or never.
+  While the PIN is still the default 0000 the sign-in is refused: anyone on
+  the network could type it, which would turn the token into nothing. The link
+  or QR code on the TV keeps working either way.
 - **The Tools tab shows the TV's logs** - its system log, Native Tv's own and,
   if asked, the kernel's - to whoever can reach the dashboard, as `/api/logs`.
   They name the apps in use, the network and the broker the TV talks to. A
@@ -128,6 +156,7 @@ it before exposing it more widely.
 | Setting                        | Browser on the network                                                   | App on the TV | MQTT  |
 | :----------------------------- | :----------------------------------------------------------------------- | :------------ | :---- |
 | `"token": "your-secret-token"` | with `?k=your-secret-token` or `Authorization: Bearer your-secret-token` | works         | works |
+| Admin PIN set                  | install, remove, SSH keys, restore, server settings and power need `X-Admin-Session`, from the PIN | asks for the PIN | unaffected |
 | `"host": "0.0.0.0"`            | over IPv4 only                                                           | works         | works |
 | `"host": "127.0.0.1"`          | no — port 8080 is closed to the network                                  | works         | works |
 | `"web": { "enabled": false }`  | no                                                                       | does not work | works |

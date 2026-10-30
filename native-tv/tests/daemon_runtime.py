@@ -6028,9 +6028,9 @@ class DaemonRuntimeTests(unittest.TestCase):
                  "--proc-root", str(procRoot)],
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=environment)
 
-            def request(path, method="GET", payload=None, session=None):
+            def request(path, method="GET", payload=None, session=None, auth=True):
                 data = None if payload is None else json.dumps(payload).encode("utf-8")
-                headers = {"Authorization": "Bearer " + token}
+                headers = {"Authorization": "Bearer " + token} if auth else {}
                 if data is not None:
                     headers["Content-Type"] = "application/json"
                 if session:
@@ -6073,7 +6073,9 @@ class DaemonRuntimeTests(unittest.TestCase):
                 session = body["session"]
                 pinFile = dataRoot / "admin-pin.json"
                 self.assertEqual(pinFile.stat().st_mode & 0o777, 0o600)
-                self.assertNotIn("4821", pinFile.read_text())
+                # Only the salted hash is kept, never the digits (the hex could hold "4821" by chance).
+                self.assertEqual(set(json.loads(pinFile.read_text())),
+                                 {"salt", "hash", "iterations", "default"})
                 status, body, _ = request("/api/admin", session=session)
                 self.assertEqual((body["set"], body["unlocked"], body["defaultPin"]), (True, True, False))
                 status, body, _ = request("/api/admin")
@@ -6128,21 +6130,36 @@ class DaemonRuntimeTests(unittest.TestCase):
                 status, body, _ = request("/api/setup", "POST", {"action": "adminPin", "pin": "1357"})
                 self.assertTrue(needs_pin(status, body), "a PIN that is set was replaced without a session")
 
-                # A session ends with lock.
+                # Signing in from a browser with no token trades the PIN for the token, but not
+                # while the PIN is the default, which anyone on the network could try.
+                status, body, _ = request("/api/admin/login", "POST", {"pin": "0000"}, auth=False)
+                self.assertEqual((status, body.get("defaultPin")), (403, True))
+                self.assertNotIn("token", body)
                 status, body, _ = request("/api/admin/unlock", "POST", {"pin": "0000"})
                 self.assertEqual(status, 200, body)
                 opened = body["session"]
+                status, body, _ = request("/api/admin/pin", "POST", {"pin": "4821"}, opened)
+                self.assertEqual(status, 200, body)
+                opened = body["session"]
+                status, body, _ = request("/api/admin/login", "POST", {"pin": "4821"}, auth=False)
+                self.assertEqual(status, 200, body)
+                self.assertEqual(body["token"], token)
+                self.assertEqual(len(body["session"]), 32)
+                status, body, _ = request("/api/admin/login", "POST", {"pin": "1111"}, auth=False)
+                self.assertEqual((status, body["error"]), (403, "wrong PIN"))
+
+                # A session ends with lock.
                 request("/api/admin/lock", "POST", {}, opened)
                 status, body, _ = request("/api/admin", session=opened)
                 self.assertFalse(body["unlocked"])
 
                 # A wrong PIN is refused; five in a row lock it out, even for the right one.
-                for miss in range(4):
-                    status, body, _ = request("/api/admin/unlock", "POST", {"pin": "4821"})
+                for miss in range(3):  # one wrong sign-in above already counted
+                    status, body, _ = request("/api/admin/unlock", "POST", {"pin": "0000"})
                     self.assertEqual((status, body["error"]), (403, "wrong PIN"))
-                status, body, _ = request("/api/admin/unlock", "POST", {"pin": "4821"})
+                status, body, _ = request("/api/admin/login", "POST", {"pin": "0000"}, auth=False)
                 self.assertEqual((status, body["retryAfter"]), (403, 30))
-                status, body, headers = request("/api/admin/unlock", "POST", {"pin": "0000"})
+                status, body, headers = request("/api/admin/unlock", "POST", {"pin": "4821"})
                 self.assertEqual(status, 429)
                 self.assertTrue(0 < int(headers["Retry-After"]) <= 30)
                 status, body, _ = request("/api/admin")

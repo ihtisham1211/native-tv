@@ -33,18 +33,23 @@ A change shows the moment OK is pressed: the switch has already slid and a faint
 Opening the TV app on a fresh install starts an on-screen setup wizard to configure the TV in a few quick steps with the remote. Whatever the app is opened on (its tile, Home, or a Settings page), it first asks the server whether first-run setup is done, as the browser dashboard always did, and opens the wizard's welcome page when it is not; the first frames wait behind the dark cover for the answer, and a server that is still starting is asked again every two seconds.
 
 1. **Name this TV**: The keyboard comes up with the name the TV's model gives it: `B3` on an OLED65B3PUA, `C2` on an OLED42C24LA, `UQ8000` on a 55UQ8000, `LGTV` when the model is not known. OK on **Next** keeps it, or type another name. It is the name of the main profile on Home, which the profile editor can change later, and it shows on the summary at once; if the server refuses it, the old name comes back with a message.
-2. **Web dashboard access**: Choose between opening the web dashboard to devices across your home network or keeping it private to this TV only (`127.0.0.1`).
-3. **Home Assistant integration**: Connect your TV to Home Assistant via MQTT. The TV displays a QR code to scan with your phone, allowing you to enter MQTT broker details easily without typing credentials on the remote. Beside the code is an on-screen keyboard for typing the broker's address, port, user and password with the remote instead, one field after another; Back returns to the previous field, and the TV shows when the broker has connected.
-4. **Active Standby (Always-on)**: On TVs with Always Ready support (such as LG C2 or G2), choose whether Native Tv and Home Assistant remain connected with the screen off so the TV can be controlled and turned back on over the network.
-5. **Summary**: Review your setup and open the dashboard with a single click.
+2. **Admin PIN**: Four digits that the TV and the web dashboard ask for before installing or removing apps, changing SSH keys, restoring a backup, restarting or powering off the TV, and the other actions that open the TV to more of the network. **Use 0000** sets the default in one press; the page says that anyone who knows it can use it, so a PIN of the person's own is better, chosen now or changed later on the web dashboard's Server tab. **Choose my own** opens a digit pad for four digits, masked as they are typed, and Next refuses fewer than four. A TV that already has a PIN skips this step, and the steps after it count one fewer.
+3. **Web dashboard access**: Choose between opening the web dashboard to devices across your home network or keeping it private to this TV only (`127.0.0.1`).
+4. **Home Assistant integration**: Connect your TV to Home Assistant via MQTT. The TV displays a QR code to scan with your phone, allowing you to enter MQTT broker details easily without typing credentials on the remote. Beside the code is an on-screen keyboard for typing the broker's address, port, user and password with the remote instead, one field after another; Back returns to the previous field, and the TV shows when the broker has connected.
+5. **Active Standby (Always-on)**: On TVs with Always Ready support (such as LG C2 or G2), choose whether Native Tv and Home Assistant remain connected with the screen off so the TV can be controlled and turned back on over the network.
+6. **Summary**: Review your setup, the admin PIN included (Default (0000) or Set), and open the dashboard with a single click.
 
-The choices show as made the moment OK is pressed and are written behind the page (a refusal puts the old answer back and says so); only the dashboard network choice, which restarts the server, and the phone link wait for the server, and say so with a breathing dot and "Saving…". A row of dots at the bottom of each page shows how far along the wizard is, and a line of key hints sits under it. Left or Back returns to the previous step, as it always did; Back on the welcome page leaves setup, which then starts again the next time the app opens. When the app is opened from **Settings** to connect Home Assistant, only the phone link and the keyboard appear and Back returns to Settings.
+The choices show as made the moment OK is pressed and are written behind the page (a refusal puts the old answer back and says so); only the dashboard network choice, which restarts the server, and the phone link wait for the server, and say so with a breathing dot and "Saving…". The PIN waits for the server too, because the session it answers with is what every later request carries. A row of dots at the bottom of each page shows how far along the wizard is, and a line of key hints sits under it. Left or Back returns to the previous step, as it always did; Back on the welcome page leaves setup, which then starts again the next time the app opens. When the app is opened from **Settings** to connect Home Assistant, only the phone link and the keyboard appear and Back returns to Settings.
 
 All choices made during setup can be changed at any time from the TV app's **Settings** or the web dashboard.
 
 ![Welcome screen of the Native Tv TV app setup wizard](../screenshots/tv-app-setup-welcome.png)
 
 *The setup wizard welcome screen.*
+
+![Admin PIN choice in the TV app setup wizard](../screenshots/tv-app-setup-pin.png)
+
+*Choosing the admin PIN: the default 0000, or four digits of the person's own.*
 
 ![Network access choice in the TV app setup wizard](../screenshots/tv-app-setup-network.png)
 
@@ -60,6 +65,14 @@ All choices made during setup can be changed at any time from the TV app's **Set
 
 > [!TIP]
 > **Testing the setup wizard**: To test or verify the setup flow without modifying TV settings, start the server with the `--emulate-setup` flag, or open the web dashboard in a browser with `?setup=1`.
+
+### The admin PIN prompt
+
+Once a PIN is set, the server refuses the actions it guards until it is given the PIN, whoever asks, and the TV app is not exempt: anyone holding the remote would otherwise bypass it. When the server refuses an action started on the TV (installing or removing an app, restarting or powering off the TV, and the others listed above), the TV app opens the PIN screen over whatever was showing: a masked field and a digit pad. **Unlock** posts the four digits; a wrong PIN says so and clears the field, and after several wrong ones the screen says how many seconds to wait. Back cancels. A right PIN toasts "Unlocked. Do that again." and returns to where the screen came from; the refused action is not repeated. The unlock stays open until ten minutes pass without a guarded action. First-run setup never opens the prompt, as it sets the PIN itself; the Settings entry for connecting Home Assistant does.
+
+![The admin PIN prompt on the TV](../screenshots/tv-app-pin-prompt.png)
+
+*The PIN screen, with two digits typed.*
 
 ### Pairing and settings
 

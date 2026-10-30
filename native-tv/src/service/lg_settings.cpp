@@ -318,6 +318,28 @@ bool sameValue(const Json &left, const Json &right) {
     return !left.valid() && !right.valid();
 }
 
+// A whole-category reply lists the value the settings service stores for each key in `settings`
+// and what the TV uses now in `dimension`. They differ for a key kept once per dimension: a B3
+// playing through its speaker stores soundOutput "external_arc" (the last HDMI ARC pick) and its
+// dimension says "tv_speaker", which is also what a request for that key alone returns.
+// A copy, since the daemon's cache holds the originals.
+Json settingsInEffect(const Json &settingsByCategory, const Json &dimensionsByCategory) {
+    Json result = Json::object();
+    for (const std::string &category : settingsByCategory.keys()) {
+        const Json stored = settingsByCategory[category];
+        const Json dimension = dimensionsByCategory[category];
+        if (!stored.isObject() || !dimension.isObject()) {
+            result.set(category, stored);
+            continue;
+        }
+        Json settings = Json::object();
+        for (const std::string &key : stored.keys())
+            settings.set(key, dimension.has(key) ? dimension[key] : stored[key]);
+        result.set(category, settings);
+    }
+    return result;
+}
+
 bool jsTruthy(const Json &value) {
     if (!value.valid())
         return false;
@@ -727,13 +749,14 @@ Json lgSettingsResponse(const std::vector<std::string> &sections,
                         const Json &descriptionsByCategory,
                         const Json &dimensionsByCategory,
                         const Json &inputs) {
+    const Json settingsNow = settingsInEffect(settingsByCategory, dimensionsByCategory);
     Json rows = Json::array();
     const auto appendDashboardRows = [&](bool promotions) {
         for (const DashboardRow &definition : kDashboardRows) {
             if ((std::string(definition.section) == "promotions") != promotions ||
                 !sectionSelected(sections, definition.section))
                 continue;
-            const Json settings = settingsByCategory[definition.category];
+            const Json settings = settingsNow[definition.category];
             if (!settings.has(definition.key) ||
                 (definition.unless && settings.has(definition.unless)))
                 continue;
@@ -744,7 +767,7 @@ Json lgSettingsResponse(const std::vector<std::string> &sections,
     appendDashboardRows(true);
 
     if (sectionSelected(sections, "game")) {
-        const Json game = gameRows(settingsByCategory, descriptionsByCategory);
+        const Json game = gameRows(settingsNow, descriptionsByCategory);
         for (const Json &row : game.items())
             rows.add(row);
     }
@@ -780,7 +803,8 @@ Json lgGameResponse(const Json &settingsByCategory,
                     const Json &descriptionsByCategory,
                     const Json &dimensionsByCategory,
                     const Json &pictureSettings) {
-    const Json rows = gameRows(settingsByCategory, descriptionsByCategory);
+    const Json rows = gameRows(settingsInEffect(settingsByCategory, dimensionsByCategory),
+                               descriptionsByCategory);
     Json response = Json::object();
     response.set("ok", Json::flag(true));
     if (!rows.size()) {

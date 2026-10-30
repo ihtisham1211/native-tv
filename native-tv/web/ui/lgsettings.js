@@ -105,7 +105,7 @@ function hdmiTable(rows, dims, inputs) {
     intro.push(t('lgs.hdmi.intro.audioFormat', 'Audio format decides whether Dolby Atmos and DTS reach a soundbar or receiver: Bitstream passes them on, PCM asks for plain audio.'));
   intro.push(t('lgs.hdmi.intro.onScreen', 'As in LG\u2019s own menu, only the input on screen can be changed.'));
   return '<div class="pv-sub">' + esc(intro.join(' ')) + '</div>' +
-    '<div class="hdmi-grid" style="grid-template-columns:minmax(150px,1.3fr)' + ' minmax(130px,1fr)'.repeat(cols.length) + '">' +
+    '<div class="hdmi-grid" style="grid-template-columns:minmax(0,1.3fr)' + ' minmax(0,1fr)'.repeat(cols.length) + '">' +
     '<div class="hh">' + esc(t('lgs.hdmi.input', 'Input')) + '</div>' + cols.map(c => '<div class="hh">' + esc(c[1]) + '</div>').join('') +
     ports.map(n => {
       const port = 'hdmi' + n, name = (inputs || lastInputNames)[port];

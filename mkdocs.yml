@@ -73,6 +73,7 @@ nav:
       - Contributing: development/contributing.md
       - Internals: development/implementation.md
       - Testing and CI: development/testing.md
+      - Roadmap: development/roadmap.md
       - TV research: development/tv-research.md
       - TV hardware specifications:
           - development/tv-specs/index.md

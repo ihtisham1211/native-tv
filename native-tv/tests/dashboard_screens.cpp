@@ -69,6 +69,10 @@ struct FakeTransport final : Services {
     std::vector<Request> requests;
     std::map<std::string, unsigned> revisions;
     bool refuse = false;
+    std::string session; // the admin session the client was told to send
+    void adminSession(const std::string &value) override {
+        session = value;
+    }
     unsigned read(const std::string &channel, Operation operation,
                   const Json &arguments = Json()) override {
         unsigned generation = refuse ? 0 : ++revisions[channel];
@@ -985,6 +989,33 @@ void catalog() {
         run(tried, at, 300);
         check(tried.snapshot()["view"].string() == "preview" && tried.shows("disk full"),
               "A refused install returns to the preview");
+        // Once an admin PIN is set the install answers 403 with pin: true: the PIN prompt opens
+        // over the catalog, and the session it unlocks sends the person back to a fresh catalog.
+        tried.key(Key::Ok);
+        const FakeTransport::Request &installing = *refusing.writes().back();
+        Response denied;
+        denied.channel = installing.channel;
+        denied.generation = installing.generation;
+        denied.status = 403;
+        denied.bytes = R"({"ok":false,"error":"admin PIN required","pin":true})";
+        tried.response(denied);
+        at = run(tried, at, 700);
+        check(tried.screenName() == "pin" && tried.shows("Enter the admin PIN") &&
+                  tried.shows("admin PIN required"),
+              "An install the server wants the PIN for opens the PIN prompt");
+        tried.input("0000");
+        for (Key key : {Key::Down, Key::Right, Key::Ok}) {
+            tried.key(key);
+            at = run(tried, at, 40);
+        }
+        check(refusing.last("pin:unlock") && refusing.last("pin:unlock")->body["pin"].string() == "0000" &&
+                  refusing.last("pin:unlock")->operation == Operation::AdminUnlock,
+              "Done asks the server to unlock with the digits");
+        reply(tried, "pin:unlock", R"({"ok":true,"session":"0f3a9c0f3a9c0f3a9c0f3a9c0f3a9cab"})");
+        run(tried, at, 700);
+        check(tried.screenName() == "catalog" && refusing.session == "0f3a9c0f3a9c0f3a9c0f3a9c0f3a9cab" &&
+                  tried.shows("Unlocked. Do that again."),
+              "An unlock returns to the catalog, keeps the session and does not install by itself");
     }
 }
 // ---- Idle dimming: every screen, not only Home -------------------------------------------------

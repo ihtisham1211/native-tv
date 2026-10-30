@@ -119,7 +119,9 @@ class Application : private ScreenHost {
     ScreenRegistry registry_;
     std::unique_ptr<ScreenView> screen_;
     bool barFocus_ = false, ambientOnly_ = false;
-    std::string currentRoute_, cameFrom_; // the registered screen showing, and where it was opened from
+    // The registered screen showing, and where it was opened from. The admin PIN prompt is not
+    // somewhere to come from: the screen it hands back to keeps the origin it had.
+    std::string currentRoute_, cameFrom_;
     std::map<std::string, Json> memory_;  // what screens keep between openings
     // Home's choreography (home_motion.cpp).
     struct HomeFlow {
@@ -200,6 +202,7 @@ class Application : private ScreenHost {
     void route(const std::string &path);
     void execute(const Command &command);
     void openDetails(const Json &item);
+    void askAdminPin(const Response &response);
     void back();
     void screenKey(Key key);
 

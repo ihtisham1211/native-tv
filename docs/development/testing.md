@@ -132,7 +132,9 @@ subsection pills and the page following the list), and it also runs alone for a 
 `--duration-ms` (a `--time` run waits for each reply before it draws).
 The Setup cases use
 `"fixture": "setup"` (the first-run routes of `tests/setup_fixture.py` over a wiped data root, so the client opens setup) or `"setup-settled"` (a TV that has done it, so `--screen setup:handoff` stays put); the fixture can run alone
-(`setup_fixture.py ROOT [--no-standby] [--demo]`). The tolerance
+(`setup_fixture.py ROOT [--no-standby] [--demo]`). `setup-pin` and `setup-pin-own` are the admin PIN
+step's two choices and its digit pad; `pin-prompt` is the PIN screen (`--screen pin`, two digits typed) over the
+settled fixture. The tolerance
 absorbs the anti-aliasing difference between GPUs (a Mac and Mesa's llvmpipe),
 so a case that must match exactly on one machine sets `tolerance` and `maxBad`
 itself. The tests that need a GL context skip where there is none (a CI runner
@@ -147,7 +149,7 @@ rows (text files in `tests/fixtures/tv/dashboard/snapshots/`; change one on
 purpose and rewrite them with `NATIVETV_UPDATE_SNAPSHOTS=1`). Its screen checks
 drive the application over a fake `Services`: focus paths, the writes OK issues and
 the routes they use, the second OK a risky change waits for, an install from the
-catalog to its result, and what each screen does when a read fails. Settings' two
+catalog to its result (an install the server refuses for want of the admin PIN opens the PIN screen over the catalog, and an unlock returns to it), and what each screen does when a read fails. Settings' two
 panes are checked key by key (Right and OK into the page, Left and Back out, Left
 and Right never changing the section, the subsection pills and the one a section
 reopens on). Every write kind (a switch, a stepper, a confirmed action, the network
@@ -206,19 +208,29 @@ and compares them with that raster, and is skipped (exit 77) with no GL context.
 `stats-*.json` fixture. `native-setup` (`tests/setup_screen.cpp`) drives first-run setup the way a person does,
 with scripted keys and the server's answers handed back by the test: the whole path on a TV with
 and without Always-on, the name step with its optimistic write and refusal (the answers to the layer's
-writes come on `w:<key>` with the sequence it was given), the restart after the network choice and the trouble page after 60 failed
+writes come on `w:<key>` with the sequence it was given), the admin PIN step (the default in one press,
+four digits typed on the digit pad, Done refused with fewer, the server's refusal, the session handed to
+the services, the steps and dots counted without the step on a TV that has a PIN, and not recounted
+when the restarted server answers `adminPin: true`), the PIN prompt that any 403 with `pin: true`
+opens (an unrelated 403 does not; once at a time; a wrong PIN, a lock-out, a server that does not
+answer, a PIN removed meanwhile; Back cancels; the unlock returns to where the prompt came from and
+the refused action is not repeated; never over the first-run pages, but over Settings' phone-only
+entry), the restart after the network choice and the trouble page after 60 failed
 tries, the phone link refused, expired, never connecting and connecting, Back and Left, Settings'
 phone-only entry, the dry run, typing the broker on the TV (and its refusals), the pointer, the
 keyboard pad (layers, capitals, caret, limits, spring press) and the QR layout (whole-pixel
 modules inside the tile). `native-setup-flow` (`tests/setup_flow.py` with `setup_flow.cpp`) runs the
 same path with the real HTTP adapter against `tests/setup_fixture.py` and checks what the server
-wrote to its wiped data root and in what order. It also launches the client as the tile, Home and
+wrote to its wiped data root and in what order. The stand-in guards `POST /api/settings` with the
+session the PIN step answers, as the daemon does, so the broker reaching it shows that the adapter sent
+`X-Admin-Session`. It also launches the client as the tile, Home and
 Settings do on that wiped root (they must open the welcome page, and Settings' own `setup:handoff`
 entry must stay put) and again once setup is done (they must open what they were asked for).
 `native-setup-daemon` (`tests/setup_daemon.py`) runs the same first run against the real
 `nativetv-daemon` without Node, over a wiped data root and with its stand-in luna-send, as far as
-the broker typed on the TV, and reads back what the daemon wrote (`config.json`, the main profile in
-`home.json`, the restarts it asked for), then marks setup done and launches again. `native-qr-capture` (`tests/qr_capture.py`)
+the broker typed on the TV (written under the session of the default PIN the run chose), and reads back
+what the daemon wrote (`config.json`, the main profile in `home.json`, `admin-pin.json`, the restarts it
+asked for), then marks setup done and launches again. `native-qr-capture` (`tests/qr_capture.py`)
 captures the handoff page and compares every module of the code on it with qrcodegen's matrix
 (no QR decoder is installed, so the pixels are read instead); it skips with no GL context.
 `native-atlas` covers glyph packing, text measuring, ellipsis and wrapping,
@@ -321,7 +333,8 @@ with Node.
 reports, the stored value of a switch, choice or number and which values a row takes, choices and ranges
 from the TV's description (numbers kept as text written as text), a value outside the list shown by its
 own name, a per-port row giving way to the one setting, the greyable rows, rows outside the table refused,
-the sound output names, and the backup restore of each kind of row. `native-sam-rescan-manager`
+the sound output names, the value a row shows being the one the TV's dimension names when it differs from the stored one
+(the sound output on a speaker, stored as HDMI ARC), and the backup restore of each kind of row. `native-sam-rescan-manager`
 (`tests/sam_rescan_manager.cpp`, with `tests/sam_fake_tv.py` as `luna-send` and a stand-in `/bin/sh` in a fake
 root) ports `test-samrescan.js`: the blocked-list nudge put back exactly and serialized, a failed restore
 retried, one app reread with a block and a release (refused, lost and repeated releases), the waits for sam,
@@ -395,11 +408,12 @@ suite adds the version shown with matching build metadata only (`test-version.js
 an install started after the settings save (`test-restart-wait.js`). The debounce and publish-gap timing of
 `test-state-push.js` belongs to the Home Assistant publication, which is the daemon's now. The suites
 `test-dashboard-nav.js`, `test-dashboard-search.js`, `test-dashboard-view.js`, `test-mqtt-save-ui.js`,
-`test-token-url.js` and `test-home-boot.js` load the shipped sources (`native-tv/web/ui/`,
+`test-token-url.js`, `test-admin-session.js` and `test-home-boot.js` load the shipped sources (`native-tv/web/ui/`,
 `native-tv/assets/google-tv/` and `native-tv/lifecycle/50-tvweb.sh`) and run on the host with
-`node native-tv/tests/ui/run.js`. `test-dashboard-nav.js` holds the phone dashboard's sections and tabs
+`node native-tv/tests/ui/run.js`. `test-admin-session.js` runs the fetch wrapper of `ui/core.js` against a stand-in network: the admin session goes out with API requests only, a 403 that says `pin:true` raises the unlock prompt and retries once, a cancelled prompt leaves the refusal, and a 401 raises the passcode screen. `test-dashboard-nav.js` holds the phone dashboard's sections and tabs
 against `ui.html` (the 13 panels, five sections, the tab buttons the scripts reveal), the Android wrapper's
-`navState` call, and the `?theme=` and `data-theme` behaviour.
+`navState` call, and the `?theme=` and `data-theme` behaviour. `test-hdmi-grid.js` runs `hdmiTable()` from `ui/lgsettings.js` and holds that no column of the HDMI inputs
+table keeps a minimum width: three of them once did (150, 130 and 130 px), which pushed the Audio format column off a 390 px phone.
 
 `native-luna` also covers the urgent call's one extra slot (one key press at a time, ahead of the
 normal calls waiting), a child killed before answering run once more and then given up on, a
@@ -550,6 +564,12 @@ require the takeover, since they switch Home on and off, the two Quick cases tha
 or the brightness (`E2E-091`, `E2E-092`) require `control`, since they change the TV's setting and
 put it back, and none requires a reboot yet.
 
+The api cases (kind `api`, from `E2E-100`) are where a bug found by testing a TV goes, so it is checked on a real TV
+with every change: GET requests to the server's own routes, made from the TV under its Node like the flow cases (loopback,
+no token), with the reply's fields compared (`expect` a value, `same` two paths of one reply; `rows[id=x].value` picks the
+array item whose `id` is `x`). They need no `--allow`. A case that has to change a setting would POST, which `--check`
+accepts only with `requires: ["control"]`, and puts the setting back.
+
 A result is **pass** when every criterion holds, **floor** when only the interval limits are missed
 and the case's `floor` limits (what the platform has been seen to keep) hold, **fail** otherwise,
 and **error** when the case could not run. The exit code is 1 for fail or error. The report has
@@ -573,6 +593,7 @@ the texture memory, the checkpoints the script took and the size of the capture.
 | E2E-090 | Quick drawer navigation, no OK | `quick` |
 | E2E-091, 092 | Hold Left then Right on the Quick drawer's volume or light: it loads, never moves against the key, ends settled (`control`) | `quick` |
 | E2E-093 | Quick drawer closes with Back onto Home | `quick` |
+| E2E-100 | Advanced tab's Sound output row is the output the TV is using, not the stored HDMI ARC pick (`api`) | |
 
 The timing criteria are the target of the client's spec: p50 and p95 of the frame intervals at 60 fps
 (17.0 and 16.8 ms), none over 33 ms, at most 40 draws and 8192 vertices a frame and 64 MB of textures.

@@ -3,6 +3,9 @@
 
   setup_flow.py TEST_BINARY
 
+The first run sets an admin PIN, after which the stand-in refuses the broker (/api/settings) to a
+request without the PIN step's session, so the broker reaching it proves the client sent it.
+
 On a data root that starts wiped it checks that a launch of the dashboard (the TV app's tile),
 Home or Settings opens setup first, and that the Settings entry (`setup:handoff`) is left where it
 is; then it walks the whole first run; then it checks that the same launches open what they were
@@ -50,6 +53,7 @@ def main():
         assert state.config()["host"] == "0.0.0.0", "'Yes, on phones and computers' opened the dashboard"
         assert state.always is True, "Always-on was switched on"
         assert state.profile == "Den", "the TV's name was written as the main profile's: %r" % state.profile
+        assert state.pin == "4321", "the admin PIN the person chose was set: %r" % state.pin
         with open(os.path.join(root, "data", "settings.json")) as file:
             saved = json.load(file)
         mqtt = saved["mqtt"]
@@ -57,8 +61,8 @@ def main():
             (True, "192.168.1.10", 1883, "lg", "secret"), mqtt
         assert saved["device"]["id"] == "lg_tv", saved
         writes = [call.split(" ", 2)[1] for call in state.calls if call.startswith("POST")]
-        assert writes == ["/api/home/profile", "/api/setup/network", "/api/setup/handoff", "/api/settings",
-                          "/api/setup/always-ready", "/api/setup/done"], writes
+        assert writes == ["/api/home/profile", "/api/setup", "/api/setup/network", "/api/setup/handoff",
+                          "/api/settings", "/api/setup/always-ready", "/api/setup/done"], writes
         print("setup_flow: the server wrote what was chosen, in order: " + ", ".join(writes))
         # Setup is done: the tile opens the dashboard, Home opens Home, Settings opens Settings.
         launches(sys.argv[1], origin, [("dashboard", "!setup:"), ("home", "home"),

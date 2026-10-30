@@ -31,6 +31,11 @@ Home on and off and press the Home and Back keys through the server's own routes
 itself (scripts/home-flow.js under the TV's Node, loopback needing no token), and watch which app
 is in front. Their steps are a closed vocabulary, checked by --check; a flow that fails leaves
 the TV as it stopped, and the "off" case puts LG's Home back.
+
+The api cases (kind "api") are the regression cases for what testing the dashboard on a TV found:
+GET requests to the server's own routes, from the TV itself like a flow, and the reply's fields
+compared (`expect` a value, `same` two paths of one reply). A case that must change a setting
+(POST) requires `control`, and puts the setting back.
 """
 import argparse
 import json
@@ -57,6 +62,8 @@ ENV_NAMES = {"NATIVETV_PROBE_FAULT", "NATIVETV_AMBIENT"}
 FLOW_API = {"GET /api/home", "POST /api/home/enable", "POST /api/home/disable"}
 FLOW_APP = re.compile(r"^(com\.webos\.app\.(hdmi[1-4]|livetv)|com\.tvweb\.dashboard)$")
 FLOW_KEYS = {"home", "back"}
+API_GET = re.compile(r"^GET /api/[A-Za-z0-9_/?=&,.-]*$")
+API_POST = re.compile(r"^POST /api/[A-Za-z0-9_/-]*$")
 CASE_ID = re.compile(r"^E2E-\d{3}$")
 SCREEN = re.compile(r"^[a-z]+(:[a-z0-9]+)?$")
 VALUE = re.compile(r"^[A-Za-z0-9_,=.-]*$")
@@ -116,6 +123,35 @@ def flow_problems(case):
     return problems
 
 
+def api_problems(case):
+    """An api case asks GET routes of the server; a POST needs `control`, since it changes a setting."""
+    name = case.get("id", "?")
+    flow = case.get("flow")
+    if not isinstance(flow, list) or not flow:
+        return ["%s: an api case has steps" % name]
+    problems = []
+    for index, step in enumerate(flow):
+        where = "%s: step %d" % (name, index)
+        if not isinstance(step, dict):
+            problems.append(where + " is not an object")
+        elif "api" in step:
+            call = step["api"]
+            if not (isinstance(call, str) and (API_GET.match(call) or
+                                               (API_POST.match(call) and "control" in case.get("requires", [])))):
+                problems.append(where + " asks for " + json.dumps(call) + ", which an api case may not (POST needs control)")
+            if ("body" in step) != (isinstance(call, str) and call.startswith("POST ")):
+                problems.append(where + ": only a POST has a body, and every POST has one")
+            for field in ("expect", "same"):
+                if field in step and not isinstance(step[field], dict):
+                    problems.append("%s: %s is not an object" % (where, field))
+        elif "wait" in step:
+            if not isinstance(step["wait"], int) or not 1 <= step["wait"] <= 30000:
+                problems.append(where + " waits up to 30000 ms")
+        else:
+            problems.append(where + " is not a step")
+    return problems
+
+
 def check_registry(registry):
     """Every rule a case must keep; returns the problems as strings."""
     problems = []
@@ -128,10 +164,12 @@ def check_registry(registry):
         for field in ("title", "purpose", "kind", "steps", "criteria"):
             if not case.get(field):
                 problems.append("%s: no %s" % (name, field))
-        if case.get("kind") not in ("probe", "run", "flow"):
-            problems.append("%s: kind must be probe, run or flow" % name)
+        if case.get("kind") not in ("probe", "run", "flow", "api"):
+            problems.append("%s: kind must be probe, run, flow or api" % name)
         if case.get("kind") == "flow":
             problems += flow_problems(case)
+        if case.get("kind") == "api":
+            problems += api_problems(case)
         if not set(case.get("requires", [])) <= KNOWN_REQUIRES:
             problems.append("%s: requires holds %s" % (name, sorted(set(case["requires"]) - KNOWN_REQUIRES)))
         if case.get("kind") == "run":
@@ -310,7 +348,7 @@ def commands(case, port="PORT"):
     files = remote_files(case)
     if case["kind"] == "probe":
         return [jailer(["--probe"], case.get("env"), 40)]
-    if case["kind"] == "flow":
+    if case["kind"] in ("flow", "api"):
         return ["mkdir " + LOCK,
                 "node - %s   # scripts/home-flow.js with this case's flow, over ssh" % port,
                 "rm -f /tmp/nativetv-e2e-%s* && rmdir %s" % (case["id"], LOCK)]
@@ -350,7 +388,7 @@ def execute(tv, case, port):
     code, _, _ = tv.run("mkdir " + LOCK)
     if code != 0:
         raise RuntimeError("another run holds " + LOCK + "; remove it only when no client is running")
-    if case["kind"] == "flow":
+    if case["kind"] in ("flow", "api"):
         try:
             program = flow_program(case, port)
             started = time.time()
@@ -505,7 +543,7 @@ def main(argv=None):
             row.update(result="skipped", notes=["needs --allow " + " --allow ".join(sorted(missing))])
         else:
             try:
-                if port is None and case["kind"] in ("run", "flow"):
+                if port is None and case["kind"] in ("run", "flow", "api"):
                     port = tv.port()
                 row["metrics"] = execute(tv, case, port)
                 row["result"], row["notes"] = verdict(row["metrics"], case)

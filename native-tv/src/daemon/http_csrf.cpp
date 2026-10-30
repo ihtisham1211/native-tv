@@ -53,6 +53,7 @@ const GuardedRoute kGuardedRoutes[] = {
     {"/api/adblock/custom", ContentTypeRule::JsonPrefix},
     {"/api/services/toggle", ContentTypeRule::JsonPrefix},
     {"/api/admin/unlock", ContentTypeRule::JsonPrefix},
+    {"/api/admin/login", ContentTypeRule::JsonPrefix},
     {"/api/admin/lock", ContentTypeRule::JsonPrefix},
     {"/api/admin/pin", ContentTypeRule::JsonPrefix},
     {"/api/setup/network", ContentTypeRule::JsonPrefix},

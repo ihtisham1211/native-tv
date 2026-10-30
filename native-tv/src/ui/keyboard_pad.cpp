@@ -47,8 +47,8 @@ std::string KeyboardPad::motionId(const char *kind, size_t row, size_t column) c
 void KeyboardPad::begin(Motion &motion, const std::string &value, const Options &options) {
     motion.erasePrefix(options_.id + ":");
     options_ = options;
-    model_.reset(value, options.maximum, options.address);
-    row_ = 1;
+    model_.reset(value, options.maximum, options.address, options.digits);
+    row_ = options.digits ? 0 : 1;
     column_ = 0;
     active_ = true;
     editedAt_ = 0;
@@ -66,7 +66,7 @@ void KeyboardPad::activate(Motion &motion, bool on) {
     motion.tween(motionId("f", row_, column_), on ? 1 : 0, kit::motion::ms::instant, Easing::out());
 }
 void KeyboardPad::setValue(const std::string &value, double nowMs) {
-    model_.reset(value, options_.maximum, options_.address);
+    model_.reset(value, options_.maximum, options_.address, options_.digits);
     editedAt_ = nowMs;
 }
 std::string KeyboardPad::focusedKey() const {

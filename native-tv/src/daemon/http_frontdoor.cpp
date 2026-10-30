@@ -15283,7 +15283,7 @@ void HttpFrontDoor::sendAdminStatus(HttpExchange &exchange) const {
     sendAdminJson(exchange, 200, status);
 }
 
-void HttpFrontDoor::handleAdminUnlock(HttpExchange &exchange) const {
+void HttpFrontDoor::handleAdminUnlock(HttpExchange &exchange, bool login) const {
     Json payload;
     if (!readAdminPayload(exchange, payload))
         return;
@@ -15293,8 +15293,20 @@ void HttpFrontDoor::handleAdminUnlock(HttpExchange &exchange) const {
         adminPin_.unlock(payload["pin"].string(), session, retryAfter);
     Json answer = Json::object();
     if (result == service::AdminPin::Result::Ok) {
+        // Signing in hands over the token, so while the PIN is the default, 0000, which anyone on
+        // the network can try, it is refused: it would turn a token the owner set into nothing.
+        if (login && adminPin_.usesDefault()) {
+            adminPin_.lock(session);
+            answer.set("ok", Json::flag(false));
+            answer.set("defaultPin", Json::flag(true));
+            answer.set("error", Json::text("choose your own admin PIN before signing in with it"));
+            sendAdminJson(exchange, 403, answer);
+            return;
+        }
         answer.set("ok", Json::flag(true));
         answer.set("session", Json::text(session));
+        if (login && !config_.token.empty())
+            answer.set("token", Json::text(config_.token));
         sendAdminJson(exchange, 200, answer);
         return;
     }
@@ -17555,7 +17567,8 @@ void HttpFrontDoor::dispatch(HttpExchange &exchange) const {
                                failure.dump());
         return;
     }
-    if (request.uri.compare(0, 5, "/api/") == 0 && !requestIsAuthorized(request, config_.token)) {
+    if (request.uri.compare(0, 5, "/api/") == 0 && request.uri != "/api/admin/login" &&
+        !requestIsAuthorized(request, config_.token)) {
         (void)exchange.respond(401,
                                {{"Content-Type", "application/json"},
                                 {"Cache-Control", "no-store"},
@@ -17570,8 +17583,9 @@ void HttpFrontDoor::dispatch(HttpExchange &exchange) const {
         sendAdminStatus(exchange);
         return;
     }
-    if (request.uri == "/api/admin/unlock" && request.method == "POST") {
-        handleAdminUnlock(exchange);
+    if ((request.uri == "/api/admin/unlock" || request.uri == "/api/admin/login") &&
+        request.method == "POST") {
+        handleAdminUnlock(exchange, request.uri == "/api/admin/login");
         return;
     }
     if (request.uri == "/api/admin/lock" && request.method == "POST") {

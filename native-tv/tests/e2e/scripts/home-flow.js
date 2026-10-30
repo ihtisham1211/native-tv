@@ -3,12 +3,15 @@
 //
 // Each step prints one JSON line {step, ok, ms, note}; the last line is {done, ok}. The exit code is
 // 0 when every step held. A step is one of:
-//   {api: "POST /api/home/enable", body?, expect?}   a request to the server on this TV (loopback is
+//   {api: "POST /api/home/enable", body?, expect?, same?}   a request to the server on this TV (loopback is
 //                                                     accepted without the token), the reply compared
-//                                                     with expect by dotted path ("nativeHome.halted": false)
+//                                                     with expect by dotted path ("nativeHome.halted": false);
+//                                                     same pairs two paths of the reply that must hold the
+//                                                     same value ("rows[id=x].value": "dimensions.sound.x")
 //   {foreground: "com.example", withinMs}            the app in front becomes this one
 //   {stays: "com.example", forMs}                    the app in front is this one throughout
 //   {wait: ms}
+// A path name may pick an array item: rows[id=soundOutput].value is the value of the item whose id is soundOutput.
 // The app in front is read from the app manager (getForegroundAppInfo), which only reports it.
 var http = require('http');
 var execFile = require('child_process').execFile;
@@ -21,7 +24,8 @@ function print(row) { process.stdout.write(JSON.stringify(row) + '\n'); }
 
 function request(call, body, done) {
   var parts = call.split(' ');
-  var text = body === undefined ? '' : JSON.stringify(body);
+  // The server answers an empty JSON body with 400 malformed JSON, so a POST with nothing to say sends {}.
+  var text = body !== undefined ? JSON.stringify(body) : (parts[0] === 'POST' ? '{}' : '');
   var req = http.request({
     host: '127.0.0.1', port: PORT, method: parts[0], path: parts[1],
     headers: parts[0] === 'POST' ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(text) } : {}
@@ -45,7 +49,15 @@ function dotted(object, path) {
   var names = path.split('.');
   for (var i = 0; i < names.length; i++) {
     if (value === null || typeof value !== 'object') return undefined;
-    value = value[names[i]];
+    var pick = /^(.+)\[(.+)=(.+)\]$/.exec(names[i]);
+    if (!pick) {
+      value = value[names[i]];
+      continue;
+    }
+    var list = value[pick[1]];
+    value = undefined;
+    for (var j = 0; Array.isArray(list) && j < list.length; j++)
+      if (list[j] && String(list[j][pick[2]]) === pick[3]) { value = list[j]; break; }
   }
   return value;
 }
@@ -100,6 +112,14 @@ function run(index) {
         if (Object.prototype.hasOwnProperty.call(expect, path) && dotted(reply, path) !== expect[path])
           return finish(false, path + ' is ' + JSON.stringify(dotted(reply, path)) + ', wanted ' +
             JSON.stringify(expect[path]) + (reply && reply.error ? ' (' + reply.error + ')' : ''));
+      }
+      var same = step.same || {};
+      for (var left in same) {
+        if (!Object.prototype.hasOwnProperty.call(same, left)) continue;
+        var a = dotted(reply, left), b = dotted(reply, same[left]);
+        // undefined on both sides is a missing field, not agreement.
+        if (a === undefined || a !== b)
+          return finish(false, left + ' is ' + JSON.stringify(a) + ' but ' + same[left] + ' is ' + JSON.stringify(b));
       }
       finish(true, 'HTTP ' + status);
     });

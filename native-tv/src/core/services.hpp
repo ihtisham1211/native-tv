@@ -22,5 +22,9 @@ class Services {
                           const Json &arguments = Json()) = 0;
     virtual unsigned write(const std::string &channel, Operation operation, const Json &body) = 0;
     virtual void cancel(const std::string &channel) = 0;
+    // The admin PIN's session (the reply of POST /api/admin/unlock or of setup's adminPin step):
+    // sent as X-Admin-Session on every API request from now on. Empty forgets it. A stand-in
+    // that does not speak HTTP has nothing to do.
+    virtual void adminSession(const std::string &) {}
 };
 } // namespace nativetv

@@ -546,41 +546,73 @@ async function removeAdminPin() {
   } catch (e) { adminMessage(e.message, true); }
 }
 
-// One prompt at a time: every request waiting for a PIN shares it.
-let adminPrompt = null;
-function askAdminPin() {
-  if (adminPrompt) return adminPrompt;
-  adminPrompt = new Promise(resolve => {
+// What a browser does with the token the passcode gave it: keep it, as a link would, and reload.
+// Where storage is blocked it stays in the address, as core.js does for a link.
+function adoptToken(newToken) {
+  if (!newToken) { location.reload(); return; }
+  try { localStorage.setItem('tvweb_k', newToken); location.reload(); } catch (e) {
+    location.search = '?k=' + encodeURIComponent(newToken);
+  }
+}
+
+/*
+ * A PIN prompt over the page; resolves true once the PIN was accepted. One at a
+ * time: every request waiting for a PIN shares it. With login, it is the screen
+ * a browser gets when the TV does not know its token (core.js raises it on a
+ * 401): it cannot be dismissed, and what it gets back is the token. Without,
+ * it opens an admin session for the actions that ask for one, and can be
+ * cancelled.
+ */
+let pinPrompt = null;
+function askPin(login) {
+  if (pinPrompt) return pinPrompt;
+  pinPrompt = new Promise(resolve => {
     const dialog = document.createElement('dialog');
     dialog.className = 'admin-pin';
     dialog.setAttribute('aria-labelledby', 'admin-pin-title');
+    const title = login ? t('admin.login.title', 'Enter passcode') : t('admin.prompt.title', 'Admin PIN');
+    const body = login
+      ? t('admin.login.body', 'Enter the four-digit passcode set on the TV, or open the dashboard from the link or QR code on the TV.')
+      : t('admin.prompt.body', 'Enter the four-digit admin PIN to go on.');
     dialog.innerHTML =
-      `<form><h2 id="admin-pin-title">${esc(t('admin.prompt.title', 'Admin PIN'))}</h2>` +
-      `<p>${esc(t('admin.prompt.body', 'Enter the four-digit admin PIN to go on.'))}</p>` +
+      `<form><h2 id="admin-pin-title">${esc(title)}</h2><p>${esc(body)}</p>` +
       `<input type="password" inputmode="numeric" pattern="[0-9]{4}" maxlength="4" autocomplete="off" ` +
       `aria-label="${esc(t('admin.prompt.label', 'Admin PIN'))}">` +
       `<div class="sub bad" role="alert" hidden></div>` +
-      `<div class="btns"><button type="button" class="link-btn" data-cancel>${esc(t('admin.prompt.cancel', 'Cancel'))}</button>` +
+      `<div class="btns">` +
+      (login ? '' : `<button type="button" class="link-btn" data-cancel>${esc(t('admin.prompt.cancel', 'Cancel'))}</button>`) +
       `<button type="submit">${esc(t('admin.prompt.unlock', 'Unlock'))}</button></div></form>`;
     document.body.appendChild(dialog);
     const input = dialog.querySelector('input');
     const error = dialog.querySelector('[role=alert]');
-    let unlocked = false;
-    dialog.addEventListener('close', () => { dialog.remove(); resolve(unlocked); });
-    dialog.querySelector('[data-cancel]').onclick = () => dialog.close();
+    let accepted = false;
+    dialog.addEventListener('close', () => { dialog.remove(); resolve(accepted); });
+    dialog.addEventListener('cancel', e => { if (login) e.preventDefault(); });
+    const cancel = dialog.querySelector('[data-cancel]');
+    if (cancel) cancel.onclick = () => dialog.close();
     dialog.querySelector('form').onsubmit = async e => {
       e.preventDefault();
       try {
-        const r = await fetch(api('/api/admin/unlock'), {
+        const r = await fetch(api(login ? '/api/admin/login' : '/api/admin/unlock'), {
           method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin: input.value })
         });
         const d = await r.json();
-        if (d.ok) { setAdminSession(d.session); unlocked = true; dialog.close(); return; }
+        if (d.ok) {
+          setAdminSession(d.session);
+          accepted = true;
+          dialog.close();
+          if (login) adoptToken(d.token);
+          return;
+        }
         error.textContent = r.status === 429
           ? t('admin.prompt.locked', 'Too many wrong PINs. Try again in {seconds} s.', { seconds: d.retryAfter })
-          : d.error === 'wrong PIN'
-            ? t('admin.prompt.wrong', 'That is not the PIN.')
-            : d.error;
+          : d.defaultPin
+            ? t('admin.login.default', 'The passcode is still the default, 0000, so it cannot be used to sign in. Change it on the TV first, or use the dashboard link on the TV.')
+            : d.error === 'wrong PIN'
+              ? t('admin.prompt.wrong', 'That is not the PIN.')
+              : d.error === 'no admin PIN is set'
+                ? t('admin.login.unset', 'No passcode is set on the TV. Open the dashboard from the link or QR code on the TV.')
+                : d.error;
       } catch (err) { error.textContent = err.message; }
       error.hidden = false;
       input.value = '';
@@ -588,6 +620,7 @@ function askAdminPin() {
     };
     dialog.showModal();
     input.focus();
-  }).finally(() => { adminPrompt = null; });
-  return adminPrompt;
+  }).finally(() => { pinPrompt = null; });
+  return pinPrompt;
 }
+const askAdminPin = () => askPin(false);

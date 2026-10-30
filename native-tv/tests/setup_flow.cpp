@@ -7,7 +7,8 @@
 //                                                  and checks where it settles: EXPECTED is a
 //                                                  screen name, or "!setup:" for any other
 //   native-setup-flow-tests ORIGIN real            the first run against the real daemon, as far
-//                                                  as the broker's Connect (setup_daemon.py)
+//                                                  as the broker's Connect (setup_daemon.py); the
+//                                                  broker is written under the PIN's session
 //   native-setup-flow-tests ORIGIN finish          the summary's Open dashboard
 #include "adapters/http_services.hpp"
 #include "ui/application.hpp"
@@ -70,6 +71,12 @@ struct Driver {
             press(Key::Right);
         press(Key::Ok);
     }
+    // The digit pad: Done is one Down and one Right from "1".
+    void pinDone() {
+        press(Key::Down);
+        press(Key::Right);
+        press(Key::Ok);
+    }
 };
 
 // A launch: where does the client end up, and does it stay there once the cover is gone?
@@ -102,6 +109,8 @@ int real(const std::string &origin) {
     tv.press(Key::Delete);
     tv.app.input("Den");
     tv.done();
+    tv.screen("setup:pin");
+    tv.press(Key::Ok); // Use 0000: the daemon sets it, and the broker below is written under its session
     tv.screen("setup:network");
     tv.press(Key::Ok); // open: the daemon writes config.json and asks for a restart
     tv.screen("setup:ha");
@@ -154,6 +163,12 @@ int main(int argc, char **argv) {
         tv.press(Key::Delete);
         tv.app.input("Den");
         tv.done();
+        tv.screen("setup:pin");
+        tv.press(Key::Down);
+        tv.press(Key::Ok); // choose my own
+        tv.screen("setup:pinown");
+        tv.app.input("4321");
+        tv.pinDone();
         tv.screen("setup:network");
         tv.press(Key::Ok); // yes, on phones and computers at home: the server restarts
         tv.screen("setup:ha");

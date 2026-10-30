@@ -25,6 +25,7 @@ riskier controls ask for confirmation in the dashboard first.
 | Watch time, while switched on in the Server tab | `/var/lib/tvweb/history`, a file for each month, kept for 13 months | **Clear history** in the Server tab, or uninstalling |
 | Daily backups, while switched on in the Server tab | `/var/lib/tvweb/backups`, one file a day, the last 7 kept | Uninstalling |
 | Install job and services run as root | `install-job.json` and `elevated.json` in `/var/lib/tvweb` | Uninstalling |
+| Admin PIN, once one is set in setup or the Server tab | `/var/lib/tvweb/admin-pin.json`, mode 0600: a salted PBKDF2-SHA256 hash of the four digits and whether it is the default 0000, never the digits | **Remove the PIN** in the Server tab, deleting the file, or uninstalling |
 
 Installed from the Homebrew Channel, uninstalling the app stops the server
 starting at boot straight away, and within a few minutes the server removes the

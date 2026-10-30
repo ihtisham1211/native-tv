@@ -1,5 +1,5 @@
-// First-run setup, the keyboard pad, the QR layout and the splash, driven the way a person drives
-// them: keys in, the server's answers handed back, the screen read afterwards.
+// First-run setup, the keyboard pad, the QR layout, the splash and the admin PIN prompt, driven the
+// way a person drives them: keys in, the server's answers handed back, the screen read afterwards.
 #include "domain/setup_pages.hpp"
 #include "ui/application.hpp"
 #include "ui/keyboard_pad.hpp"
@@ -31,6 +31,12 @@ struct Transport final : Services {
     };
     std::vector<Request> requests;
     std::map<std::string, unsigned> revisions;
+    std::string session; // what the client was last told to send as X-Admin-Session
+    unsigned sessions = 0;
+    void adminSession(const std::string &value) override {
+        session = value;
+        ++sessions;
+    }
     unsigned read(const std::string &channel, Operation operation, const Json &arguments) override {
         requests.push_back({channel, operation, arguments, false});
         return ++revisions[channel];
@@ -89,9 +95,12 @@ uint32_t run(Application &app, uint32_t from, uint32_t ms) {
 }
 
 // What /api/setup says. `standby`: the TV has LG's Always-on.
+// `pinSet`: the TV has an admin PIN already, so the PIN step is not asked.
 std::string setupState(bool open = false, bool standby = true, const char *haState = "unknown",
-                       const char *handoff = "", bool demo = false, bool always = false) {
-    std::string text = std::string("{\"ok\":true,\"needed\":true,\"model\":\"OLED65B3PUA\",\"network\":") +
+                       const char *handoff = "", bool demo = false, bool always = false,
+                       bool pinSet = false) {
+    std::string text = std::string("{\"ok\":true,\"needed\":true,\"model\":\"OLED65B3PUA\",\"adminPin\":") +
+                       (pinSet ? "true" : "false") + ",\"network\":" +
                        (open ? "true" : "false") + ",\"token\":false,\"homeAssistant\":{\"state\":\"" +
                        haState + "\",\"configured\":" + (std::string(haState) == "connected" ? "true" : "false") +
                        "},\"handoff\":" + (*handoff ? std::string("\"") + handoff + "\"" : "null");
@@ -102,6 +111,8 @@ std::string setupState(bool open = false, bool standby = true, const char *haSta
     return text + "}";
 }
 const char *kLink = "http://192.168.1.42:3000/?c=0f3a9c0f3a9c0f3a9c0f3a9c0f3a9cab";
+const char *kSession = "0f3a9c0f3a9c0f3a9c0f3a9c0f3a9cab";
+const char *kPinReply = R"({"ok":true,"session":"0f3a9c0f3a9c0f3a9c0f3a9c0f3a9cab"})";
 const char *kHandoffReply =
     R"({"ok":true,"url":"http://192.168.1.42:3000/?c=0f3a9c0f3a9c0f3a9c0f3a9c0f3a9cab"})";
 const char *kSettings =
@@ -144,11 +155,23 @@ struct Fixture {
             app.input(text);
         pressDone();
     }
-    // Welcome, then the name as it stands: the first question.
+    // On the digit pad Done is one Down and one Right from "1".
+    void pressPinDone() {
+        press(Key::Down, 40);
+        press(Key::Right, 40);
+        press(Key::Ok, 40);
+    }
+    // Welcome, then the name as it stands, then "Use 0000" where the PIN is asked: the network
+    // question.
     void toNetwork() {
         press(Key::Ok);
         pressDone();
         advance(450);
+        if (screen() == "setup:pin") {
+            press(Key::Ok);
+            answerWrite("setup:pin", kPinReply);
+            advance(450);
+        }
     }
     void answerWrite(const std::string &key, const std::string &json) {
         ::answerWrite(transport, app, key, json);
@@ -340,11 +363,33 @@ int main() {
         {
             Json state = Json::parse(setupState());
             SetupPage network = setupPage(SetupStep::Network, state, false, false);
-            check(network.step == "Step 2 of 4" && network.choices.size() == 2 && network.selected == 0 &&
-                      network.dots == 3,
-                  "The network page is step 2 of 4 on a TV with Always-on: the name comes first");
+            check(network.step == "Step 3 of 5" && network.choices.size() == 2 && network.selected == 0 &&
+                      network.dots == 4,
+                  "The network page is step 3 of 5 on a TV with Always-on: the name and the PIN come first");
+            Json pinned = Json::parse(setupState(false, true, "unknown", "", false, false, true));
+            check(setupPage(SetupStep::Network, pinned, false, false).step == "Step 2 of 4" &&
+                      setupPage(SetupStep::Network, pinned, false, false).dots == 3 &&
+                      setupDotCount(pinned) == 6 && setupDotCount(state) == 7 && setupAsksPin(state) &&
+                      !setupAsksPin(pinned),
+                  "A TV that has a PIN is not asked for one, and the steps and dots count without it");
+            SetupPage pin = setupPage(SetupStep::Pin, state, false, false);
+            check(pin.step == "Step 2 of 5" && pin.title == "Choose an admin PIN" && pin.dots == 3 &&
+                      pin.choices.size() == 2 && pin.choices[0].id == "default" &&
+                      pin.choices[0].label == "Use 0000" && pin.choices[1].id == "own" &&
+                      pin.choices[1].label == "Choose my own" && pin.selected == 0,
+                  "The PIN page is step 2: the default or one of the person's own");
+            check(pin.lead.find("installed or removed") != std::string::npos &&
+                      pin.lead.find("SSH keys") != std::string::npos &&
+                      pin.lead.find("backup") != std::string::npos &&
+                      pin.lead.find("powered off") != std::string::npos &&
+                      pin.lead.find("dashboard") != std::string::npos &&
+                      pin.choices[0].hint.find("Anyone who knows it") != std::string::npos,
+                  "It says what the PIN guards, and that the default is known to anyone");
+            check(pinBody("0000")["action"].string() == "adminPin" && pinBody("0000")["pin"].string() == "0000" &&
+                      std::string(kDefaultAdminPin) == "0000" && kAdminPinLength == 4,
+                  "The PIN is written with the adminPin setup action");
             SetupPage name = setupPage(SetupStep::Name, state, false, false);
-            check(name.step == "Step 1 of 4" && name.title == "Name this TV" && name.dots == 2 &&
+            check(name.step == "Step 1 of 5" && name.title == "Name this TV" && name.dots == 2 &&
                       setupDefaultName(state) == "B3" && setupDefaultName(Json::object()) == "LGTV",
                   "The name page is step 1, and the default comes from the TV's model");
             check(nameBody("Den")["action"].string() == "rename" && nameBody("Den")["id"].string() == "main" &&
@@ -353,17 +398,27 @@ int main() {
             check(setupPage(SetupStep::Network, state, true, false).selected == 1,
                   "Once answered, a closed network preselects 'only on this TV'");
             check(setupPage(SetupStep::Network, Json::parse(setupState(false, false)), false, false).step ==
+                      "Step 3 of 4",
+                  "Without Always-on the flow is four steps with the name and the PIN");
+            check(setupPage(SetupStep::Network, Json::parse(setupState(false, false, "unknown", "", false,
+                                                                      false, true)), false, false).step ==
                       "Step 2 of 3",
-                  "Without Always-on the flow is three steps with the name");
+                  "and three where the PIN is set already");
             check(setupPage(SetupStep::Handoff, state, false, true).dots == 0,
                   "From Settings the page has no dots");
             SetupPage summary = setupPage(SetupStep::Summary, Json::parse(setupState(true, true, "connected", "", false, true)),
                                           true, false);
-            check(summary.choices.size() == 4 && summary.choices[1].value == "On" &&
-                      summary.choices[2].value == "Connected" && summary.choices[3].on && summary.dots == 6,
-                  "The summary lists what was chosen");
+            check(summary.choices.size() == 5 && summary.choices[0].label == "Admin PIN" &&
+                      summary.choices[0].value == "Set" && summary.choices[2].value == "On" &&
+                      summary.choices[3].value == "Connected" && summary.choices[4].on &&
+                      summary.dots == 7,
+                  "The summary lists what was chosen, the PIN among it");
+            Json defaulted = Json::parse(setupState());
+            defaulted.set("adminPinDefault", Json::flag(true));
+            check(setupPage(SetupStep::Summary, defaulted, true, false).choices[0].value == "Default (0000)",
+                  "and says when the PIN is the default");
             SetupPage named = setupPage(SetupStep::Summary, Json::parse(setupState()), true, false, "Den");
-            check(named.choices.size() == 5 && named.choices[0].label == "TV name" &&
+            check(named.choices.size() == 6 && named.choices[0].label == "TV name" &&
                       named.choices[0].value == "Den",
                   "and the name first");
             check(brokerProblem("", "1883") != "" && brokerProblem("host", "0") != "" &&
@@ -434,7 +489,7 @@ int main() {
             check(app.screenName() == "home", "but Back still leaves");
         }
 
-        // ---- First run end to end, on a TV with Always-on ---------------------------------------
+        // ---- First run end to end, on a TV with Always-on and no PIN yet ------------------------
         {
             Transport transport;
             Application app(transport, "home");
@@ -446,8 +501,8 @@ int main() {
             reply(app, "setup:state", setupState());
             clock = run(app, clock, 600);
             check(app.shows("Your TV, your rules.") && app.shows("Get started") &&
-                      app.shows("Four quick choices first"),
-                  "The welcome page names the four choices on a TV with Always-on");
+                      app.shows("Five quick choices first"),
+                  "The welcome page names the five choices on a TV with Always-on that has no PIN");
             check(!app.frame().nodes.empty(), "The welcome page draws");
             auto doneKey = [&] {
                 for (int i = 0; i < 3; ++i) {
@@ -461,9 +516,16 @@ int main() {
                 app.key(Key::Ok);
                 clock = run(app, clock, 100);
             };
+            auto pinDone = [&] {
+                for (Key key : {Key::Down, Key::Right, Key::Ok}) {
+                    app.key(key);
+                    clock = run(app, clock, 40);
+                }
+                clock = run(app, clock, 100);
+            };
             app.key(Key::Ok);
             clock = run(app, clock, 500);
-            check(app.screenName() == "setup:name" && app.shows("Name this TV") && app.shows("Step 1 of 4") &&
+            check(app.screenName() == "setup:name" && app.shows("Name this TV") && app.shows("Step 1 of 5") &&
                       app.snapshot()["typed"].string() == "B3",
                   "OK on 'Get started' opens the name, prefilled with the TV's series");
             app.key(Key::Delete);
@@ -476,12 +538,48 @@ int main() {
                       renamed->body["name"].string() == "Den",
                   "Next writes the name as the main profile's");
             clock = run(app, clock, 500);
-            check(app.screenName() == "setup:network" && app.shows("Turn on the web dashboard?") &&
-                      app.shows("Step 2 of 4"),
-                  "and the network question comes at once, step 2 of 4, before the server has answered");
+            check(app.screenName() == "setup:pin" && app.shows("Choose an admin PIN") &&
+                      app.shows("Step 2 of 5") && app.shows("Use 0000") && app.shows("Choose my own") &&
+                      app.shows("installed or removed") && app.shows("Anyone who knows it"),
+                  "and the admin PIN question comes at once, step 2 of 5, before the server has answered");
             answerWrite(transport, app, "setup:name",
                         R"({"ok":true,"profiles":[{"id":"main","name":"Den","active":true}]})");
             clock = run(app, clock, 200);
+            app.key(Key::Down);
+            clock = run(app, clock, 400);
+            check(app.snapshot()["selected"].number() == 1 && app.shows("Type four digits of your own."),
+                  "Down moves to 'Choose my own' and its words follow the PIN's lead");
+            app.key(Key::Ok);
+            clock = run(app, clock, 500);
+            check(app.screenName() == "setup:pinown" && app.shows("Admin PIN") && app.shows("4 digits") &&
+                      app.snapshot()["typed"].string().empty() && app.snapshot()["focusedKey"].string() == "1",
+                  "'Choose my own' opens the digit pad, focus on 1");
+            app.input("12ab");
+            check(app.snapshot()["typed"].string().empty(), "Letters are refused as one piece: nothing is typed");
+            app.input("12");
+            app.input("345");
+            check(app.snapshot()["typed"].string() == "12", "A fifth digit is refused");
+            pinDone();
+            check(app.screenName() == "setup:pinown" && app.shows("Enter four digits.") &&
+                      transport.last("w:setup:pin") == nullptr,
+                  "Done with two digits says so and writes nothing");
+            app.input("34");
+            check(app.snapshot()["typed"].string() == "1234", "Typing goes on after the message");
+            pinDone();
+            const auto *pinWrite = transport.last("w:setup:pin");
+            check(pinWrite && pinWrite->write && pinWrite->operation == Operation::Setup &&
+                      pinWrite->body["action"].string() == "adminPin" && pinWrite->body["pin"].string() == "1234" &&
+                      !pinWrite->body.has("demo"),
+                  "Done writes the four digits with the adminPin setup action");
+            check(transport.session.empty() && app.screenName() == "setup:pinown",
+                  "The page waits for the server's answer");
+            answerWrite(transport, app, "setup:pin", kPinReply);
+            clock = run(app, clock, 600);
+            check(transport.session == kSession && transport.sessions == 1,
+                  "The session the server answers goes to the services");
+            check(app.screenName() == "setup:network" && app.shows("Turn on the web dashboard?") &&
+                      app.shows("Step 3 of 5"),
+                  "and the network question comes, step 3 of 5");
             app.key(Key::Down);
             clock = run(app, clock, 400);
             check(app.snapshot()["selected"].number() == 1 && app.shows("Nothing else on your network"),
@@ -556,7 +654,7 @@ int main() {
             clock = run(app, clock, 600);
             check(app.shows("Connected"), "It says Connected");
             clock = run(app, clock, 1800);
-            check(app.screenName() == "setup:standby" && app.shows("Step 4 of 4"),
+            check(app.screenName() == "setup:standby" && app.shows("Step 5 of 5"),
                   "and moves on by itself to the standby question");
             // Standby: the choice before is 'No' (Always-on is off); choose 'Yes'.
             check(app.snapshot()["selected"].number() == 1, "The current setting is preselected");
@@ -570,8 +668,8 @@ int main() {
             clock = run(app, clock, 500);
             check(app.screenName() == "setup:summary" && app.shows("Ready to go") &&
                       app.shows("Stays connected when off") && app.shows("Open dashboard") &&
-                      app.shows("Den"),
-                  "and the summary shows what was chosen, the name too, before the server has answered");
+                      app.shows("Den") && app.shows("Admin PIN") && !app.shows("Default (0000)"),
+                  "and the summary shows what was chosen, the name and the PIN too, before the server has answered");
             answerWrite(transport, app, "setup:standby", R"({"ok":true})");
             clock = run(app, clock, 200);
             app.key(Key::Ok);
@@ -591,11 +689,14 @@ int main() {
             f.app.input("Kitchen");
             f.pressDone();
             f.advance(300);
-            check(f.screen() == "setup:network" && f.transport.last("w:setup:name") != nullptr,
+            check(f.screen() == "setup:pin" && f.transport.last("w:setup:name") != nullptr,
                   "A name is written and setup goes on");
             f.answerWrite("setup:name", R"({"ok":false,"error":"that name is refused"})");
             f.advance(200);
             check(f.app.shows("that name is refused"), "The refusal is said");
+            f.press(Key::Ok); // Use 0000
+            f.answerWrite("setup:pin", kPinReply);
+            f.advance(300);
             f.press(Key::Down);
             f.press(Key::Ok); // the dashboard stays closed
             f.press(Key::Down);
@@ -755,7 +856,9 @@ int main() {
             Fixture f;
             f.toNetwork();
             f.press(Key::Left);
-            check(f.screen() == "setup:name", "Left goes back, as it did on the web page");
+            check(f.screen() == "setup:pin", "Left goes back, as it did on the web page");
+            f.press(Key::Back);
+            check(f.screen() == "setup:name", "Back from the PIN returns to the name");
             f.press(Key::Back);
             check(f.screen() == "setup:welcome", "Back from the name returns to the welcome page");
             f.toNetwork();
@@ -785,6 +888,7 @@ int main() {
             f.press(Key::Back);
             f.press(Key::Back);
             f.press(Key::Back);
+            f.press(Key::Back);
             check(f.screen() == "setup:welcome", "Back all the way returns to the welcome page");
             f.app.key(Key::Back);
             check(f.screen() == "home", "Back on the welcome page leaves setup");
@@ -793,9 +897,9 @@ int main() {
         // ---- A TV without Always-on ---------------------------------------------------------------
         {
             Fixture f(setupState(false, false));
-            check(f.app.shows("Three quick choices first"), "Three choices are promised");
+            check(f.app.shows("Four quick choices first"), "Four choices are promised");
             f.toNetwork();
-            check(f.app.shows("Step 2 of 3"), "and counted");
+            check(f.app.shows("Step 3 of 4"), "and counted");
             f.press(Key::Down);
             f.press(Key::Ok);
             f.press(Key::Down);
@@ -836,7 +940,17 @@ int main() {
         // ---- The dry run ---------------------------------------------------------------------------
         {
             Fixture f(setupState(false, true, "unknown", "", true));
-            f.toNetwork();
+            f.press(Key::Ok);
+            f.pressDone();
+            f.advance(450);
+            f.press(Key::Ok); // Use 0000
+            const auto *pinWrite = f.transport.last("w:setup:pin");
+            check(pinWrite && pinWrite->body["demo"].boolean() && pinWrite->body["pin"].string() == "0000",
+                  "A dry run says so in the PIN it writes too");
+            f.answerWrite("setup:pin", R"({"ok":true,"demo":true})");
+            f.advance(450);
+            check(f.screen() == "setup:network" && f.transport.session.empty(),
+                  "and gets no session: nothing was set");
             f.press(Key::Ok); // open
             const auto *network = f.transport.last("setup:network");
             size_t asked = f.transport.count("setup:state");
@@ -917,6 +1031,249 @@ int main() {
             check(hasHit(f.app.frame(), "setup:kb:1:2"), "Each key is a hit");
             f.app.activate("setup:kb:1:2");
             check(f.app.snapshot()["typed"].string() == "e", "A click on a key types it");
+        }
+
+
+        // ---- The admin PIN step ---------------------------------------------------------------------
+        {
+            // "Use 0000": one press, the default is written and the session kept.
+            Fixture f;
+            f.press(Key::Ok);
+            f.pressDone();
+            f.advance(450);
+            check(f.screen() == "setup:pin" && f.app.snapshot()["selected"].number() == 0 &&
+                      f.transport.last("w:setup:pin") == nullptr,
+                  "The PIN question opens on 'Use 0000' and writes nothing by itself");
+            check(hasHit(f.app.frame(), "setup:row:0") && hasHit(f.app.frame(), "setup:row:1"),
+                  "Both choices are hits");
+            f.press(Key::Ok);
+            const auto *write = f.transport.last("w:setup:pin");
+            check(write && write->write && write->operation == Operation::Setup &&
+                      write->body["action"].string() == "adminPin" && write->body["pin"].string() == "0000",
+                  "OK on 'Use 0000' writes 0000");
+            f.press(Key::Down);
+            check(f.screen() == "setup:pin", "Keys wait for the answer");
+            f.answerWrite("setup:pin", kPinReply);
+            f.advance(450);
+            check(f.screen() == "setup:network" && f.transport.session == kSession,
+                  "The answer's session is kept and the network question comes");
+            f.press(Key::Back);
+            check(f.screen() == "setup:pin", "Back returns to the PIN question");
+            size_t writes = f.transport.count("w:setup:pin");
+            f.press(Key::Ok);
+            check(f.transport.count("w:setup:pin") == writes && f.screen() == "setup:network",
+                  "The same PIN again needs no second write");
+            f.press(Key::Down);
+            f.press(Key::Ok);
+            f.press(Key::Down);
+            f.press(Key::Ok);
+            f.press(Key::Up);
+            f.press(Key::Ok); // Not now, keep it connected
+            f.advance(300);
+            check(f.screen() == "setup:summary" && f.app.shows("Admin PIN") && f.app.shows("Default (0000)"),
+                  "The summary says the PIN is the default");
+        }
+        {
+            // The server refuses the PIN: the page says so and stays.
+            Fixture f;
+            f.press(Key::Ok);
+            f.pressDone();
+            f.advance(450);
+            f.press(Key::Ok);
+            f.answerWrite("setup:pin", R"({"ok":false,"error":"controls disabled in config"})");
+            f.advance(300);
+            check(f.screen() == "setup:pin" && f.transport.sessions == 0 &&
+                      f.app.shows("The PIN could not be saved: controls disabled in config"),
+                  "A refusal is said and the question stays");
+            f.press(Key::Ok);
+            check(f.transport.count("w:setup:pin") == 2, "and can be answered again");
+        }
+        {
+            // "Choose my own": the digit pad, Back, Done with too few digits.
+            Fixture f;
+            f.press(Key::Ok);
+            f.pressDone();
+            f.advance(450);
+            f.press(Key::Down);
+            f.press(Key::Ok);
+            f.advance(500); // the pad has come in
+            check(f.screen() == "setup:pinown" && f.app.shows("Step 2 of 5") &&
+                      f.app.shows("Four digits that only you know.") && f.app.shows("Next"),
+                  "'Choose my own' keeps the step and asks for the digits");
+            check(hasHit(f.app.frame(), "setup:kb:0:9") && hasHit(f.app.frame(), "setup:kb:1:1") &&
+                      !hasHit(f.app.frame(), "setup:kb:2:0"),
+                  "The pad is the ten digits over delete and Done");
+            f.app.activate("setup:kb:0:2");
+            f.app.activate("setup:kb:0:3");
+            check(f.app.snapshot()["typed"].string() == "34", "A click on a digit types it");
+            f.app.key(Key::Delete);
+            check(f.app.snapshot()["typed"].string() == "3", "Delete erases it");
+            f.app.activate("setup:kb:1:1"); // Done with one digit
+            f.advance(200);
+            check(f.screen() == "setup:pinown" && f.app.shows("Enter four digits.") &&
+                      f.transport.last("w:setup:pin") == nullptr,
+                  "Done needs all four digits");
+            f.press(Key::Back);
+            check(f.screen() == "setup:pin", "Back returns to the two choices");
+            f.press(Key::Back);
+            check(f.screen() == "setup:name", "and again to the name");
+        }
+        {
+            // A TV that has a PIN is not asked: the flow is the old one.
+            Fixture f(setupState(false, false, "unknown", "", false, false, true));
+            check(f.app.shows("Three quick choices first"), "Three choices are promised");
+            f.press(Key::Ok);
+            f.pressDone();
+            f.advance(450);
+            check(f.screen() == "setup:network" && f.app.shows("Step 2 of 3") &&
+                      f.transport.last("w:setup:pin") == nullptr,
+                  "The network question follows the name, step 2 of 3");
+            f.press(Key::Back);
+            check(f.screen() == "setup:name", "and Back goes to the name");
+        }
+        {
+            // The PIN written by this run does not change the count when the server is read again
+            // (it restarts on the network choice and answers adminPin: true from then on).
+            Fixture f;
+            f.toNetwork();
+            f.press(Key::Down);
+            f.press(Key::Ok); // the server stays closed: no restart
+            f.press(Key::Back);
+            check(f.app.shows("Step 3 of 5"), "The network question is still step 3 of 5");
+            f.press(Key::Up);
+            f.press(Key::Ok); // open: restarts
+            f.answer("setup:network", R"({"ok":true})");
+            f.advance(1700);
+            f.answer("setup:state", setupState(true, true, "unknown", "", false, false, true));
+            f.advance(600);
+            check(f.screen() == "setup:ha" && f.app.shows("Step 4 of 5"),
+                  "and Home Assistant step 4 of 5, whatever the restarted server says of the PIN");
+        }
+
+        // ---- The admin PIN prompt -----------------------------------------------------------------
+        {
+            const char *refusal = R"({"ok":false,"error":"admin PIN required","pin":true})";
+            Transport transport;
+            Application app(transport, "home");
+            reply(app, "caps", R"({"ok":true,"setupNeeded":false})");
+            uint32_t clock = run(app, 16, 300);
+            auto pinDone = [&] {
+                for (Key key : {Key::Down, Key::Right, Key::Ok}) {
+                    app.key(key);
+                    clock = run(app, clock, 40);
+                }
+                clock = run(app, clock, 100);
+            };
+            reply(app, "action", R"({"ok":false,"error":"forbidden"})", 403);
+            check(app.screenName() == "home", "A refusal that is not about the PIN opens nothing");
+            reply(app, "action", refusal, 403);
+            clock = run(app, clock, 700);
+            check(app.screenName() == "pin" && app.shows("Enter the admin PIN") &&
+                      app.shows("admin PIN required") && app.shows("Unlock") &&
+                      app.snapshot()["focusedKey"].string() == "1",
+                  "A 403 with pin: true opens the PIN screen over what was showing, and the refusal is said");
+            reply(app, "action", refusal, 403);
+            reply(app, "w:uninstall", refusal, 403);
+            check(app.screenName() == "pin", "It is not opened twice");
+            app.input("12");
+            pinDone();
+            check(app.screenName() == "pin" && app.shows("Enter four digits.") &&
+                      transport.last("pin:unlock") == nullptr,
+                  "Done needs four digits");
+            app.input("34ab");
+            check(app.snapshot()["digits"].number() == 2, "Only digits are taken");
+            app.input("34");
+            check(app.snapshot()["digits"].number() == 4, "Four digits");
+            app.input("5");
+            check(app.snapshot()["digits"].number() == 4, "and no more");
+            pinDone();
+            const auto *asked = transport.last("pin:unlock");
+            check(asked && asked->write && asked->operation == Operation::AdminUnlock &&
+                      asked->body["pin"].string() == "1234" && app.snapshot()["waiting"].boolean(),
+                  "Done posts the digits to the unlock route and waits");
+            reply(app, "pin:unlock", R"({"ok":false,"error":"wrong PIN"})", 403);
+            clock = run(app, clock, 100);
+            check(app.screenName() == "pin" && app.shows("Wrong PIN. Try again.") &&
+                      app.snapshot()["digits"].number() == 0 && !app.snapshot()["waiting"].boolean() &&
+                      transport.sessions == 0,
+                  "A wrong PIN says so and clears the field");
+            app.input("1111");
+            pinDone();
+            reply(app, "pin:unlock", R"({"ok":false,"error":"too many wrong PINs; try again later","retryAfter":30})", 429);
+            clock = run(app, clock, 100);
+            check(app.screenName() == "pin" && app.shows("Try again in 30 s") &&
+                      app.snapshot()["digits"].number() == 0,
+                  "A lock-out says how long");
+            app.input("0000");
+            pinDone();
+            size_t actions = transport.count("action");
+            reply(app, "pin:unlock", R"({"ok":true,"session":"0f3a9c0f3a9c0f3a9c0f3a9c0f3a9cab"})");
+            clock = run(app, clock, 700);
+            check(transport.session == kSession && app.screenName() == "home" &&
+                      app.shows("Unlocked. Do that again."),
+                  "The right PIN hands the session to the services, says so and returns to where it came from");
+            check(transport.count("action") == actions,
+                  "The refused action is not repeated");
+            // Back cancels.
+            reply(app, "action", refusal, 403);
+            clock = run(app, clock, 700);
+            check(app.screenName() == "pin", "Opened again");
+            app.key(Key::Back);
+            clock = run(app, clock, 300);
+            check(app.screenName() == "home" && transport.sessions == 1, "Back cancels and unlocks nothing");
+            // The PIN was removed in the meantime.
+            reply(app, "action", refusal, 403);
+            clock = run(app, clock, 700);
+            app.input("0000");
+            pinDone();
+            reply(app, "pin:unlock", R"({"ok":false,"error":"no admin PIN is set"})", 409);
+            clock = run(app, clock, 300);
+            check(app.screenName() == "home" && app.shows("No admin PIN is set."),
+                  "With no PIN set there is nothing to unlock");
+            // The server not answering.
+            reply(app, "action", refusal, 403);
+            clock = run(app, clock, 700);
+            app.input("0000");
+            pinDone();
+            fail(app, "pin:unlock");
+            clock = run(app, clock, 100);
+            check(app.screenName() == "pin" && app.shows("The TV did not answer. Try again.") &&
+                      !app.snapshot()["waiting"].boolean(),
+                  "A server that does not answer is said, and the PIN can be sent again");
+        }
+        {
+            // From a registered screen: where it came from is where it goes back, and Back from
+            // there does not lead to the prompt again.
+            Transport transport;
+            Application app(transport, "dashboard:settings");
+            reply(app, "caps", R"({"ok":true,"setupNeeded":false})");
+            uint32_t clock = run(app, 16, 300);
+            reply(app, "w:services", R"({"ok":false,"error":"admin PIN required","pin":true})", 403);
+            clock = run(app, clock, 700);
+            check(app.screenName() == "pin", "Settings gives way to the prompt");
+            app.key(Key::Back);
+            clock = run(app, clock, 300);
+            check(app.screenName() == "dashboard:settings", "and Back returns to Settings");
+            app.key(Key::Back); // out of the page to the sections
+            clock = run(app, clock, 300);
+            app.key(Key::Back);
+            clock = run(app, clock, 300);
+            check(app.screenName() == "home", "Back from Settings is not the prompt");
+        }
+        {
+            // First-run setup has its own PIN step: the prompt stays out of it, but not out of the
+            // Settings entry to the phone link.
+            Fixture f;
+            reply(f.app, "w:setup:save", R"({"ok":false,"error":"admin PIN required","pin":true})", 403);
+            f.advance(300);
+            check(f.screen() == "setup:welcome", "The first-run pages never open the prompt");
+            Fixture settings(setupState(), "setup:handoff");
+            reply(settings.app, "w:setup:save", R"({"ok":false,"error":"admin PIN required","pin":true})", 403);
+            settings.advance(600);
+            check(settings.screen() == "pin", "The Settings entry to Home Assistant does");
+            settings.app.key(Key::Back);
+            settings.advance(300);
+            check(settings.screen() == "setup:handoff", "and Back returns to it");
         }
 
         // ---- The splash ----------------------------------------------------------------------------

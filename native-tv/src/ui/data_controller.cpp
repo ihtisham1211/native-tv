@@ -56,6 +56,7 @@ void Application::response(const Response &response) {
         homeBeat(&response);
         return;
     }
+    askAdminPin(response);
     // The replies to writes are the layer's; reads pass through it and on.
     if (optimistic_.response(response)) {
         dirty_ = true;

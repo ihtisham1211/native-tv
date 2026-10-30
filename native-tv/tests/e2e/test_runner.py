@@ -66,12 +66,82 @@ class Registry(unittest.TestCase):
         self.assertTrue(any("durationMs" in problem for problem in problems), problems)
         self.assertTrue(any("LD_PRELOAD" in problem for problem in problems), problems)
 
+    def test_an_api_case_reads_the_server_and_only_control_may_write(self):
+        read = {"id": "E2E-900", "title": "t", "purpose": "p", "kind": "api", "steps": ["s"], "criteria": {"flowOk": True},
+                "flow": [{"api": "GET /api/lgsettings?section=sound", "same": {"a[id=x].v": "b.c"}}]}
+        self.assertEqual(run.check_registry({"cases": [read]}), [])
+        post = dict(read, flow=[{"api": "POST /api/control", "body": {"action": "mute"}}])
+        self.assertTrue(any("POST needs control" in problem for problem in run.check_registry({"cases": [post]})))
+        self.assertEqual(run.check_registry({"cases": [dict(post, requires=["control"])]}), [])
+        outside = dict(read, flow=[{"api": "GET /etc/passwd"}])
+        self.assertTrue(run.check_registry({"cases": [outside]}))
+        bodyless = dict(post, requires=["control"], flow=[{"api": "POST /api/control"}])
+        self.assertTrue(any("body" in problem for problem in run.check_registry({"cases": [bodyless]})))
+
     def test_nothing_personal_is_in_the_folder(self):
         for name in ("cases.json",) + tuple(os.path.join("scripts", n) for n in os.listdir(os.path.join(HERE, "scripts"))):
             with open(os.path.join(HERE, name)) as file:
                 text = file.read()
             self.assertNotIn("/Users/", text, name)
             self.assertIsNone(run.re.search(r"\b(?!127\.0\.0\.1\b)\d{1,3}(\.\d{1,3}){3}\b", text), name)
+
+
+class FlowScript(unittest.TestCase):
+    """scripts/home-flow.js under node, against a stand-in for the server (which answers an empty JSON body
+    with 400, as the daemon does)."""
+
+    def run_flow(self, steps, replies):
+        import http.server
+        import threading
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def reply(self, code, body):
+                data = json.dumps(body).encode()
+                self.send_response(code)
+                self.send_header("Content-Length", str(len(data)))
+                self.end_headers()
+                self.wfile.write(data)
+
+            def do_GET(self):
+                self.reply(200, replies[self.path])
+
+            def do_POST(self):
+                body = self.rfile.read(int(self.headers.get("Content-Length", 0)))
+                if not body:
+                    return self.reply(400, {"ok": False, "error": "malformed JSON"})
+                self.reply(200, {"ok": True})
+
+        server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            program = ("var PORT = %d;\nvar STEPS = %s;\n" % (server.server_port, json.dumps(steps))).encode()
+            with open(os.path.join(HERE, "scripts", "home-flow.js"), "rb") as file:
+                program += file.read()
+            done = subprocess.run(["node", "-"], input=program, capture_output=True, timeout=60)
+        finally:
+            server.shutdown()
+        return done.returncode, [json.loads(line) for line in done.stdout.decode().splitlines() if line.startswith("{")]
+
+    @unittest.skipUnless(shutil.which("node"), "needs node")
+    def test_a_post_with_no_body_sends_an_empty_object(self):
+        code, rows = self.run_flow([{"api": "POST /api/home/enable", "expect": {"ok": True}}], {})
+        self.assertEqual(code, 0, rows)
+
+    @unittest.skipUnless(shutil.which("node"), "needs node")
+    def test_same_compares_two_paths_of_one_reply(self):
+        reply = {"rows": [{"id": "a", "value": 1}, {"id": "x", "value": "tv_speaker"}],
+                 "dimensions": {"sound": {"x": "tv_speaker"}}}
+        agree = {"api": "GET /r", "same": {"rows[id=x].value": "dimensions.sound.x"}}
+        self.assertEqual(self.run_flow([agree], {"/r": reply})[0], 0)
+        stale = {"rows": [{"id": "x", "value": "external_arc"}], "dimensions": {"sound": {"x": "tv_speaker"}}}
+        code, rows = self.run_flow([agree], {"/r": stale})
+        self.assertEqual(code, 1)
+        self.assertIn("external_arc", rows[-2]["note"])
+        # a field that is missing on both sides is not agreement
+        self.assertEqual(self.run_flow([agree], {"/r": {"rows": [], "dimensions": {}}})[0], 1)
 
 
 class Commands(unittest.TestCase):

@@ -838,7 +838,7 @@ if(NATIVETV_BUILD_CLIENT)
     src/ui/dashboard_screens.cpp src/ui/live_screen.cpp src/ui/settings_list.cpp
     src/ui/settings_screen.cpp src/ui/catalog_screen.cpp
     src/ui/kit/overlay.cpp src/ui/quick_screen.cpp src/ui/profiles_screen.cpp
-    src/ui/details_screen.cpp src/ui/editor_screen.cpp)
+    src/ui/details_screen.cpp src/ui/editor_screen.cpp src/ui/pin_screen.cpp)
   target_link_libraries(nativetv_presentation PUBLIC nativetv_models nativetv_motion nativetv_say qrcodegen)
   target_compile_options(nativetv_presentation PRIVATE -Wall -Wextra -Werror)
   add_library(nativetv_http src/adapters/http_services.cpp src/adapters/legacy_routes.cpp)

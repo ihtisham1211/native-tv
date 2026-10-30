@@ -10,25 +10,40 @@ const struct {
     SetupStep step;
     const char *name;
 } kSteps[] = {{SetupStep::Welcome, "welcome"},      {SetupStep::Name, "name"},
+              {SetupStep::Pin, "pin"},              {SetupStep::PinOwn, "pinown"},
               {SetupStep::Network, "network"},
               {SetupStep::HomeAssistant, "ha"},     {SetupStep::Handoff, "handoff"},
               {SetupStep::Standby, "standby"},      {SetupStep::Summary, "summary"},
               {SetupStep::Restarting, "restarting"}, {SetupStep::Trouble, "trouble"}};
 
-std::string stepLabel(int number, size_t total) {
+std::string stepLabel(size_t number, size_t total) {
     Json values = Json::object();
     values.set("n", Json::text(std::to_string(number)));
     values.set("total", Json::text(std::to_string(total)));
     return say::msg("setup.step", "Step {n} of {total}", values);
 }
-// The questions after the name: the dashboard's network, Home Assistant and, where the TV has it,
-// standby.
+// The questions after the name and the PIN: the dashboard's network, Home Assistant and, where the
+// TV has it, standby.
 size_t steps(const Json &state) {
     return setupHasStandby(state) ? 3 : 2;
 }
-// What "Step n of total" counts: those and the name.
+// 1 where the PIN is asked: every step after it moves one on.
+size_t pinOffset(const Json &state) {
+    return setupAsksPin(state) ? 1 : 0;
+}
+// What "Step n of total" counts: those, the name and the PIN.
 size_t questions(const Json &state) {
-    return steps(state) + 1;
+    return steps(state) + 1 + pinOffset(state);
+}
+std::string quickChoices(size_t total) {
+    if (total >= 5)
+        return say::msg("setup.welcome.five",
+                        "Five quick choices first, and you can change any of them later.");
+    if (total == 4)
+        return say::msg("setup.welcome.four",
+                        "Four quick choices first, and you can change any of them later.");
+    return say::msg("setup.welcome.three",
+                    "Three quick choices first, and you can change any of them later.");
 }
 SetupChoice choice(const char *id, const std::string &label, const std::string &hint,
                    const char *icon) {
@@ -70,8 +85,11 @@ bool setupStepFromName(const std::string &name, SetupStep &step) {
 bool setupHasStandby(const Json &state) {
     return state.has("alwaysReady");
 }
+bool setupAsksPin(const Json &state) {
+    return !state["adminPin"].boolean();
+}
 size_t setupDotCount(const Json &state) {
-    return steps(state) + 3;
+    return steps(state) + 3 + pinOffset(state);
 }
 std::string setupDefaultName(const Json &state) {
     return names::tvDefaultName(state["model"].string());
@@ -81,17 +99,15 @@ SetupPage setupPage(SetupStep step, const Json &state, bool netChosen, bool from
                     const std::string &tvName) {
     SetupPage page;
     const bool standby = setupHasStandby(state);
+    const size_t offset = pinOffset(state);
+    const int dotShift = static_cast<int>(offset);
     switch (step) {
     case SetupStep::Welcome:
         page.step = say::msg("setup.firstTime", "First-time setup");
         page.title = say::msg("setup.slogan", "Your TV, your rules.");
         page.lead = say::msg("setup.welcome", "Readings, controls and privacy settings for this TV, "
                                               "right here with the remote.") +
-                    " " +
-                    (standby ? say::msg("setup.welcome.four", "Four quick choices first, and you "
-                                                              "can change any of them later.")
-                             : say::msg("setup.welcome.three", "Three quick choices first, and you "
-                                                               "can change any of them later."));
+                    " " + quickChoices(questions(state));
         page.action = say::msg("setup.start", "Get started");
         page.dots = 1;
         break;
@@ -103,8 +119,31 @@ SetupPage setupPage(SetupStep step, const Json &state, bool netChosen, bool from
                              "shown; type another to change it.");
         page.dots = 2;
         break;
-    case SetupStep::Network: {
+    case SetupStep::Pin:
+    case SetupStep::PinOwn:
         page.step = stepLabel(2, questions(state));
+        page.title = say::msg("setup.pin.title", "Choose an admin PIN");
+        page.dots = 3;
+        if (step == SetupStep::PinOwn) {
+            page.lead = say::msg("setup.pin.own.lead", "Four digits that only you know.");
+            break;
+        }
+        page.lead = say::msg("setup.pin.lead",
+                             "These four digits are asked before apps are installed or removed, SSH "
+                             "keys are changed, a backup is restored, or the TV is restarted or "
+                             "powered off, on the TV and in the dashboard.");
+        page.choices.push_back(choice(
+            "default", say::msg("setup.pin.default", "Use 0000"),
+            say::msg("setup.pin.default.hint",
+                     "0000 is the default. Anyone who knows it can use it, so choose your own now, "
+                     "or change it later in the web dashboard."),
+            "lock"));
+        page.choices.push_back(choice(
+            "own", say::msg("setup.pin.own", "Choose my own"),
+            say::msg("setup.pin.own.hint", "Type four digits of your own."), "keyboard"));
+        break;
+    case SetupStep::Network: {
+        page.step = stepLabel(2 + offset, questions(state));
         page.title = say::msg("setup.net.title", "Turn on the web dashboard?");
         page.choices.push_back(choice(
             "open", say::msg("setup.net.open", "Yes, on phones and computers at home"),
@@ -126,11 +165,11 @@ SetupPage setupPage(SetupStep step, const Json &state, bool netChosen, bool from
         // A fresh install starts closed, so the TV's own state would always preselect "only on
         // this TV"; it is followed once a choice has been made.
         page.selected = netChosen && !state["network"].boolean() ? 1 : 0;
-        page.dots = 3;
+        page.dots = 3 + dotShift;
         break;
     }
     case SetupStep::HomeAssistant:
-        page.step = stepLabel(3, questions(state));
+        page.step = stepLabel(3 + offset, questions(state));
         page.title = say::msg("setup.ha.title", "Connect to Home Assistant?");
         page.choices.push_back(choice(
             "phone", say::msg("setup.ha.phone", "Set it up on my phone"),
@@ -144,10 +183,10 @@ SetupPage setupPage(SetupStep step, const Json &state, bool netChosen, bool from
                    say::msg("setup.ha.later.hint",
                             "The dashboard works without it. Set it up any time from Settings."),
                    "clock"));
-        page.dots = 4;
+        page.dots = 4 + dotShift;
         break;
     case SetupStep::Standby:
-        page.step = stepLabel(4, questions(state));
+        page.step = stepLabel(4 + offset, questions(state));
         page.title = say::msg("setup.standby.title", "Stay connected when off?");
         page.choices.push_back(choice(
             "on", say::msg("setup.standby.on", "Yes, keep it connected"),
@@ -164,7 +203,7 @@ SetupPage setupPage(SetupStep step, const Json &state, bool netChosen, bool from
                      "and Home Assistant wait until it is switched back on."),
             "timer"));
         page.selected = state["alwaysReady"].boolean() ? 0 : 1;
-        page.dots = 5;
+        page.dots = 5 + dotShift;
         break;
     case SetupStep::Summary: {
         const Json ha = state["homeAssistant"];
@@ -175,6 +214,11 @@ SetupPage setupPage(SetupStep step, const Json &state, bool netChosen, bool from
         if (!tvName.empty())
             page.choices.push_back(
                 summary(say::msg("setup.summary.name", "TV name"), tvName, false, "tv"));
+        const bool defaultPin = state["adminPinDefault"].boolean();
+        page.choices.push_back(summary(say::msg("setup.summary.pin", "Admin PIN"),
+                                       defaultPin ? say::msg("setup.summary.pin.default", "Default (0000)")
+                                                  : say::msg("setup.summary.pin.set", "Set"),
+                                       !defaultPin, "lock"));
         page.choices.push_back(
             summary(say::msg("setup.summary.onTv", "On this TV"), say::msg("setup.yes", "Yes"), true, "tv"));
         page.choices.push_back(summary(say::msg("tv.settings.webDashboard", "Web dashboard"),
@@ -192,13 +236,13 @@ SetupPage setupPage(SetupStep step, const Json &state, bool netChosen, bool from
                                            onOff(state["alwaysReady"].boolean()),
                                            state["alwaysReady"].boolean(), "power"));
         page.action = say::msg("setup.summary.open", "Open dashboard");
-        page.dots = static_cast<int>(steps(state)) + 3;
+        page.dots = static_cast<int>(steps(state)) + 3 + dotShift;
         break;
     }
     case SetupStep::Restarting:
         page.step = say::msg("setup.restarting.step", "One moment");
         page.title = say::msg("setup.restarting.title", "Applying your choice\xe2\x80\xa6");
-        page.dots = 3;
+        page.dots = 3 + dotShift;
         break;
     case SetupStep::Trouble:
         page.step = say::msg("setup.trouble.step", "Setup");
@@ -208,7 +252,7 @@ SetupPage setupPage(SetupStep step, const Json &state, bool netChosen, bool from
     case SetupStep::Handoff:
         page.step = say::msg("setup.handoff.step", "Home Assistant");
         page.title = say::msg("setup.handoff.title", "Finish on your phone");
-        page.dots = 4;
+        page.dots = 4 + dotShift;
         break;
     }
     if (fromSettings)
@@ -256,6 +300,20 @@ NameWords nameWords() {
     words.label = say::msg("setup.name.label", "TV name");
     words.done = say::msg("setup.name.next", "Next");
     return words;
+}
+PinWords pinWords() {
+    PinWords words;
+    words.label = say::msg("setup.pin.label", "Admin PIN");
+    words.placeholder = say::msg("setup.pin.placeholder", "4 digits");
+    words.done = say::msg("setup.pin.next", "Next");
+    words.incomplete = say::msg("setup.pin.incomplete", "Enter four digits.");
+    return words;
+}
+Json pinBody(const std::string &pin) {
+    Json body = Json::object();
+    body.set("action", Json::text("adminPin"));
+    body.set("pin", Json::text(pin));
+    return body;
 }
 Json nameBody(const std::string &name) {
     Json body = Json::object();

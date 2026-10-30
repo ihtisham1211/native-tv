@@ -44,7 +44,9 @@ int main() {
 
     // The PIN is not in the file, and only the owner can read it.
     const std::string stored = readAll(file);
-    require(stored.find("4821") == std::string::npos, "the PIN was written in clear");
+    // The salt and hash are random hex, which could hold "4821" by chance: look for the PIN as a value.
+    require(stored.find("\"4821\"") == std::string::npos && stored.find("\"pin\"") == std::string::npos,
+            "the PIN was written in clear");
     struct stat info;
     require(stat(file.c_str(), &info) == 0 && (info.st_mode & 077) == 0, "the PIN file is not owner-only");
 

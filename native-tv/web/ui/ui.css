@@ -794,6 +794,7 @@ input[type=file]::file-selector-button { margin-right: 12px; padding: 0 20px; he
 .st-note { color: var(--c-warning); }
 .hdmi-in .pv-sub { max-width: 78ch; margin-bottom: 12px; }
 .hdmi-grid { display: grid; column-gap: 24px; }
+@media (max-width: 599px) { .hdmi-grid { column-gap: 12px; } }
 .hdmi-grid > div { padding: 12px 0; border-top: 1px solid color-mix(in srgb, var(--c-outline-variant) 55%, transparent); display: flex; flex-direction: column; justify-content: center; align-items: flex-start; }
 .hdmi-grid .hh { border-top: 0; padding-top: 0; color: var(--c-on-surface-variant); font: var(--type-label-m); }
 .hdmi-grid .in b { font: var(--type-body-l); font-weight: 400; }
