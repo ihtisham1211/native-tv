@@ -64,9 +64,9 @@ Use it to control an LG OLED or LCD TV without the cloud, see and switch off wha
   <img src="docs/screenshots/phone-privacy.png" alt="Native Tv Privacy tab on a phone: one thing is still on, with a button to switch it all off" width="24%">
 </p>
 <p align="center">
-  <img src="docs/screenshots/tv-home.png" alt="Native Tv Home on an LG TV, laid out as Google TV's home: a featured title, top picks and apps" width="32%">
-  <img src="docs/screenshots/tv-privacy.png" alt="The TV app's Privacy screen: switches for system updates, screen saver ads, sponsored tiles and recommendations" width="32%">
-  <img src="docs/screenshots/tv-quick-settings.png" alt="The TV app's Quick settings panel: volume, picture mode, OLED light, sound output, input and sleep timer" width="32%">
+  <img src="docs/screenshots/tv-home.jpg" alt="Native Tv Home on an LG TV, laid out as Google TV's home: a featured title, your apps and top picks" width="32%">
+  <img src="docs/screenshots/tv-privacy.png" alt="The TV app's Privacy settings: the overview says tracking and ads are off, with tabs for blocking, LG ads, tracking and data" width="32%">
+  <img src="docs/screenshots/tv-quick-settings.jpg" alt="The TV app's Quick settings panel: volume, picture mode, OLED light, sound output, input and sleep timer" width="32%">
 </p>
 <p align="center"><sub>The dashboard shots come from the repository's TV emulator, so the readings are stand-in values. The TV app shots are rendered by the test suite from sample data.</sub></p>
 

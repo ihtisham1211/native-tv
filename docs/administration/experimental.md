@@ -12,9 +12,9 @@ Replaces LG's screen saver with one of the dashboard's own, chosen on the **Scre
 
 On webOS 10 and 11 they were experimental too, until TVs had run them. Switching to one there no longer restarts the app manager: since 0.98.1 it rereads the screen saver app alone, which held through switching, standby and restarts on a C5 (webOS 10.3.1), a C2 (webOS 10.3) and, from 0.102.2, a G3 (webOS 11.2). If the app manager does not take the switch that way, the switch is undone and LG's screen saver kept, rather than the app manager restarted; at start-up, likewise. Native Tv never restarts the app manager for a screen saver.
 
-## Home screen layout on webOS 10
+## LG launcher layout on webOS 10
 
-Switches off parts of LG's Home screen, chosen on the **Apps** tab under **Home screen layout**, which also has the switch, with its warning. On webOS 9 it works without turning anything on.
+Switches off parts of LG's Home screen, chosen on the **Apps** tab under **LG launcher layout**, which also has the switch, with its warning. On webOS 9 it works without turning anything on.
 
 webOS 10's home app keeps its layout on the TV's read-only system and looks nowhere else for it, so Native Tv lays its own over LG's with an overlay mount and restarts the home app to read it. The mount does not survive a restart of the TV, so it is put back when Native Tv starts, and LG's Home screen can show for a moment before that. It has been tried through Native Tv on a C2 with webOS 10.3.1, and on a few other webOS 10 TVs outside it. **Put back LG's Home screen**, or switching it off, takes the overlay away and brings LG's Home screen back. It does not restart the app manager, so the problem below does not apply to it.
 

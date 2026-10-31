@@ -396,7 +396,7 @@ hashes are different !!.. will be deleted` in `dmesg`. So:
 brings back LG's layout. Launch points added with `addLaunchPoint` are removed
 with `removeLaunchPoint`.
 
-**Which TVs have this home app.** Native Tv's Home screen layout is offered
+**Which TVs have this home app.** Native Tv's LG launcher layout is offered
 only on webOS 9. webOS 3 and 4 have a different, plainer home app, and webOS 10
 and later have a Flutter one (its log lines come from `flutter-client`). The
 QML has code for LG's webOS 23 (`webOS23Test`, the `webOS23` app list style),
@@ -1650,3 +1650,24 @@ is the hint's literal name) and the app id comes from `APPID`.
 - **Timers in the stub page:** a stub that asked again every 400 ms while visible
   (guarded and unguarded by `visibilityState`) showed no launch beyond the first
   two in sam's log, so the fix is a launch from the server.
+
+## Stopping LG's promotions service (B3, webOS 10.3.2)
+
+Switching off `nudge.service` ("LG Promotions & Tips Popups" in the Apps tab) through `/api/services/toggle`
+takes 12.1 to 12.4 s to answer, in both directions, where the other background services answer in under
+a second. The unit is slow to stop and start, not the server slow to ask. A client that gives a write
+12 s or less rolls the row back before the answer comes, and the row then shows a service as active that
+is switched off. After it is disabled the TV starts it again ("still running" in the list), so its state
+reads disabled and running at once.
+
+## Global stress reduction reads "off" for a moment when an app starts (B3, webOS 10.3.2)
+
+Polled every 2 s while a client was launched, `com.webos.service.oledepl/getGlobalStressReduction` answered
+`enable: true` with `returnValue: true` for 19 samples and `enable: false` for one, then `true` again; the
+setting itself stayed on (`/api/oledcare` read `gsr: true` before and after, and the same happened at
+every client start in a full test run). The server kept the reading for the 30 s of its cache, long
+enough for a sweep of the TV's own Settings screen to see GSR off, press it on and then back "off" to
+match what it first read, which turned the real setting off. The server now asks again, up to three times
+1.5 s apart, when a reading differs from the last one, and keeps the change only if it lasts. The
+`com.webos.service.tv.systemproperty/getProperties` call for `OledGSR` that the older fallback uses
+answers `ERROR_06 Invalid argument` on this TV.

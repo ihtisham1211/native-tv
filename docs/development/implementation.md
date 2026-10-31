@@ -1353,9 +1353,9 @@ Home screen bloatware tile hiding allows built-in or preloaded system apps (whic
 
 ---
 
-## Home Screen Layout
+## LG Launcher Layout
 
-The Apps tab's **Home screen layout** switches parts of LG's Home screen off by
+The Apps tab's **LG launcher layout** switches parts of LG's Home screen off by
 changing the home app's own layout file, which the app reads only when it
 starts. `home_screen_manager` has one implementation per home app and uses the first
 that supports the TV; a TV with none has no Home screen section.
@@ -1466,7 +1466,7 @@ Native Tv), LG's layout files in `/mnt/lg/cmn_data/manifest` hold an empty
 layout while Native Tv Home has the place, which LG's Home reads when it
 starts 5 s into boot and draws as a black screen. A home.json without the key
 takes it as chosen where an earlier build left that layout. The files
-there before, LG's or the Home screen layout feature's, are kept in
+there before, LG's or the LG launcher layout feature's, are kept in
 `/var/lib/tvweb/home-takeover-lg-layout` and put back, with LG's Home's
 checkpoints deleted so it starts fresh on them, before LG's Home gets its
 place back by any route or the option is switched off; the webOS 9 home screen module

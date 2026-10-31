@@ -11,7 +11,7 @@ toggle  HDMI 1 = On Home [on] -> Turn off <hdmi>
 toggle  HDMI 2 = Not on Home [off] -> Turn on <hdmi>
 toggle  Promotions = Hidden [off] -> Turn on <apps>
 toggle  Banner = Shown [on] -> Turn off <apps>
-action  Put back LG’s Home screen = Put back -> Put back (confirms) <refresh>
+action  Put back LG’s launcher = Put back -> Put back (confirms) <refresh>
 ## Quick Access
 info    1 = HDMI 1 <apps>
 info    2 = Nothing set <apps>
@@ -25,5 +25,5 @@ toggle  Music = Visible [on] -> Turn off <apps>
 toggle  LG Discover = Kept ready [on] -> Turn off <apps>
 toggle  Web Browser = Switched off [off] -> Turn on <apps>
 ## LG bloatware
-== Turn Off Background Services
+== Turn off LG’s bloatware services
 toggle  Content recognition = Active [on] -> Turn off <shield>

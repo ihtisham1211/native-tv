@@ -9,10 +9,14 @@ What the TV app is still missing next to Google TV, whose layout it follows. The
 ## Found testing the B3 by hand
 
 - **App icon.** The Native Tv tile on LG's launcher does not fill its tile the way the channel tiles do.
-- **Settings screen.** It shows the Home bar (Home, Apps, Inputs, Quick settings), which belongs to Home, not to Settings.
-- **Metrics, Live.** It should refresh by itself every 0.5 s (it reads every 4 s now), and Back from Live should return to where it was opened from, not to Home.
-- **Names.** "Home screen" in the Apps settings means LG's own launcher and should say so; "Services" in the Apps settings are LG's bloatware background services and should be named for that.
-- **Choice rows** (Game genre and the others that step through values) should show chevrons left and right, and Left and Right should move through the values once the row is chosen, not only OK.
-- **Screen saver.** Start screen saver belongs on the Screen Saver tab; Options needs the time before the saver starts; a plain black screen saver is missing.
-- **Colours.** The TV client has no theming engine: the Colours setting (and the text and accent colours the dashboard offers) is stored and served but nothing in the C++ client reads it. Remove it from the TV and the dashboard, unless a theming engine is built. The same goes for the Wallpaper and More rows of the Home settings.
-- **Privacy.** The Overview should be easier to use (someone who only wants ad tracking off); Blocking needs the owner's own block list; LG ads needs one switch for all of its switches.
+- **Stored colours.** Nothing sets Native Tv Home's text and accent colours any more. The `colours` layout key, `colourPresets` in the Home status and the old web Home page's `applyColours` are left to remove together.
+- **Privacy.** The Overview should be easier to use (someone who only wants ad tracking off).
+
+## Home, from the second hands-on test
+
+- **Review.** From the Home captures (`tests/golden/home-*.png`), to be tried on the TV:
+  - The carousel and the first row, Top picks for you, show the same six titles one above the other.
+  - Row labels (Top picks for you, Your apps) are small and low in contrast at TV distance.
+  - Only the focused app circle shows its name; the others are unlabelled.
+  - Available on Netflix and Trending on YouTube are the last two rows, four rows down from the top.
+  - The avatar and the search and settings buttons are small targets at 56 px.

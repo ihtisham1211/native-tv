@@ -141,27 +141,27 @@
       ],
       "script": [
         {
+          "at": 1450,
+          "key": "up"
+        },
+        {
           "at": 1500,
           "key": "up"
         },
         {
-          "at": 1560,
+          "at": 1510,
           "key": "right"
         },
         {
-          "at": 1900,
-          "key": "down"
+          "at": 1600,
+          "key": "ok"
         },
         {
           "at": 2400,
-          "key": "right"
-        },
-        {
-          "at": 2900,
           "longPress": true
         },
         {
-          "at": 3300,
+          "at": 3000,
           "key": "up"
         }
       ]
@@ -1011,6 +1011,10 @@
         "home"
       ],
       "script": [
+        {
+          "at": 1450,
+          "key": "up"
+        },
         {
           "at": 1500,
           "key": "up"

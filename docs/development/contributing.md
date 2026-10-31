@@ -64,6 +64,35 @@ allows. Swap one with `--remove-topic` and `--add-topic` rather than adding a tw
 The social preview image, `docs/assets/social-preview.png`, is uploaded under the
 repository's **Settings → General → Social preview**.
 
+## Screenshots
+
+Screenshots of the TV app in `docs/screenshots/` and `README.md` are taken on a real TV,
+never with the host's renderer: the images in `native-tv/tests/golden/` are test fixtures
+drawn by the host from made-up data, and are not documentation. `scripts/tv-screenshot.sh`
+runs the installed client once on the TV, with the TV's own server and feed, plays a key
+script from `scripts/screenshots/` and brings the last frame back. Stop the Home client first
+(once, then wait 62 s before the next stop: the crash breaker counts three within 120 s).
+
+| File | Command arguments |
+|---|---|
+| `tv-home.jpg` | `--screen home --ms 9000` |
+| `tv-apps.png` | `--screen home --ms 10500 --script scripts/screenshots/apps.json` |
+| `tv-apps-arrange.png` | `--screen home --ms 12000 --script scripts/screenshots/apps-arrange.json` |
+| `tv-home-edit.jpg` | `--screen home --ms 11500 --script scripts/screenshots/home-edit.json` |
+| `tv-details.jpg` | `--screen home --ms 10500 --script scripts/screenshots/details.json` |
+| `tv-quick-settings.jpg` | `--screen home --ms 10500 --script scripts/screenshots/quick.json` |
+| `tv-settings.png` | `--screen dashboard --ms 8000` |
+| `tv-privacy.png` | `--screen dashboard:privacy --ms 8000` |
+| `tv-app-setup-welcome.png` | `--screen setup:welcome --ms 8000` |
+| `tv-app-setup-summary.png` | `--screen setup:summary --ms 8000` |
+
+The key scripts press Right a fixed number of times along the Home bar, so they assume the
+TV shows the Home and Apps tabs only; with Inputs or Live on, add a Right to `quick.json`.
+Look at a screenshot before it goes in: it shows the TV's own titles, apps and names. The Live screen's Network card shows the Wi-Fi network's name, so no Live screenshot is published.
+The wizard's PIN, network and phone pairing screens (`tv-app-setup-pin.png`, `-network`,
+`-handoff` and `tv-app-pin-prompt.png`) are reached by pressing through the wizard, which
+writes the TV's settings, so they come from a TV before it is set up.
+
 ## Pull requests
 
 Open with a plain-language summary of what changes for the people using

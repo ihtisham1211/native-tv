@@ -33,7 +33,10 @@ pushed:
   summary in docs/getting-started/install.md.
 - The look of a TV screen (type, colour, shape, spacing, focus, motion, icons):
   docs/development/material-3-expressive.md. Its tables hold the token values,
-  so a change to `native-tv/design/` updates them.
+  so a change to `native-tv/design/` updates them. Its screenshots in
+  `docs/screenshots/` and README.md come from a real TV
+  (`scripts/tv-screenshot.sh`, docs/development/contributing.md#screenshots), not
+  from the host's renderer: `tests/golden/` holds test fixtures, not documentation.
 
 Write what the code does, not what a feature was meant to do: check a flag, a
 default, a label or a version against the source before it goes in a page. A

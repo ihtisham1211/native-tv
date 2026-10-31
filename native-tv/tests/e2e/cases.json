@@ -5714,7 +5714,7 @@
     {
       "id": "E2E-143",
       "title": "TV Settings Home: Reset the layout runs without ending the app",
-      "purpose": "OK on Reset the layout (Home, More) is pressed through the TV's own screen, with a second OK where it asks to confirm. The layout is already the default on the test B3, so it changes nothing; the case is that the press is handled and the app stays up, as the Screen content recognition press once did not. Reset the layout hides LG's promotions again (LG Channels among them), which the test B3 shows, so the case ends by putting the order, the sort and the hidden lists back to the empty defaults the B3 started with.",
+      "purpose": "OK on Reset the layout (Home, More) is pressed through the TV's own screen, with a second OK where it asks to confirm. The layout is already the default on the test B3, so it changes nothing; the case is that the press is handled and the app stays up, as the Screen content recognition press once did not. Reset the layout hides LG's promotions again (LG Channels among them), which the test B3 shows, so the case ends by putting the order, the sort and the hidden lists back to what the B3 started with: every row in Your order, no custom order, and the same six hidden apps on Home's row and on the Apps tab that E2E-178 restores.",
       "kind": "run",
       "requires": [
         "control"
@@ -5727,7 +5727,7 @@
         "Read the server's port from the TV, as deploy.py does (the access token is never read).",
         "Send the script over ssh and run the client for 90 s through the app's jailer, with the Settings screen of the home group open.",
         "The client walks the screen and presses each action row the script names once (a second OK where it asks to confirm); the client must stay up and the report must show the rows pressed.",
-        "Always, even after a failure: POST /api/home/layout to put the order, the sort and the hidden lists back to the empty defaults; delete the script and the lock folder."
+        "Always, even after a failure: POST /api/home/layout to put the order, the sort and the hidden lists back to what the B3 started with; delete the script and the lock folder."
       ],
       "criteria": {
         "exitCode": 0,
@@ -5745,7 +5745,22 @@
               "dev": []
             },
             "hidden": {
-              "app": [],
+              "app": [
+                "com.webos.app.notificationcenter",
+                "com.webos.app.camera",
+                "com.webos.app.sportsteamsettings",
+                "com.webos.app.multiviewsettings",
+                "amazon.alexa.view",
+                "com.webos.app.lifeonscreen"
+              ],
+              "appsTab": [
+                "com.webos.app.notificationcenter",
+                "com.webos.app.camera",
+                "com.webos.app.sportsteamsettings",
+                "com.webos.app.multiviewsettings",
+                "amazon.alexa.view",
+                "com.webos.app.lifeonscreen"
+              ],
               "dev": []
             },
             "sort": {
@@ -6744,7 +6759,7 @@
     {
       "id": "E2E-178",
       "title": "Hiding an app on the Apps tab leaves Home's row alone",
-      "purpose": "On the Apps tab with the apps in Your order, a long press on an app starts editing with a Hide from Apps button above the grid: Up reaches it and OK takes the app off the Apps tab, and the grid no longer lists it (the next app is first). The server's `hidden.appsTab` list then holds it, and Home's own list stays empty: after Back to the Home tab, its Your apps row still starts with the same app. The case ends with the order and both hidden lists reset to the server's default. The checks name the B3's first apps (Discovery, LG Channels, Netflix); a TV whose first apps differ does not pass.",
+      "purpose": "On the Apps tab with the apps in Your order, a long press on an app starts editing with a Hide from Apps button above the grid: Up reaches it and OK takes the app off the Apps tab, and the grid no longer lists it (the next app is first). The server's `hidden.appsTab` list then holds it, and Home's own list stays as it was: after Back to the Home tab, its Your apps row still starts with the same app. The case starts and ends with no custom order and the same six apps hidden on Home's row and on the Apps tab (the B3's own, which leave LG Channels shown). The checks name the B3's first apps (Discovery, LG Channels, Netflix); a TV whose first apps differ does not pass.",
       "kind": "run",
       "requires": [
         "control"
@@ -6789,10 +6804,10 @@
       "steps": [
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
         "Read the server's port from the TV, as deploy.py does (the access token is never read).",
-        "POST /api/home/layout with the apps in Your order and nothing hidden on Home or the Apps tab.",
+        "POST /api/home/layout with the apps in Your order and the six hidden apps on both Home's row and the Apps tab.",
         "Send the script over ssh and run the client for the case's time through the app's jailer: Up twice and Right reach the Apps tab, OK opens it on the first app; a long press starts editing, Up reaches the Hide from Apps button and OK hides the app; Back returns to the Home tab and Up reaches its apps row.",
         "Read the report and judge the checkpoints, then read the server's catalogue: the first app is in the Apps tab's hidden list.",
-        "Always, even after a failure: POST /api/home/layout with an empty app order and both hidden lists empty; delete the script and the lock folder."
+        "Always, even after a failure: POST /api/home/layout with an empty app order and the six hidden apps on both lists again; delete the script and the lock folder."
       ],
       "criteria": {
         "exitCode": 0,
