@@ -2,3 +2,6 @@
 # (Linux only) reports allocations they keep until exit: SDL's per-thread error
 # string on a thread it did not start, and the driver's context state.
 leak:libSDL2
+# The GL driver (Mesa's software rasteriser on the CI runner, frames with no module name)
+# keeps two 56-byte objects from its draw path until exit; the stack ends in Renderer::draw.
+leak:nativetv::Renderer::draw
