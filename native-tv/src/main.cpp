@@ -312,6 +312,10 @@ int main(int argc, char **argv) {
         const bool priorityRaised = setpriority(PRIO_PROCESS, 0, -10) == 0;
         SDL_SetHint("SDL_WEBOS_ACCESS_POLICY_KEYS_BACK", "true");
         SDL_SetHint("SDL_WEBOS_ACCESS_POLICY_KEYS_EXIT", "true");
+        // Registers the app with sam (registerNativeApp), the only way sam can send a running
+        // native app its relaunch: without it a launch of the app behind the Home stub leaves
+        // the stub in front (a black screen) until the client is restarted.
+        SDL_SetHint("SDL_HINT_WEBOS_REGISTER_APP", "true");
         // Milliseconds from here, written to the --report file, to see where start-up goes.
         const Uint64 startedAt = SDL_GetPerformanceCounter();
         Json startup = Json::object();
@@ -366,9 +370,11 @@ int main(int argc, char **argv) {
             const bool stops = fixed || opts.duration;
             const Uint32 stopAt = fixed ? static_cast<Uint32>(opts.time) : opts.duration;
             AppClock clock(fixed, SDL_GetTicks());
-            Uint32 okAt = 0;
-            bool okDown = false, held = false, draw = true, quit = false, active = true,
-                 animating = true;
+            // OK and Back act when released, unless held for 650 ms: then OK starts editing and
+            // Back opens the recent apps, once, and the release is swallowed.
+            Uint32 okAt = 0, backAt = 0;
+            bool okDown = false, held = false, backDown = false, backHeld = false, draw = true,
+                 quit = false, active = true, animating = true;
             unsigned frames = 0;
             Json screens = Json::array();
             Json checkpoints = Json::array();
@@ -438,6 +444,10 @@ int main(int argc, char **argv) {
                         const Sint32 due = static_cast<Sint32>(okAt + 650 - waited);
                         wait = std::min(wait, due < 1 ? 1u : static_cast<Uint32>(due));
                     }
+                    if (active && backDown && !backHeld) {
+                        const Sint32 due = static_cast<Sint32>(backAt + 650 - waited);
+                        wait = std::min(wait, due < 1 ? 1u : static_cast<Uint32>(due));
+                    }
                     pending = SDL_WaitEventTimeout(&event, static_cast<int>(wait)) == 1;
                 }
                 // A fixed-clock run waits for what the last frame asked of the server, so the
@@ -475,7 +485,7 @@ int main(int argc, char **argv) {
                         if (event.window.event == SDL_WINDOWEVENT_FOCUS_LOST ||
                             event.window.event == SDL_WINDOWEVENT_HIDDEN) {
                             active = false;
-                            okDown = false;
+                            okDown = backDown = false;
                             clock.pause(SDL_GetTicks());
                             app.active(false);
                         }
@@ -508,15 +518,29 @@ int main(int argc, char **argv) {
                                     held = false;
                                     okAt = now;
                                 }
-                            } else if (!event.key.repeat || (key != Key::Back && key != Key::Red))
+                            } else if (key == Key::Back) {
+                                if (!backDown && !event.key.repeat) {
+                                    backDown = true;
+                                    backHeld = false;
+                                    backAt = now;
+                                }
+                            } else if (!event.key.repeat || key != Key::Red)
                                 app.key(key);
                         }
                     } else if (event.type == SDL_KEYUP) {
                         Key key;
-                        if (translate(event.key.keysym.sym, key) && key == Key::Ok && okDown) {
+                        const bool known = translate(event.key.keysym.sym, key);
+                        if (known && key == Key::Ok && okDown) {
                             okDown = false;
                             if (!held)
                                 app.key(Key::Ok);
+                        } else if (backDown &&
+                                   ((known && key == Key::Back) ||
+                                    event.key.keysym.scancode == 482 ||
+                                    event.key.keysym.scancode == 505)) {
+                            backDown = false;
+                            if (!backHeld)
+                                app.key(Key::Back);
                         }
                     } else if (event.type == SDL_TEXTINPUT)
                         app.input(event.text.text);
@@ -532,6 +556,10 @@ int main(int argc, char **argv) {
                 if (okDown && !held && now - okAt >= 650 && app.screenName() == "home") {
                     held = true;
                     app.longPress();
+                }
+                if (backDown && !backHeld && now - backAt >= 650 && app.screenName() == "home") {
+                    backHeld = true;
+                    app.longBack();
                 }
                 if (pumpNetwork(now))
                     draw = true;
@@ -556,12 +584,17 @@ int main(int argc, char **argv) {
                         scriptedWallClock = true;
                     }
                     if (instruction.has("text") || instruction.has("key") ||
-                        instruction.has("click"))
+                        instruction.has("click") || instruction.has("longPress") ||
+                        instruction.has("longBack"))
                         noteInput(0); // a scripted input is stamped when the loop takes it
                     if (instruction.has("text"))
                         app.input(instruction["text"].string());
                     if (instruction.has("key"))
                         app.key(scriptedKey(instruction["key"].string()));
+                    if (instruction["longPress"].boolean()) // OK held past the long-press time
+                        app.longPress();
+                    if (instruction["longBack"].boolean()) // Back held past it
+                        app.longBack();
                     if (instruction.has("click"))
                         app.click(static_cast<float>(
                                       instruction["click"][static_cast<size_t>(0)].number()),

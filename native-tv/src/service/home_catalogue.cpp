@@ -1,5 +1,6 @@
 #include "service/home_catalogue.hpp"
 #include "domain/names.hpp"
+#include "service/app_kinds.hpp"
 #include <algorithm>
 #include <cerrno>
 #include <cctype>
@@ -308,15 +309,17 @@ Json homeCatalogueApps(const Json &launchPointsReply, const Json &sidebarInfoRep
             id == kHomeApp || id == kLgHomeApp || isInputApp(id))
             continue;
         const std::string icon = biggestIcon(point);
+        const std::string title = truthy(point["title"]) ? jsString(point["title"]) : id;
         Json app = Json::object();
         app.set("id", Json::text(id));
-        app.set("title", Json::text(truthy(point["title"]) ? jsString(point["title"]) : id));
+        app.set("title", Json::text(title));
         app.set("icon", Json::parse(icon.empty()
                                         ? "null"
                                         : "\"/api/home/icon?id=" + encodeComponent(id) + "\""));
         const std::string color = brandColor(point);
         app.set("color", color.empty() ? Json::parse("null") : Json::text(color));
         app.set("description", Json::text(jsString(point["appDescription"])));
+        app.set("kind", Json::text(appKind(id, title)));
         result.add(app);
     }
 
@@ -327,14 +330,16 @@ Json homeCatalogueApps(const Json &launchPointsReply, const Json &sidebarInfoRep
         if (!reply["returnValue"].boolean() || info["id"].string() != id) continue;
         const bool hasIcon = !info["icon"].string().empty() &&
                              !info["folderPath"].string().empty();
+        const std::string title = truthy(info["title"]) ? jsString(info["title"]) : id;
         Json app = Json::object();
         app.set("id", Json::text(id));
-        app.set("title", Json::text(truthy(info["title"]) ? jsString(info["title"]) : id));
+        app.set("title", Json::text(title));
         app.set("icon", hasIcon
                             ? Json::text("/api/home/icon?id=" + encodeComponent(id))
                             : Json::parse("null"));
         app.set("color", Json::parse("null"));
         app.set("description", Json::text(""));
+        app.set("kind", Json::text(appKind(id, title)));
         result.add(app);
     }
     return result;
@@ -469,10 +474,19 @@ Json homeCatalogue(const Json &document, const Json &apps, const Json &devices,
 
     Json channelItems = Json::array();
     for (const Json &channel : pickedChannels) channelItems.add(channel);
+    // The kinds the apps group by when the row is sorted by kind, in the owner's order.
+    Json kinds = Json::array();
+    for (const Json &key : document["kinds"].items()) {
+        Json kind = Json::object();
+        kind.set("key", key);
+        kind.set("label", Json::text(appKindLabel(key.string())));
+        kinds.add(kind);
+    }
     Json response = Json::object();
     response.set("apps", orderedApps);
     response.set("devices", arrayOrEmpty(devices));
     response.set("channels", channelItems);
+    response.set("kinds", kinds);
     response.set("order", order);
     Json sources = Json::object();
     sources.set("apps", Json::flag(apps.isArray()));

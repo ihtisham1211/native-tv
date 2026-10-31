@@ -42,6 +42,10 @@ struct Paint {
     Glyphs &glyphs;
 };
 
+// A title's facts line ("Film  ·  2026  ·  ★ 6.4") with the star drawn as an icon; a line too
+// wide for `box` loses whole items from its end.
+void factsLine(Paint paint, Rect box, const std::string &facts, const TypeStyle &style, Color ink);
+
 // Page entrance and exit: fades in while rising from `dy` px below (spec 5.6).
 struct Enter {
     float alpha = 1, dy = 0;
@@ -75,7 +79,7 @@ struct RoundButton {
     std::string icon;    // Material icon, or
     std::string text;    // a letter (the avatar)
     bool avatar = false; // gradient fill instead of `fill`
-    Color fill = alpha::gearFill;
+    Color fill = color::surface3; // opaque: the icon keeps its contrast over bright art
     Color ink = color::onSurface;
     float focus = 0; // fill fades to focus fill, ink to on-focus, scale to 1.12
     Enter enter;
@@ -88,14 +92,17 @@ struct HeroSlot {
     std::string image;  // art; empty draws only the tint
     float opacity = 0;  // crossfade
     float kenBurns = 0; // 0..1 over the 14 s push
+    float artAlpha = 1; // the picture alone: dimmed to a wallpaper behind a focused app
     Color tint = color::ink;
 };
 struct Hero {
     HeroSlot slot[2];    // outgoing and incoming art
     float wallAlpha = 1; // 0 off the Home page
     float stackY = 0;    // the rows' vertical offset (<= 0) that drives the parallax
-    std::string source, title, tag, description;
-    // Source row, title and subtitle enter one after another (spec 5.3).
+    // A title: source row, title, facts and a two-line description. An app: its icon beside
+    // the lines, and the key hint in place of the description.
+    std::string source, title, facts, description, image, hint;
+    // Source row, title and the lines under it enter one after another (spec 5.3).
     Enter text[3];
 };
 // The artwork, tints, legibility scrims and the veil that rises with the rows.
@@ -141,6 +148,7 @@ inline Rect rowItem(const Row &row, int index, float width, float gap) {
 struct PosterCard {
     Rect rest;
     std::string id, image, title;
+    std::string subtitle; // the facts line that appears under the title on focus
     float focus = 0;
     Enter enter;
 };
@@ -152,6 +160,8 @@ struct AppCircle {
     std::string icon;  // glyph on the circle
     std::string image; // the app's own artwork, masked to the circle
     Color color = color::surface3;
+    bool named = false; // the name stays under the circle (the Apps page); else it shows on focus
+    float nameWidth = 0; // the name's box; 0 is a box a little wider than the circle
     float focus = 0;
     Enter enter;
 };

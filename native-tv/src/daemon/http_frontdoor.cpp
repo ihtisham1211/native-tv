@@ -17028,8 +17028,7 @@ void HttpFrontDoor::handleHomeOpenPost(HttpExchange &exchange) const {
     }
     const std::string kind = payload["kind"].string();
     std::string id = payload["id"].isString() ? payload["id"].string() : "";
-    if ((kind == "title" || kind == "youtube" || kind == "netflix") &&
-        payload["id"].isNumber())
+    if ((kind == "youtube" || kind == "netflix") && payload["id"].isNumber())
         id = payload["id"].dump();
     const std::string type = payload["type"].isString()
                                  ? payload["type"].string() : "";
@@ -17046,8 +17045,7 @@ void HttpFrontDoor::handleHomeOpenPost(HttpExchange &exchange) const {
     Json apps;
     Json devices;
     Json channels;
-    if (kind == "app" || kind == "title" || kind == "youtube" ||
-        kind == "netflix") {
+    if (kind == "app" || kind == "youtube" || kind == "netflix") {
         apps = homeCatalogueAppsSnapshot();
     } else if (kind == "dev") {
         devices = homeCatalogueDevicesSnapshot();
@@ -17057,7 +17055,7 @@ void HttpFrontDoor::handleHomeOpenPost(HttpExchange &exchange) const {
     }
 
     const service::HomeOpenPlan plan =
-        service::planHomeOpen(kind, id, apps, devices, channels, type);
+        service::planHomeOpen(kind, id, apps, devices, channels);
     if (!plan.handled) {
         (void)proxy_.forwardBufferedBody(exchange, body);
         return;

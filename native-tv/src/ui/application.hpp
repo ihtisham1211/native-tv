@@ -25,14 +25,17 @@ enum class Screen {
 // What the hero shows: the lines of a card and the artwork behind them, as two layers that
 // cross-fade (the newest is drawn last).
 struct HeroText {
-    std::string source, title, tag, description;
+    // source: the row the card came from; facts: year, rating, length; image and hint: an app's
+    // icon and what OK does, in place of a title's description.
+    std::string source, title, facts, description, image, hint;
     bool operator==(const HeroText &other) const {
-        return source == other.source && title == other.title && tag == other.tag &&
-               description == other.description;
+        return source == other.source && title == other.title && facts == other.facts &&
+               description == other.description && image == other.image && hint == other.hint;
     }
 };
 struct HeroArt {
     std::string image[2];
+    float artAlpha[2] = {1, 1}; // a focused app keeps the pick's picture, dimmed, under its tint
     Color tint[2] = {{0.07f, 0.19f, 0.24f, 1}, {0.07f, 0.19f, 0.24f, 1}};
     int newest = 0;       // the layer that took the latest picture
     std::string shownId;  // card the layers are showing
@@ -42,6 +45,12 @@ struct HeroArt {
 struct HomeState {
     size_t tab = 0, row = 0, column = 0, nav = 0;
     bool navigation = false;
+    bool grid = false; // the Apps tab as one grid; false while its apps are grouped in rows by kind
+    bool arranging = false; // a row of apps is lifted to be moved among the kinds
+    // Editing the apps (a long press on an app): the arrows swap it with its neighbour, OK or Back
+    // saves, Up from the first row reaches the button that hides it (`editHide`; Show on Home for
+    // an app that was hidden) and Red does the same. Home's row lists the hidden apps, dimmed, last.
+    bool editing = false, editHide = false;
     std::vector<Tab> tabs;
     std::vector<CardRow> rows;
     Card hero;                 // the card the hero is showing or about to show
@@ -126,6 +135,7 @@ class Application : private ScreenHost {
     // Home's choreography (home_motion.cpp).
     struct HomeFlow {
         bool entered = false;        // the page's entrance has played
+        size_t rowsEntered = 0;      // rows whose entrance has been played (the apps lead the feed)
         size_t shown = 0;            // tab whose rows are on screen
         int pendingTab = -1;         // tab to show once the old page has left
         uint32_t swapAt = 0, commitAt = 0, textSwapAt = 0, wantSince = 0, lastKeyAt = 0, beatAt = 0,
@@ -174,7 +184,7 @@ class Application : private ScreenHost {
     void homeKeyMoved(Key key);
     void homeSelectTab(size_t tab);
     void homeUpdate();
-    void homePlayEntrance();
+    void homePlayEntrance(size_t firstRow = 0, size_t endRow = static_cast<size_t>(-1));
     void homeRetargetPill(bool jump);
     void homeRetargetHero(const Card &card, bool instant);
     void homeSwapText();
@@ -205,6 +215,12 @@ class Application : private ScreenHost {
     void askAdminPin(const Response &response);
     void back();
     void screenKey(Key key);
+    void homeArrange(Key key);
+    void homeArrangeCancel();
+    std::string editedList() const;
+    void homeEditStart();
+    void homeEditKey(Key key);
+    void homeEditDone(bool toggle);
 
   public:
     // Follows a route as a key press would ("home", "quick", "search", or a registered screen's).
@@ -226,7 +242,10 @@ class Application : private ScreenHost {
         dirty_ = true;
     }
     void key(Key key);
+    // OK held: on Home it starts editing the apps or lifts a kind's row; elsewhere it does nothing.
     void longPress();
+    // Back held: on Home it opens the recent apps, the only way to them; a tap of Back never does.
+    void longBack();
     void input(const std::string &text);
     void click(float x, float y);
     bool activate(const std::string &id);

@@ -5,7 +5,8 @@
 #include <vector>
 
 // Layout boxes at rest on the 1920x1080 canvas (spec section 3), as plain functions of the
-// layout tokens. tests/kit.cpp checks them against the boxes measured from the prototype.
+// layout tokens. tests/kit.cpp checks them against design/metrics.json, the kit's record of the
+// same boxes (measured from the CSS prototype at first, kept by hand since).
 namespace nativetv {
 namespace kit {
 namespace geometry {
@@ -60,6 +61,11 @@ constexpr Rect heroSubtitle() {
     return {canvas::safeX, heroTitle().y + layout::heroTitleH + layout::heroSubGap, layout::heroW,
             layout::heroSubH};
 }
+// Two lines of description, or an app's key hint, under the facts.
+constexpr Rect heroDescription() {
+    return {canvas::safeX, heroSubtitle().y + layout::heroSubH + layout::heroDescGap,
+            layout::heroDescW, layout::heroDescH};
+}
 // Pagination slots end at the right margin.
 constexpr Rect dotSlot(int index, int count = layout::dotSlots) {
     return {canvas::width - canvas::safeX - count * layout::dotSlotW + index * layout::dotSlotW,
@@ -113,7 +119,7 @@ constexpr HeroParallax heroParallax(float y) {
             focus::clamp01(-y / layout::rowPitch) * scrimMaxOpacity};
 }
 
-// Apps and Live pages.
+// Page heads (Live, Settings, the catalogue). The Apps page has none: it starts at layout::appsTop.
 constexpr Rect pageTitle(float textWidth) {
     return {canvas::safeX, layout::pageTitleTop, textWidth, type::headline.line};
 }
@@ -121,9 +127,15 @@ constexpr Rect pageSubtitle(float textWidth) {
     return {canvas::safeX, layout::pageSubTop, textWidth, type::body.line};
 }
 constexpr Rect appTile(int index) {
-    return {canvas::safeX + (index % layout::tileCols) * (layout::tileW + layout::tileGapX),
-            layout::gridTop + (index / layout::tileCols) * (layout::tileH + layout::tileGapY),
-            layout::tileW, layout::tileH};
+    return {canvas::safeX + (index % layout::tileCols) * layout::tilePitchX,
+            layout::appsTop + (index / layout::tileCols) * layout::tilePitchY, layout::tileW,
+            layout::tileH};
+}
+// The Homebrew catalogue's banners: 16:9 tiles, six to a row, three rows above its strip.
+constexpr Rect banner(int index) {
+    return {canvas::safeX + (index % layout::tileCols) * (layout::bannerW + layout::bannerGapX),
+            layout::bannerTop + (index / layout::tileCols) * (layout::bannerH + layout::bannerGapY),
+            layout::bannerW, layout::bannerH};
 }
 constexpr Rect statCard(int index) {
     return {canvas::safeX + (index % layout::statCols) * (layout::statW + layout::statGapX),

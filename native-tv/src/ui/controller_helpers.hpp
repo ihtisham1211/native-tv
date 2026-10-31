@@ -11,11 +11,13 @@ inline std::vector<size_t> navigationStops(const ViewState &state) {
     std::vector<size_t> stops;
     for (size_t i = 0; i < state.home.tabs.size(); ++i)
         stops.push_back(i);
-    if (state.catalogue["profiles"].size() > 1)
+    // The avatar opens Who's watching?, where the one profile's name and colour are edited too.
+    if (state.catalogue["profiles"].size())
         stops.insert(stops.begin(), state.home.tabs.size());
-    stops.push_back(state.home.tabs.size() + 1);
+    // Search is drawn left of the gear (Quick settings), so the focus reaches it first.
     if (state.discover["titlesEnabled"].boolean())
         stops.push_back(state.home.tabs.size() + 2);
+    stops.push_back(state.home.tabs.size() + 1);
     return stops;
 }
 inline MenuRow option(const std::string &label, const Command &command,

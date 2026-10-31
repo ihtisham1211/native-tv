@@ -14,7 +14,6 @@ namespace service {
 namespace {
 
 const char *const kLgHomeTile = "lg-home";
-const char *const kTitleApp = "com.animemania.app";
 const char *const kYouTubeApp = "youtube.leanback.v4";
 const char *const kNetflixApp = "netflix";
 
@@ -34,28 +33,6 @@ bool validYouTubeId(const std::string &id) {
               character == '-'))
             return false;
     return true;
-}
-
-bool positiveInteger(const std::string &id, std::string &canonical) {
-    canonical.clear();
-    if (id.empty()) return false;
-    errno = 0;
-    char *end = nullptr;
-    const double number = std::strtod(id.c_str(), &end);
-    if (end == id.c_str() || errno == ERANGE || !std::isfinite(number) ||
-        number < 1 || std::floor(number) != number ||
-        number > 9007199254740991.0)
-        return false;
-    if (!end) return false;
-    size_t offset = static_cast<size_t>(end - id.c_str());
-    while (offset < id.size() &&
-           std::isspace(static_cast<unsigned char>(id[offset])))
-        ++offset;
-    if (offset != id.size()) return false;
-    std::ostringstream formatted;
-    formatted << std::fixed << std::setprecision(0) << number;
-    canonical = formatted.str();
-    return !canonical.empty();
 }
 
 bool validNetflixId(const std::string &id) {
@@ -82,7 +59,7 @@ bool homeOpenHandledKind(const std::string &kind, const std::string &id) {
 
 HomeOpenPlan planHomeOpen(const std::string &kind, const std::string &id,
                           const Json &apps, const Json &devices,
-                          const Json &channels, const std::string &type) {
+                          const Json &channels) {
     HomeOpenPlan plan;
     plan.handled = homeOpenHandledKind(kind, id);
     if (!plan.handled) return plan;
@@ -115,21 +92,6 @@ HomeOpenPlan planHomeOpen(const std::string &kind, const std::string &id,
         plan.channelId = id;
         plan.row = "ch";
         plan.rowId = id;
-        return plan;
-    }
-    if (kind == "title") {
-        std::string titleId;
-        if (!positiveInteger(id, titleId)) return plan;
-        if (!findListed(apps, kTitleApp).valid()) {
-            plan.error = say::msg("srv.home.noTitleApp",
-                                  "AnimeMania is not installed on this TV");
-            return plan;
-        }
-        setLaunch(plan, kTitleApp);
-        plan.launchParams = Json::object();
-        plan.launchParams.set(
-            "path", Json::text(type == "movie" ? "/movies/" + titleId
-                                : type == "tv" ? "/browse/series" : "/browse"));
         return plan;
     }
     if (kind == "youtube") {

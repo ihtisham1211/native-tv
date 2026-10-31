@@ -1,4 +1,5 @@
 #include "service/home_profiles.hpp"
+#include "service/app_kinds.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
@@ -11,7 +12,7 @@ namespace {
 const char *kRows[] = {"app", "dev", "ch"};
 const char *kColors[] = {"#a8c7fa", "#f2b8b5", "#6dd58c", "#ffb74d",
                          "#7fcfff", "#d0bcff"};
-const char *kLayoutKeys[] = {"rows", "order", "sort", "hidden", "channels",
+const char *kLayoutKeys[] = {"rows", "order", "sort", "hidden", "kinds", "channels",
                              "picture", "appNames", "clockFormat", "showInputs",
                              "showLgHome", "showLive", "colours"};
 const char *kPromoApps[] = {"com.webos.app.lgchannels",
@@ -156,6 +157,8 @@ Json defaultDocument() {
     for (size_t i = 0; i < kPromoCount; ++i)
         hiddenApps.add(Json::text(kPromoApps[i]));
     hidden.set("app", hiddenApps);
+    // The Apps tab keeps its own hidden apps; both start with LG's promotions hidden.
+    hidden.set("appsTab", hiddenApps);
     document.set("rows", rows);
     document.set("order", order);
     document.set("sort", sort);
@@ -253,6 +256,17 @@ Json layoutKeys(const Json &layout) {
     return result;
 }
 
+// The owner's order of the app kinds: the valid ones as given, then any missing in their
+// default order, so every kind is always placed once.
+std::vector<std::string> kindOrder(const Json &raw) {
+    std::vector<std::string> result;
+    for (const std::string &key : stringList(raw))
+        if (validAppKind(key) && !contains(result, key)) result.push_back(key);
+    for (const AppKind &kind : appKinds())
+        if (!contains(result, kind.key)) result.push_back(kind.key);
+    return result;
+}
+
 Json errorResponse(const std::string &error) {
     Json result = Json::object();
     result.set("ok", Json::flag(false));
@@ -291,11 +305,25 @@ Json normalizeHomeDocument(const Json &raw) {
         const std::string row = kRows[i];
         order.set(row, strings(rowValues(raw["order"], row)));
         const std::string sortValue = raw["sort"][row].string();
-        sort.set(row, Json::text(sortValue == "recent" ? "recent" : "custom"));
+        // Only the apps have kinds to group by.
+        const bool byKind = row == "app" && sortValue == "kind";
+        sort.set(row, Json::text(sortValue == "recent" ? "recent" : byKind ? "kind" : "custom"));
         std::vector<std::string> hiddenValues = rowValues(raw["hidden"], row);
-        if (row == "app")
+        if (row == "app") {
             hiddenValues.erase(std::remove(hiddenValues.begin(), hiddenValues.end(), kHomeTile),
                                hiddenValues.end());
+            // `hidden.app` is the Home row's list. The Apps tab's is `hidden.appsTab`; a layout
+            // saved before it existed starts from the Home row's, so what was hidden stays hidden
+            // there until the owner changes it, and the two are independent from then on.
+            std::vector<std::string> appsTabValues =
+                raw["hidden"].isObject() && raw["hidden"]["appsTab"].isArray()
+                    ? stringList(raw["hidden"]["appsTab"])
+                    : hiddenValues;
+            appsTabValues.erase(
+                std::remove(appsTabValues.begin(), appsTabValues.end(), kHomeTile),
+                appsTabValues.end());
+            hidden.set("appsTab", strings(appsTabValues));
+        }
         hidden.set(row, strings(hiddenValues));
     }
     std::vector<std::string> channels = stringList(raw["channels"], kMaximumChannels);
@@ -310,6 +338,7 @@ Json normalizeHomeDocument(const Json &raw) {
     result.set("order", order);
     result.set("sort", sort);
     result.set("hidden", hidden);
+    result.set("kinds", strings(kindOrder(raw["kinds"])));
     result.set("channels", strings(channels));
 
     result.set("enabled", Json::flag(raw["enabled"].boolean()));
@@ -419,9 +448,12 @@ HomeDocumentUpdate updateHomeLayout(const Json &input, const Json &body) {
         nextHidden.set(name, body["hidden"].isObject() && body["hidden"].has(name)
             ? body["hidden"][name] : current["hidden"][name]);
     }
+    nextHidden.set("appsTab", body["hidden"].isObject() && body["hidden"].has("appsTab")
+        ? body["hidden"]["appsTab"] : current["hidden"]["appsTab"]);
     proposed.set("order", nextOrder);
     proposed.set("sort", nextSort);
     proposed.set("hidden", nextHidden);
+    proposed.set("kinds", body.has("kinds") ? body["kinds"] : current["kinds"]);
     const Json channelOrder = body["order"].isObject() && body["order"]["ch"].isArray()
         ? body["order"]["ch"] : Json::array();
     const Json availableChannels = body.has("channels") ? body["channels"] : current["channels"];
@@ -440,6 +472,7 @@ HomeDocumentUpdate updateHomeLayout(const Json &input, const Json &body) {
         const char *resetKeys[] = {"rows", "order", "sort", "hidden", "showInputs",
                                    "showLgHome", "showLive"};
         for (const char *key : resetKeys) next.set(key, defaults[key]);
+        next.set("kinds", strings(kindOrder(Json())));
     }
     update.document = next;
     update.response = layoutResponse(next);

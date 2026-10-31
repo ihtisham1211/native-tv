@@ -100,6 +100,12 @@ int main() {
     assert(catalogue["sources"]["apps"].boolean());
     assert(catalogue["sources"]["devices"].boolean());
     assert(catalogue["sources"]["channels"].number() == 3);
+    // Every app has a kind, and the kinds come in the layout's order with their labels.
+    for (const Json &app : catalogue["apps"].items())
+        assert(!app["kind"].string().empty());
+    assert(catalogue["kinds"].size() == 7 && catalogue["kinds"][0]["key"].string() == "video" &&
+           catalogue["kinds"][0]["label"].string() == "Movies & TV" &&
+           catalogue["kinds"][6]["key"].string() == "other");
 
     const Json withoutChannels = service::homeCatalogue(
         document, apps, devices, Json::parse("null"), false, recent, totals, false);

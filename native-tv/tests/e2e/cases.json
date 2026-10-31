@@ -529,7 +529,7 @@
           {
             "name": "tabs-moved",
             "path": "page",
-            "equals": "Home screen"
+            "equals": "LG launcher"
           },
           {
             "name": "tabs-moved",
@@ -4984,25 +4984,53 @@
     },
     {
       "id": "E2E-120",
-      "title": "Edit mode moves and removes an app on Home",
-      "purpose": "A long press on an app card in the Apps tab starts edit mode (as Google TV's does): Right swaps the card with its neighbour, OK saves the order to the server, a second move puts it back, and a long press then Red takes the app off Home. Before the fix there was no way to reorder or remove an app from the TV. The case ends with the order and the hidden list reset to the server's default (empty), which is how a TV that never moved an app stores them. The checks name the B3's first apps (Discovery, LG Channels, Netflix, YouTube); a TV whose first apps differ does not pass.",
+      "title": "Arranging the kinds on the Apps tab",
+      "purpose": "With the apps sorted by kind, the Apps tab is one row per kind. A long press on a row lifts it, Down moves it under the next row with the focus travelling along, OK saves the kinds' order to the server (the focused row keeps its place after the catalogue is read again), a second long press and Up move it back, and Back puts the server's order back without saving. The case sets the apps' order to By kind first and ends with it at Your order and the kinds in their default order, which is how a TV that never chose it stores them. The B3's first kind is Movies & TV (LG Channels, Netflix, YouTube, Peacock); a TV with no app of that kind does not pass.",
       "kind": "run",
       "requires": [
         "control"
       ],
       "screen": "home",
-      "script": "home-edit.json",
-      "durationMs": 22500,
+      "script": "home-arrange.json",
+      "durationMs": 16500,
+      "before": [
+        {
+          "api": "POST /api/home/layout",
+          "body": {
+            "sort": {
+              "app": "kind"
+            },
+            "kinds": [
+              "video",
+              "music",
+              "games",
+              "home",
+              "tv",
+              "tools",
+              "other"
+            ]
+          },
+          "expect": {
+            "ok": true
+          }
+        }
+      ],
       "cleanup": [
         {
           "api": "POST /api/home/layout",
           "body": {
-            "order": {
-              "app": []
+            "sort": {
+              "app": "custom"
             },
-            "hidden": {
-              "app": []
-            }
+            "kinds": [
+              "video",
+              "music",
+              "games",
+              "home",
+              "tv",
+              "tools",
+              "other"
+            ]
           },
           "expect": {
             "ok": true
@@ -5012,63 +5040,89 @@
       "steps": [
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
         "Read the server's port from the TV, as deploy.py does (the access token is never read).",
-        "Send the script over ssh and run the client for 22.5 s through the app's jailer: Up, Right and Down reach the first app of the Apps tab; a long press starts edit mode; Right moves it, OK saves; a second long press, Left and OK move it back; a long press and Red take it off Home. A checkpoint after each reads the client's state.",
+        "POST /api/home/layout with the apps sorted by kind and the kinds in their default order.",
+        "Send the script over ssh and run the client for 16.5 s through the app's jailer: Up twice and Right reach the Apps tab, OK opens it on the first kind's row; a long press lifts the row, Down moves it under the next one, OK saves; a second long press and Up move it back up, and Back puts the server's order back.",
         "Read the report and judge the checkpoints.",
-        "Always, even after a failure: POST /api/home/layout with an empty app order and an empty hidden list, so the TV is left as it started; delete the script and the lock folder."
+        "Always, even after a failure: POST /api/home/layout with the apps back in Your order and the kinds in their default order; delete the script and the lock folder."
       ],
       "criteria": {
         "exitCode": 0,
         "framesMin": 30,
         "checkpoints": [
           {
-            "name": "first-app",
-            "path": "focusCard",
-            "equals": "com.webos.app.discovery"
+            "name": "loaded",
+            "path": "screen",
+            "equals": "home"
           },
           {
-            "name": "editing",
-            "path": "editing",
+            "name": "apps",
+            "path": "tab",
+            "equals": "apps"
+          },
+          {
+            "name": "apps",
+            "path": "rowGroup",
+            "equals": "video"
+          },
+          {
+            "name": "apps",
+            "path": "arranging",
+            "equals": false
+          },
+          {
+            "name": "lifted",
+            "path": "arranging",
             "equals": true
           },
           {
             "name": "moved",
-            "path": "rowHead",
-            "equals": "com.webos.app.lgchannels,com.webos.app.discovery,netflix"
+            "path": "row",
+            "equals": 1
+          },
+          {
+            "name": "moved",
+            "path": "rowGroup",
+            "equals": "video"
           },
           {
             "name": "saved",
-            "path": "editing",
+            "path": "arranging",
             "equals": false
           },
           {
             "name": "saved",
-            "path": "rowHead",
-            "equals": "com.webos.app.lgchannels,com.webos.app.discovery,netflix"
+            "path": "row",
+            "equals": 1
+          },
+          {
+            "name": "saved",
+            "path": "rowGroup",
+            "equals": "video"
           },
           {
             "name": "moved-back",
-            "path": "rowHead",
-            "equals": "com.webos.app.discovery,com.webos.app.lgchannels,netflix"
+            "path": "row",
+            "equals": 0
           },
           {
-            "name": "restored",
-            "path": "editing",
+            "name": "moved-back",
+            "path": "rowGroup",
+            "equals": "video"
+          },
+          {
+            "name": "cancelled",
+            "path": "arranging",
             "equals": false
           },
           {
-            "name": "restored",
-            "path": "rowHead",
-            "equals": "com.webos.app.discovery,com.webos.app.lgchannels,netflix"
+            "name": "cancelled",
+            "path": "row",
+            "equals": 1
           },
           {
-            "name": "removed",
-            "path": "editing",
-            "equals": false
-          },
-          {
-            "name": "removed",
-            "path": "rowHead",
-            "equals": "com.webos.app.lgchannels,netflix,youtube.leanback.v4"
+            "name": "cancelled",
+            "path": "rowGroup",
+            "equals": "video"
           }
         ]
       }
@@ -6467,6 +6521,20 @@
       "screen": "home",
       "script": "home-bar-order.json",
       "durationMs": 11000,
+      "requires": [
+        "control"
+      ],
+      "before": [
+        {
+          "api": "POST /api/home/layout",
+          "body": {
+            "showInputs": true
+          },
+          "expect": {
+            "ok": true
+          }
+        }
+      ],
       "steps": [
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
         "Read the server's port from the TV, as deploy.py does (the access token is never read).",
@@ -6489,7 +6557,18 @@
             "equals": 4
           }
         ]
-      }
+      },
+      "cleanup": [
+        {
+          "api": "POST /api/home/layout",
+          "body": {
+            "showInputs": true
+          },
+          "expect": {
+            "ok": true
+          }
+        }
+      ]
     },
     {
       "id": "E2E-175",
@@ -6642,7 +6721,7 @@
       },
       "after": [
         {
-          "api": "GET /api/home/status",
+          "api": "GET /api/home",
           "expect": {
             "profiles[id=main].color": "#f2b8b5"
           }
@@ -6664,26 +6743,52 @@
     },
     {
       "id": "E2E-178",
-      "title": "Hide from Home and Show on Home work from edit mode",
-      "purpose": "A long press on an app in the Apps tab starts edit mode with a Hide from Home button above the grid: Up reaches it and OK takes the app off Home (the server's hidden list then holds it). A second long press lists the hidden app, dimmed, after the others. The case ends with the order and the hidden list reset to the default, as E2E-120 does. The checks name the B3's first app (Discovery).",
+      "title": "Hiding an app on the Apps tab leaves Home's row alone",
+      "purpose": "On the Apps tab with the apps in Your order, a long press on an app starts editing with a Hide from Apps button above the grid: Up reaches it and OK takes the app off the Apps tab, and the grid no longer lists it (the next app is first). The server's `hidden.appsTab` list then holds it, and Home's own list stays empty: after Back to the Home tab, its Your apps row still starts with the same app. The case ends with the order and both hidden lists reset to the server's default. The checks name the B3's first apps (Discovery, LG Channels, Netflix); a TV whose first apps differ does not pass.",
       "kind": "run",
       "requires": [
         "control"
       ],
       "screen": "home",
       "script": "home-edit-hide.json",
-      "durationMs": 15000,
+      "durationMs": 17000,
+      "before": [
+        {
+          "api": "POST /api/home/layout",
+          "body": {
+            "sort": {
+              "app": "custom"
+            },
+            "order": {
+              "app": []
+            },
+            "hidden": {
+              "app": [],
+              "appsTab": []
+            }
+          },
+          "expect": {
+            "ok": true
+          }
+        }
+      ],
       "steps": [
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
         "Read the server's port from the TV, as deploy.py does (the access token is never read).",
-        "Send the script over ssh and run the client for the case's time through the app's jailer.",
-        "Read the report and judge the checkpoints.",
-        "Delete the script and the lock folder."
+        "POST /api/home/layout with the apps in Your order and nothing hidden on Home or the Apps tab.",
+        "Send the script over ssh and run the client for the case's time through the app's jailer: Up twice and Right reach the Apps tab, OK opens it on the first app; a long press starts editing, Up reaches the Hide from Apps button and OK hides the app; Back returns to the Home tab and Up reaches its apps row.",
+        "Read the report and judge the checkpoints, then read the server's catalogue: the first app is in the Apps tab's hidden list.",
+        "Always, even after a failure: POST /api/home/layout with an empty app order and both hidden lists empty; delete the script and the lock folder."
       ],
       "criteria": {
         "exitCode": 0,
         "framesMin": 30,
         "checkpoints": [
+          {
+            "name": "first-app",
+            "path": "tab",
+            "equals": "apps"
+          },
           {
             "name": "first-app",
             "path": "focusCard",
@@ -6695,14 +6800,24 @@
             "equals": true
           },
           {
+            "name": "button",
+            "path": "editHide",
+            "equals": true
+          },
+          {
             "name": "hidden",
             "path": "editing",
             "equals": false
           },
           {
-            "name": "listed",
-            "path": "editing",
-            "equals": true
+            "name": "hidden",
+            "path": "focusCard",
+            "equals": "com.webos.app.lgchannels"
+          },
+          {
+            "name": "home-row",
+            "path": "rowHead",
+            "equals": "com.webos.app.discovery,com.webos.app.lgchannels,netflix"
           }
         ],
         "flowOk": true
@@ -6711,7 +6826,7 @@
         {
           "api": "GET /api/home/catalogue",
           "expect": {
-            "layout.hidden.app[0]": "com.webos.app.discovery"
+            "layout.hidden.appsTab[0]": "com.webos.app.discovery"
           }
         }
       ],
@@ -6723,7 +6838,8 @@
               "app": []
             },
             "hidden": {
-              "app": []
+              "app": [],
+              "appsTab": []
             }
           },
           "expect": {
@@ -6781,6 +6897,233 @@
           }
         }
       ]
+    },
+    {
+      "id": "E2E-180",
+      "title": "The idle power-off time is saved, read back and refused when it is not one offered",
+      "purpose": "Switch off when idle takes Off, 15 and 30 minutes, then every hour up to eight (idleMinutes on /api/screentime): each is saved and read back, a time that is not offered (45 minutes) is refused with 400, and the case puts it back to Off. The case first checks the TV starts with it off, and does nothing on a TV that has it on. The TV is left with the time at Off, so that it is never switched off by it during a run.",
+      "kind": "api",
+      "requires": [
+        "control"
+      ],
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
+        "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback.",
+        "Run: check the starting state; change each setting, check the route shows it, put it back and check that.",
+        "Judge each step; the first that fails ends the flow.",
+        "Delete the lock folder."
+      ],
+      "flow": [
+        {
+          "api": "GET /api/screentime",
+          "expect": {
+            "settings.idleMinutes": 0
+          }
+        },
+        {
+          "api": "POST /api/screentime",
+          "body": {
+            "idleMinutes": 15
+          },
+          "expect": {
+            "ok": true,
+            "settings.idleMinutes": 15
+          }
+        },
+        {
+          "api": "GET /api/screentime",
+          "expect": {
+            "settings.idleMinutes": 15
+          }
+        },
+        {
+          "api": "POST /api/screentime",
+          "body": {
+            "idleMinutes": 30
+          },
+          "expect": {
+            "ok": true,
+            "settings.idleMinutes": 30
+          }
+        },
+        {
+          "api": "POST /api/screentime",
+          "body": {
+            "idleMinutes": 60
+          },
+          "expect": {
+            "ok": true,
+            "settings.idleMinutes": 60
+          }
+        },
+        {
+          "api": "POST /api/screentime",
+          "body": {
+            "idleMinutes": 120
+          },
+          "expect": {
+            "ok": true,
+            "settings.idleMinutes": 120
+          }
+        },
+        {
+          "api": "POST /api/screentime",
+          "body": {
+            "idleMinutes": 480
+          },
+          "expect": {
+            "ok": true,
+            "settings.idleMinutes": 480
+          }
+        },
+        {
+          "api": "GET /api/screentime",
+          "expect": {
+            "settings.idleMinutes": 480
+          }
+        },
+        {
+          "api": "POST /api/screentime",
+          "body": {
+            "idleMinutes": 45
+          },
+          "status": 400,
+          "expect": {
+            "error": "invalid idleMinutes"
+          }
+        },
+        {
+          "api": "GET /api/screentime",
+          "expect": {
+            "settings.idleMinutes": 480
+          }
+        },
+        {
+          "api": "POST /api/screentime",
+          "body": {
+            "idleMinutes": 0
+          },
+          "expect": {
+            "ok": true,
+            "settings.idleMinutes": 0
+          }
+        },
+        {
+          "api": "GET /api/screentime",
+          "expect": {
+            "settings.idleMinutes": 0
+          }
+        }
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "flowOk": true
+      }
+    },
+    {
+      "id": "E2E-181",
+      "title": "TV Settings System: Switch off when idle steps through its times and comes back to Off",
+      "purpose": "The Switch off when idle row of the System settings' Timers page, pressed through the TV's own screen, steps Off, 15 and 30 minutes, 1 to 8 hours and back to Off, each saved on the server; the sweeps of the other System rows leave this one alone (it is the one setting that makes the TV switch itself off), and the case puts the time back to Off at its end.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:options",
+      "script": "sweep-idle.json",
+      "durationMs": 65000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 60 s through the app's jailer, with the Settings screen of the saver group open.",
+        "The client presses what the script names through the TV's own screen.",
+        "Judge the report and, where the case has one, the read-back through the server.",
+        "Always: put the TV back as it started (cleanup); delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "pressedMin": 1
+        },
+        "flowOk": true
+      },
+      "after": [
+        {
+          "api": "GET /api/screentime",
+          "expect": {
+            "settings.idleMinutes": 0
+          }
+        }
+      ],
+      "cleanup": [
+        {
+          "api": "POST /api/screentime",
+          "body": {
+            "idleMinutes": 0
+          },
+          "expect": {
+            "ok": true
+          }
+        }
+      ]
+    },
+    {
+      "id": "E2E-182",
+      "title": "Back goes back and only holding Back opens the recent apps",
+      "purpose": "On the Apps tab one tap of Back returns to the Home tab with the focus in its content; Up to the bar and a tap of Back there does nothing (the screen stays Home, the focus on the bar); holding Back then opens the recent apps. Holding OK on a title or on the bar does nothing.",
+      "kind": "run",
+      "screen": "home",
+      "script": "home-back.json",
+      "durationMs": 15000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for the case's time through the app's jailer: Up twice and Right reach the Apps tab, OK opens it; Back returns to the Home tab; Up twice reaches the bar, where Back does nothing; a held Back opens the recent apps.",
+        "Read the report and judge the checkpoints.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "checkpoints": [
+          {
+            "name": "apps",
+            "path": "tab",
+            "equals": "apps"
+          },
+          {
+            "name": "first-tab",
+            "path": "tab",
+            "equals": "home"
+          },
+          {
+            "name": "first-tab",
+            "path": "navigation",
+            "equals": false
+          },
+          {
+            "name": "bar",
+            "path": "navigation",
+            "equals": true
+          },
+          {
+            "name": "bar-stays",
+            "path": "screen",
+            "equals": "home"
+          },
+          {
+            "name": "bar-stays",
+            "path": "navigation",
+            "equals": true
+          },
+          {
+            "name": "recents",
+            "path": "screen",
+            "equals": "quick:recents"
+          }
+        ]
+      }
     }
   ]
 }

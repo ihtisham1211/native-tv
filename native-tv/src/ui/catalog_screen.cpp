@@ -728,7 +728,7 @@ class CatalogScreen final : public ScreenView {
         // The grid follows once focus passes its second row.
         size_t row = focus_ / kColumns;
         double target =
-            -static_cast<double>(row > 1 ? row - 1 : 0) * (layout::tileH + layout::tileGapY);
+            -static_cast<double>(row > 1 ? row - 1 : 0) * (layout::bannerH + layout::bannerGapY);
         if (jump)
             motion.set("cat:gy", target);
         else
@@ -788,13 +788,13 @@ class CatalogScreen final : public ScreenView {
             return;
         }
         const float scroll = static_cast<float>(motion.value("cat:gy"));
-        scene.pushClip({0, layout::gridTop - 28, kit::canvas::width,
-                        kVisibleRows * (layout::tileH + layout::tileGapY) + 28});
+        scene.pushClip({0, layout::bannerTop - 28, kit::canvas::width,
+                        kVisibleRows * (layout::bannerH + layout::bannerGapY) + 28});
         for (size_t i = 0; i < apps_.size(); ++i) {
             const App &app = apps_[i];
-            Rect rest = kit::geometry::appTile(static_cast<int>(i));
+            Rect rest = kit::geometry::banner(static_cast<int>(i));
             rest.y += scroll;
-            if (rest.y + rest.h < layout::gridTop - 60 || rest.y > kStripY)
+            if (rest.y + rest.h < layout::bannerTop - 60 || rest.y > kStripY)
                 continue;
             kit::AppTile tile;
             tile.rest = rest;
@@ -830,7 +830,9 @@ class CatalogScreen final : public ScreenView {
         scene.pushOpacity(tile.enter.alpha);
         scene.pushTransform(Transform::translate(0, tile.enter.dy));
         scene.pushTransform(kit::focus::transformAt(tile.rest, look.scale));
-        float width = paint.glyphs.measure(label, kit::type::labelS) + 20;
+        // The badge stops short of the tile's glyph at the top left; a long label ellipsizes.
+        float room = tile.rest.w - 14 - layout::tilePad - 40 - 8;
+        float width = std::min(paint.glyphs.measure(label, kit::type::labelS) + 20, room);
         Rect box = {tile.rest.x + tile.rest.w - 14 - width, tile.rest.y + 14, width, 28};
         scene.shape(box, update ? kit::color::warn : Color{0, 0, 0, .36f}, 14);
         paint.glyphs.text(

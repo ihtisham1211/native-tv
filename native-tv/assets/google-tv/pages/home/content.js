@@ -68,7 +68,7 @@ var GhContent = (function () {
     $('dtCast').textContent = (item.cast || []).length ? t('home.details.cast', 'Cast: {names}', { names: item.cast.map(function (p) { return p.name; }).join(', ') }) : '';
     var src = image(item, true);
     $('dtBack').style.backgroundImage = src ? 'url("' + src.replace(/"/g, '%22') + '")' : '';
-    state.actions = [{ key: 'open', title: t('home.details.open', 'Open') }];
+    state.actions = [];
     if (item.netflixId) state.actions.push({ key: 'netflix', title: t('home.details.netflix', 'Open on Netflix') });
     if (item.trailer) state.actions.push({ key: 'trailer', title: t('home.details.trailer', 'Trailer') });
     if (item.overview) state.actions.push({ key: 'overview', title: t('home.details.overview', 'Full overview') });
@@ -96,7 +96,7 @@ var GhContent = (function () {
           if (link && link.ok && link.netflixId) { state.item.netflixId = link.netflixId; renderDetails(); }
         });
       }
-      else state.error = r && r.error || t('home.details.failed', 'Details are unavailable. Open or retry.');
+      else state.error = r && r.error || t('home.details.failed', 'Details are unavailable. Retry.');
       renderDetails();
     });
   }
@@ -114,7 +114,7 @@ var GhContent = (function () {
     if (action.key === 'overview') {
       overview = true; $('overviewText').textContent = state.item.overview; $('overviewText').scrollTop = 0; $('overviewView').className = 'gt-scrim show'; return;
     }
-    var body = action.key === 'trailer' ? { kind: 'youtube', id: state.item.trailer } : { kind: action.key === 'netflix' ? 'netflix' : 'title', type: state.item.type, id: state.item.id };
+    var body = action.key === 'trailer' ? { kind: 'youtube', id: state.item.trailer } : { kind: 'netflix', type: state.item.type, id: state.item.id };
     api.postJson('/api/home/open', body, function (r) { if (!r || !r.ok) api.toast(t('home.openFailed', 'That did not open'), r && r.error); });
   }
   function detailKey(code) {

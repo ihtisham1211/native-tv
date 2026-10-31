@@ -48,9 +48,9 @@ void home(Paint paint) {
     Hero wall;
     wall.slot[0].opacity = 1;
     wall.slot[0].tint = rgb(0x12303C);
-    wall.source = "Harbor Originals";
+    wall.source = "Top picks for you";
     wall.title = "Harbor Lights";
-    wall.tag = "Trending";
+    wall.facts = "2021 · 7.2 · 98 min · Drama";
     wall.description =
         "A ferry pilot and a lighthouse keeper trade letters across one long winter.";
     hero(paint, wall);

@@ -26,10 +26,11 @@ bool homeOpenHandledKind(const std::string &kind, const std::string &id);
 
 // Decide what an open request does from the catalogue sources. An app tile
 // launches its launch point, a device opens its HDMI input, a channel tunes,
-// and title/video/Netflix tiles create app-specific launch parameters.
+// and YouTube videos and Netflix titles create app-specific launch parameters.
+// Those two are the only deep links; a title is never opened in another app.
 HomeOpenPlan planHomeOpen(const std::string &kind, const std::string &id,
                           const Json &apps, const Json &devices,
-                          const Json &channels, const std::string &type = "");
+                          const Json &channels);
 
 // Complete the external Wikidata lookup before launching Netflix. The native
 // HomeContent service returns the same P1874 link data as the public endpoint.

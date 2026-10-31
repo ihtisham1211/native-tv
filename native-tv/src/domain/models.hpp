@@ -42,9 +42,11 @@ struct Card {
     std::string id, kind, title, subtitle, image, backdrop;
     Json data;
     Command command;
+    bool hidden = false; // an app hidden from Home, listed (dimmed, last) only while Home's apps are edited
 };
 struct CardRow {
     std::string key, title;
+    std::string group; // the kind of the apps in an "app" row, while the apps are sorted by kind
     bool posters = false;
     std::vector<Card> cards;
 };
@@ -55,8 +57,21 @@ struct Tab {
 std::vector<Tab> homeTabs(const Json &catalogue);
 std::vector<CardRow> homeRows(const std::string &tab, const Json &catalogue, const Json &discover,
                               const Json &guide);
+// The ids hidden from a list of the layout: "app" (Home's apps), "dev", "ch", or "appsTab" (the Apps
+// tab's own apps; a catalogue from before it had a list hides there what Home hides).
+Json hiddenIds(const Json &catalogue, const std::string &list);
+// The apps as one row, in the kinds' order when they are sorted by kind: Home's "Your apps" (`list`
+// "app", the apps hidden on Home) or the Apps tab's (`list` "appsTab", its own hidden apps). With
+// `withHidden` the apps hidden from that list follow, flagged, so that editing can show them again.
+CardRow appsRow(const Json &catalogue, const Json &guide, bool withHidden,
+                const std::string &list = "app");
+// The kind an app card is grouped under (LG Home is "tv").
+std::string kindOf(const Card &card);
+// The order to save for the apps after the visible cards were moved: `shown` is the ids on screen
+// in their new order; ids the row does not show (hidden ones) keep their places in `order`.
+std::vector<std::string> orderAfterMove(const Json &order, const std::vector<std::string> &shown);
 std::string artwork(const Json &item, bool hero = false);
-std::string titleFacts(const Json &item);
+std::string titleFacts(const Json &item, bool withKind = true);
 std::string pictureLabel(const Json &picture);
 std::vector<Tab> dashboardTabs();
 std::vector<MenuRow> dashboardRows(const std::string &tab, const Json &data, const Json &caps,

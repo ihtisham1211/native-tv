@@ -112,18 +112,13 @@ void detailsChecks() {
 
     world.reply("title:details", detailsJson);
     world.settle(600);
-    check(world.snapshot()["contentState"].string() == "ready" && world.snapshot()["focus"].string() == "Open" &&
+    check(world.snapshot()["contentState"].string() == "ready" && world.snapshot()["focus"].string() == "Trailer" &&
               world.app.shows("A journey across the water.") && world.app.shows("Cast: Ada, Ben") &&
               world.app.shows("More like this"),
-          "A reply fills the page, with Open focused and the similar titles below");
-    world.press(Key::Right);
-    check(world.snapshot()["focus"].string() == "Trailer", "Trailer follows Open");
+          "A reply fills the page, with Trailer focused (the only deep links are Netflix and YouTube) and the similar titles below");
     world.reply("title:netflix", R"({"ok":true,"netflixId":"80057281"})");
-    check(world.snapshot()["focus"].string() == "Trailer",
-          "A late Netflix link keeps the focus on the action that had it");
-    world.press(Key::Left);
     check(world.snapshot()["focus"].string() == "Open on Netflix",
-          "The Netflix action is inserted before Trailer");
+          "A late Netflix link is the first action, and has the focus while nothing has moved it");
     world.press(Key::Ok);
     check(world.on("w:details.open").size() == 1 && world.on("w:details.open").back().body["kind"].string() == "netflix" &&
               !world.on("w:details.open").back().body.has("netflixId") &&
@@ -133,16 +128,10 @@ void detailsChecks() {
     check(world.on("w:details.open").size() == 1, "A second OK while it is opening is ignored");
     world.answer(world.on("w:details.open").back(), false, "Refused");
     check(world.toasted("That did not open: Refused"), "A refused open says so, with the daemon's reason");
-    world.press(Key::Left);
-    world.press(Key::Ok);
-    check(world.on("w:details.open").size() == 2 && world.on("w:details.open").back().body["kind"].string() == "title",
-          "Open posts the title to the open route once the first reply is in");
-    world.answer(world.on("w:details.open").back());
-    world.press(Key::Right);
     world.press(Key::Right);
     check(world.snapshot()["focus"].string() == "Trailer", "Trailer is reachable");
     world.press(Key::Ok);
-    check(world.on("w:details.open").size() == 3 && world.on("w:details.open").back().body["kind"].string() == "youtube" &&
+    check(world.on("w:details.open").size() == 2 && world.on("w:details.open").back().body["kind"].string() == "youtube" &&
               world.on("w:details.open").back().body["id"].string() == "dQw4w9WgXcQ",
           "Trailer opens the video");
 

@@ -5,19 +5,48 @@
 #include <cmath>
 #include <cstdlib>
 #include <map>
+#include <sstream>
 
 namespace nativetv {
 namespace {
 namespace ms = kit::motion::ms;
 namespace layout = kit::layout;
 constexpr float kLabelHeight = 40, kLabelGap = 12;
+constexpr float kLabelTextTop = 6; // the 32 px line and its descenders stay inside the 40 px slot
 constexpr size_t kEntranceRows = 12; // rows past the first screenful have no entrance
 constexpr int kPanelOutMs = 80, kPanelInMs = 200;
 constexpr int kFadeMs = 180;        // a list replaced by another in the same place
 constexpr float kPendingFade = .3f; // how much of its strength a row loses while its change is out
+constexpr int kStripBodyLines = 2;  // description lines the strip's box has room for
+constexpr int kStripBodyMax = 3;    // a longer description ends in an ellipsis
 
 float labelHeight(const SettingItem &item) {
     return item.kind == SettingItem::Kind::Heading ? kLabelHeight : layout::srowH;
+}
+
+// The lines `text` takes in `width`, up to `limit`. It wraps greedily at spaces and breaks a
+// paragraph at "\n", measuring candidate lines with the glyphs that draw them, so it agrees with
+// the layout without a string being known to wrap.
+int wrappedLineCount(const kit::Glyphs &glyphs, const std::string &text,
+                     const kit::TypeStyle &style, float width, int limit) {
+    int lines = 0;
+    for (size_t begin = 0; lines < limit && begin <= text.size();) {
+        size_t end = std::min(text.find('\n', begin), text.size());
+        std::istringstream words(text.substr(begin, end - begin));
+        std::string line;
+        ++lines;
+        for (std::string word; words >> word;) {
+            std::string joined = line.empty() ? word : line + ' ' + word;
+            if (!line.empty() && glyphs.measure(joined, style) > width + .01f) {
+                if (++lines >= limit)
+                    return limit;
+                joined = word;
+            }
+            line = joined;
+        }
+        begin = end + 1;
+    }
+    return lines;
 }
 } // namespace
 
@@ -278,13 +307,13 @@ void SettingsList::build(ScreenHost &host, kit::Paint paint) {
         kit::Enter enter = {static_cast<float>(1 - hidden), static_cast<float>(28 * hidden)};
         if (item.kind == SettingItem::Kind::Heading) {
             // A label scrolling under the top edge fades out rather than being cut through.
-            float edge = kit::focus::clamp01((rest.y + 14 - viewport.y) / 24);
+            float edge = kit::focus::clamp01((rest.y + kLabelTextTop - viewport.y) / 24);
             scene.pushOpacity(enter.alpha * edge);
             scene.pushTransform(Transform::translate(0, enter.dy));
-            paint.glyphs.text(
-                scene,
-                {rest.x + layout::srowPadLeft, rest.y + 14, rest.w - 40, kit::type::labelM.line},
-                item.title, kit::type::labelM, kit::color::onSurface3);
+            paint.glyphs.text(scene,
+                              {rest.x + layout::srowPadLeft, rest.y + kLabelTextTop, rest.w - 40,
+                               kit::type::labelM.line},
+                              item.title, kit::type::labelM, kit::color::onSurface3);
             scene.popTransform();
             scene.popOpacity();
             continue;
@@ -345,11 +374,19 @@ void SettingsList::buildStrip(ScreenHost &host, kit::Paint paint, Rect box) {
     const SettingItem &item = items_[shown_];
     Scene &scene = paint.scene;
     double dip = host.motion().value(prefix_ + ":pd");
+    const float left = box.x + 28, inner = box.w - 56;
+    // The box has room for two lines of words; each more grows it upward, so its bottom edge and
+    // the rows' room above stay where the owner put them.
+    const int bodyLines =
+        wrappedLineCount(paint.glyphs, item.body, kit::type::body, inner, kStripBodyMax);
+    const float extra = static_cast<float>(std::max(0, bodyLines - kStripBodyLines)) *
+                        kit::type::body.line;
+    box.y -= extra;
+    box.h += extra;
     scene.pushOpacity(static_cast<float>(1 - dip));
     scene.pushTransform(Transform::translate(0, static_cast<float>(10 * dip)));
     Node &card = scene.shape(box, kit::color::surface1, kit::radius::xl);
     card.ring = {1, 0, kit::alpha::outline};
-    const float left = box.x + 28, inner = box.w - 56;
     float titleWidth = std::min(paint.glyphs.measure(item.title, kit::type::title), inner * .45f);
     paint.glyphs.text(scene, {left, box.y + 20, titleWidth + 4, kit::type::title.line}, item.title,
                       kit::type::title, kit::color::onSurface);
@@ -376,8 +413,9 @@ void SettingsList::buildStrip(ScreenHost &host, kit::Paint paint, Rect box) {
             break;
         x += kit::pillChip(paint, x, box.y + 18, chip) + 10;
     }
-    paint.glyphs.text(scene, {left, box.y + 66, inner, kit::type::body.line * 3}, item.body,
-                      kit::type::body, kit::color::onSurface2, Node::Align::Left, 3);
+    paint.glyphs.text(scene, {left, box.y + 66, inner, kit::type::body.line * kStripBodyMax},
+                      item.body, kit::type::body, kit::color::onSurface2, Node::Align::Left,
+                      kStripBodyMax);
     scene.popTransform();
     scene.popOpacity();
 }

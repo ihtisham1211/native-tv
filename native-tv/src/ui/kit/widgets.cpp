@@ -1,4 +1,5 @@
 #include "ui/kit/widgets.hpp"
+#include "ui/kit/overlay.hpp"
 #include <algorithm>
 #include <cmath>
 
@@ -12,6 +13,9 @@ constexpr TypeStyle avatarStyle = {24, 32, 600, 0};
 constexpr Color onFocusFaint = {19 / 255.0f, 17 / 255.0f, 24 / 255.0f, .12f};
 constexpr Color onFocusRing = {19 / 255.0f, 17 / 255.0f, 24 / 255.0f, .55f};
 constexpr Color onFocusKnob = {19 / 255.0f, 17 / 255.0f, 24 / 255.0f, .6f};
+// Anti-aliasing is half a pixel either side of an edge, so a fill pulled in by more than a pixel
+// lies wholly under the opaque part of a picture drawn over it.
+constexpr float rimTuck = 1.5f;
 
 bool invisible(const Enter &enter) {
     return enter.alpha <= .002f;
@@ -115,6 +119,43 @@ void text(Paint paint, Rect box, const std::string &value, const TypeStyle &styl
           Node::Align align = Node::Align::Left, int maxLines = 1) {
     paint.glyphs.text(paint.scene, box, value, style, ink, align, maxLines);
 }
+// A title's facts line, "Film  ·  2026  ·  ★ 6.4": the face has no star, so the "★ " is drawn
+// as the Material icon at the type size between two runs of text.
+// A line that is too wide for its box loses whole items from its end ("Series · 2023 · ★ 7.4"),
+// never half of one.
+void factsText(Paint paint, Rect box, const std::string &full, const TypeStyle &style,
+               Color ink) {
+    const std::string star = "\xe2\x98\x85 ", separator = "  \xc2\xb7  ";
+    auto width = [&](const std::string &line) {
+        size_t mark = line.find(star);
+        if (mark == std::string::npos)
+            return paint.glyphs.measure(line, style);
+        return paint.glyphs.measure(line.substr(0, mark), style) + style.px * 1.18f +
+               paint.glyphs.measure(line.substr(mark + star.size()), style);
+    };
+    std::string facts = full;
+    while (width(facts) > box.w) {
+        size_t cut = facts.rfind(separator);
+        if (cut == std::string::npos)
+            break;
+        facts.erase(cut);
+    }
+    size_t at = facts.find(star);
+    if (at == std::string::npos) {
+        text(paint, box, facts, style, ink);
+        return;
+    }
+    std::string before = facts.substr(0, at), after = facts.substr(at + star.size());
+    float x = box.x;
+    if (!before.empty()) {
+        text(paint, box, before, style, ink);
+        x += paint.glyphs.measure(before, style);
+    }
+    float side = style.px;
+    paint.glyphs.icon(paint.scene, {x, box.y + (box.h - side) / 2, side, side}, "star", ink);
+    x += side + style.px * .18f;
+    text(paint, {x, box.y, box.x + box.w - x, box.h}, after, style, ink);
+}
 // An icon square centred on a point.
 Rect centred(float cx, float cy, float side) {
     return {cx - side / 2, cy - side / 2, side, side};
@@ -123,6 +164,10 @@ Rect centreOf(Rect area, float side) {
     return centred(area.x + area.w / 2, area.y + area.h / 2, side);
 }
 } // namespace
+
+void factsLine(Paint paint, Rect box, const std::string &facts, const TypeStyle &style, Color ink) {
+    factsText(paint, box, facts, style, ink);
+}
 
 // ---- Text and icons over the legacy nodes -----------------------------------------------------
 
@@ -222,7 +267,7 @@ void topBar(Paint paint, const TopBar &bar) {
     settings.rest = geometry::settingsButton();
     settings.id = "nav:settings";
     settings.icon = "settings";
-    settings.fill = bar.settingsSelected ? alpha::accentDim : alpha::gearFill;
+    settings.fill = bar.settingsSelected ? alpha::accentDim : color::surface3;
     settings.ink = bar.settingsSelected ? color::accent : color::onSurface;
     settings.focus = bar.settingsFocus;
     roundButton(paint, settings);
@@ -250,8 +295,13 @@ void heroWall(Paint paint, const Hero &hero) {
                 scene.pushTransform(Transform::scaleAbout(.7f * canvas::width, .5f * canvas::height,
                                                           grow, grow, -18 * slot.kenBurns,
                                                           -6 * slot.kenBurns));
-                if (!slot.image.empty())
+                if (!slot.image.empty()) {
+                    if (slot.artAlpha < 1)
+                        scene.pushOpacity(slot.artAlpha);
                     scene.picture(screen, 0).value = slot.image;
+                    if (slot.artAlpha < 1)
+                        scene.popOpacity();
+                }
                 scene.popTransform();
                 // The prototype's radial tint, as a linear fade from the bottom-left corner.
                 Node &tint = scene.shape(screen, clear);
@@ -272,7 +322,8 @@ void heroWall(Paint paint, const Hero &hero) {
         Node &left = scene.shape(screen, clear);
         left.gradient = gradient(90, {{faded(shade, .60f), 0}, {faded(shade, 0), .58f}});
         Node &top = scene.shape(screen, clear);
-        top.gradient = gradient(180, {{faded(shade, .55f), 0}, {faded(shade, 0), .22f}});
+        // Strong enough that the search and settings buttons keep 3:1 over bright art.
+        top.gradient = gradient(180, {{faded(shade, .72f), 0}, {faded(shade, 0), .26f}});
         scene.popOpacity();
     }
     // Rises with the rows so cards stay legible once the hero has scrolled away.
@@ -300,37 +351,54 @@ void heroText(Paint paint, const Hero &hero) {
         return;
     Group page(scene, {parallax.textAlpha, parallax.textY});
 
-    Rect source = geometry::heroSource();
+    // An app's icon stands left of its lines, so they all move right by its width.
+    const float dx = hero.image.empty() ? 0 : layout::heroArt + layout::heroArtGap;
+    auto beside = [dx](Rect box) {
+        box.x += dx;
+        box.w -= dx;
+        return box;
+    };
+    Rect source = beside(geometry::heroSource());
+    if (!hero.image.empty() && !invisible(hero.text[1])) {
+        Group group(scene, hero.text[1]);
+        float top = geometry::heroSource().y,
+              bottom = geometry::heroSubtitle().y + layout::heroSubH;
+        Rect art = {canvas::safeX, top + (bottom - top - layout::heroArt) / 2, layout::heroArt,
+                    layout::heroArt};
+        Node &picture = scene.picture(art, 0, layout::heroArt / 2);
+        picture.value = hero.image;
+        picture.shadow = {0, elevation::raised.dy, elevation::raised.blur, 0,
+                          {0, 0, 0, elevation::raised.alpha}};
+    }
     if (!invisible(hero.text[0]) && !hero.source.empty()) {
         Group group(scene, hero.text[0]);
-        Rect mark = {source.x, source.y + (source.h - layout::heroMark) / 2, layout::heroMark,
-                     layout::heroMark};
-        scene.shape(mark, alpha::accentDim, layout::heroMark / 2);
-        paint.glyphs.icon(scene, centreOf(mark, 18), "play", color::accent);
-        float x = source.x + layout::heroMark + layout::heroMarkGap;
+        float x = source.x;
+        // The play mark leads a title's source line only.
+        if (hero.image.empty()) {
+            Rect mark = {source.x, source.y + (source.h - layout::heroMark) / 2, layout::heroMark,
+                         layout::heroMark};
+            scene.shape(mark, alpha::accentDim, layout::heroMark / 2);
+            paint.glyphs.icon(scene, centreOf(mark, 18), "play", color::accent);
+            x += layout::heroMark + layout::heroMarkGap;
+        }
         text(paint, {x, source.y, source.w - (x - source.x), source.h}, hero.source,
              type::heroSource, color::onSurface2);
     }
     if (!invisible(hero.text[1])) {
         Group group(scene, hero.text[1]);
-        text(paint, geometry::heroTitle(), hero.title, type::display, color::onSurface);
+        text(paint, beside(geometry::heroTitle()), hero.title, type::display, color::onSurface);
     }
     if (!invisible(hero.text[2])) {
         Group group(scene, hero.text[2]);
-        Rect line = geometry::heroSubtitle();
-        float x = line.x;
-        if (!hero.tag.empty()) {
-            float width = paint.glyphs.measure(hero.tag, type::bodyL) + 2;
-            // The box is wider than the measure so an estimate cannot cut the word short.
-            text(paint, {x, line.y, width + 16, line.h}, hero.tag, type::bodyL, color::onSurface2);
-            x += width + layout::heroSepMargin;
-            scene.shape(
-                {x, line.y + (line.h - layout::heroSepH) / 2, layout::heroSepW, layout::heroSepH},
-                alpha::outlineStrong);
-            x += layout::heroSepW + layout::heroSepMargin;
-        }
-        text(paint, {x, line.y, line.w - (x - line.x), line.h}, hero.description, type::bodyL,
-             color::onSurface2);
+        if (!hero.facts.empty())
+            factsText(paint, beside(geometry::heroSubtitle()), hero.facts, type::labelL,
+                      color::onSurface2);
+        Rect body = beside(geometry::heroDescription());
+        if (!hero.description.empty())
+            text(paint, body, hero.description, type::bodyL, color::onSurface2, Node::Align::Left,
+                 2);
+        else if (!hero.hint.empty())
+            keyHint(paint, body.x, body.y + 8, "OK", hero.hint);
     }
 }
 void pagination(Paint paint, const Pagination &dots) {
@@ -367,7 +435,7 @@ void row(Paint paint, const Row &row) {
     if (invisible(row.enter))
         return;
     Group group(paint.scene, row.enter);
-    text(paint, geometry::rowLabel(row.index), row.label, type::labelM,
+    text(paint, geometry::rowLabel(row.index), row.label, type::title,
          faded(color::onSurface2, focus::dimmedRowAlpha(row.dim)));
 }
 void card(Paint paint, const PosterCard &poster) {
@@ -381,16 +449,22 @@ void card(Paint paint, const PosterCard &poster) {
     if (!poster.image.empty())
         scene.picture(poster.rest, 0, radius::md).value = poster.image;
     if (!poster.title.empty()) {
-        // The title sits on a veil over the lower half of the art.
-        Rect lower = {poster.rest.x, poster.rest.y + poster.rest.h / 2, poster.rest.w,
-                      poster.rest.h / 2};
+        // The title sits on a veil over the lower part of the art; on focus it rises to make
+        // room for the facts line under it.
+        float amount = focus::clamp01(poster.focus);
+        Rect lower = {poster.rest.x, poster.rest.y + poster.rest.h * .4f, poster.rest.w,
+                      poster.rest.h * .6f};
         Node &veil = scene.shape(lower, clear);
         veil.corners = {0, 0, radius::md, radius::md};
-        veil.gradient = gradient(180, {{{0, 0, 0, 0}, 0}, {{0, 0, 0, .55f}, 1}});
-        text(paint,
-             {poster.rest.x + 13, poster.rest.y + poster.rest.h - 44, poster.rest.w - 26,
-              type::cardTitle.line},
+        veil.gradient = gradient(180, {{{0, 0, 0, 0}, 0}, {{0, 0, 0, .78f}, 1}});
+        float bottom = poster.rest.y + poster.rest.h - 10, left = poster.rest.x + 16,
+              width = poster.rest.w - 32;
+        float factsHeight = poster.subtitle.empty() ? 0 : type::labelM.line * amount;
+        text(paint, {left, bottom - factsHeight - type::cardTitle.line, width, type::cardTitle.line},
              poster.title, type::cardTitle, white);
+        if (factsHeight > 0)
+            factsText(paint, {left, bottom - type::labelM.line, width, type::labelM.line},
+                      poster.subtitle, type::labelM, faded(color::onSurface2, amount));
     }
     hit(scene, look.rect, poster.id);
 }
@@ -402,23 +476,39 @@ void appCircle(Paint paint, const AppCircle &circle) {
     Transform scale = focus::transformAt(circle.rest, look.scale);
     Group group(scene, circle.enter, look.scale != 1 ? &scale : nullptr);
     float rounding = circle.rest.h / 2;
-    Node &base = scene.shape(circle.rest, circle.color, rounding);
+    // The ring and the shadow belong to the circle, not to its fill, which is hidden once an
+    // opaque picture covers it (Node::backing).
+    if (look.ringAlpha > 0)
+        applyFocus(scene.shape(circle.rest, clear, rounding), look);
+    // The fill and the picture share one anti-aliased edge, so a fill in the app's colour shows
+    // through the picture's rim as a light outline (LG gives Netflix, YouTube and Alexa white).
+    // Under a picture the fill stops short of the edge, which then comes from the picture alone.
+    const float tuck = circle.image.empty() ? 0 : rimTuck;
+    Rect fill = {circle.rest.x + tuck, circle.rest.y + tuck, circle.rest.w - 2 * tuck,
+                 circle.rest.h - 2 * tuck};
+    Node &base = scene.shape(fill, circle.color, rounding - tuck);
     base.gradient = gradient(145, {{circle.color, 0},
                                    {withByteAlpha(circle.color, 0xcc), .55f},
                                    {{0, 0, 0, 0x55 / 255.0f}, 1.4f}});
-    applyFocus(base, look);
+    base.backing = !circle.image.empty();
     if (!circle.image.empty())
         scene.picture(circle.rest, 0, rounding).value = circle.image;
     else
         paint.glyphs.icon(scene, centreOf(circle.rest, 52), circle.icon, white);
-    // The name appears under the focused circle, rising into place.
-    if (circle.focus > .004f) {
-        float cx = circle.rest.x + circle.rest.w / 2;
-        text(paint,
-             {cx - 85, circle.rest.y + layout::appNameTop + focus::labelRise(circle.focus), 170,
-              type::labelM.line},
-             circle.name, type::labelM, faded(color::onSurface, focus::clamp01(circle.focus)),
-             Node::Align::Center);
+    // The name appears under the focused circle, rising into place; a named circle keeps it,
+    // and only brightens it on focus.
+    if (circle.named || circle.focus > .004f) {
+        float cx = circle.rest.x + circle.rest.w / 2,
+              width = circle.nameWidth > 0 ? circle.nameWidth : circle.rest.w + 104;
+        float amount = focus::clamp01(circle.focus);
+        float rise = circle.named ? 0 : focus::labelRise(amount);
+        Color ink = circle.named ? focus::inkAt(color::onSurface2, color::onSurface, amount)
+                                 : faded(color::onSurface, amount);
+        // The gap under the circle is the same at every size: appNameTop is measured for the
+        // 112 px circle, the Apps grid's are 156 px.
+        float nameTop = circle.rest.h + (layout::appNameTop - layout::appD);
+        text(paint, {cx - width / 2, circle.rest.y + nameTop + rise, width, type::labelM.line},
+             circle.name, type::labelM, ink, Node::Align::Center);
     }
     hit(scene, look.rect, circle.id);
 }

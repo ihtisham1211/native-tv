@@ -19,6 +19,7 @@ enum class ImageFit {
 struct DecodedImage {
     int width = 0, height = 0;
     std::vector<uint8_t> rgba; // empty when decoding failed
+    bool opaque = false;       // no pixel is see-through: whatever is drawn under it never shows
 };
 // JPEG or PNG (SDL_image) resampled to the size it will be drawn at, so the GPU never
 // minifies a large texture. Safe to call from any thread.
@@ -28,6 +29,8 @@ struct ImageView {
     TextureId texture = 0;     // 0: not ready, draw the placeholder
     int width = 0, height = 0; // texels of the texture, which Contain makes smaller than asked
     float fade = 0;            // 0 to 1 over kFadeMs from the frame the picture arrived
+    bool failed = false;       // the server has none (or the decode failed): nothing more to wait for
+    bool opaque = false;       // see DecodedImage; only meaningful once the texture is
 };
 // Pictures keyed by (id, size) under a texture byte budget. Decoding runs on worker threads;
 // the render thread only copies finished rows into textures, as many bytes per frame as
@@ -51,6 +54,7 @@ class ImageLoader {
         State state = State::Fetching;
         TextureId texture = 0;
         int textureWidth = 0, textureHeight = 0, rowsUploaded = 0;
+        bool opaque = false;
         size_t bytes = 0;
         unsigned usedTick = 0;
         double arrivedMs = 0, retryAtMs = 0;

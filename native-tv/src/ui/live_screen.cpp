@@ -14,11 +14,11 @@
 namespace nativetv {
 namespace {
 namespace ms = kit::motion::ms;
-constexpr double kPollMs = 4000;  // between readings; /api/stats is cached for 1.5 s by the daemon
+constexpr double kPollMs = 500;   // between readings; /api/stats is cached for 0.4 s by the daemon
 constexpr double kRetryMs = 1000; // while the daemon is still warming up, or its queue was full
-constexpr double kNumberMs = 600; // a numeral counting to its new reading
-constexpr double kSlideMs = 700;  // the processor's line making room for a new sample
-constexpr size_t kHistory = 30;   // samples under the processor card
+constexpr double kNumberMs = 450; // a numeral counting to its new reading
+constexpr double kSlideMs = 480;  // the processor's line making room for a new sample
+constexpr size_t kHistory = 60;   // samples under the processor card (half a minute)
 constexpr size_t kColumns = static_cast<size_t>(kit::layout::statCols);
 
 class LiveScreen final : public ScreenView {
@@ -52,6 +52,16 @@ class LiveScreen final : public ScreenView {
     void leave(ScreenHost &host) override {
         host.services().cancel("live:stats");
         host.motion().erasePrefix("live:");
+    }
+    // Back goes to the Metrics page of Settings when Live was opened from it, and to Home from
+    // anywhere else. A drawer or editor that closes back onto Live is its origin by then, and
+    // going back to it would open it again: Live and the drawer would send Back to each other.
+    bool back(ScreenHost &host) override {
+        const std::string from = host.cameFrom();
+        if (from.compare(0, 10, "dashboard:") != 0 && from != "dashboard" && from != "settings")
+            return false;
+        host.open(from);
+        return true;
     }
     void focus(ScreenHost &host) override {
         syncFocus(host);
@@ -280,8 +290,13 @@ class LiveScreen final : public ScreenView {
         scene.pushTransform(kit::focus::transformAt(card.rest, look.scale));
         float x = card.rest.x + kit::layout::statPadX,
               y = card.rest.y + card.rest.h - kit::layout::statBottom - 40;
-        for (const std::string &label : labels)
+        const float limit = card.rest.x + card.rest.w - kit::layout::statPadX;
+        for (const std::string &label : labels) {
+            // A chip never leaves its card: the ones that do not fit are left off.
+            if (x + paint.glyphs.measure(label, kit::type::labelM) + 36 > limit)
+                break;
             x += kit::pillChip(paint, x, y, label, false) + 10;
+        }
         scene.popTransform();
         scene.popTransform();
         scene.popOpacity();

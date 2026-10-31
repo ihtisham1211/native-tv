@@ -90,18 +90,10 @@ int main() {
     plan = planHomeOpen("ch", "channel-9", apps, devices, channels);
     assert(plan.handled && !plan.ok);
 
-    // Feed titles open at the right AnimeMania destination.
-    plan = planHomeOpen("title", "42", apps, devices, channels, "movie");
-    assert(plan.handled && plan.ok && plan.action == "launch");
-    assert(plan.appId == "com.animemania.app");
-    assert(plan.launchParams["path"].string() == "/movies/42");
-    plan = planHomeOpen("title", "42", apps, devices, channels, "tv");
-    assert(plan.ok && plan.launchParams["path"].string() == "/browse/series");
-    plan = planHomeOpen("title", "42", apps, devices, channels, "person");
-    assert(plan.ok && plan.launchParams["path"].string() == "/browse");
-    plan = planHomeOpen("title", "0", apps, devices, channels, "movie");
-    assert(plan.handled && !plan.ok);
-    assert(plan.error == "that is not on Native Tv Home");
+    // A feed title is not opened in any other app: only YouTube and Netflix have deep links.
+    plan = planHomeOpen("title", "42", apps, devices, channels);
+    assert(plan.handled && !plan.ok && plan.action.empty());
+    assert(plan.error == "kind must be app, dev, ch or lg");
 
     // YouTube IDs are constrained before constructing the player URL.
     plan = planHomeOpen("youtube", "abcdefghijk", apps, devices, channels);
@@ -112,7 +104,7 @@ int main() {
     assert(plan.handled && !plan.ok);
 
     // Netflix resolves the native Wikidata/P1874 result before it launches.
-    plan = planHomeOpen("netflix", "42", apps, devices, channels, "movie");
+    plan = planHomeOpen("netflix", "42", apps, devices, channels);
     assert(plan.handled && plan.ok && plan.action == "netflix");
     Json netflixLookup = Json::object();
     netflixLookup.set("ok", Json::flag(true));
@@ -124,7 +116,7 @@ int main() {
     assert(plan.launchParams["contentTarget"].string() ==
            "m=https://www.netflix.com/title/80123456&source_type=4");
     netflixLookup.set("netflixId", Json::text("not-an-id"));
-    plan = planHomeOpen("netflix", "42", apps, devices, channels, "movie");
+    plan = planHomeOpen("netflix", "42", apps, devices, channels);
     resolveHomeNetflixOpen(plan, netflixLookup);
     assert(!plan.ok && plan.error ==
            "No Netflix link is available for this title");

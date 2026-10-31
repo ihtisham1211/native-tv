@@ -31,6 +31,9 @@ pushed:
   published, and the metrics table).
 - A TV app screen or a setup wizard step: docs/apps/tv-app.md and the wizard
   summary in docs/getting-started/install.md.
+- The look of a TV screen (type, colour, shape, spacing, focus, motion, icons):
+  docs/development/material-3-expressive.md. Its tables hold the token values,
+  so a change to `native-tv/design/` updates them.
 
 Write what the code does, not what a feature was meant to do: check a flag, a
 default, a label or a version against the source before it goes in a page. A
@@ -129,6 +132,20 @@ on the TV), docs/development/tv-specs/index.md (hardware of the tested TVs),
 docs/development/tv-research.md (how LG's software was found to work, to
 read before investigating it again and to add findings to), docs/administration/acr.md,
 docs/administration/security.md and docs/development/strings.md.
+
+# TV design language
+
+The TV client follows Google's TV Design Kit (Material 3), and Material 3
+Expressive is the reference for new TV screens and restyles. Read
+docs/development/material-3-expressive.md before adding or restyling one: it
+holds what Expressive specifies for type, colour, shape, spacing, focus,
+motion and icons, what the client uses today, and the differences.
+
+Take values from `native-tv/design/tokens.json` (`tools/gen_tokens.py`
+generates `tokens.hpp`), never literals in a screen's code. A value that
+departs from that page is a decision: record it there with its reason. A
+rendered change gets a check on a real TV, and the screens it touches are
+looked at in `tests/golden/` before the goldens are updated.
 
 # Writing conventions
 

@@ -69,8 +69,13 @@ class SettingsScreen final : public ScreenView {
     std::string name() const override {
         return zone_ == Zone::Sections ? "dashboard" : "dashboard:" + groups_[section_].key;
     }
+    // Settings is a page of its own: the Home bar (Home, Apps, Inputs, Quick settings) belongs to Home, and
+    // Back leaves for where Settings was opened from.
+    bool hasBar() const override {
+        return false;
+    }
     int barTab() const override {
-        return -1; // the gear owns the page
+        return -1;
     }
 
     void enter(ScreenHost &host) override {
@@ -261,7 +266,10 @@ class SettingsScreen final : public ScreenView {
         value.set("sub", Json::text(sub_));
         const SettingItem *item = zone_ == Zone::Sections ? sections_.current() : rows_.current();
         value.set("focus", Json::text(item ? item->title : ""));
+        value.set("focusIndex", Json::numeric(static_cast<double>(zone_ == Zone::Sections ? sections_.focus() : rows_.focus())));
         value.set("focusId", Json::text(item ? item->id : ""));
+        static const char *const kinds[] = {"heading", "info", "toggle", "choice", "action", "link"};
+        value.set("focusKind", Json::text(item ? kinds[static_cast<int>(item->kind)] : ""));
         value.set("focusOn", Json::flag(item && item->on));
         value.set("focusValue", Json::text(item ? item->value : ""));
         value.set("focusPending", Json::flag(item && item->pending));
@@ -333,6 +341,15 @@ class SettingsScreen final : public ScreenView {
         }
         if (key == Key::Ok) {
             activate(host);
+            return true;
+        }
+        // On a row that steps through values, Left and Right step through them (OK steps forward); the way
+        // back to the sections is Back.
+        const SettingItem *shown = rows_.current();
+        const bool steps = shown && shown->kind == SettingItem::Kind::Choice && !shown->choices.empty() &&
+                           !shown->command.empty();
+        if (steps && (key == Key::Left || key == Key::Right)) {
+            activate(host, key == Key::Right ? 1 : -1);
             return true;
         }
         if (key == Key::Left) {
@@ -644,14 +661,14 @@ class SettingsScreen final : public ScreenView {
         if (page_ >= pages_.size())
             return nullptr;
         for (const SettingItem &item : pages_[page_].items)
-            if (item.id == id)
+            if (item.id == id && item.focusable())
                 return &item;
         return nullptr;
     }
 
     // ---- doing --------------------------------------------------------------------------------
 
-    void activate(ScreenHost &host) {
+    void activate(ScreenHost &host, int direction = 1) {
         const SettingItem *shown = rows_.current();
         if (!shown || !shown->focusable() || shown->command.empty())
             return;
@@ -677,15 +694,23 @@ class SettingsScreen final : public ScreenView {
         } else if (base->kind == SettingItem::Kind::Choice && !base->choices.empty()) {
             // The next value after the one shown, as OK steps through them.
             std::string current = layer.text(key, base->value);
-            size_t at = 0;
-            for (size_t i = 0; i < base->choices.size(); ++i)
-                if (base->choices[i].first == current)
-                    at = i + 1;
-            const auto &next = base->choices[at % base->choices.size()];
+            const size_t count = base->choices.size();
+            size_t at = 0; // where the value shown is
+            bool found = false;
+            for (size_t i = 0; i < count; ++i)
+                if (base->choices[i].first == current) {
+                    at = i;
+                    found = true;
+                }
+            const size_t chosen = direction < 0 ? (found ? (at + count - 1) % count : count - 1)
+                                                : (found ? (at + 1) % count : 0);
+            const auto &next = base->choices[chosen];
             command = next.second;
             target = Json::text(next.first);
             server = Json::text(base->value);
         }
+        if (command.operation == Operation::None && command.route.empty())
+            return; // nothing this row can do
         // A change that is hard to undo asks twice, within a few seconds; the second OK is the
         // change.
         if (command.confirm && !(armed_ && armedId_ == base->id)) {

@@ -143,9 +143,10 @@ void testPacking() {
 }
 
 void testGlyphs(GlyphAtlas &glyphs, StubStore &store) {
-    check(glyphs.ok(), "All four Figtree weights open");
+    check(glyphs.ok(), "All three Google Sans Flex cuts open");
     FontMetrics metrics = glyphs.metrics(31, 400);
-    check(metrics.ascent == 29 && metrics.descent == 8, "31 px Figtree has a 29/8 ascent/descent");
+    check(metrics.ascent == 30 && metrics.descent == 9,
+          "31 px Google Sans Flex has a 30/9 ascent/descent");
     Glyph &capital = glyphs.glyph(31, 400, 'H');
     check(capital.advance > 15 && capital.advance < 30 && capital.index != 0,
           "A glyph has an unhinted advance");
@@ -155,7 +156,10 @@ void testGlyphs(GlyphAtlas &glyphs, StubStore &store) {
     check(glyphs.glyph(31, 300, 'H').advance != glyphs.glyph(31, 600, 'H').advance,
           "Weights are separate faces");
     check(glyphs.glyph(31, 700, 'H').advance == glyphs.glyph(31, 600, 'H').advance,
-          "Weight 700 uses SemiBold");
+          "Weights of 500 and more use the medium cut");
+    // The display cut is drawn tighter, so the same letter has another proportion there.
+    check(glyphs.glyph(48, 400, 'H').advance / 48 != glyphs.glyph(47, 400, 'H').advance / 47,
+          "Regular text of 48 px and more uses the display cut");
     size_t before = store.uploadedBytes;
     check(glyphs.place(capital) && capital.width > 10 && capital.height > 15 &&
               capital.bearingY > 15,
@@ -185,15 +189,15 @@ void testGlyphs(GlyphAtlas &glyphs, StubStore &store) {
 }
 
 void testMeasure(GlyphAtlas &glyphs) {
-    // Widths the prototype's browser measured for the tab labels (147.3, 134.8 and 118.8 less
-    // the 64 px of padding), 31 px, weight 400, letter spacing -0.01em.
-    TextStyle nav{31, 400, -0.01f};
-    check(near(measureText(glyphs, "Home", nav), 83.3f, 0.6f),
-          "\"Home\" measures like the browser");
-    check(near(measureText(glyphs, "Apps", nav), 70.8f, 0.6f),
-          "\"Apps\" measures like the browser");
-    check(near(measureText(glyphs, "Live", nav), 54.8f, 0.6f),
-          "\"Live\" measures like the browser");
+    // Widths HarfBuzz shapes for the tab labels in the nav style (32 px, weight 500): "Live"
+    // includes 0.9 px of GPOS pair kerning, so a font or kerning change shows up here.
+    TextStyle nav{32, 500, 0};
+    check(near(measureText(glyphs, "Home", nav), 89.3f, 0.6f),
+          "\"Home\" measures like HarfBuzz");
+    check(near(measureText(glyphs, "Apps", nav), 76.9f, 0.6f),
+          "\"Apps\" measures like HarfBuzz");
+    check(near(measureText(glyphs, "Live", nav), 59.1f, 0.6f),
+          "\"Live\" measures like HarfBuzz, kerning included");
     TextStyle plain{31, 400, 0};
     TextStyle spaced{31, 400, 0.1f};
     check(near(measureText(glyphs, "Home", spaced) - measureText(glyphs, "Home", plain), 4 * 3.1f,
@@ -249,6 +253,10 @@ void testEllipsisAndWrap(GlyphAtlas &glyphs) {
     check(clamped.size() == 2 && clamped[1].compare(clamped[1].size() - 3, 3, "…") == 0 &&
               measureText(glyphs, clamped[1], body) <= 150,
           "The last allowed line ends in an ellipsis within the width");
+    std::string lastWords = clamped[1].substr(0, clamped[1].size() - 3);
+    check(!lastWords.empty() && title.find(lastWords) != std::string::npos &&
+              title[title.find(lastWords) + lastWords.size()] == ' ',
+          "A clamped paragraph is cut after a whole word");
     clamp.ellipsis = false;
     clamped = wrapLines(glyphs, title, body, clamp);
     check(clamped.size() == 2 && clamped[1].find("…") == std::string::npos &&
@@ -367,13 +375,14 @@ void testRuns(GlyphAtlas &glyphs) {
 }
 
 void testAtlasFull(StubStore &store) {
-    // 96 x 96 holds about ten 30 px capitals; the layout that overflows it empties the atlas
-    // and must still come back consistent.
+    // 96 x 96 holds a handful of 30 px capitals, so the alphabet overflows it whatever the
+    // font's proportions: the atlas empties and must still come back consistent.
     GlyphAtlas small(&store, NATIVETV_ASSETS "/fonts", 96, 96);
     TextStyle style{30, 400, 0};
     TextOptions options;
-    layoutText(small, "WXYZVUTS", style, options);
+    const char *alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     unsigned generation = small.atlas().generation();
+    layoutText(small, alphabet, style, options);
     TextLayout layout = layoutText(small, "Home Quick", style, options);
     check(small.atlas().generation() > generation,
           "Overflowing the atlas empties it and bumps the generation");
@@ -389,7 +398,7 @@ void testAtlasFull(StubStore &store) {
     TextRuns runs(small);
     runs.beginFrame();
     RunHandle early = runs.layout("WXYZ", style, options);
-    layoutText(small, "Home Quick Brown Fox", style, options);
+    layoutText(small, alphabet, style, options);
     TextRun run;
     check(runs.run(early, run) && run.count == 4, "A run laid out before the clear still draws");
     bool stillPresent = true;

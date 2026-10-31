@@ -117,7 +117,7 @@ def check_client_assets():
             continue
         text = source.read_text(encoding='utf-8')
         found = re.findall(r'"local:([\w./-]+\.\w+)"', text)
-        found += ['fonts/' + n for n in re.findall(r'"(Figtree-[\w-]+\.ttf)"', text)]
+        found += ['fonts/' + n for n in re.findall(r'"(GoogleSansFlex-[\w-]+\.ttf)"', text)]
         found += re.findall(r'"/?(?:assets/)?(Roboto-\w+\.woff)"', text)
         for relative in found:
             named.setdefault(relative, source)

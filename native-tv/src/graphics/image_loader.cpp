@@ -144,6 +144,10 @@ DecodedImage decodeImage(const std::string &bytes, int width, int height, ImageF
             out[3] = static_cast<uint8_t>(std::min(255.0f, alpha + 0.5f));
         }
     }
+    // Resampling an opaque picture can leave 254 for a pixel; a see-through one has far less.
+    result.opaque = true;
+    for (size_t i = 3; i < result.rgba.size() && result.opaque; i += 4)
+        result.opaque = result.rgba[i] >= 250;
     return result;
 }
 
@@ -214,7 +218,9 @@ ImageView ImageLoader::get(const std::string &id, int width, int height, ImageFi
         view.width = slot->textureWidth;
         view.height = slot->textureHeight;
         view.fade = std::min(1.0f, static_cast<float>(nowMs - slot->arrivedMs) / kFadeMs);
+        view.opaque = slot->opaque;
     }
+    view.failed = slot->state == Slot::State::Failed;
     return view;
 }
 void ImageLoader::provide(const std::string &id, std::string bytes, double nowMs) {
@@ -287,6 +293,7 @@ size_t ImageLoader::pump(size_t uploadBudgetBytes, double nowMs) {
         slot.pixels = std::move(result.image);
         slot.textureWidth = slot.pixels.width;
         slot.textureHeight = slot.pixels.height;
+        slot.opaque = slot.pixels.opaque;
         slot.state = Slot::State::Uploading;
         uploads_.push_back(result.slot);
     }

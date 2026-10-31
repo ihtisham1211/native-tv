@@ -246,11 +246,20 @@ std::vector<std::vector<uint32_t>> breakLines(GlyphAtlas &atlas, const std::vect
         const Span &span = spans[i];
         size_t end = span.end;
         bool cut = truncated && i + 1 == spans.size();
-        if (cut && options.ellipsis && options.maxWidth > 0)
+        if (cut && options.ellipsis && options.maxWidth > 0) {
             while (end > span.begin &&
                    run.x[end] - run.x[span.begin] + ellipsisWidth > options.maxWidth)
                 --end;
-        else if (cut && options.maxWidth > 0)
+            // A clamped paragraph ends after a whole word ("Verity's…", not "autobiogra…"), as
+            // a browser's line clamp does; a one-line title keeps every character that fits.
+            if (options.maxLines > 1 && end < span.end && text[end] != ' ') {
+                size_t word = end;
+                while (word > span.begin && text[word - 1] != ' ')
+                    --word;
+                if (word > span.begin)
+                    end = word;
+            }
+        } else if (cut && options.maxWidth > 0)
             while (end > span.begin && run.x[end] - run.x[span.begin] > options.maxWidth)
                 --end;
         while (cut && end > span.begin && text[end - 1] <= ' ')

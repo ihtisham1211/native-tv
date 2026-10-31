@@ -429,8 +429,8 @@ void navigationChecks() {
     World world;
     world.press({Key::Right, Key::Right});
     world.settle(300);
-    world.press(Key::Up);
-    world.press({Key::Right, Key::Right, Key::Right});
+    world.press({Key::Up, Key::Up}); // past the apps row to the bar
+    world.press({Key::Right, Key::Right, Key::Right, Key::Right}); // Search is left of the gear
     world.press(Key::Ok);
     world.reply("quick:stats", statsWith(24));
     world.settle(600);
@@ -440,7 +440,7 @@ void navigationChecks() {
     world.press(Key::Back);
     world.settle(900);
     check(world.screen() == "home" && world.snapshot()["navigation"].boolean() &&
-              world.snapshot()["nav"].number() == 4 && world.snapshot()["column"].number() == 2,
+              world.snapshot()["nav"].number() == 4 && world.snapshot()["row"].number() == 0,
           "A second Back while it slides changes nothing: Home as it was, with the gear focused");
     world.press(Key::Down);
     check(!world.snapshot()["navigation"].boolean(), "Home answers its keys again");

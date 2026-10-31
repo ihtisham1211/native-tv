@@ -1626,3 +1626,27 @@ frame again and again with a `glFinish` after each draw
   apart at normal priority (p95 18.4 ms), 15 to 18 ms at `nice -10` (17.5 ms); the
   client raises its own priority and a root jailer permits it.
 
+
+## Launching a running native app (B3, webOS 10.3.2)
+
+sam keeps a connection per native app and sends it `relaunch`, `close` and `pause`
+events (`NativeAppLifeHandler`, `registerNativeApp`; the log lines are
+`failed_to_send_relaunch_event` and the like). LG's SDL 2.0.14 opens the
+connection itself when the hint `SDL_HINT_WEBOS_REGISTER_APP` is set (the string
+is the hint's literal name) and the app id comes from `APPID`.
+
+- **Without the registration** a launch of a native app that is running behind
+  another card changes nothing: sam logs `NL_APP_LAUNCH_BEGIN`, surface-manager
+  logs no window change, and the other card stays in front. Three launches 15 s
+  apart did the same. A cold start works, as sam spawns the process.
+- **With it** the same launch brings the app's window to the front 20 to 70 ms later.
+- **A launch from the card that covers the app** reaches sam a few ms before that
+  card's window is shown, while the app is still in front, and does nothing. The
+  Native Tv Home stub (`com.webos.app.home`) launches the client when it loads and
+  when its page becomes visible, both before its window is in front, and in 13 of 14
+  Home presses (client registered) the client did not return until the server
+  launched it 2.5 s later. A launch made after the window change (the server's, or
+  one 0.6 s after the press) worked every time.
+- **Timers in the stub page:** a stub that asked again every 400 ms while visible
+  (guarded and unguarded by `visibilityState`) showed no launch beyond the first
+  two in sam's log, so the fix is a launch from the server.

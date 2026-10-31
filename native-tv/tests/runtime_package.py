@@ -104,8 +104,8 @@ class RuntimeTests(unittest.TestCase):
                 self.assertFalse((folder / "main.qml").exists())
                 self.assertTrue((folder / "assets/icons/splash-mark.svg").is_file())
                 self.assertTrue((folder / "assets/icons/material/LICENSE-MaterialDesignIcons.txt").is_file())
-                self.assertTrue((folder / "assets/fonts/Figtree-Regular.ttf").is_file())
-                self.assertTrue((folder / "assets/fonts/LICENSE-Figtree-OFL.txt").is_file())
+                self.assertTrue((folder / "assets/fonts/GoogleSansFlex-Regular.ttf").is_file())
+                self.assertTrue((folder / "assets/fonts/LICENSE-GoogleSansFlex-OFL.txt").is_file())
                 self.assertTrue((folder / "assets/Roboto-Regular.woff").is_file())
                 self.assertTrue((folder / "LICENSE-json-c.txt").is_file())
                 self.assertTrue((folder / "runtime.json").is_file())
@@ -301,9 +301,9 @@ class RuntimeTests(unittest.TestCase):
                 self.assertEqual(listed["assets/" + relative]["sha256"],
                                  hashlib.sha256(staged.read_bytes()).hexdigest())
                 self.assertEqual(listed["assets/" + relative]["mode"], "0644")
-            for required in ("fonts/Figtree-Light.ttf", "fonts/Figtree-Regular.ttf",
-                             "fonts/Figtree-Medium.ttf", "fonts/Figtree-SemiBold.ttf",
-                             "fonts/LICENSE-Figtree-OFL.txt", "icons/material/LICENSE-MaterialDesignIcons.txt",
+            for required in ("fonts/GoogleSansFlex-Display.ttf", "fonts/GoogleSansFlex-Regular.ttf",
+                             "fonts/GoogleSansFlex-Medium.ttf", "fonts/LICENSE-GoogleSansFlex-OFL.txt",
+                             "icons/material/LICENSE-MaterialDesignIcons.txt",
                              "icons/splash-mark.svg", "icons/logo.svg", "carousel-scrim.svg",
                              "Roboto-Regular.woff"):
                 self.assertIn(required, assets)

@@ -11,7 +11,9 @@
 namespace nativetv {
 namespace daemon {
 namespace {
-const long long kStatsReuseMs = 1500;
+// The TV's Live screen asks twice a second. Only the /proc readings are made each time: LG's own services are
+// cached for 3 s or more below.
+const long long kStatsReuseMs = 400;
 const size_t kTempHistoryMax = 120;
 const long long kLiveReadTtlMs = 60000;
 const long long kLivePowerTtlMs = 30000;

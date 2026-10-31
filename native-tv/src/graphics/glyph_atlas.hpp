@@ -23,8 +23,8 @@ struct Glyph {
     float u0 = 0, v0 = 0, u1 = 0, v1 = 0;
     unsigned placedIn = ~0u; // atlas generation the bitmap and uv belong to
 };
-// Latin text from Figtree TTFs (Light, Regular, Medium, SemiBold) rasterised by FreeType into
-// one A8 atlas on first use. Advances are unhinted so layout is identical on every FreeType.
+// Latin text from three static cuts of Google Sans Flex (a display cut for the big titles, and
+// regular and medium text cuts) rasterised by FreeType into one A8 atlas on first use. Advances are unhinted so layout is identical on every FreeType.
 // Metrics live as long as the object; only the bitmaps are lost when the atlas fills up and
 // is emptied, which place() repairs on the next use.
 class GlyphAtlas {
@@ -39,7 +39,8 @@ class GlyphAtlas {
                int height = 1024);
     ~GlyphAtlas();
     bool ok() const;
-    // Weights 300, 400, 500 and 600 exist; any other weight uses the nearest.
+    // Weights 500 and up use the medium cut, lighter ones the regular cut; regular text of
+    // 48 px and more uses the display cut.
     FontMetrics metrics(int size, int weight);
     // Advance and glyph index only, no bitmap. The reference stays valid for the lifetime of
     // the atlas.

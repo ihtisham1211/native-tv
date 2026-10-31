@@ -110,6 +110,8 @@ void testDecode() {
     check(flat.width == 10 && std::abs(at(flat, 5, 5)[0] - 120) < 6 &&
               std::abs(at(flat, 5, 5)[2] - 140) < 6,
           "JPEG decodes too");
+    check(cover.opaque && flat.opaque && !fade.opaque && !edge.opaque,
+          "A picture is opaque when none of its pixels is see-through");
     check(decodeImage("not an image", 10, 10, ImageFit::Cover).rgba.empty() &&
               decodeImage("", 10, 10, ImageFit::Cover).rgba.empty() &&
               decodeImage(halves, 0, 10, ImageFit::Cover).rgba.empty(),
@@ -175,6 +177,7 @@ void testOffThreadAndFade() {
     view = loader.get("poster", 32, 20, ImageFit::Cover, now);
     check(view.texture != 0 && view.width == 32 && view.height == 20 && view.fade == 0,
           "The picture arrives at the exact size with the fade at zero");
+    check(view.opaque && !view.failed, "The view says the picture is opaque");
     check(loader.fading(now), "The loader reports the fade so the app keeps drawing");
     check(std::fabs(loader.get("poster", 32, 20, ImageFit::Cover, now + 110).fade - 0.5f) < 0.01f,
           "The fade reaches one half after 110 ms");
@@ -326,6 +329,8 @@ void testFailureAndRetry() {
         1 << 20, 1, solid(8, 8));
     check(loader.get("x", 8, 8, ImageFit::Cover, 0).texture == 0 && fetches == 1,
           "A fetch the app refuses leaves the placeholder");
+    check(loader.get("x", 8, 8, ImageFit::Cover, 1).failed,
+          "It is reported as failed, so a caller can stop waiting for it");
     loader.get("x", 8, 8, ImageFit::Cover, 29999);
     check(fetches == 1, "It is not retried at once");
     answer = true;

@@ -1,4 +1,5 @@
 #include "service/app_icons.hpp"
+#include "service/app_kinds.hpp"
 #include <cerrno>
 #include <cstdio>
 #include <cstdlib>
@@ -119,5 +120,21 @@ int main() {
     rmdir((systemRoot + "/media/developer").c_str());
     rmdir((systemRoot + "/media").c_str());
     rmdir(systemRoot.c_str());
+
+    // Kinds: by id, by the title's pack key, by LG's prefixes, else other.
+    require(service::appKind("netflix", "Netflix") == "video", "netflix is a video app by id");
+    require(service::appKind("com.disney.app", "Disney+") == "video",
+            "an unknown id is placed by its title's key");
+    require(service::appKind("com.webos.app.camera", "Camera") == "tv",
+            "LG's own apps fall under LG & TV");
+    require(service::appKind("org.webosbrew.hbchannel", "Homebrew Channel") == "tools",
+            "the Homebrew Channel is a tool");
+    require(service::appKind("com.example.unknown", "Whatever") == "other",
+            "an app nobody named is other");
+    require(service::appKinds().size() == 7 && service::appKinds().back().key == std::string("other"),
+            "seven kinds, other last");
+    require(service::appKindLabel("music") == "Music & audio" && service::appKindLabel("nope").empty(),
+            "labels come with the kinds");
+    require(service::validAppKind("games") && !service::validAppKind("Games"), "kind keys are exact");
     return 0;
 }

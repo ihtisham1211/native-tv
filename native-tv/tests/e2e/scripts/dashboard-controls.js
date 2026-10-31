@@ -45,6 +45,9 @@ window.alert = function (m) { window.__rt.dialogs.push('ALERT: ' + String(m).sli
     const inner = row && row !== el ? (row.innerText || '').split('\n')[0].trim().slice(0, 40) : '';
     return labelOf(el) + ' | ' + (inner || own);
   }
+  // What finds a control again after a reload: its id or data-lgs when it has one, since its label can carry its
+  // state (a number row's value, "Kept ready" / "Switched off"), and a control that changed would look new.
+  function keyOf(el) { return el.id || el.getAttribute('data-lgs') || nameOf(el); }
   function inGroup(el) { return !!el.closest('[role=group]'); }
   function controls(tab) {
     const pane = document.getElementById(TABS[tab]);
@@ -55,14 +58,14 @@ window.alert = function (m) { window.__rt.dialogs.push('ALERT: ' + String(m).sli
     return e.tagName === 'BUTTON' ? (e.getAttribute('aria-pressed') || (e.classList.contains('good') ? 'on' : 'off')) : e.value;
   }
   async function reload(tab) { showTab(tab === 'apps' ? 'game' : 'apps'); await wait(1200); showTab(tab); await wait(3500); }
-  function find(tab, name, n) { return controls(tab).filter(function (e) { return nameOf(e) === name; })[n || 0]; }
+  function find(tab, key, n) { return controls(tab).filter(function (e) { return keyOf(e) === key; })[n || 0]; }
 
   for (const tab of TABS_TO_TRY) {
     showTab(tab); await wait(2800);
     const seen = {};
-    const names = controls(tab).map(function (e) { const k = nameOf(e); seen[k] = (seen[k] || 0) + 1; return { name: k, n: seen[k] - 1, el: e }; });
+    const names = controls(tab).map(function (e) { const k = keyOf(e); seen[k] = (seen[k] || 0) + 1; return { name: nameOf(e), key: k, n: seen[k] - 1, el: e }; });
     for (const item of names) {
-      let el = find(tab, item.name, item.n); if (!el) continue;
+      let el = find(tab, item.key, item.n); if (!el) continue;
       const rec = { tab: tab, label: item.name, type: el.tagName === 'BUTTON' ? (inGroup(el) ? 'chip' : 'switch') : el.tagName === 'SELECT' ? 'select' : 'range', before: read(el) };
       window.__rt.current = tab + ' ' + item.name;
       if (ONLY && !ONLY.test(item.name)) continue;
@@ -82,18 +85,18 @@ window.alert = function (m) { window.__rt.dialogs.push('ALERT: ' + String(m).sli
         el.selectedIndex = next; fire(el);
       } else { const step = Number(el.step) || 1, v = Number(el.value); el.value = v + step <= Number(el.max) ? v + step : v - step; fire(el); }
       await wait(3500); await reload(tab);
-      el = find(tab, item.name, item.n); rec.after = el ? read(el) : 'gone';
+      el = find(tab, item.key, item.n); rec.after = el ? read(el) : 'gone';
       if (rec.type === 'chip') {
         const chip = el; const changedChip = chip && read(chip) === 'true';
         const group = chip && chip.closest('[role=group]');
         const back = group && [].slice.call(group.querySelectorAll('button')).filter(function (b) { return b.getAttribute('aria-label') === originalChip.getAttribute('aria-label'); })[0];
         if (back) { back.click(); await wait(3500); await reload(tab); }
-        const again = find(tab, item.name, item.n);
+        const again = find(tab, item.key, item.n);
         rec.restored = again && again.closest('[role=group]').querySelector('[aria-label="' + originalChip.getAttribute('aria-label') + '"]').getAttribute('aria-pressed');
         rec.ok = changedChip && rec.restored === 'true';
       } else {
         if (rec.after !== rec.before && el) { if (el.tagName === 'BUTTON') el.click(); else { el.value = rec.before; fire(el); } await wait(3500); await reload(tab); }
-        const again = find(tab, item.name, item.n); rec.restored = again ? read(again) : 'gone';
+        const again = find(tab, item.key, item.n); rec.restored = again ? read(again) : 'gone';
         rec.ok = rec.after !== rec.before && rec.restored === rec.before;
       }
       window.__rt.log.push(rec);

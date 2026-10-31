@@ -6,7 +6,7 @@
 
 namespace nativetv {
 namespace kit {
-// Text as laid-out glyph runs from the Figtree atlas and icons as atlas masks: what the TV draws.
+// Text as laid-out glyph runs from the Google Sans Flex atlas and icons as atlas masks: what the TV draws.
 // Measuring and drawing use the same layout, so tab and chip widths match the glyphs.
 class RunGlyphs final : public Glyphs {
   public:

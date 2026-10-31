@@ -138,7 +138,7 @@ struct Tv {
                            ",\"temp\":50,\"mem\":{\"total\":1000},\"cpu\":{\"currentLoad\":5}}");
     }
     Json collect(const Json &sys = system()) { return collector->collect(sys); }
-    // A later read, past the 1.5 s reuse and the longest short-lived Luna reads.
+    // A later read, past the 0.4 s reuse and the longest short-lived Luna reads.
     Json later(long long ms = 11000, const Json &sys = system()) {
         now += ms;
         return collect(sys);
@@ -481,7 +481,7 @@ void refusedVolumeIsAppliedToTheNextReadAlreadyInReuse() {
                     "\"adjustVolume\":true,\"externalDeviceControl\":false}}");
     check(tv.collect()["volume_control"].string() == "level", "level first");
     tv.collector->noteVolumeRefused();
-    tv.now += 100;  // inside the 1.5 s reuse
+    tv.now += 100;  // inside the 0.4 s reuse
     check(tv.collect()["volume_control"].string() == "none", "a refusal is not served the old answer");
 }
 
@@ -607,17 +607,17 @@ void installedAppsRescanRules() {
 
 // ---- reuse and invalidation -------------------------------------------------
 
-void collectionIsReusedFor1500ms() {
+void collectionIsReusedFor400ms() {
     Tv tv;
     seedLiveReads(tv);
     const Json first = tv.collect();
     const int calls = tv.count(kPower);
-    tv.now += 1499;
+    tv.now += 399;
     const Json again = tv.collect();
-    check(tv.count(kPower) == calls && canon(first) == canon(again), "within 1.5 s the last read is returned");
+    check(tv.count(kPower) == calls && canon(first) == canon(again), "within 0.4 s the last read is returned");
     tv.now += 1;
     tv.collect();
-    check(tv.count(kPower) == calls + 1, "after 1.5 s it is made again");
+    check(tv.count(kPower) == calls + 1, "after 0.4 s it is made again");
 }
 
 void clockSteppedBackDoesNotServeTheLastStats() {
@@ -908,7 +908,7 @@ int main() {
         {"apps: from launch points", installedAppsFromLaunchPoints},
         {"apps: listLaunchPoints fallback", installedAppsFallBackToLaunchPoints},
         {"apps: rescan rules", installedAppsRescanRules},
-        {"reuse: 1.5 s", collectionIsReusedFor1500ms},
+        {"reuse: 0.4 s", collectionIsReusedFor400ms},
         {"reuse: a clock stepped back", clockSteppedBackDoesNotServeTheLastStats},
         {"boot time: steady within 30 s", bootTimeHoldsWithinThirtySeconds},
         {"invalidate: expire", expireMakesTheNextReadFreshButKeepsCachedReads},

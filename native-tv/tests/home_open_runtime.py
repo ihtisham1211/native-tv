@@ -204,15 +204,15 @@ def main():
             stamped = open_recent(recent_path)
             assert "channel-1" in stamped["ch"]
 
-            # Feed titles launch AnimeMania at its movie path.
+            # A feed title has no deep link of its own: only YouTube and Netflix do.
+            before = len([call for call in calls(details)
+                          if call["uri"] == "com.webos.applicationManager/launch"])
             status, _, body = post(
                 port, token, {"kind": "title", "type": "movie", "id": 42})
-            assert status == 200 and json.loads(body.decode("utf-8")) == {"ok": True}
-            opened = [call for call in calls(details)
-                      if call["uri"] == "com.webos.applicationManager/launch"]
-            assert opened[-1]["payload"] == {
-                "id": "com.animemania.app", "params": {"path": "/movies/42"}}, \
-                repr(opened[-1]["payload"])
+            assert status == 400 and json.loads(body.decode("utf-8"))["error"] == \
+                "kind must be app, dev, ch or lg"
+            assert len([call for call in calls(details)
+                        if call["uri"] == "com.webos.applicationManager/launch"]) == before
 
             # YouTube feed videos use the webOS TV app and contentTarget.
             status, _, body = post(

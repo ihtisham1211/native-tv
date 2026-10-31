@@ -9,15 +9,16 @@
 
 namespace nativetv {
 namespace {
-const int kWeights[4] = {300, 400, 500, 600};
-const char *const kFiles[4] = {"Figtree-Light.ttf", "Figtree-Regular.ttf", "Figtree-Medium.ttf",
-                               "Figtree-SemiBold.ttf"};
-int faceForWeight(int weight) {
-    int best = 0;
-    for (int i = 1; i < 4; ++i)
-        if (std::abs(kWeights[i] - weight) < std::abs(kWeights[best] - weight))
-            best = i;
-    return best;
+// Three static cuts of Google Sans Flex (tools/gen_fonts.py): the display cut (optical size 36)
+// for the big titles, and the text cuts (optical size 18) at the two weights the type scale uses.
+constexpr int kFaceCount = 3;
+constexpr int kDisplaySize = 48; // from this pixel size up, regular text uses the display cut
+const char *const kFiles[kFaceCount] = {"GoogleSansFlex-Display.ttf", "GoogleSansFlex-Regular.ttf",
+                                        "GoogleSansFlex-Medium.ttf"};
+int faceFor(int size, int weight) {
+    if (weight >= 450)
+        return 2;
+    return size >= kDisplaySize ? 0 : 1;
 }
 int bitCount(unsigned value) {
     int count = 0;
@@ -25,7 +26,7 @@ int bitCount(unsigned value) {
         ++count;
     return count;
 }
-// FreeType only reads the legacy 'kern' table, which Figtree does not have, and the shaping
+// FreeType only reads the legacy 'kern' table, which these fonts do not have, and the shaping
 // engine behind SDL_ttf is not on every TV. This reads the one thing Latin text needs from
 // GPOS: the x advance of the first glyph of a PairPos pair (format 1 glyph pairs and format 2
 // class pairs, directly or through an Extension lookup). Every read is bounds checked, so a
@@ -161,7 +162,7 @@ struct GlyphAtlas::Impl {
         std::unordered_map<uint32_t, int> pairs;
     };
     FT_Library library = nullptr;
-    Face faces[4];
+    Face faces[kFaceCount];
     ~Impl() {
         for (auto &face : faces)
             if (face.ft)
@@ -183,7 +184,7 @@ GlyphAtlas::GlyphAtlas(TextureStore *store, const std::string &fontDirectory, in
     : impl_(new Impl), atlas_(store, width, height) {
     if (FT_Init_FreeType(&impl_->library))
         return;
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < kFaceCount; ++i) {
         Impl::Face &face = impl_->faces[i];
         if (FT_New_Face(impl_->library, (fontDirectory + "/" + kFiles[i]).c_str(), 0, &face.ft)) {
             face.ft = nullptr;
@@ -209,7 +210,7 @@ bool GlyphAtlas::ok() const {
 }
 FontMetrics GlyphAtlas::metrics(int size, int weight) {
     FontMetrics result;
-    FT_Face ft = impl_->faces[faceForWeight(weight)].ft;
+    FT_Face ft = impl_->faces[faceFor(size, weight)].ft;
     if (!ft)
         return result;
     double scale = static_cast<double>(size) / ft->units_per_EM;
@@ -220,7 +221,7 @@ FontMetrics GlyphAtlas::metrics(int size, int weight) {
     return result;
 }
 Glyph &GlyphAtlas::glyph(int size, int weight, uint32_t codepoint) {
-    int face = faceForWeight(weight);
+    int face = faceFor(size, weight);
     uint64_t key =
         (static_cast<uint64_t>(face) << 48) | (static_cast<uint64_t>(size) << 32) | codepoint;
     auto found = glyphs_.find(key);
@@ -275,7 +276,7 @@ bool GlyphAtlas::place(Glyph &glyph) {
     return true;
 }
 float GlyphAtlas::kerning(int size, int weight, unsigned left, unsigned right) {
-    Impl::Face &face = impl_->faces[faceForWeight(weight)];
+    Impl::Face &face = impl_->faces[faceFor(size, weight)];
     if (!face.kerning || !left || !right)
         return 0;
     auto found = face.pairs.find(left << 16 | right);

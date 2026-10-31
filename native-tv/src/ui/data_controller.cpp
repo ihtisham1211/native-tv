@@ -4,6 +4,9 @@
 
 namespace nativetv {
 void Application::rebuildHome() {
+    // The cards being moved are the person's own order until it is saved.
+    if (state_.home.editing)
+        return;
     state_.home.tabs = homeTabs(state_.catalogue);
     auto &home = state_.home;
     home.tab = clampIndex(home.tab, home.tabs.size());
@@ -11,6 +14,9 @@ void Application::rebuildHome() {
     if (home.row < home.rows.size() && home.column < home.rows[home.row].cards.size())
         oldId = home.rows[home.row].cards[home.column].id;
     home.rows = homeRows(home.tabs[home.tab].key, state_.catalogue, state_.discover, state_.guide);
+    home.arranging = false; // the rows are the server's again
+    home.grid = home.tabs[home.tab].key == "apps" &&
+                state_.catalogue["layout"]["sort"]["app"].string() != "kind";
     home.row = clampIndex(home.row, home.rows.size());
     if (home.row < home.rows.size()) {
         const auto &cards = home.rows[home.row].cards;
@@ -149,7 +155,10 @@ void Application::response(const Response &response) {
             state_.serverSilent = false;
             motion_.tween("fault", 0, kit::motion::ms::fast, Easing::out());
         }
-        rebuildHome();
+        // The ten-second refresh must not drop a lifted row: the answer is stored, and Back or
+        // the save rebuilds from it.
+        if (!state_.home.arranging)
+            rebuildHome();
         syncWallpaper();
         if (state_.screen == Screen::Home && active_ && data["layout"]["picture"].boolean())
             state_.home.sourceGeneration = services_.read("home-now", Operation::HomeNow);
@@ -157,10 +166,12 @@ void Application::response(const Response &response) {
             clearPicture();
     } else if (response.channel == "discover") {
         state_.discover = data;
-        rebuildHome();
+        if (!state_.home.arranging)
+            rebuildHome();
     } else if (response.channel == "guide") {
         state_.guide = data["guide"];
-        rebuildHome();
+        if (!state_.home.arranging)
+            rebuildHome();
     } else if (response.channel == "stats") {
         state_.stats = data;
     } else if (response.channel == "menu" && state_.screen == Screen::Dashboard) {

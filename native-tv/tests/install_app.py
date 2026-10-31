@@ -71,7 +71,7 @@ class InstallAppTests(unittest.TestCase):
             self.put(app / "libcurl.so.4", "curl")
             self.put(app / "LICENSE-json-c.txt", "json-c")
             self.put(app / "assets/icon80.png", "icon")
-            self.put(app / "assets/fonts/Figtree-Regular.ttf", "font")
+            self.put(app / "assets/fonts/GoogleSansFlex-Regular.ttf", "font")
             self.put(app / "assets/icons/material/home.svg", "<svg/>")
         self.put(self.dashboard / "install-app.sh", SCRIPT.read_text(), 0o755)
         self.put(self.home / "appinfo.json", json.dumps({
@@ -106,7 +106,7 @@ class InstallAppTests(unittest.TestCase):
         app = self.installed("com.tvweb.dashboard")
         files = sorted(str(path.relative_to(app)) for path in app.rglob("*") if path.is_file())
         self.assertEqual(files, [
-            "LICENSE-json-c.txt", "appinfo.json", "assets/fonts/Figtree-Regular.ttf",
+            "LICENSE-json-c.txt", "appinfo.json", "assets/fonts/GoogleSansFlex-Regular.ttf",
             "assets/icon80.png", "assets/icons/material/home.svg", "libcurl.so.4",
             "nativetv-tv", "runtime.json"])
         self.assertTrue(os.access(app / "nativetv-tv", os.X_OK))
@@ -128,16 +128,16 @@ class InstallAppTests(unittest.TestCase):
                          {"ok": True, "installed": True, "refreshed": False})
         self.assertEqual(len(installs.read_text().splitlines()), 1, "no reinstall")
 
-        self.put(self.dashboard / "assets/fonts/Figtree-Regular.ttf", "font v2")
+        self.put(self.dashboard / "assets/fonts/GoogleSansFlex-Regular.ttf", "font v2")
         self.environment["RUNNING_APPS"] = "com.tvweb.dashboard"
         self.assertEqual(json.loads(self.run_script("refresh"))["reason"], "running")
         self.assertEqual((self.installed("com.tvweb.dashboard") /
-                          "assets/fonts/Figtree-Regular.ttf").read_text(), "font")
+                          "assets/fonts/GoogleSansFlex-Regular.ttf").read_text(), "font")
 
         self.environment["RUNNING_APPS"] = ""
         self.assertEqual(self.run_script("refresh"), "dashboard added to the home screen")
         self.assertEqual((self.installed("com.tvweb.dashboard") /
-                          "assets/fonts/Figtree-Regular.ttf").read_text(), "font v2")
+                          "assets/fonts/GoogleSansFlex-Regular.ttf").read_text(), "font v2")
         self.assertEqual(json.loads(self.run_script("refresh"))["refreshed"], False)
 
     def test_refresh_does_not_install_a_removed_app(self):

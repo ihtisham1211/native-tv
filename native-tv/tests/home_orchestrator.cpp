@@ -659,7 +659,7 @@ void aClientSamRefusesIsGivenUpAtOnce() {
         HomeOrchestrator orchestrator(depsFor(w));
         orchestrator.onForeground("com.webos.app.hdmi1");
         orchestrator.onForeground(kLgHome);                 // the Home key
-        w.clock.advance(2499);
+        w.clock.advance(399);
         check(!orchestrator.halted() && !happened(w, "open"), "the stub is given its moment first");
         w.clock.advance(1);
         check(orchestrator.halted() && times(w, "open") == 1, std::string(outcome) + ": given back as the refusal comes");
@@ -686,7 +686,7 @@ void aClientThatOpensIsLeftToCome() {
     World quick = watched();
     HomeOrchestrator fast(depsFor(quick));
     fast.onForeground(kLgHome);
-    quick.clock.advance(1200);
+    quick.clock.advance(300);
     fast.onForeground(kClient);
     quick.clock.advance(60000);
     check(!happened(quick, "open") && !fast.halted(), "a client in front in time is not opened again");
@@ -695,7 +695,7 @@ void aClientThatOpensIsLeftToCome() {
     World w = watched();
     HomeOrchestrator orchestrator(depsFor(w));
     orchestrator.onForeground(kLgHome);
-    w.clock.advance(2500);
+    w.clock.advance(400);
     check(times(w, "open") == 1 && !orchestrator.halted(), "opened once, and not refused");
     w.clock.advance(5000);
     orchestrator.onForeground(kClient);

@@ -1,0 +1,12 @@
+[
+    {
+        "at": 5000,
+        "sweep": {
+            "press": true,
+            "only": [
+                "switch off when idle"
+            ],
+            "withinMs": 60000
+        }
+    }
+]

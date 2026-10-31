@@ -2,7 +2,7 @@
 
 The **Metrics** readings, `/?tab=metrics`, sit under the controls on the **Overview** section, and expose information about what the TV is doing and what hardware it contains — most of which is absent from its own settings menu.
 
-In the TV app, the Live tab refreshes every four seconds and the Metrics and System
+In the TV app, the Live tab refreshes twice a second and the Metrics and System
 sections every ten, without overlapping slow reads. Polling pauses while the app is
 hidden and refreshes immediately on return. A control change still requests fresh data
 without waiting for the timer.

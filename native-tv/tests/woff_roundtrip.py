@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Packing each shipped Figtree TTF as WOFF1 and unpacking it returns the same bytes."""
+"""Packing each shipped Google Sans Flex TTF as WOFF1 and unpacking it returns the same bytes."""
 import struct
 import sys
 import zlib
@@ -31,8 +31,8 @@ def pack_woff(ttf):
 
 
 def main():
-    fonts = sorted((ROOT / "assets" / "fonts").glob("Figtree-*.ttf"))
-    assert len(fonts) == 4, "expected the four Figtree weights"
+    fonts = sorted((ROOT / "assets" / "fonts").glob("GoogleSansFlex-*.ttf"))
+    assert len(fonts) == 3, "expected the three Google Sans Flex cuts"
     for font in fonts:
         original = font.read_bytes()
         assert struct.unpack(">I", original[:4])[0] == 0x00010000, font.name + " is not TrueType"

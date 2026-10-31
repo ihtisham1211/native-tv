@@ -296,11 +296,11 @@ void live() {
     check(app.shows("LG OLED55C4") && app.shows("Processor") && app.shows("Memory") &&
               app.shows("PC") && app.shows("HDMI 4") && app.shows("updated just now"),
           "The cards and the title are drawn");
-    check(transport.count("live:stats") == 1, "The next reading waits");
+    check(transport.count("live:stats") == 2, "Live asks again half a second after a reading arrived");
     clock = run(app, clock, 4200);
-    check(transport.count("live:stats") == 2, "Live reads again every few seconds");
-    run(app, clock, 6000);
     check(transport.count("live:stats") == 2, "…but not while a reading is still out");
+    run(app, clock, 6000);
+    check(transport.count("live:stats") == 2, "…however long it takes");
     Json next = fixture("stats-c4-webos9.json");
     next.set("load", Json::numeric(47));
     reply(app, "live:stats", next);
@@ -357,6 +357,15 @@ void live() {
     Application bar(tabbed);
     bar.open("tab:live");
     check(bar.screenName() == "live", "tab:live is the same page");
+    // Opened from the Metrics page of Settings, Back returns there; from the bar's tab it goes home.
+    FakeTransport fromMetrics;
+    Application metrics(fromMetrics, "dashboard:system");
+    metrics.open("live");
+    check(metrics.screenName() == "live", "Live opens from the Metrics page");
+    metrics.key(Key::Back);
+    check(metrics.screenName() == "dashboard:system", "Back from Live returns to the page it was opened from");
+    bar.key(Key::Back);
+    check(bar.screenName() == "home", "Back from the bar's Live tab goes home");
 }
 
 // ---- Settings ---------------------------------------------------------------------------------

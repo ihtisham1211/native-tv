@@ -293,19 +293,22 @@ void Application::resolvePictures() {
     if (!pictures_)
         return;
     const double now = static_cast<double>(now_);
-    for (Node &node : scene_.nodes) {
+    for (size_t index = 0; index < scene_.nodes.size(); ++index) {
+        Node &node = scene_.nodes[index];
         if (node.kind != Node::Kind::Image || node.texture || node.value.empty() ||
             node.value.compare(0, 6, "local:") == 0 || node.value.compare(0, 3, "qr:") == 0)
             continue;
         bool wide = node.rect.w >= 1800;
-        int width = wide ? 1600 : static_cast<int>(std::lround(node.rect.w * 1.1f)),
-            height = wide ? 900 : static_cast<int>(std::lround(node.rect.h * 1.1f));
+        int width = wide ? 1600 : pictureTexels(node.rect.w),
+            height = wide ? 900 : pictureTexels(node.rect.h);
         ImageView view = pictures_->view(node.value, width, height,
                                          node.contain ? ImageFit::Contain : ImageFit::Cover, now);
         node.value.clear();
         if (view.texture) {
             node.texture = view.texture;
             node.opacity *= view.fade;
+            if (view.opaque && index && scene_.nodes[index - 1].backing)
+                scene_.nodes[index - 1].opacity = 0;
         } else
             node.opacity = 0;
     }
@@ -421,6 +424,20 @@ Json Application::snapshot() const {
         value.set("tab", Json::text(home.tabs.empty() ? "" : home.tabs[home.tab].key));
         value.set("navigation", Json::flag(home.navigation));
         value.set("nav", Json::numeric(home.nav));
+        value.set("arranging", Json::flag(home.arranging));
+        value.set("editing", Json::flag(home.editing));
+        value.set("editHide", Json::flag(home.editHide));
+        value.set("focusCard", Json::text(home.row < home.rows.size() &&
+                                                  home.column < home.rows[home.row].cards.size()
+                                              ? home.rows[home.row].cards[home.column].id
+                                              : ""));
+        std::string rowHead;
+        if (home.row < home.rows.size())
+            for (size_t i = 0; i < home.rows[home.row].cards.size() && i < 3; ++i)
+                rowHead += (rowHead.empty() ? "" : ",") + home.rows[home.row].cards[i].id;
+        value.set("rowHead", Json::text(rowHead));
+        value.set("rowGroup",
+                  Json::text(home.row < home.rows.size() ? home.rows[home.row].group : ""));
         value.set("heroTitle", Json::text(home.art.text.title));
         value.set("slides", Json::numeric(home.spotlight.size()));
         value.set("idle", Json::flag(flow_.idle));

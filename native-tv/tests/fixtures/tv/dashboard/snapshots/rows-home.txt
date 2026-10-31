@@ -11,7 +11,13 @@ toggle  Picture details = Off [off] -> Turn on <home>
 choice  Clock format = 12-hour -> Change {2 values} <clock>
 link    Profile -> Open <access>
 ## Apps
-choice  Order = Your order -> Change {2 values} <home>
+choice  Order = Your order -> Change {3 values} <home>
+== On Native Tv Home
+toggle  Streamline = Shown [on] -> Turn off <home>
+toggle  Tunes = Shown [on] -> Turn off <home>
+toggle  Arcade = Shown [on] -> Turn off <home>
+toggle  Lens = Shown [on] -> Turn off <home>
+== On the Apps tab
 toggle  Streamline = Shown [on] -> Turn off <home>
 toggle  Tunes = Shown [on] -> Turn off <home>
 toggle  Arcade = Shown [on] -> Turn off <home>

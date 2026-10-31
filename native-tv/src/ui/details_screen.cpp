@@ -100,7 +100,6 @@ void DetailsScreen::rebuildActions(Title &title) {
     const Json &item = title.item;
     std::string keep = title.action < title.actions.size() ? title.actions[title.action].label : "";
     title.actions.clear();
-    title.actions.push_back({Action::Kind::Open, msg("tv.details.open", "Open")});
     if (!item["netflixId"].string().empty())
         title.actions.push_back({Action::Kind::Netflix, msg("tv.details.netflix", "Open on Netflix")});
     if (!item["trailer"].string().empty())
@@ -109,11 +108,15 @@ void DetailsScreen::rebuildActions(Title &title) {
         title.actions.push_back({Action::Kind::Overview, msg("tv.details.overview", "Full overview")});
     if (title.error)
         title.actions.push_back({Action::Kind::Retry, msg("tv.details.retry", "Retry")});
-    // A late Netflix link or a Retry appearing keeps the focus on what it was on.
+    // Until the focus is moved it stays on the first action, which a late Netflix link or the
+    // details' trailer can put in front of the overview; after that it stays on what it was on.
     title.action = std::min(title.action, title.actions.size() - 1);
-    for (size_t i = 0; i < title.actions.size(); ++i)
-        if (title.actions[i].label == keep)
-            title.action = i;
+    if (!title.moved)
+        title.action = 0;
+    else
+        for (size_t i = 0; i < title.actions.size(); ++i)
+            if (title.actions[i].label == keep)
+                title.action = i;
 }
 void DetailsScreen::push(ScreenHost &host, const Json &item) {
     if (stack_.size() >= kMaxDepth) {
@@ -146,7 +149,7 @@ void DetailsScreen::load(ScreenHost &host) {
     if (!title.detailsGeneration) {
         title.loading = false;
         title.error = true;
-        title.status = msg("tv.details.unavailable", "Details are unavailable. Open or retry.");
+        title.status = msg("tv.details.unavailable", "Details are unavailable. Retry.");
         rebuildActions(title);
     }
     host.invalidate();
@@ -163,7 +166,7 @@ void DetailsScreen::response(ScreenHost &host, const Response &response) {
         if (!succeeded(response, data) || !data["enabled"].boolean() || !data["item"].isObject()) {
             title.error = true;
             title.status = data["error"].string(
-                msg("tv.details.unavailable", "Details are unavailable. Open or retry."));
+                msg("tv.details.unavailable", "Details are unavailable. Retry."));
         } else {
             std::string netflixId = title.item["netflixId"].string();
             title.item = data["item"];
@@ -257,7 +260,7 @@ void DetailsScreen::activate(ScreenHost &host) {
         body.set("kind", Json::text("youtube"));
         body.set("id", title.item["trailer"]);
     } else {
-        body.set("kind", Json::text(kind == Action::Kind::Netflix ? "netflix" : "title"));
+        body.set("kind", Json::text("netflix"));
         body.set("type", title.item["type"]);
         body.set("id", title.item["id"]);
     }
@@ -295,14 +298,18 @@ bool DetailsScreen::key(ScreenHost &host, Key key) {
     case Key::Left:
         if (title.onSimilar && title.similar)
             --title.similar;
-        else if (!title.onSimilar && title.action)
+        else if (!title.onSimilar && title.action) {
             --title.action;
+            title.moved = true;
+        }
         break;
     case Key::Right:
         if (title.onSimilar && title.similar + 1 < similar)
             ++title.similar;
-        else if (!title.onSimilar && title.action + 1 < title.actions.size())
+        else if (!title.onSimilar && title.action + 1 < title.actions.size()) {
             ++title.action;
+            title.moved = true;
+        }
         break;
     case Key::Ok:
         activate(host);
@@ -486,8 +493,8 @@ void DetailsScreen::build(ScreenHost &host, kit::Paint paint) {
     paint.glyphs.text(scene, {kit::canvas::safeX, y, kTextWidth, titleHeight}, name, titleStyle,
                       kit::color::onSurface, Node::Align::Left, longTitle ? 2 : 1);
     y += titleHeight + 12;
-    paint.glyphs.text(scene, {kit::canvas::safeX, y, kTextWidth, kit::type::bodyL.line},
-                      titleFacts(item), kit::type::bodyL, kit::color::onSurface2);
+    kit::factsLine(paint, {kit::canvas::safeX, y, kTextWidth, kit::type::bodyL.line}, titleFacts(item, false),
+                   kit::type::bodyL, kit::color::onSurface2);
     y += kit::type::bodyL.line + 20;
     endGroup();
     // Block 1: the story.
@@ -514,7 +521,8 @@ void DetailsScreen::build(ScreenHost &host, kit::Paint paint) {
         float width = std::max(160.0f, paint.glyphs.measure(button.label, kit::type::title) + 72);
         button.rest = {x, y, width, kActionH};
         button.id = "details:action:" + std::to_string(i);
-        button.primary = title.actions[i].kind == Action::Kind::Open;
+        button.primary = i == 0 && (title.actions[i].kind == Action::Kind::Netflix ||
+                                    title.actions[i].kind == Action::Kind::Trailer);
         button.focus = static_cast<float>(motion.value("details:a:" + std::to_string(i)));
         kit::pillButton(paint, button);
         x += width + 16;

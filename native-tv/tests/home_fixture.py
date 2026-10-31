@@ -32,6 +32,13 @@ APPS = [
     ("display", "Display", "#1B2631"), ("network", "Network", "#1D8348"), ("timer", "Sleep timer", "#7B241C"),
     ("energy", "Energy", "#9A7D0A"), ("themes", "Themes", "#6C3483"), ("livetv", "Live TV", "#1F618D"),
 ]
+# The kinds the daemon would give these apps, and the kinds in their default order.
+KINDS = {"streamline": "video", "tunes": "music", "arcade": "games", "lens": "tools", "weatherly": "tools",
+         "pulse": "video", "market": "tools", "cinema": "video", "audio": "music", "podcasts": "music",
+         "hdmi": "tv", "browser": "tools", "photos": "tools", "home": "home", "remote": "tv", "sound": "tv",
+         "display": "tv", "network": "tv", "timer": "tv", "energy": "tv", "themes": "tv", "livetv": "video"}
+KIND_LABELS = [("video", "Movies & TV"), ("music", "Music & audio"), ("games", "Games"), ("home", "Smart home"),
+               ("tv", "LG & TV"), ("tools", "Tools"), ("other", "Other")]
 TITLES = [
     ("Harbor Lights", "movie", "A ferry pilot and a lighthouse keeper trade letters across one long winter.", "Drama"),
     ("The Quiet Orbit", "movie", "Four astronomers wait out a signal that may be older than the stars it came from.", "Science fiction"),
@@ -146,14 +153,18 @@ def search(query):
     return {"ok": True, "enabled": True, "items": found}
 
 
-def catalogue(profiles=1):
-    apps = [{"id": a, "title": t, "icon": "/icon/%s" % a, "color": c} for a, t, c in APPS]
+def catalogue(profiles=1, sort="custom"):
+    apps = [{"id": a, "title": t, "icon": "/icon/%s" % a, "color": c, "kind": KINDS.get(a, "other")}
+            for a, t, c in APPS]
     devices = [{"id": "hdmi%d" % n, "name": name, "port": n, "unused": unused}
                for n, name, unused in ((1, "Game Console", False), (2, "Streaming Stick", False),
                                        (3, "Nothing", True), (4, "PC", False))]
     return {"ok": True, "apps": apps, "devices": devices, "channels": [],
+            "kinds": [{"key": key, "label": label} for key, label in KIND_LABELS],
             "order": {"app": [a for a, _, _ in APPS] + ["lg-home"], "dev": [d["id"] for d in devices], "ch": []},
             "layout": {"rows": ["app", "dev"], "hidden": {}, "showInputs": True, "showLive": False,
+                       "sort": {"app": sort, "dev": "custom", "ch": "custom"},
+                       "kinds": [key for key, _ in KIND_LABELS],
                        "showLgHome": True, "appNames": True, "clockFormat": "12h", "picture": False},
             "sources": {"channels": 0},
             "profiles": [{"id": pid, "name": name, "color": color, "active": n == 0}
@@ -172,6 +183,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
     art = None
     beats = 0
     profiles = 1
+    sort = "custom" # the apps row's order: custom, recent or kind
 
     def log_message(self, *_):
         pass
@@ -207,7 +219,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if url.path == "/api/caps":
             self.json({"ok": True})
         elif url.path == "/api/home/catalogue":
-            self.json(catalogue(self.profiles))
+            self.json(catalogue(self.profiles, self.sort))
         elif url.path == "/api/home/discover":
             self.json(discover())
         elif url.path == "/api/home/guide":
@@ -256,11 +268,12 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 @contextlib.contextmanager
-def serve(art=None, port=0, profiles=1):
+def serve(art=None, port=0, profiles=1, sort="custom"):
     SETTINGS.update(volume=24, muted=False, backlight=70, sleepTimer="off", pictureMode="cinema",
                     soundOutput="tv_speaker")
     Handler.art = art
     Handler.profiles = profiles
+    Handler.sort = sort
     server = http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

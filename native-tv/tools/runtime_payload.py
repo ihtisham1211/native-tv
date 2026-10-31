@@ -24,12 +24,12 @@ SYSTEM_LIBRARIES = {"libc.so.6", "libm.so.6", "libpthread.so.0", "libdl.so.2",
                     "libSDL2_image-2.0.so.0", "libSDL2_ttf-2.0.so.0",
                     "libfreetype.so.6"}
 # What the client opens below assets/ beside its executable, as paths under
-# native-tv/assets: the legacy renderer's Roboto, the Figtree faces, the icon
-# SVGs (icons/material/ and its licence included) and the carousel scrim. The
-# one list for the SSH deploy, the Homebrew package and the IPK; every entry
+# native-tv/assets: the legacy renderer's Roboto, the Google Sans Flex cuts, the
+# icon SVGs (icons/material/ and its licence included) and the carousel scrim.
+# The one list for the SSH deploy, the Homebrew package and the IPK; every entry
 # must match a file, so a rename here or in assets/ cannot ship half an install.
 CLIENT_ASSETS = ("Roboto-Regular.woff", "Roboto-Medium.woff", "carousel-scrim.svg",
-                 "fonts/Figtree-*.ttf", "fonts/LICENSE-*.txt", "icons/**/*")
+                 "fonts/GoogleSansFlex-*.ttf", "fonts/LICENSE-*.txt", "icons/**/*")
 PINNED_LICENSES = {
     "curl": {
         "7.87.0": (

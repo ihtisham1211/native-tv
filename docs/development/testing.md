@@ -15,7 +15,7 @@ something is wrong, and Home Assistant and the TV's own browser fail quietly.
 | `check-ui-ids.py` | An element the dashboard's script reaches for that the page no longer has. |
 | `check-strings.py` | Dashboard text without a key, and one key used for two different texts. [Strings](strings.md) has the rules. |
 | `check-screensavers.py` | Screen saver QML that the TV's QtQuick version cannot load. |
-| `check-drift.py` | The [entity reference](../integrations/home-assistant-entities.md) out of step with the entities the daemon publishes, a file missing from `native-tv/lifecycle/deploy.sh`'s list, which would never be installed, and an asset the TV client names (`local:...`, the Figtree and Roboto fonts) that `tools/runtime_payload.py` does not stage for it. |
+| `check-drift.py` | The [entity reference](../integrations/home-assistant-entities.md) out of step with the entities the daemon publishes, a file missing from `native-tv/lifecycle/deploy.sh`'s list, which would never be installed, and an asset the TV client names (`local:...`, the Google Sans Flex and Roboto fonts) that `tools/runtime_payload.py` does not stage for it. |
 | `check-entity-stability.py` | A Home Assistant entity from the last release that has gone, been renamed or changed domain, which leaves it unavailable and stops every automation that used it. A deliberate removal is listed in `scripts/retired-entities.txt` with its reason. |
 | `shellcheck` | Mistakes in `deploy.sh`, `tvwebctl` and the boot script in `native-tv/lifecycle/`. |
 | `check-entities.py` | A Home Assistant entity reading a field the TV's telemetry does not have, checked against a B8's real telemetry. |
@@ -191,6 +191,16 @@ show at once with the newest winning, and Back, a click beside the drawer and a 
 Home all leave it. `tests/home_fixture.py` keeps what `/api/control` is told, so a read
 after a write says what was written.
 
+`native-navigation-walk` (`tests/navigation_walk.cpp`) walks the remote through every screen with
+seeded random keys, OK held, Back held, pointer clicks on the scene's hits, catalogue changes under the
+page and replies that come late, out of order, fail or never come (300 seeds of 80 steps; `NAVWALK_SEED=n`
+replays one seed with its whole trail, `NAVWALK_SEEDS` and `NAVWALK_STEPS` widen a search). After every
+step the screen is a known one, every focus index is inside what exists, and at rest the focused thing has
+a hit on the canvas. From any state a few taps of Back reach the first Home tab without passing through
+the recent apps, and a tap of Back on the top bar changes nothing; Back from a drawer, Search, Profiles
+or Details gives Home back with the focus where it was; a key on a dimmed screen only wakes it. A failure
+prints the seed, the step and the trail; `kKnown` in the file lists failures that wait for a fix.
+
 `native-optimistic` (`tests/optimistic.cpp`) holds the optimistic-update layer every page
 writes through (`ui/optimistic.hpp`) to its rules, over a fake `Services` whose replies the test
 holds back, reorders and refuses and a clock the test moves: a changed value shows at once with
@@ -247,7 +257,7 @@ captures the handoff page and compares every module of the code on it with qrcod
 (no QR decoder is installed, so the pixels are read instead); it skips with no GL context.
 `native-atlas` covers glyph packing, text measuring, ellipsis and wrapping,
 `native-image-loader` the off-thread decode, the cache limit and the upload
-budget, and `native-woff-to-ttf` that a WOFF packed from each bundled Figtree TTF unpacks
+budget, and `native-woff-to-ttf` that a WOFF packed from each bundled Google Sans Flex TTF unpacks
 to the same bytes.
 
 The daemon's answers were held to the Node release's by `parity.js`, which ran both on one fixture TV and
@@ -309,7 +319,7 @@ stats tests hold the native reply, then verify partial data, timeout ownership
 and late-reply rejection. `native-tv/tests/stats_collector.cpp` runs the native
 `/api/stats` collector against a scripted TV: the always-on, input-key, live-read,
 play-state, power, hostname, sound/volume, HDMI, apps and device cases of
-`test-telemetry.js` and its sibling suites, the 1.5 s reuse, the early (`fast=1`)
+`test-telemetry.js` and its sibling suites, the 0.4 s reuse, the early (`fast=1`)
 read, and how expire, clear, forget and the volume refusal are taken. `native-tv/tests/retired_files.cpp` runs the start-up removal of files earlier releases
 installed (`test-retired.js`'s two cases on temporary folders).
 
@@ -458,7 +468,7 @@ tripped breaker stays tripped (more exits, and time, do not clear it) until it i
 executable as `native-home-orchestrator` goes on to run the watch itself on the virtual clock: three crashes (the client
 gone from the running list as LG's Home comes to the front) and three grace periods with the stub left
 in front each give LG's Home back once, clear the Home key's starting notice and put auto launch back; a client sam refuses
-(it does not know the app, or would not open it) is given up as the server opens it for the stub, 2.5 s after the stub came, with
+(it does not know the app, or would not open it) is given up as the server opens it for the stub, 0.4 s after the stub came, with
 no exit counted; the Home key (client still
 listed), another app opened from Home, a running list that cannot be read, a client that comes up inside the grace,
 standby, a screen that is off, LG's Home opened on purpose, no takeover in place and Home switched off count nothing; a
@@ -587,11 +597,16 @@ change nothing on a TV that has others (`E2E-119` expects the test B3's own leve
 `withSession` sends it back, which `E2E-104` uses to unlock; `save {name: "path"}` keeps a field of a reply and a body value `"$name"` is that field in
 a later step, which `E2E-113` uses for a saved page's id. A path name picks an array item by any value, dots included (`preload[id=com.webos.app.browser].off`). `E2E-103` is a client run, not an api case, with the same permission:
 it presses OK on a number row of the Game settings and goes round its range.
-`E2E-120` is a client run that changes the server: a long press on an app of the Apps tab starts edit mode, a move is saved with
-OK, put back, and an app is taken off Home with Red. A run case may carry a `cleanup` flow of api steps (POSTs need `control`), which the
-runner sends even when the run failed, so `E2E-120` ends with the order and the hidden list at the server's default. The script's
-`longPress` step is the client's hold of OK (650 ms on a real remote), and the Home checkpoint reports `editing`, `focusCard` and `rowHead`
-(the first three cards of the row). `E2E-123` is the reboot case: the one that restarts the TV, run only with `--allow reboot`, which then reads
+`E2E-120` is a client run that changes the server: with the apps sorted by kind, a long press on a row of the Apps tab lifts it, Down
+moves it and OK saves the kinds' order, then it is moved back and Back cancels. A run case may carry a `before` flow of api steps
+(POSTs need `control`), which the runner sends before the client starts, and a `cleanup` flow, which it sends even when the run
+failed, so `E2E-120` starts with the apps by kind and ends with them in Your order and the kinds in their default order. The script's
+`longPress` step is the client's hold of OK and `longBack` its hold of Back (650 ms on a real remote), and a Home checkpoint
+reports the client's snapshot: `tab`, `row`, `rowGroup` (the kind of the focused row), `arranging`, `editing`, `editHide`,
+`focusCard` (the id of the focused card) and `rowHead` (the first three card ids of the focused row). `E2E-178` is a client run
+that changes the server too: on the Apps tab a long press starts editing the apps, the Hide from Apps button hides one, and the
+grid and the server's `hidden.appsTab` list both lose it while `hidden.app` (Home's row) is left alone; `E2E-182` changes nothing and checks the Back keys (a tap goes back and stops at the
+bar, a hold opens the recent apps). `E2E-123` is the reboot case: the one that restarts the TV, run only with `--allow reboot`, which then reads
 back what was set (Native Tv Home, the TMDB key, the privacy and screen saver values) once the server has been up for 40 s.
 
 The sweep cases (`E2E-130` to `E2E-149`, and `E2E-146`, `E2E-148`, `E2E-160` to `E2E-166`) walk each group of the TV's own Settings screen with the remote's keys, row by row and page by page, in one client run: on every row the screen calls a switch or a choice the client presses OK, waits for the write to come back, checks the row shows another value, and presses OK until it shows the first one again (a switch in two presses, a choice after one lap of its values; a row that asks to press OK again to confirm, such as switching off a burn-in protection, is confirmed only where the script names it). The script step is `{"sweep": {"skip": [...], "only": [...], "confirm": [...], "act": [...], "maxRows": n, "startAfter": n, "withinMs": n, "press": false}}` (`withinMs` starts no new row after that long, so a run is not cut off with a row in the other state; `act` names action rows that are pressed once, which `E2E-143` and `E2E-144` use for Reset the layout and Cancel a scheduled refresher, the criterion `actedMin` counting them: what they prove is that the press is handled and the app stays up), implemented in `src/platform/row_sweep.hpp`, and the report holds one entry per row for the criterion `{"sweep": {"pressedMin": n}}`, which fails on a pressed row that did not change, did not come back, or whose write did not return. A sweep waits seconds for each write, so its run may last up to 5 minutes, and a long group is cut in slices with `maxRows` and `startAfter`; the client ends the run 1.5 s after the sweep has gone through every row, so `durationMs` is only the most a case may take. It presses the timers and IP control too, each back within seconds. The rows it leaves alone are Power off, Reboot, the installs, Open EZ Adjust and Open In Start (they can change panel calibration), the web dashboard's own switch (it stops the server the TV talks to), and the pixel refresher's rows, which the B3 refuses (`E2E-150`); Native Tv Home's takeover is pressed from the TV by `E2E-147` (two OKs, then read back through the server), each screen saver by its own case (`E2E-160` to `E2E-166`, read back from the server), the service menu lock by `E2E-146`, and Reset the advertising ID and Reset the layout by `E2E-148` and `E2E-143`. The two stabilizers are covered by `E2E-103` and `E2E-131`. A run case may also carry an `after` flow of GET steps, read back through the server once the client has run and judged by `flowOk`. `press: false` only lists the rows, which is how a TV's rows are found before a case is written. The sweeps found three faults that no earlier case reached: the OLED protections read as off for a moment when a client started and the server held that reading for its 30 s cache (see tv-research.md; a sweep then turned the real setting off, which showed as E2E-112 failing at its first step in a full run), and two in the TV app: OK on Privacy's Screen content recognition ended the app (the section heading and the switch shared an id, so the press found the heading and its empty command), and the LG Promotions & Tips Popups row went back to Active because that service takes 12.3 s to switch and a write was given 8 s; a write may now carry its own time limit.
@@ -631,10 +646,12 @@ the texture memory, the checkpoints the script took and the size of the capture.
 | E2E-105 | The Home Assistant settings refuse a URL or a space as the broker and markup as the device name (`api`, `control`) | |
 | E2E-106, 107 | LG rows round-trip: the ad switches, sound mode, balance, automatic volume and Bluetooth speaker mode (106); the Game Optimizer rows (107). Each is set, read back from the TV's settings service and put back (`api`, `control`) | |
 | E2E-110 to 119 | The rest of the settings, each set through the server, read back and put back: privacy switches and the ad blocker (110); screen saver and brightness (111); OLED protections, screen shift, logo dimming and the service menu lock (112); app preload and saved web pages, with the id the add gives (113); watch time and screen-time limits (114); NTP server (115); a damaged backup refused (116); an SSH key added and removed, the TV's own keys untouched (117); a 22 KB catalogue app installed and uninstalled (118); volume, mute, brightness, picture mode, energy saving and the sleep timer, from the test B3's own levels (119) (`api`, `control`) | |
-| E2E-120 | Edit mode on the Apps tab: a long press starts it, Right moves an app and OK saves, the move is put back, Red takes an app off Home; the order is reset after (`control`, `cleanup`) | `home` |
+| E2E-120 | Arranging the kinds on the Apps tab: with the apps by kind, a long press lifts a row, Down moves it and OK saves, a second long press and Up move it back, Back cancels; the order is reset after (`control`, `before`, `cleanup`) | `home` |
+| E2E-178 | Editing the apps on the Apps tab: a long press starts it, the Hide from Apps button hides an app, and the grid and the server's `hidden.appsTab` list lose it while Home's `hidden.app` stays empty; the order and both hidden lists are reset after (`control`, `before`, `cleanup`) | `home` |
 | E2E-121, 122 | A TMDB key that is not 32 hex digits (a word, 20 digits, a number) is refused; `kind: title` is no longer a way to open a feed title (`api`, `control`) | |
 | E2E-125 | OK on Dark room mode in the TV's Game settings steps it Off, Level 1, Level 2, Off through the server and leaves it off (`control`, `cleanup`) | `dashboard:game` |
 | E2E-130 to 144, 146 to 149, 160 to 166 | Every switch and choice of the TV's Settings groups, pressed through the TV's own screen and put back: Game (130, 131), OLED Care (132), Screen Saver brightness (133), Privacy (134), System with the timers and IP control (135, 136, 149), Home (137 to 139), Apps (141, 142); the actions Reset the layout (143), Cancel a scheduled refresher (144) and Reset the advertising ID (148) are pressed once; the service menu lock (146), the Native Tv Home takeover (147) and each of the seven screen savers (160 to 166) are pressed and read back through the server (`control`) | `dashboard:<group>` |
+| E2E-182 | Back goes back (Apps to the Home tab, then up to the bar, where it stops) and only a held Back opens the recent apps | `home` |
 | E2E-150 | The pixel refresher is refused by the B3 on schedule and on cancel, and stays Idle (`api`, `control`) | |
 | E2E-123 | Native Tv Home, the TMDB key, the privacy and screen saver values are as they were after a reboot (`reboot`) | |
 | E2E-108, 109 | The Advanced power switches (Quick Boot, Stay connected, Wake-on-LAN, LG logo, standby light, device detection) and the On and Off timers round-trip through `/api/stats` (`api`, `control`) | |

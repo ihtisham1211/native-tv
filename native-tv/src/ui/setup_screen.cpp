@@ -22,6 +22,8 @@ enum Item { Label = 0, Title, Lead, Action, Content, Field = 9, Keys, Hints, Dot
 constexpr int kPollMs = 2000, kAdvanceMs = 1500, kRestartWaitMs = 1500, kRetryMs = 1000,
               kRetries = 60;
 constexpr float kLeft = 80, kRight = 944, kRowsTop = 228, kRowPitch = 100;
+// Box to box, from a paragraph to the status line under it: more than the paragraph's own leading.
+constexpr float kStatusGap = 16;
 constexpr Rect kDots = {80, 934, 0, 8}, kHints = {80, 998, 0, 30};
 constexpr Rect kAction = {80, 530, 300, 74};
 constexpr Rect kMark = {1264, 300, 256, 256};
@@ -67,6 +69,30 @@ bool takeReply(ScreenHost &host, const std::string &name, bool &ok, Json &reply)
 std::string trimmed(const std::string &value) {
     size_t first = value.find_first_not_of(" \t"), last = value.find_last_not_of(" \t");
     return first == std::string::npos ? "" : value.substr(first, last - first + 1);
+}
+// The lines `text` takes in `width` px, by the greedy word wrap layoutText uses (same 0.01 px
+// tolerance), counted with measure() because the kit does not expose the layout. Single
+// paragraph; a word wider than a line is not split.
+int wrappedLineCount(const kit::Glyphs &glyphs, const std::string &text,
+                     const kit::TypeStyle &style, float width, int maxLines) {
+    int lines = 1;
+    std::string line;
+    size_t start = 0;
+    while (start < text.size()) {
+        size_t end = text.find(' ', start);
+        if (end == std::string::npos)
+            end = text.size();
+        const std::string word = text.substr(start, end - start);
+        const std::string grown = line.empty() ? word : line + " " + word;
+        if (!line.empty() && glyphs.measure(grown, style) > width + .01f) {
+            ++lines;
+            line = word;
+        } else {
+            line = grown;
+        }
+        start = end + 1;
+    }
+    return std::min(lines, maxLines);
 }
 
 class SetupScreen final : public ScreenView {
@@ -204,6 +230,8 @@ class SetupScreen final : public ScreenView {
     Json state_;             // the server's /api/setup
     SetupPage page_;
     size_t selected_ = 0, leadShown_ = 0, rev_ = 0;
+    // How far the title's lines past the first push everything under it down; set by build().
+    float titleDrop_ = 0;
     // Waiting for the server to answer: at the start, after a restart, after trouble.
     bool waiting_ = false, askedServer_ = false;
     After after_ = After::Start;
@@ -909,10 +937,10 @@ void SetupScreen::drawLeft(ScreenHost &host, kit::Paint paint) {
     lead.alpha *= 1 - swap;
     lead.dy += 10 * swap;
     kit::Layer layer(scene, lead);
-    paint.glyphs.text(scene, {kLeft, 382, 700, kit::type::body.line * 8}, leadText(),
-                      kit::type::body, step_ == SetupStep::Handoff && link_ == Link::Failed
-                                           ? kit::color::warn
-                                           : kit::color::onSurface2,
+    paint.glyphs.text(scene, {kLeft, 382 + titleDrop_, 700, kit::type::body.line * 8},
+                      leadText(), kit::type::body,
+                      step_ == SetupStep::Handoff && link_ == Link::Failed ? kit::color::warn
+                                                                           : kit::color::onSurface2,
                       Node::Align::Left, 8);
 }
 void SetupScreen::drawChoices(ScreenHost &host, kit::Paint paint) {
@@ -963,10 +991,10 @@ void SetupScreen::drawWaiting(ScreenHost &host, kit::Paint paint) {
     const float u = static_cast<float>(p < .5 ? inOut(p * 2) : 1 - inOut((p - .5) * 2)),
                 size = 12 * (.8f + .2f * u);
     kit::Layer layer(paint.scene, enterOf(host, Lead));
-    paint.scene.shape({kLeft + 6 - size / 2, 548 - size / 2, size, size},
+    paint.scene.shape({kLeft + 6 - size / 2, 548 + titleDrop_ - size / 2, size, size},
                       kit::focus::withAlpha(kit::color::accent, .35f + .65f * u), size / 2);
-    paint.glyphs.text(paint.scene, {kLeft + 28, 534, 400, kit::type::labelL.line}, savingText_,
-                      kit::type::labelL, kit::color::onSurface2);
+    paint.glyphs.text(paint.scene, {kLeft + 28, 534 + titleDrop_, 400, kit::type::labelL.line},
+                      savingText_, kit::type::labelL, kit::color::onSurface2);
 }
 void SetupScreen::drawHandoff(ScreenHost &host, kit::Paint paint) {
     Scene &scene = paint.scene;
@@ -988,13 +1016,18 @@ void SetupScreen::drawHandoff(ScreenHost &host, kit::Paint paint) {
                           kit::type::url, kit::color::onSurface);
         paint.glyphs.text(scene, {380, 573, 380, kit::type::body.line * 3}, words.address,
                           kit::type::body, kit::color::onSurface2, Node::Align::Left, 3);
+        // The status line follows the paragraph's last line, so it keeps its distance however
+        // many lines the wording takes.
+        const int addressLines =
+            wrappedLineCount(paint.glyphs, words.address, kit::type::body, 380, 3);
+        const float statusTop = 573 + kit::type::body.line * addressLines + kStatusGap;
         // The dot breathes between .35 and 1 opacity and .8 and 1 size (spec 5.9).
         const double p = motion.value("setup:pulse");
         const float u = static_cast<float>(p < .5 ? inOut(p * 2) : 1 - inOut((p - .5) * 2)),
                     size = 10 * (.8f + .2f * u);
-        scene.shape({385 - size / 2, 701 - size / 2, size, size},
+        scene.shape({385 - size / 2, statusTop + 9 - size / 2, size, size},
                     kit::focus::withAlpha(kit::color::accent, .35f + .65f * u), size / 2);
-        paint.glyphs.text(scene, {400, 692, 360, kit::type::labelM.line},
+        paint.glyphs.text(scene, {400, statusTop, 360, kit::type::labelM.line},
                           joined_ ? words.connected : words.waiting, kit::type::labelM,
                           kit::color::onSurface3);
     }
@@ -1064,10 +1097,15 @@ void SetupScreen::build(ScreenHost &host, kit::Paint paint) {
         page_ = setupPage(step_, shownState(host), netChosen_, fromSettings_, shownName(host));
         summaryKey_ = pageKey(host);
     }
+    // The title takes one line or two; the lead, the action and "Saving…" start below it.
+    titleDrop_ = kit::type::setupTitle.line *
+                 (wrappedLineCount(paint.glyphs, page_.title, kit::type::setupTitle,
+                                   kit::metrics::setup::title.w, 2) - 1);
     drawLeft(host, paint);
     if (hasAction()) {
         kit::KeyCap button;
         button.rest = kAction;
+        button.rest.y += titleDrop_;
         button.id = "setup:action";
         button.label = step_ == SetupStep::Trouble ? say::msg("setup.handoff.retry", "Try again")
                                                    : page_.action;

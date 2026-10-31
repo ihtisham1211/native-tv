@@ -124,7 +124,7 @@ add_library(nativetv_tv_services src/service/control_commands.cpp
   src/service/app_package_fetcher.cpp src/service/app_package_inspector.cpp
   src/service/app_package_policy.cpp src/service/app_install_preview.cpp
   src/service/app_install_space.cpp
-  src/service/admin_pin.cpp src/service/app_icons.cpp src/service/backup.cpp
+  src/service/admin_pin.cpp src/service/app_icons.cpp src/service/app_kinds.cpp src/service/backup.cpp
   src/service/quick_access.cpp src/service/screen_time.cpp
   src/service/screensaver_policy.cpp
   src/service/stats_fields.cpp
@@ -907,6 +907,11 @@ if(NATIVETV_BUILD_CLIENT)
     target_link_libraries(native-overlay-screen-tests PRIVATE nativetv_presentation)
     target_compile_options(native-overlay-screen-tests PRIVATE -Wall -Wextra -Werror)
     add_test(NAME native-overlay-screens COMMAND native-overlay-screen-tests)
+    add_executable(native-navigation-walk-tests tests/navigation_walk.cpp)
+    target_link_libraries(native-navigation-walk-tests PRIVATE nativetv_presentation)
+    target_compile_definitions(native-navigation-walk-tests PRIVATE NATIVETV_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
+    target_compile_options(native-navigation-walk-tests PRIVATE -Wall -Wextra -Werror)
+    add_test(NAME native-navigation-walk COMMAND native-navigation-walk-tests)
     add_executable(native-dashboard-tests tests/dashboard_screens.cpp)
     target_link_libraries(native-dashboard-tests PRIVATE nativetv_presentation)
     target_compile_definitions(native-dashboard-tests PRIVATE NATIVETV_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")

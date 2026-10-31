@@ -51,7 +51,7 @@ The daemon (`child_process`, `luna`) avoids this with:
 1. **Direct spawn**: Runs `/usr/bin/luna-send` directly with zero shell overhead, one child start at a time with a short gap between starts.
 2. **Internal Daemon Timeout**: Luna calls use `-w 2000` to prevent orphaned background processes if a system bus stalls.
 3. **In-Flight Concurrency Mutex**: If multiple HTTP pollers or MQTT intervals request stats simultaneously, they are coalesced into a single collection.
-4. **Memory Caching**: Telemetry is cached for 1.5 seconds, delivering sub-20ms HTTP responses with zero subprocess spawning during rapid UI updates. Behind it, the reads a live subscription keeps current (the foreground app, volume and sound output for 60 s, power for 30 s) are dropped when the subscription reports a change, and keep their old short lifetimes (4 to 10 s, power not cached) while it is not delivering. LG's settings rows are kept for 2 minutes, and dropped by a control or a source or sound change.
+4. **Memory Caching**: Telemetry is cached for 0.4 seconds (the TV's Live screen asks twice a second), delivering sub-20ms HTTP responses with zero subprocess spawning during rapid UI updates. Behind it, the reads a live subscription keeps current (the foreground app, volume and sound output for 60 s, power for 30 s) are dropped when the subscription reports a change, and keep their old short lifetimes (4 to 10 s, power not cached) while it is not delivering. LG's settings rows are kept for 2 minutes, and dropped by a control or a source or sound change.
 5. **Deterministic MQTT Client Session**: Uses a static client ID and periodic availability reaffirmation so TV reboots or network reconnects never leave entities trapped in an "Unavailable" state.
 6. **Workers for subscriptions**: Each live Luna subscription holds one blocking worker for as long as it runs (eight with the state groups on), so the daemon runs with 12 and raises a lower `--workers` to 12 when state is on; with fewer workers than subscriptions every one-shot call queues behind subscriptions that never end.
 
@@ -1508,16 +1508,21 @@ for a client that cannot run, and LG's Home comes back for one that cannot stay 
 - *The watch.* The daemon cannot see the process, so the foreground app tells it. The client leaves the front for LG's Home (the stub,
   which starts it again) or for nothing, and sam's running list read at once no longer has it: an exit. The Home key also takes it out of
   the front, but it stays listed. The stub in front 15 s after it came, with the client not in front: an exit, and one more each
-  15 s it stays. 2.5 s after the stub came, if it is still in front, the server opens the client itself, as the stub does: where the
-  stub could not call sam this is what opens it, and a refusal (sam does not know the app) gives LG's Home back at once, not three exits
+  15 s it stays. 0.4 s after the stub came, if it is still in front, the server opens the client itself, as the stub does: the stub's
+  own launch reaches sam a few ms before its window is in front, when the client still is, and sam does nothing for it, so on the
+  Home key this is what brings a running client back (measured on a B3: black for 2.6 s while this waited 2.5 s). A refusal (sam does not know the app) gives LG's Home back at once, not three exits
   later. Another app coming to the front, standby, a screen that is off, LG's Home opened on purpose and a takeover that is not in
   place are not watched. `home_crash_breaker` gives LG's Home back at the third exit within two minutes, as `tvwebctl stop` does
   (`--release-home`: home.json is left as it is), clears the Home key's starting notice and puts LG's auto launch back. The
   escape's return and the wake open find it halted; the server's restart, or switching Home on or off, starts it over.
+- *The registration.* sam can only send a running native app its `relaunch` over the connection the app opens with
+  `registerNativeApp`; LG's SDL does it when `SDL_HINT_WEBOS_REGISTER_APP` is set, which the client does in `main.cpp`
+  before `SDL_Init`. Without it a launch of the client behind the stub left the stub in front for good: the log showed the
+  launch at 0, 15 and 30 s, and no window change.
 - *The Home key.* It reaches LG's filters and opens `com.webos.app.home`, the stub, which asks for the client's Home screen again each time
   it is shown (`visibilitychange`, `webOSRelaunch`) and never while hidden. The client is meant to go to its Home screen on any launch or
   return to the front, so that it does not depend on sam passing the new parameters to a client that is running. The app is also the
-  tile's, so Home's recent apps leave it out, as they do the other apps that are Home itself.
+  tile's, so Home's recent apps leave it out, as they do the other apps that are Home itself. Its tile in the apps rows is the client itself, so `catalogueRow` (domain/home.cpp) makes OK on it the client's `dashboard` route, Settings, instead of an `/api/home/open` launch: sam would be asked for the app already in front and nothing would change.
 
 Earlier builds made a separate app, `com.tvweb.home`, the TV's Home
 through `defaultApps.home`, the start-up app settings and the remote key
@@ -1554,7 +1559,33 @@ for while Live TV is still in front: on a G3 the view asks about 0.2 s before
 sam names it. The catalogue waits for that read. Only rows set to Last opened are
 recorded, and a row going back to its own order is forgotten.
 
-Back on the view opens its Recent apps panel. LG's own is a view inside LG's
+The apps row's third order, By kind (`sort.app: "kind"`), groups the apps by a
+table in `service/app_kinds.cpp`: an app's id, then its title keyed as the icon
+pack keys titles, then LG's own id prefixes, else `other`. The catalogue gives
+each app its `kind` and lists `kinds` (key and label) in the layout's `kinds`
+order, which `/api/home/layout` saves after dropping unknown keys and appending
+missing ones; the TV client builds one row per non-empty kind from them, and a
+long press on a row of the Apps screen moves it, posting the new `kinds`.
+
+Editing the apps (a long press on an app of Home's apps row or the Apps grid) saves in one `/api/home/layout` request: `order.app`
+(`orderAfterMove` in `domain/home.cpp`, which leaves the hidden apps where they were), `sort.app: "custom"` unless the apps are by
+kind, and `hidden.app` (Home's row) or `hidden.appsTab` (the Apps page) when one was hidden or shown. The two lists are independent:
+`home_profiles.cpp` keeps `hidden.appsTab` next to `hidden.app`, seeds it from `hidden.app` the first time a layout without it is
+normalised (so what was hidden, LG's promotions included, stays hidden on the Apps page), and gives a reset and a new profile the
+same defaults in both. The client's `catalogueRow` leaves out the list that applies (`hiddenIds`: `app`, `dev`, `ch` or
+`appsTab`; a catalogue with no `appsTab` falls back to `app`, as the seed does). `appsRow(…, withHidden, list)` lists the hidden
+apps of that list, flagged, last, and is used while editing, Home's row with `app` and the Apps page with `appsTab`. The order and
+the sort are shared by both. An app hidden under Hide home screen system apps is dropped from the catalogue itself
+(`homeCatalogueApps` skips launch points that are not visible), so it is on neither list's page whatever the lists say. The client
+applies the saved values to its copy of the catalogue at once, and the next read replaces them.
+
+The client reads OK and Back by the rule webOS uses for the Home button's long press ([remote keys](#remote-control-keys-and-the-home-launcher-across-webos-versions)): both act when
+released, unless held for 650 ms, when OK calls `Application::longPress` (editing the apps or lifting a kind's row) and Back
+calls `Application::longBack` (the recent apps) once and the release is swallowed. Key repeats are ignored for both. A tap of
+Back never opens the recent apps: on Home it goes to the first tab, up to the first row and the bar and stops there
+(`Application::back`). Scripts run by the end-to-end cases hold the keys with `{"longPress": true}` and `{"longBack": true}`.
+
+Holding Back on the view opens its Recent apps panel. LG's own is a view inside LG's
 Home with no way in from outside, so `home_recent_apps` reads the same
 list, `com.webos.service.recent/listRecents`. Removing a card stops its app on
 webOS 9.2 but not on webOS 10.3, so Native Tv first stops the selected apps:

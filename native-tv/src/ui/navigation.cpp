@@ -167,12 +167,23 @@ void Application::back() {
         route("dashboard:settings");
     } else if (state_.screen == Screen::Home) {
         flow_.tabPending = false;
-        if (state_.home.navigation)
-            route("recents");
-        else if (state_.home.row)
-            state_.home.row = 0;
-        else
-            state_.home.navigation = true;
+        // A tap of Back only goes back: out of moving, to the first tab from any other, up the
+        // first tab to its top row and its bar, where it stops. The recent apps are Back held.
+        if (state_.home.arranging)
+            homeArrangeCancel();
+        else if (state_.home.editing)
+            homeEditDone(false);
+        else if (state_.home.tab != 0 || flow_.pendingTab > 0) {
+            state_.home.navigation = false;
+            state_.home.nav = 0;
+            homeSelectTab(0);
+        } else if (!state_.home.navigation) {
+            if (state_.home.row) {
+                state_.home.row = 0;
+                state_.home.column = clampIndex(state_.home.column, state_.home.rows[0].cards.size());
+            } else
+                state_.home.navigation = true;
+        }
         if (state_.screen == Screen::Home) {
             state_.home.nav = state_.home.navigation ? state_.home.tab : state_.home.nav;
             homeFocus();

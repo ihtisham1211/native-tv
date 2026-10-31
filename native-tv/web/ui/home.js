@@ -277,9 +277,11 @@ function renderHomeRows() {
     const tiles = order.map((id, i) => {
       const it = homeItem(kind, id);
       if (!it) return '';
-      const hidden = kind !== 'ch' && homeLayout.hidden[kind].includes(id);
+      const hidden = kind !== 'ch' && homeHiddenIds(kind).includes(id);
+      // The apps have a second list: the Apps tab's own hidden apps.
+      const tabHidden = kind === 'app' && homeHiddenIds('appsTab').includes(id);
       const icon = it.icon ? `<img class="rk-ico" src="${esc(api(it.icon))}" alt="">` : '';
-      return `<div class="prot-row home-tile${hidden ? ' home-hidden' : ''}">
+      return `<div class="prot-row home-tile${hidden && (kind !== 'app' || tabHidden) ? ' home-hidden' : ''}">
         <div class="prot-main"><div class="prot-title">${icon}<span translate="no">${esc(it.title)}</span></div>
           ${it.sub ? `<div class="prot-desc">${esc(it.sub)}</div>` : ''}</div>
         <div class="prot-status">
@@ -287,20 +289,27 @@ function renderHomeRows() {
           <button type="button" class="pill idle home-move" ${movable && i < order.length - 1 ? '' : 'disabled'} onclick="homeMoveTile('${kind}', ${i}, 1)" aria-label="${esc(t('home.later', 'Later'))}"><svg class="sym" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5.5 12.5 12 19l6.5-6.5"/></svg></button>
           ${it.lg ? `<span class="pill idle">${esc(t('home.alwaysShown', 'Always shown'))}</span>` :
             kind === 'ch' ? `<button type="button" class="pill idle" ${usable ? '' : 'disabled'} onclick="homeToggleChannel('${jsq(id)}')">${esc(t('home.ch.remove', 'Remove'))}</button>` :
+            kind === 'app' ? renderToggle({ cls: hidden ? 'idle' : 'good', sw: !hidden, label: hidden ? t('home.hiddenOnHome', 'Hidden on Home') : t('home.shownOnHome', 'Shown on Home'),
+              disabled: !usable, onclick: `homeToggleTile('app', '${jsq(id)}')` }) + renderToggle({ cls: tabHidden ? 'idle' : 'good', sw: !tabHidden, label: tabHidden ? t('home.hiddenOnApps', 'Hidden on the Apps tab') : t('home.shownOnApps', 'Shown on the Apps tab'),
+              disabled: !usable, onclick: `homeToggleTile('app', '${jsq(id)}', 'appsTab')` }) :
             renderToggle({ cls: hidden ? 'idle' : 'good', sw: !hidden, label: hidden ? t('home.hidden', 'Hidden') : t('home.shown', 'Shown'),
               disabled: !usable, onclick: `homeToggleTile('${kind}', '${jsq(id)}')` })}
         </div></div>`;
     }).join('');
     return `<details class="home-row" data-kind="${kind}"${open.includes(kind) ? ' open' : ''}>
       <summary><span class="prot-title">${esc(HOME_ROWS[kind]())}</span></summary>
-      <div class="prot-table">${homeSortRow(kind, usable)}${tiles || `<div class="sub">${esc(kind === 'ch' ? t('home.ch.empty', 'No channels yet. Add them below.') : t('home.rowEmpty', 'Nothing to show in this row yet.'))}</div>`}</div>
+      <div class="prot-table">${homeSortRow(kind, usable)}${kind === 'app' && homeSort('app') === 'kind' ? homeKindsRows(usable) : ''}${tiles || `<div class="sub">${esc(kind === 'ch' ? t('home.ch.empty', 'No channels yet. Add them below.') : t('home.rowEmpty', 'Nothing to show in this row yet.'))}</div>`}</div>
       ${kind === 'ch' ? homeChannelPicker() : ''}
     </details>`;
   }).join('');
   if (q('home-ch-filter')) q('home-ch-filter').value = filter;
 }
 
-function homeSort(kind) { return homeLayout.sort && homeLayout.sort[kind] === 'recent' ? 'recent' : 'custom'; }
+// A row's order: custom, recent, or (the apps only) kind.
+function homeSort(kind) {
+  const value = homeLayout.sort && homeLayout.sort[kind];
+  return value === 'recent' || (value === 'kind' && kind === 'app') ? value : 'custom';
+}
 
 function homeSortRow(kind, usable) {
   const sort = homeSort(kind);
@@ -308,11 +317,36 @@ function homeSortRow(kind, usable) {
     <div class="prot-main"><div class="prot-title"><label for="home-sort-${kind}">${esc(t('home.sort', 'Order'))}</label></div>
       <div class="prot-desc">${esc(sort === 'recent'
         ? t('home.sortRecentDesc', 'The tile opened last comes first, whether it was opened from Native Tv Home or not. Tiles not yet opened follow in this row’s own order.')
-        : t('home.sortCustomDesc', 'As arranged here.'))}</div></div>
+        : sort === 'kind'
+          ? t('home.sortKindDesc', 'Rows by kind on the Apps screen, in the order under Kinds. Tiles keep their order within a kind.')
+          : t('home.sortCustomDesc', 'As arranged here.'))}</div></div>
     <div class="prot-status"><select id="home-sort-${kind}" class="pill-sel" ${usable ? '' : 'disabled'} onchange="homeSetSort('${kind}', this.value)">
       <option value="custom"${sort === 'custom' ? ' selected' : ''}>${esc(t('home.sortCustom', 'Your order'))}</option>
       <option value="recent"${sort === 'recent' ? ' selected' : ''}>${esc(t('home.sortRecent', 'Last opened'))}</option>
+      ${kind === 'app' ? `<option value="kind"${sort === 'kind' ? ' selected' : ''}>${esc(t('home.sortKind', 'By kind'))}</option>` : ''}
     </select></div></div>`;
+}
+
+// The kinds in their order, each with Earlier and Later, while the apps are sorted by kind.
+function homeKindsRows(usable) {
+  const kinds = homeCat.kinds || [];
+  return `<div class="prot-row"><div class="prot-main"><div class="prot-title">${esc(t('home.kinds', 'Kinds'))}</div>
+      <div class="prot-desc">${esc(t('home.kindsDesc', 'The rows of the Apps screen, top to bottom. On the Apps screen itself, holding OK on a row moves it.'))}</div></div></div>` +
+    kinds.map((kind, i) => `<div class="prot-row home-tile">
+      <div class="prot-main"><div class="prot-title"><span translate="no">${esc(kind.label)}</span></div></div>
+      <div class="prot-status">
+        <button type="button" class="pill idle home-move" ${usable && i > 0 ? '' : 'disabled'} onclick="homeMoveKind(${i}, -1)" aria-label="${esc(t('home.earlier', 'Earlier'))}"><svg class="sym" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5.5 11.5 12 5l6.5 6.5"/></svg></button>
+        <button type="button" class="pill idle home-move" ${usable && i < kinds.length - 1 ? '' : 'disabled'} onclick="homeMoveKind(${i}, 1)" aria-label="${esc(t('home.later', 'Later'))}"><svg class="sym" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5.5 12.5 12 19l6.5-6.5"/></svg></button>
+      </div></div>`).join('');
+}
+
+function homeMoveKind(i, d) {
+  if (!homeWritable()) return;
+  const order = (homeCat.kinds || []).map(kind => kind.key);
+  const j = i + d;
+  if (j < 0 || j >= order.length) return;
+  [order[i], order[j]] = [order[j], order[i]];
+  homeSaveLayout({ kinds: order });
 }
 
 function homeSetSort(kind, value) {
@@ -345,13 +379,20 @@ function homeMoveTile(kind, i, d) {
   homeSaveLayout({ order: { [kind]: order } });
 }
 
-function homeToggleTile(kind, id) {
-  const hidden = Object.assign({}, homeLayout.hidden);
-  const list = hidden[kind].slice();
-  const i = list.indexOf(id);
-  if (i >= 0) list.splice(i, 1); else list.push(id);
-  hidden[kind] = list;
-  homeSaveLayout({ hidden });
+// The ids hidden from a list: a row's own ('app' is the apps row on Native Tv Home), or 'appsTab', the
+// Apps tab's own apps (a layout from before it had a list hides there what Home hides).
+function homeHiddenIds(list) {
+  const hidden = homeLayout.hidden;
+  return hidden[list] || (list === 'appsTab' ? hidden.app : []) || [];
+}
+
+// `list`: the hidden list to change, the row's own unless given.
+function homeToggleTile(kind, id, list) {
+  const name = list || kind;
+  const ids = homeHiddenIds(name).slice();
+  const i = ids.indexOf(id);
+  if (i >= 0) ids.splice(i, 1); else ids.push(id);
+  homeSaveLayout({ hidden: { [name]: ids } });
 }
 
 function homeResetLayout() { homeSaveLayout({ reset: true }); }

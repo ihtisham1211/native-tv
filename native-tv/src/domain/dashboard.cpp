@@ -1235,6 +1235,29 @@ void homeSettings(Rows &rows, const Json &data, const std::string &sub) {
             row(rows, say::msg("home.ch.allAdded", "Every channel is on Home."));
         return;
     }
+    if (sub == "kinds") {
+        // The kinds in their order; OK on one moves it up past the one above.
+        head(rows, say::msg("home.kinds", "Kinds"));
+        Json kinds = data["catalogue"]["kinds"];
+        std::vector<std::string> keys;
+        for (size_t i = 0; i < kinds.size(); ++i)
+            keys.push_back(kinds[i]["key"].string());
+        for (size_t i = 0; i < kinds.size(); ++i) {
+            std::vector<std::string> moved = keys;
+            if (i > 0)
+                std::swap(moved[i - 1], moved[i]);
+            Json next = Json::array();
+            for (const std::string &key : moved)
+                next.add(Json::text(key));
+            row(rows, kinds[i]["label"].string(), "",
+                writable && i > 0 ? post(Operation::SetHomeLayout, fields({{"kinds", next}}))
+                                  : Command(),
+                say::msg("home.kindsDesc", "The rows of the Apps screen, top to bottom. On the Apps "
+                                           "screen itself, holding OK on a row moves it."),
+                i > 0 ? pressAction(say::msg("tv.home.kind.up", "Press OK to move it up one")) : "");
+        }
+        return;
+    }
     page(rows, say::msg("home.title", "Native Tv Home"));
     head(rows, say::msg("home.title", "Native Tv Home"));
     if (data["supported"].valid() && !data["supported"]["ok"].boolean() &&
@@ -1376,51 +1399,83 @@ void homeSettings(Rows &rows, const Json &data, const std::string &sub) {
         head(rows, rowTitle);
         if (std::string(kind) == "ch")
             channelsListed = true;
-        bool recent = layout["sort"][kind].string() == "recent";
-        row(rows, say::msg("home.sort", "Order"),
-            recent ? say::msg("home.sortRecent", "Last opened")
-                   : say::msg("home.sortCustom", "Your order"),
-            writable ? post(Operation::SetHomeLayout,
-                            fields({{"sort",
-                                     fields({{kind, Json::text(recent ? "custom" : "recent")}})}}))
-                     : Command(),
-            recent
-                ? say::msg("home.sortRecentDesc",
-                           "The tile opened last comes first, whether it was opened from Native Tv "
-                           "Home or not. Tiles not yet opened follow in this row’s own order.")
-                : say::msg("tv.home.sort.hint", "As arranged on the browser dashboard’s Home tab."),
-            say::msg("tv.settings.change", "Change"))
-            .choices = {{say::msg("home.sortCustom", "Your order"),
-                         post(Operation::SetHomeLayout,
-                              fields({{"sort", fields({{kind, Json::text("custom")}})}}))},
-                        {say::msg("home.sortRecent", "Last opened"),
-                         post(Operation::SetHomeLayout,
-                              fields({{"sort", fields({{kind, Json::text("recent")}})}}))}};
-        for (const auto &item : catalogue[items].items()) {
-            std::string id = item["id"].string();
-            if (id == "lg-home")
-                continue;
-            Json hidden = Json::array();
-            bool wasHidden = false;
-            for (const auto &value : layout["hidden"][kind].items()) {
-                if (value.string() == id)
-                    wasHidden = true;
-                else
-                    hidden.add(value);
+        const bool apps = std::string(kind) == "app";
+        const std::string sortValue = layout["sort"][kind].string();
+        const bool recent = sortValue == "recent", byKind = apps && sortValue == "kind";
+        // OK steps Your order, Last opened and, for the apps, By kind round.
+        const std::string next = recent ? (apps ? "kind" : "custom") : byKind ? "custom" : "recent";
+        auto sortTo = [&](const char *value) {
+            return post(Operation::SetHomeLayout,
+                        fields({{"sort", fields({{kind, Json::text(value)}})}}));
+        };
+        MenuRow &order = row(
+            rows, say::msg("home.sort", "Order"),
+            recent   ? say::msg("home.sortRecent", "Last opened")
+            : byKind ? say::msg("home.sortKind", "By kind")
+                     : say::msg("home.sortCustom", "Your order"),
+            writable ? sortTo(next.c_str()) : Command(),
+            recent ? say::msg("home.sortRecentDesc",
+                              "The tile opened last comes first, whether it was opened from Native "
+                              "Tv Home or not. Tiles not yet opened follow in this row’s own order.")
+            : byKind ? say::msg("home.sortKindDesc",
+                                "Rows by kind on the Apps screen, in the order under Kinds. Tiles "
+                                "keep their order within a kind.")
+                     : say::msg("tv.home.sort.hint", "As arranged on the browser dashboard’s Home tab."),
+            say::msg("tv.settings.change", "Change"));
+        order.choices = {{say::msg("home.sortCustom", "Your order"), sortTo("custom")},
+                         {say::msg("home.sortRecent", "Last opened"), sortTo("recent")}};
+        if (apps)
+            order.choices.push_back({say::msg("home.sortKind", "By kind"), sortTo("kind")});
+        if (byKind)
+            row(rows, say::msg("home.kinds", "Kinds"), "", navigate("sub:kinds"),
+                say::msg("home.kindsDesc", "The rows of the Apps screen, top to bottom. On the Apps "
+                                           "screen itself, holding OK on a row moves it."),
+                say::msg("tv.settings.open", "Open"));
+        // One Shown/Hidden row per tile. The apps have two lists: the row on Native Tv Home and the
+        // Apps tab, each with its own hidden apps.
+        auto tiles = [&](const std::string &list) {
+            const Json current = list == "appsTab" && !layout["hidden"]["appsTab"].isArray()
+                                     ? layout["hidden"]["app"]
+                                     : layout["hidden"][list];
+            for (const auto &item : catalogue[items].items()) {
+                std::string id = item["id"].string();
+                if (id == "lg-home")
+                    continue;
+                Json hidden = Json::array();
+                bool wasHidden = false;
+                for (const auto &value : current.items()) {
+                    if (value.string() == id)
+                        wasHidden = true;
+                    else
+                        hidden.add(value);
+                }
+                if (!wasHidden)
+                    hidden.add(item["id"]);
+                row(rows, item["title"].string(item["name"].string(id)),
+                    wasHidden ? say::msg("home.hidden", "Hidden") : say::msg("home.shown", "Shown"),
+                    writable ? post(Operation::SetHomeLayout,
+                                    fields({{"hidden", fields({{list, hidden}})}}))
+                             : Command(),
+                    list == "app" ? say::msg("tv.home.app.hint",
+                                             "Hold OK on an app on Native Tv Home to move or hide it.")
+                    : list == "appsTab"
+                        ? say::msg("tv.home.appsTab.hint",
+                                   "Hold OK on an app on the Apps tab to move or hide it there.")
+                        : say::msg("tv.home.tile.hint",
+                                   "Tiles are moved on the browser dashboard’s Home tab."),
+                    "", wasHidden ? 0 : 1)
+                    // The list as it is now sets it back.
+                    .reverse = post(Operation::SetHomeLayout,
+                                    fields({{"hidden", fields({{list, current}})}}));
             }
-            if (!wasHidden)
-                hidden.add(item["id"]);
-            row(rows, item["title"].string(item["name"].string(id)),
-                wasHidden ? say::msg("home.hidden", "Hidden") : say::msg("home.shown", "Shown"),
-                writable
-                    ? post(Operation::SetHomeLayout, fields({{"hidden", fields({{kind, hidden}})}}))
-                    : Command(),
-                say::msg("tv.home.tile.hint",
-                         "Hold OK on Native Tv Home to change the order of tiles."),
-                "", wasHidden ? 0 : 1)
-                // The list as it is now sets it back.
-                .reverse = post(Operation::SetHomeLayout,
-                                fields({{"hidden", fields({{kind, layout["hidden"][kind]}})}}));
+        };
+        if (apps) {
+            head(rows, say::msg("home.onHome", "On Native Tv Home"));
+            tiles("app");
+            head(rows, say::msg("home.onAppsTab", "On the Apps tab"));
+            tiles("appsTab");
+        } else {
+            tiles(kind);
         }
     }
     if (!channelsListed) {

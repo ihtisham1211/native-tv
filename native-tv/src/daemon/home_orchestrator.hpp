@@ -18,8 +18,11 @@ struct HomeWatchOptions {
     // client is, a cold start included, before that is counted as an exit.
     long long stubGraceMs = 15000;
     // How long the stub is left to open the client itself before the server opens
-    // it for it, which also finds out whether sam will.
-    long long stubLaunchMs = 2500;
+    // it for it, which also finds out whether sam will. The stub's own launch
+    // reaches sam a few ms before its window is in front, when the client still
+    // is, and sam does nothing for it (measured on a B3: the screen stayed black
+    // until the server's launch). This one lands with the stub in front.
+    long long stubLaunchMs = 400;
 };
 
 // Everything the orchestrator reads or asks for. Nothing here is its own: the

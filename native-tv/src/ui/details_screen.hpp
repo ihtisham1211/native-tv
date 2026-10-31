@@ -36,13 +36,13 @@ class DetailsScreen final : public ScreenView {
 
   private:
     struct Action {
-        enum class Kind { Open, Netflix, Trailer, Overview, Retry } kind;
+        enum class Kind { Netflix, Trailer, Overview, Retry } kind;
         std::string label;
     };
     struct Title {
         Json item;
         std::string status;
-        bool loading = false, error = false, stale = false, onSimilar = false;
+        bool loading = false, error = false, stale = false, onSimilar = false, moved = false;
         unsigned detailsGeneration = 0, netflixGeneration = 0;
         size_t action = 0, similar = 0;
         std::vector<Action> actions;

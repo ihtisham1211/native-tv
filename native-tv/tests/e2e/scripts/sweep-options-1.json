@@ -1,1 +1,15 @@
-[{"at":5000,"sweep":{"press":true,"skip":["native tv home","web dashboard"],"withinMs":175000,"maxRows":8}}]
+[
+    {
+        "at": 5000,
+        "sweep": {
+            "press": true,
+            "skip": [
+                "native tv home",
+                "web dashboard",
+                "switch off when idle"
+            ],
+            "withinMs": 175000,
+            "maxRows": 8
+        }
+    }
+]

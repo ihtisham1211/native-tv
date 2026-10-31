@@ -1137,7 +1137,7 @@
   }
   function openTitleDirect(title) {
     var video = title.type === 'youtube';
-    return postJson('/api/home/open', video ? { kind: 'youtube', id: title.id } : { kind: 'title', type: title.type, id: title.id }, function (r) {
+    return postJson('/api/home/open', video ? { kind: 'youtube', id: title.id } : { kind: 'netflix', type: title.type, id: title.id }, function (r) {
       if (!r || !r.ok) toast(t('home.openFailed', 'That did not open'), r && r.error);
     });
   }

@@ -78,6 +78,14 @@ class ProfilesScreen final : public ScreenView {
         host.motion().erasePrefix("profiles:");
     }
     bool update(ScreenHost &host) override {
+        // The list can change under the focus (a profile removed from a phone): the focus stays on
+        // a profile or on Add, and the rename button goes with the active profile.
+        const size_t count = host.view().catalogue["profiles"].size();
+        if (selected_ > count || (onButton_ && activeIndex(host) >= count)) {
+            selected_ = std::min(selected_, count);
+            onButton_ = onButton_ && activeIndex(host) < count;
+            focusMoved(host, true);
+        }
         busy_ = host.optimistic().pending("profiles.active") || host.optimistic().pending("profiles.add");
         active_ = shownActive(host);
         return busy_;

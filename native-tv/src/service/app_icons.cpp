@@ -123,7 +123,8 @@ std::string iconEtag(size_t size, const struct stat &info) {
     etag << '"' << std::hex << size << '-' << modifiedMs << '"';
     return etag.str();
 }
-// A title as the pack keys it: lower-case letters and digits, "+" as "plus".
+} // namespace
+
 std::string titleKey(const std::string &title) {
     std::string key;
     for (size_t index = 0; index < title.size(); ++index) {
@@ -137,6 +138,8 @@ std::string titleKey(const std::string &title) {
     }
     return key;
 }
+
+namespace {
 
 // The pack is "NTVICONS 1\n", one "key offset length\n" line per icon with the
 // offset counted from the first data byte, an empty line, then the PNGs.

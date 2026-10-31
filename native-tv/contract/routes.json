@@ -564,7 +564,7 @@
       "csrf": "not applicable",
       "bodyLimit": {"max": 0, "unit": "bytes"},
       "owner": "native",
-      "notes": "The daemon serves both the TV view and general catalogue, including selected channels when Live is enabled. It records the current Live TV channel for Last opened sorting in native recent-history storage. Managed foreground recency uses the native state subscription; Node retains standalone fallback and Home lifecycle handling."
+      "notes": "The daemon serves both the TV view and general catalogue, including selected channels when Live is enabled. It records the current Live TV channel for Last opened sorting in native recent-history storage. Managed foreground recency uses the native state subscription; Node retains standalone fallback and Home lifecycle handling. Each app carries its `kind`, and `kinds` lists the kinds in the layout's order with their labels."
     },
     {
       "paths": ["/api/home/wallpaper"],
@@ -609,7 +609,7 @@
       "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present; requires allowControl unless from TV loopback",
       "bodyLimit": {"max": 8192, "unit": "JS string code units"},
       "owner": "native",
-      "notes": "The daemon applies layout mutations under the home.json lock, updates layoutVersion, refreshes picture tracking and clears recent-history rows whose sort changed away from Last opened. Node retains standalone fallback."
+      "notes": "The daemon applies layout mutations under the home.json lock, updates layoutVersion, refreshes picture tracking and clears recent-history rows whose sort changed away from Last opened. Node retains standalone fallback. `sort.app` may be `kind`, with `kinds` the owner's order of the kinds the apps row and the Apps page then group by; an unknown kind is dropped and a missing one appended in the default order. `hidden` has a list for each row (`app`, `dev`, `ch`) and `appsTab`, the apps hidden on the Apps tab, which is independent of `app` (the apps hidden on Home's row); a layout saved before `appsTab` existed starts it from `app`, and a reset and a new profile start both with LG's promotions hidden."
     },
     {
       "paths": ["/api/home/start-layout"],
@@ -645,7 +645,7 @@
       "csrf": "JSON body guard and same-origin Origin/Host comparison when Origin is present; requires allowControl unless from TV loopback",
       "bodyLimit": {"max": 8192, "unit": "JS string code units"},
       "owner": "native",
-      "notes": "The daemon opens listed apps, HDMI devices and channels, AnimeMania titles, YouTube videos and Netflix titles. Netflix uses the native Wikidata P1874 result and existing contentTarget format. LG Home escape releases the managed takeover and launches LG Home natively; a secret-guarded Node bridge updates the remaining managed escape-state observer. Node retains standalone fallback."
+      "notes": "The daemon opens listed apps, HDMI devices and channels, YouTube videos and Netflix titles. A feed title has no other app to open in: kind title is refused with 400. Netflix uses the native Wikidata P1874 result and existing contentTarget format. LG Home escape releases the managed takeover and launches LG Home natively; a secret-guarded Node bridge updates the remaining managed escape-state observer. Node retains standalone fallback."
     },
     {
       "paths": ["/api/home/profile"],

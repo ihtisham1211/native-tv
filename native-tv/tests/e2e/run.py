@@ -79,7 +79,7 @@ VALUE = re.compile(r"^[A-Za-z0-9_,=.-]*$")
 # What the registry and the scripts must never hold: a personal path, an address, a token
 # (a long run of hex digits); the loopback address is the one address the cases use.
 PRIVATE = re.compile(r"/Users/|(?<!/api)/home/[a-z]|\b(?!127\.0\.0\.1\b)\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b|[A-Fa-f0-9]{24,}")
-FORBIDDEN_IN_NAVIGATE_ONLY = ("text", "click", "activate", "longPress", "sweep")
+FORBIDDEN_IN_NAVIGATE_ONLY = ("text", "click", "activate", "longPress", "longBack", "sweep")
 # What a sweep of a Settings screen reports for a row that was pressed and did not behave.
 SWEEP_FAILURES = ("unchanged by OK", "the write did not come back", "not back after the most presses", "out of time")
 
@@ -200,6 +200,8 @@ def check_registry(registry):
         if not set(case.get("requires", [])) <= KNOWN_REQUIRES:
             problems.append("%s: requires holds %s" % (name, sorted(set(case["requires"]) - KNOWN_REQUIRES)))
         if case.get("kind") == "run":
+            if "before" in case:
+                problems += api_problems(case, "before")
             if "cleanup" in case:
                 problems += api_problems(case, "cleanup")
             if "after" in case:
@@ -517,6 +519,12 @@ def execute(tv, case, port):
         code, out, _ = tv.run("pidof nativetv-tv")
         if out.strip():
             raise RuntimeError("a nativetv-tv is already running on the TV")
+        if case.get("before"):
+            # What the client run needs on the server first, such as a layout setting; cleanup
+            # puts it back.
+            code, out, _ = tv.run("node - %d" % port, flow_program(dict(case, flow=case["before"]), port), timeout=120)
+            if code != 0:
+                raise RuntimeError("the case's before flow failed: " + out.strip()[-300:])
         data = None
         if case.get("script"):
             with open(script_path(case), "rb") as file:

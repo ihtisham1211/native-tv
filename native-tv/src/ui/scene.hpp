@@ -140,6 +140,10 @@ struct Node {
     float radius = 0;
     bool contain = false;
     bool stretch = false;
+    // A fill drawn under a picture (the next node) for the time it has none or is see-through:
+    // Application::resolvePictures hides it once an opaque picture is on show, where it would
+    // only tint the picture's edge and its fade.
+    bool backing = false;
     // SCENE-V2
     Corners corners;            // overrides `radius` when any corner is set
     Gradient gradient;

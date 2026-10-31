@@ -86,6 +86,7 @@ nav:
           - LG UA73 (55UA73006LA): development/tv-specs/ua73.md
           - LG NU80 (43NU800BPSC): development/tv-specs/nu80.md
       - Strings: development/strings.md
+      - Material 3 Expressive: development/material-3-expressive.md
       - Performance:
           - Audit: development/performance-audit.md
           - Baseline: development/performance-baseline.md

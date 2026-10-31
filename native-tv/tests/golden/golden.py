@@ -185,7 +185,8 @@ def render(client, case, output, env):
         if case.get("fixture") == "home":
             sys.path.insert(0, os.path.join(HERE, ".."))
             import home_fixture
-            server = stack.enter_context(home_fixture.serve(profiles=case.get("profiles", 1)))
+            server = stack.enter_context(home_fixture.serve(profiles=case.get("profiles", 1),
+                                                            sort=case.get("sort", "custom")))
         elif case.get("fixture") == "dashboard":
             sys.path.insert(0, os.path.join(HERE, ".."))
             import dashboard_fixture
