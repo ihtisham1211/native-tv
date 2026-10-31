@@ -36,10 +36,16 @@ Native Tv is a server that runs directly on a rooted LG webOS TV, with a live da
 * **[Control the TV without the cloud](dashboard/control.md).** D-pad, volume, playback keys, app launcher, picture presets, sound output, power and reboot.
 * **[See what the TV collects, and switch it off](dashboard/privacy.md).** LG's content recognition (ACR, Live Plus), the advertising identifier, data agreements, and an on-TV blocker for LG's ad and telemetry servers. [What LG's ACR does](administration/acr.md).
 * **[Debloat and clean up](dashboard/apps.md).** Install Homebrew Channel apps, uninstall LG apps, stop background services, hide system apps from the launcher.
+* **[Guard risky actions with an admin PIN](administration/security.md).** A four-digit PIN, asked in the TV's first-run setup, is needed to install and remove apps, change SSH keys, restore a backup and use the power actions, on the TV and in the dashboard.
+* **[Control power and standby](dashboard/advanced.md#power-and-standby).** Stay on the network while off, Quick Boot, Wake-on-LAN, Always Ready, the On and Off timers, and a switch that [blocks LG's firmware updates](dashboard/advanced.md#system-updates), which can take root access away.
 * **[Remap the remote's buttons](dashboard/apps.md#remote-keys).** Point Netflix, Prime Video, Guide and the colour keys at any app, HDMI input or Live TV.
 * **[Replace the screen saver](dashboard/screen-savers.md)** with a clock, starfield, fireworks or the TV's own readings.
 * **[Switch the TV off when idle](dashboard/advanced.md#switch-off-when-idle).** After 15 minutes to eight hours with no key press, no change and nothing playing, with a toast a minute before; an HDMI input is never switched off.
 * **[Protect and monitor an OLED panel](dashboard/oled-care.md).** Panel hours, Pixel Refresher scheduling, and switches for screen shift, logo dimming, ASBL and Global Stress Reduction.
+* **[Check the game's frame rate](dashboard/game.md).** On TVs with LG's Game Optimizer, the frame rate in large type while the source uses VRR, beside the Optimizer's settings.
+* **[Monitor the hardware](dashboard/metrics.md).** SoC temperature, per-core CPU load, memory, swap, Wi-Fi signal and throughput.
+* **[Back up the settings](dashboard/server.md)** to a file or once a day on the TV, and restore them on the same TV or another.
+* **[Read the TV's logs](dashboard/tools.md)** in one searchable timeline in the browser, with no SSH, and with private details hidden when copied or exported.
 * **[Connect it to Home Assistant](integrations/home-assistant.md).** An MQTT bridge with Discovery exposes the TV as one device; the remote's buttons can trigger automations. [Prometheus metrics](integrations/prometheus.md) and [log forwarding](integrations/syslog.md) are there for monitoring.
 * **[Open the service menu](dashboard/service-menu.md)** from a browser, with no service remote, and unlock it where newer firmware cuts it down.
 * **[Use it on the TV itself](apps/tv-app.md).** A native app on the home screen, driven by the remote and [drawn at 60 frames a second](apps/tv-app.md#how-smooth-it-is).

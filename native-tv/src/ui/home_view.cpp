@@ -154,14 +154,25 @@ void rows(kit::Paint paint, const Frame &frame, float top = 0) {
         if (labelY > kit::canvas::height + 40 || labelY + 260 < 100)
             continue;
         if (home.arranging && ri == home.row) {
-            // The lifted row sits on a raised slab while it is being moved.
-            float height = layout::rowLabelH + layout::rowLabelGap +
-                           (home::isApps(row) ? layout::appD + 56 : layout::cardH + 12);
-            Node &slab = paint.scene.shape({kit::canvas::safeX - 24, labelY - 12,
-                                            kit::canvas::width - 2 * kit::canvas::safeX + 48,
-                                            height + 24},
-                                           kit::color::surface1, kit::radius::lg);
+            // The lifted row sits on a raised slab while it is being moved. The slab is as wide as
+            // the row, with room all round for the focused name, which is wider than its circle.
+            constexpr float kPad = 40;
+            const float left = kit::canvas::safeX - kPad;
+            float right = kit::canvas::width - kit::canvas::safeX + kPad / 2;
+            if (!row.cards.empty()) {
+                const Rect last = home::item(row, ri, row.cards.size() - 1, namedApps);
+                const float overhang = namedApps ? (layout::appGapNamed - 8) / 2 : 0;
+                right = std::min(right, last.x + last.w + overhang + kPad +
+                                            static_cast<float>(motion.value(home::id("rx", ri))));
+                right = std::max(right, left + 480);
+            }
+            const float height = layout::rowLabelH + layout::rowLabelGap +
+                                 (home::isApps(row) ? layout::appD + 56 : layout::cardH + 12);
+            Node &slab = paint.scene.shape({left, labelY - 12, right - left, height + 36},
+                                           kit::color::surface2, kit::radius::lg);
             slab.ring = {1, 0, kit::alpha::outline};
+            slab.shadow = {0, kit::elevation::raised.dy, kit::elevation::raised.blur, 0,
+                           {0, 0, 0, .5f}};
         }
         kit::Row label;
         label.index = static_cast<int>(ri);
@@ -200,6 +211,8 @@ void rows(kit::Paint paint, const Frame &frame, float top = 0) {
                 circle.enter = enter;
                 if (card.hidden) // hidden from Home: listed only while the apps are edited
                     circle.enter.alpha *= .4f;
+                if (home.arranging && ri != home.row) // the rows behind the lifted one
+                    circle.enter.alpha *= .55f;
                 kit::appCircle(paint, circle);
             } else if (row.key == "dev" || row.key == "ch") {
                 kit::InputTile tile;
