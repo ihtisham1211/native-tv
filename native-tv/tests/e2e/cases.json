@@ -6763,8 +6763,22 @@
               "app": []
             },
             "hidden": {
-              "app": [],
-              "appsTab": []
+              "app": [
+                "com.webos.app.notificationcenter",
+                "com.webos.app.camera",
+                "com.webos.app.sportsteamsettings",
+                "com.webos.app.multiviewsettings",
+                "amazon.alexa.view",
+                "com.webos.app.lifeonscreen"
+              ],
+              "appsTab": [
+                "com.webos.app.notificationcenter",
+                "com.webos.app.camera",
+                "com.webos.app.sportsteamsettings",
+                "com.webos.app.multiviewsettings",
+                "amazon.alexa.view",
+                "com.webos.app.lifeonscreen"
+              ]
             }
           },
           "expect": {
@@ -6826,7 +6840,7 @@
         {
           "api": "GET /api/home/catalogue",
           "expect": {
-            "layout.hidden.appsTab[0]": "com.webos.app.discovery"
+            "layout.hidden.appsTab[6]": "com.webos.app.discovery"
           }
         }
       ],
@@ -6838,8 +6852,22 @@
               "app": []
             },
             "hidden": {
-              "app": [],
-              "appsTab": []
+              "app": [
+                "com.webos.app.notificationcenter",
+                "com.webos.app.camera",
+                "com.webos.app.sportsteamsettings",
+                "com.webos.app.multiviewsettings",
+                "amazon.alexa.view",
+                "com.webos.app.lifeonscreen"
+              ],
+              "appsTab": [
+                "com.webos.app.notificationcenter",
+                "com.webos.app.camera",
+                "com.webos.app.sportsteamsettings",
+                "com.webos.app.multiviewsettings",
+                "amazon.alexa.view",
+                "com.webos.app.lifeonscreen"
+              ]
             }
           },
           "expect": {

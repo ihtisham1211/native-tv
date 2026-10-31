@@ -17,6 +17,7 @@
 //   {stays: "com.example", forMs}                    the app in front is this one throughout
 //   {wait: ms}
 // A path name may pick an array item: rows[id=soundOutput].value is the value of the item whose id is soundOutput.
+// Or take it by position: hidden.appsTab[0] is the first item of the list.
 // The app in front is read from the app manager (getForegroundAppInfo), which only reports it.
 var http = require('http');
 var execFile = require('child_process').execFile;
@@ -70,6 +71,12 @@ function dotted(object, path) {
   var names = splitPath(path);
   for (var i = 0; i < names.length; i++) {
     if (value === null || typeof value !== 'object') return undefined;
+    var index = /^(.+)\[(\d+)\]$/.exec(names[i]);
+    if (index) {
+      var items = value[index[1]];
+      value = Array.isArray(items) ? items[Number(index[2])] : undefined;
+      continue;
+    }
     var pick = /^(.+)\[(.+)=(.+)\]$/.exec(names[i]);
     if (!pick) {
       value = value[names[i]];

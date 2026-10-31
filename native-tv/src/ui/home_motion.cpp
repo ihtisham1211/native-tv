@@ -477,6 +477,17 @@ void Application::homeUpdate() {
         home.row = defaultRow(home);
         homeFocus(true);
     }
+    // A refresh, a mutation while editing or a jump between rows can leave the focus on a card the row
+    // no longer has; it comes back to the nearest one rather than resting on nothing.
+    if (!home.rows.empty() && !home.navigation && !home.editing && !home.arranging) {
+        const size_t row = clampIndex(home.row, home.rows.size());
+        const size_t column = clampIndex(home.column, home.rows[row].cards.size());
+        if (row != home.row || column != home.column) {
+            home.row = row;
+            home.column = column;
+            homeFocus();
+        }
+    }
     // Hero: what the focused card, or the spotlight, asks for; the change waits for the art.
     bool heroTab = home.tabs[home.tab].key != "apps" && flow_.pendingTab < 0;
     for (const char *name : {"hp", "hk:0", "hk:1"})

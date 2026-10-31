@@ -26,9 +26,7 @@ namespace {
 std::string number(double value) {
     return std::to_string(static_cast<int>(value));
 }
-// home.focus: after Back out of the Apps tab on a catalogue that changed under the walk (seeds 147 and
-// one more of 300) the focus can rest on a column the row does not have until the next key.
-const char *const kKnown[] = {"home.focus"};
+const char *const kKnown[] = {"none"}; // no known failure at the moment
 
 bool isKnown(const std::string &tag) {
     if (std::getenv("NAVWALK_STRICT"))
@@ -493,6 +491,9 @@ struct Walk {
 
     std::string signature(bool withoutIdle = false) {
         Json value = app().snapshot();
+        // The hero's slideshow moves on with time whatever is pressed, and a dimmed screen is dimmed
+        // by time too: neither is a key's doing.
+        value.set("heroTitle", Json::text(""));
         if (withoutIdle)
             value.set("idle", Json::flag(false));
         return app().screenName() + " " + value.dump();
@@ -553,7 +554,7 @@ struct Walk {
                 expect(!snap["focusCard"].string().empty(), "home.focus",
                        "the focus is on a card that does not exist (row " +
                            std::to_string(static_cast<int>(snap["row"].number())) + ", column " +
-                           std::to_string(static_cast<int>(snap["column"].number())) + ")");
+                           std::to_string(static_cast<int>(snap["column"].number())) + ") " + snap.dump());
         } else if (name == "quick:recents") {
             const double count = snap["recentApps"].number();
             expect(count == 0 || snap["selected"].number() < count, "recents.selected",
