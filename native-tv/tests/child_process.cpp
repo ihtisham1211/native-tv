@@ -100,7 +100,9 @@ void testResidentChildWakesRarely() {
 
 void testCancelWithoutDeadlineIsNoticed() {
     ChildProcessRunner runner;
-    ChildOptions resident = shell("sleep 5", std::chrono::milliseconds(0));
+    // exec: dash (Ubuntu's /bin/sh) keeps the shell as the parent of sleep, so a SIGTERM to the
+    // shell would leave sleep holding the pipes open, and the run would last the full 5 s.
+    ChildOptions resident = shell("exec sleep 5", std::chrono::milliseconds(0));
     resident.cancellation = std::make_shared<std::atomic<bool>>(false);
     std::thread canceller([flag = resident.cancellation] {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
@@ -111,8 +113,7 @@ void testCancelWithoutDeadlineIsNoticed() {
     canceller.join();
     const auto took = std::chrono::steady_clock::now() - started;
     check(result.cancelled, "a cancelled resident child should report it");
-    // The child sleeps 5 s: ending well before that is the cancel. A second was too tight for a
-    // sanitizer build on a CI runner that runs four tests at once (it took 7 s there).
+    // The child sleeps 5 s: ending well before that is the cancel.
     check(took < std::chrono::seconds(3), "a cancel should end the child within a few seconds");
 }
 
