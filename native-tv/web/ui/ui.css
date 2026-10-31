@@ -229,8 +229,8 @@ input[type=text], input[type=search], input[type=password], input[type=number], 
 .toast-form button:disabled { opacity: .38; }
 #port-input { max-width: 120px; flex: 0 1 120px; }
 .pill-sel { appearance: none; -webkit-appearance: none; min-height: 40px; max-width: 100%; padding: 0 36px 0 14px; border: 0; border-radius: var(--shape-md); background: var(--c-surface-container-highest) var(--caret) right 10px center / 20px no-repeat; font: var(--type-label-l); cursor: pointer; outline: none; }
-input[type=time].pill-sel, #home-tmdb-key { padding-right: 14px; background-image: none; }
-#home-tmdb-key { width: min(100%, 360px); margin-top: 8px; cursor: text; }
+input[type=time].pill-sel, #home-tmdb-key, #home-youtube-key { padding-right: 14px; background-image: none; }
+#home-tmdb-key, #home-youtube-key { width: min(100%, 360px); margin-top: 8px; cursor: text; }
 .pill-sel:focus-visible { box-shadow: inset 0 0 0 2px var(--c-primary); }
 .pill-sel option { background: var(--c-surface-container-high); color: var(--c-on-surface); }
 
@@ -766,6 +766,8 @@ input[type=file]::file-selector-button { margin-right: 12px; padding: 0 20px; he
 .ssh-btns { margin-top: 10px; }
 #ssh-state.warn { color: var(--c-error); }
 .backup-saved { margin-top: 4px; }
+#release-offer { margin-top: 6px; }
+.rel-sha { overflow-wrap: anywhere; }
 .backup-saved .bk { display: flex; align-items: center; gap: 12px; padding: 6px 0; border-top: 1px solid color-mix(in srgb, var(--c-outline-variant) 55%, transparent); }
 .backup-saved .bk-date { flex: 1; min-width: 0; }
 .backup-saved .bk-size { color: var(--c-on-surface-variant); font: var(--type-body-s); }

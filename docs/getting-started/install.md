@@ -15,10 +15,12 @@ description: "Install Native Tv on a rooted LG webOS TV: build the ARM server wi
 
 That's it. The dashboard is ready to use.
 
+An AI coding assistant can run these steps: the [README](https://github.com/ihtisham1211/native-tv#install-with-an-ai-assistant) has a prompt to give it and the rules it follows.
+
 ## Requirements
 
 * A rooted LG webOS TV ([Root tool here](https://github.com/throwaway96/dejavuln-autoroot/)) with the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel).
-* A computer on the same network with Git, Bash, Python 3, CMake and a compatible webOSbrew native SDK. A source install needs the ARM build of the server, its metrics worker and the TV app. The TV does not need internet access during installation.
+* A computer on the same network with Git, Bash, Python 3, CMake, `pkg-config` and a compatible webOSbrew native SDK, which is built for macOS (Apple silicon and Intel) and arm64 Linux only. A source install needs the ARM build of the server, its metrics worker and the TV app. The TV does not need internet access during installation.
 
 The MQTT bridge also needs an MQTT broker on the network. Home Assistant's Mosquitto add-on is one option, but any compatible MQTT broker works.
 

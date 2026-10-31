@@ -125,7 +125,7 @@ add_library(nativetv_tv_services src/service/control_commands.cpp
   src/service/app_package_policy.cpp src/service/app_install_preview.cpp
   src/service/app_install_space.cpp
   src/service/admin_pin.cpp src/service/app_icons.cpp src/service/app_kinds.cpp src/service/backup.cpp
-  src/service/quick_access.cpp src/service/screen_time.cpp
+  src/service/quick_access.cpp src/service/release_check.cpp src/service/screen_time.cpp
   src/service/screensaver_policy.cpp
   src/service/stats_fields.cpp
   src/service/preload.cpp src/service/lg_settings.cpp src/service/piccap.cpp
@@ -284,6 +284,10 @@ if(BUILD_TESTING)
   target_link_libraries(native-daemon-tests PRIVATE nativetv_daemon)
   target_compile_options(native-daemon-tests PRIVATE -Wall -Wextra -Werror)
   add_test(NAME native-daemon COMMAND native-daemon-tests)
+  add_executable(native-release-check-tests tests/release_check.cpp)
+  target_link_libraries(native-release-check-tests PRIVATE nativetv_tv_services)
+  target_compile_options(native-release-check-tests PRIVATE -Wall -Wextra -Werror)
+  add_test(NAME native-release-check COMMAND native-release-check-tests)
   add_executable(native-daily-backup-scheduler-tests tests/daily_backup_scheduler.cpp)
   target_link_libraries(native-daily-backup-scheduler-tests PRIVATE nativetv_daemon)
   target_compile_options(native-daily-backup-scheduler-tests PRIVATE -Wall -Wextra -Werror)

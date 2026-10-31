@@ -44,6 +44,7 @@ Native Tv is a server that runs directly on a rooted LG webOS TV, with a live da
 * **[Protect and monitor an OLED panel](dashboard/oled-care.md).** Panel hours, Pixel Refresher scheduling, and switches for screen shift, logo dimming, ASBL and Global Stress Reduction.
 * **[Check the game's frame rate](dashboard/game.md).** On TVs with LG's Game Optimizer, the frame rate in large type while the source uses VRR, beside the Optimizer's settings.
 * **[Monitor the hardware](dashboard/metrics.md).** SoC temperature, per-core CPU load, memory, swap, Wi-Fi signal and throughput.
+* **[Hear about updates](dashboard/server.md).** The Server tab says when a newer release is out, when asked or once a day if switched on, and opens the Homebrew Channel on the TV to install it. The TV contacts GitHub only on request.
 * **[Back up the settings](dashboard/server.md)** to a file or once a day on the TV, and restore them on the same TV or another.
 * **[Read the TV's logs](dashboard/tools.md)** in one searchable timeline in the browser, with no SSH, and with private details hidden when copied or exported.
 * **[Connect it to Home Assistant](integrations/home-assistant.md).** An MQTT bridge with Discovery exposes the TV as one device; the remote's buttons can trigger automations. [Prometheus metrics](integrations/prometheus.md) and [log forwarding](integrations/syslog.md) are there for monitoring.

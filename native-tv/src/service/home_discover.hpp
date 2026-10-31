@@ -39,7 +39,7 @@ class HomeDiscover {
     bool fetch(const std::string &url, Json &document, std::string &error);
     void loadCacheLocked();
     void saveCacheLocked();
-    bool dueLocked(int64_t nowMs) const;
+    bool dueLocked(int64_t nowMs, bool tmdbAsked, bool youtubeAsked) const;
     std::string cachePath_;
     Fetcher fetcher_;
     Clock clock_;

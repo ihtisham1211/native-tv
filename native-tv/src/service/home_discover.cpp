@@ -272,7 +272,7 @@ Json HomeDiscover::feed(const std::string &tmdbKey, const std::string &youtubeKe
         std::lock_guard<std::mutex> lock(mutex_);
         if (!cacheLoaded_) loadCacheLocked();
         const int64_t nowMs = clock_();
-        if (dueLocked(nowMs) && !refreshing_ &&
+        if (dueLocked(nowMs, !tmdbKey.empty(), !youtubeKey.empty()) && !refreshing_ &&
             (!hasFailed_ || nowMs - failedAtMs_ >= kRetryMs)) {
             requestedTmdbKey_ = tmdbKey;
             requestedYoutubeKey_ = youtubeKey;
@@ -416,6 +416,8 @@ void HomeDiscover::refresh(const std::string &tmdbKey,
     for (const Json &row : rows) rowList.add(row);
     updated.set("rows", rowList);
     updated.set("partial", Json::flag(missed > 0));
+    updated.set("tmdbAsked", Json::flag(!tmdbKey.empty()));
+    updated.set("youtubeAsked", Json::flag(!youtubeKey.empty()));
     {
         std::lock_guard<std::mutex> lock(mutex_);
         cache_ = updated;
@@ -522,8 +524,18 @@ void HomeDiscover::saveCacheLocked() {
     }
 }
 
-bool HomeDiscover::dueLocked(int64_t nowMs) const {
+bool HomeDiscover::dueLocked(int64_t nowMs, bool tmdbAsked, bool youtubeAsked) const {
     if (!cache_.isObject()) return true;
+    // A key saved after the cache was made has no rows in it, so it must not wait for tomorrow. A cache
+    // from before the keys were recorded is read from its rows.
+    bool youtubeRows = false, titleRows = false;
+    for (const Json &row : cache_["rows"].items()) {
+        if (row["key"].string() == "youtube") youtubeRows = true;
+        else titleRows = true;
+    }
+    const bool hadYoutube = cache_["youtubeAsked"].isBoolean() ? cache_["youtubeAsked"].boolean() : youtubeRows;
+    const bool hadTmdb = cache_["tmdbAsked"].isBoolean() ? cache_["tmdbAsked"].boolean() : titleRows;
+    if ((youtubeAsked && !hadYoutube) || (tmdbAsked && !hadTmdb)) return true;
     const int64_t cachedAt = static_cast<int64_t>(cache_["at"].number());
     if (cache_["partial"].boolean() && nowMs - cachedAt >= kRetryMs) return true;
     std::tm nowLocal = {};

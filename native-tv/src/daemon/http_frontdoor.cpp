@@ -39,6 +39,7 @@
 #include "domain/say.hpp"
 #include "service/hdmi_inputs.hpp"
 #include "service/ntp.hpp"
+#include "service/release_check.hpp"
 #include "service/kernel_files.hpp"
 #include "service/app_icons.hpp"
 #include "service/app_ids.hpp"
@@ -2448,6 +2449,7 @@ Json HttpFrontDoor::serverStatus() const {
                                                document["prometheus"]["enabled"].boolean()));
     // Whether films and series are on: the key itself is never sent back.
     status.set("tmdbKeySet", Json::flag(!trimmedText(document["tmdbKey"].string()).empty()));
+    status.set("youtubeKeySet", Json::flag(!trimmedText(document["youtubeKey"].string()).empty()));
     status.set("watchHistory", historyRecorder_ ? historyRecorder_->status() : Json());
 
     Json backupDaily = Json::object();
@@ -2455,6 +2457,10 @@ Json HttpFrontDoor::serverStatus() const {
                                           document["backup"]["daily"].boolean()));
     status.set("backupDaily", backupDaily);
     status.set("ntp", ntpStatus_ ? ntpStatus_() : Json());
+    // Named release: /api/update is this very response, from before releases were checked for.
+    status.set("release", releaseChecker_ ? releaseChecker_->status() : Json());
+    status.set("releaseCheck", Json::flag(document["update"]["check"].isBoolean() &&
+                                          document["update"]["check"].boolean()));
 
     const Json ntpConfig = document["ntp"];
     const std::string ntpServer = ntpConfig["server"].isString()
@@ -2552,6 +2558,17 @@ bool HttpFrontDoor::serverSettingControl(const std::string &action, const Json &
         patch.set("enabled", Json::flag(on));
         return saveSection("prometheus", patch) ? answer() : true;
     }
+    if (action == "setReleaseCheck") {
+        // "update" is the key backups already carry for it.
+        patch.set("check", Json::flag(on));
+        return saveSection("update", patch) ? answer() : true;
+    }
+    if (action == "checkRelease") {
+        if (!releaseChecker_) return fail("no release check configured");
+        std::string error;
+        (void)releaseChecker_->check(error); // a failure is shown by the status, with the reason
+        return answer();
+    }
     if (action == "setTmdbKey") {
         // An empty string removes the key; anything that is not a string is a mistake, not a removal.
         if (!value.isString())
@@ -2566,6 +2583,26 @@ bool HttpFrontDoor::serverSettingControl(const std::string &action, const Json &
                                  "A TMDB API key is 32 letters and digits, 0 to 9 and a to f"));
         Json change = Json::object();
         change.set("tmdbKey", Json::text(key));
+        std::string error;
+        if (!ConfigStore(configPath_).setTopLevel(change, &error))
+            return fail("could not save setting: " + error);
+        reloadNode();
+        return answer();
+    }
+    if (action == "setYoutubeKey") {
+        // An empty string removes the key. Google's keys are 39 letters, digits, - and _; the bounds are
+        // wider than that so a longer key later is not refused.
+        const std::string badKey = say::msg("srv.youtube.badKey",
+                                            "A YouTube API key is 20 to 100 letters, digits, - and _");
+        if (!value.isString()) return fail(badKey);
+        const std::string key = trimmedText(value.string());
+        bool valid = key.size() >= 20 && key.size() <= 100;
+        for (char character : key)
+            valid = valid && (std::isalnum(static_cast<unsigned char>(character)) ||
+                              character == '-' || character == '_');
+        if (!key.empty() && !valid) return fail(badKey);
+        Json change = Json::object();
+        change.set("youtubeKey", Json::text(key));
         std::string error;
         if (!ConfigStore(configPath_).setTopLevel(change, &error))
             return fail("could not save setting: " + error);
@@ -11323,6 +11360,18 @@ bool HttpFrontDoor::createDailyBackup(const std::string &name,
                                     backup, &error);
 }
 
+bool HttpFrontDoor::checkReleaseIfDue(std::string &error) const {
+    error.clear();
+    const Json enabled = currentConfigDocument()["update"]["check"];
+    if (!releaseChecker_ || !enabled.isBoolean() || !enabled.boolean() ||
+        !releaseChecker_->dailyCheckDue())
+        return true;
+    // A failed check is not an error here: the Server tab shows it, and it is tried again in an hour.
+    std::string checkError;
+    (void)releaseChecker_->check(checkError);
+    return true;
+}
+
 bool HttpFrontDoor::createDailyBackupIfDue(std::string &error) const {
     std::lock_guard<std::mutex> lock(dailyBackupMutex_);
     error.clear();
@@ -16331,9 +16380,9 @@ void HttpFrontDoor::sendHomeContent(HttpExchange &exchange,
 }
 
 void HttpFrontDoor::sendHomeDiscover(HttpExchange &exchange) const {
-    const Json result = homeDiscover_.feed(
-        currentConfigDocument()["tmdbKey"].string(),
-        config_.document["youtubeKey"].string());
+    const Json document = currentConfigDocument();
+    const Json result = homeDiscover_.feed(document["tmdbKey"].string(),
+                                           document["youtubeKey"].string());
     if (result["enabled"].boolean() && result["rows"].isArray() &&
         result["rows"].size())
         homeImageProxy_.retainAndWarm(result["rows"]);

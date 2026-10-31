@@ -88,7 +88,7 @@
       "csrf": "not applicable",
       "bodyLimit": {"max": 0, "unit": "bytes"},
       "owner": "native",
-      "notes": "The shared server-status response, built in the daemon from config, the ad-block, devtools, Home layout, screen saver and history managers and the NTP and syslog forwarders. The daemon block reports the daemon's own uptime, pid, port and resident size; the JavaScript heap fields are null. Other methods get a 405 JSON error; Node answered every method."
+      "notes": "The shared server-status response, built in the daemon from config, the ad-block, devtools, Home layout, screen saver and history managers the NTP and syslog forwarders and the release check (the newest GitHub release, asked for only on request or by the opt-in daily check). The daemon block reports the daemon's own uptime, pid, port and resident size; the JavaScript heap fields are null. Other methods get a 405 JSON error; Node answered every method."
     },
     {
       "paths": ["/api/tvapp"],

@@ -10,8 +10,10 @@ ssh root@<tv-ip> /var/lib/tvweb/tvwebctl status    # start | stop | restart | st
 
 ## Updating
 
-Native Tv no longer checks for or installs its own server releases. Update a
-TV by deploying the server or installing the Homebrew Channel package.
+Native Tv does not install its own server releases. Its **Updates** card, on
+the dashboard's [Server tab](../dashboard/server.md), tells when a newer one is
+out, when asked or once a day if switched on. Update a TV by deploying the
+server or installing the Homebrew Channel package.
 
 **Deployed from a git checkout.** Pull the desired release or commit, rebuild,
 then run the deploy script again. The deploy script packages whatever is in the

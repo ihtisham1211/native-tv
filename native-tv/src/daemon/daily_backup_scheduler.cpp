@@ -28,8 +28,9 @@ std::string exceptionText(std::exception_ptr failure) {
 
 DailyBackupScheduler::DailyBackupScheduler(EventLoop &loop, Check check,
                                            Logger *logger,
-                                           DailyBackupTimings timings)
-    : loop_(loop), check_(std::move(check)), logger_(logger), timings_(timings) {
+                                           DailyBackupTimings timings, std::string label)
+    : loop_(loop), check_(std::move(check)), logger_(logger), timings_(timings),
+      label_(std::move(label)) {
     if (!check_)
         throw std::invalid_argument("daily backup scheduler needs a check callback");
 }
@@ -49,7 +50,7 @@ bool DailyBackupScheduler::start() {
             return;
         intervalTimer_ = loop_.scheduleEvery(timings_.interval, [this]() { dispatch(); });
         if (!intervalTimer_ && logger_)
-            logger_->warning("daily backup: could not schedule the hourly check");
+            logger_->warning(label_ + ": could not schedule the hourly check");
         dispatch();
     });
     if (!initialTimer_)
@@ -82,11 +83,11 @@ void DailyBackupScheduler::dispatch() {
                     return;
                 const std::string error = failure ? exceptionText(failure) : result->error;
                 if (failure || !result->succeeded)
-                    logger_->warning("daily backup: " +
+                    logger_->warning(label_ + ": " +
                                      (error.empty() ? "check failed" : error));
             })) {
         if (logger_)
-            logger_->warning("daily backup: worker queue is full; will retry later");
+            logger_->warning(label_ + ": worker queue is full; will retry later");
         return;
     }
     inFlight_ = true;

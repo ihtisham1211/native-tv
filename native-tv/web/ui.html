@@ -1727,6 +1727,38 @@
               <button type="button" class="pill bad" id="home-tmdb-remove" onclick="homeTmdbRemove()" data-t="home.tmdbRemove" hidden>Remove</button>
             </div>
           </div>
+          <div class="prot-row" id="home-youtube-row" hidden>
+            <div class="prot-main">
+              <div class="prot-title" data-t="home.youtube">
+                Trending on YouTube
+              </div>
+              <div class="prot-desc" data-t="home.youtubeDesc">
+                Adds a row of the videos trending in the US; OK plays one in
+                YouTube's app. It needs a YouTube Data API key (free, from the
+                Google Cloud console, with the YouTube Data API v3 turned on).
+                The key is kept on the TV and never shown again.
+              </div>
+              <div class="prot-desc" id="home-youtube-state" aria-live="polite"></div>
+              <div class="tmdb-key">
+                <input
+                  type="password"
+                  id="home-youtube-key"
+                  class="pill-sel"
+                  autocomplete="off"
+                  spellcheck="false"
+                  maxlength="100"
+                  data-t-aria-label="home.youtubeKeyLabel"
+                  aria-label="YouTube API key"
+                  placeholder="YouTube API key"
+                  data-t-placeholder="home.youtubeKeyLabel"
+                />
+              </div>
+            </div>
+            <div class="prot-status">
+              <button type="button" class="pill good" id="home-youtube-save" onclick="homeYoutubeSave()" data-t="home.youtubeSave">Save</button>
+              <button type="button" class="pill bad" id="home-youtube-remove" onclick="homeYoutubeRemove()" data-t="home.youtubeRemove" hidden>Remove</button>
+            </div>
+          </div>
         </div>
 </article>
 <div id="home-more">
@@ -2664,6 +2696,63 @@
                 </button>
               </div>
               <div class="backup-saved" id="backup-saved" hidden></div>
+            </div>
+            <!-- Hidden when the server has no release check; renderRelease shows them. -->
+            <div class="prot-row" id="release-row" hidden>
+              <div class="prot-main">
+                <div class="prot-title" data-t="server.release.title">
+                  Updates
+                </div>
+                <div class="prot-desc" data-t="server.release.desc">
+                  Asks GitHub whether a newer Native Tv has been released. It
+                  only tells: the update is installed from the Homebrew Channel
+                  on the TV.
+                </div>
+                <div class="prot-desc" id="release-status" role="status" aria-live="polite"></div>
+                <div class="prot-desc" id="release-offer" hidden></div>
+              </div>
+              <div class="prot-status">
+                <button
+                  type="button"
+                  class="pill idle"
+                  id="release-hbc"
+                  onclick="sendCommand('launchApp', 'org.webosbrew.hbchannel')"
+                  data-t="server.release.openHbc"
+                  hidden
+                >
+                  Open Homebrew Channel
+                </button>
+                <button
+                  type="button"
+                  class="pill good"
+                  id="release-check"
+                  onclick="checkRelease()"
+                >
+                  &mdash;
+                </button>
+              </div>
+            </div>
+            <div class="prot-row" id="release-daily-row" hidden>
+              <div class="prot-main">
+                <div class="prot-title" data-t="server.release.daily">
+                  Check daily
+                </div>
+                <div class="prot-desc" data-t="server.release.daily.desc">
+                  Checks once a day, starting five minutes after the server
+                  starts. Off, the TV contacts GitHub only when asked. GitHub
+                  sees the TV's address and the version in use.
+                </div>
+              </div>
+              <div class="prot-status">
+                <button
+                  type="button"
+                  class="pill sw idle"
+                  id="release-daily"
+                  onclick="toggleReleaseCheck()"
+                >
+                  &mdash;
+                </button>
+              </div>
             </div>
             <!-- Hidden where the TV will not take the app; renderTvApp shows it. -->
             <div class="prot-row" id="tvapp-row" hidden>

@@ -430,19 +430,19 @@ suite adds the version shown with matching build metadata only (`test-version.js
 an install started after the settings save (`test-restart-wait.js`). The debounce and publish-gap timing of
 `test-state-push.js` belongs to the Home Assistant publication, which is the daemon's now. The suites
 `test-dashboard-nav.js`, `test-dashboard-search.js`, `test-dashboard-view.js`, `test-mqtt-save-ui.js`,
-`test-token-url.js`, `test-admin-session.js` and `test-home-boot.js` load the shipped sources (`native-tv/web/ui/`,
+`test-token-url.js`, `test-admin-session.js`, `test-release-card.js` and `test-home-boot.js` load the shipped sources (`native-tv/web/ui/`,
 `native-tv/assets/google-tv/` and `native-tv/lifecycle/50-tvweb.sh`) and run on the host with
 `node native-tv/tests/ui/run.js`. `test-admin-session.js` runs the fetch wrapper of `ui/core.js` against a stand-in network: the admin session goes out with API requests only, a 403 that says `pin:true` raises the unlock prompt and retries once, a cancelled prompt leaves the refusal, and a 401 raises the passcode screen. `test-dashboard-nav.js` holds the phone dashboard's sections and tabs
 against `ui.html` (the 13 panels, five sections, the tab buttons the scripts reveal), the Android wrapper's
 `navState` call, and the `?theme=` and `data-theme` behaviour. `test-hdmi-grid.js` runs `hdmiTable()` from `ui/lgsettings.js` and holds that no column of the HDMI inputs
-table keeps a minimum width: three of them once did (150, 130 and 130 px), which pushed the Audio format column off a 390 px phone.
+table keeps a minimum width: three of them once did (150, 130 and 130 px), which pushed the Audio format column off a 390 px phone. `test-release-card.js` runs `renderRelease()` from `ui/server.js` against the shapes the server sends for the Updates card: a newer release, none, a failed check (beside the last good answer or alone), a build from a git checkout, a check under way, and no release check at all.
 
 `native-luna` also covers the urgent call's one extra slot (one key press at a time, ahead of the
 normal calls waiting), a child killed before answering run once more and then given up on, a
 timeout never retried, and calls logged at the debug level only, against a scripted `luna-send`.
 `native-control-command` holds the whole RCU navigation and media key tables. `native-backup` checks
 which daily backup is due (named by the UTC date; none while off or before 2026) and that a pruned
-or temporary one cannot be read. The runtime suite checks that a sound output change the audio
+or temporary one cannot be read. `native-release-check` holds the version comparison (numbers, not text; only x.y.z counts), refuses a manifest that is another app's, malformed or hashless, builds the release links from the version rather than from the manifest, and times the daily check (a day after an answer, an hour after a failure). The runtime suite checks that a sound output change the audio
 service never reports is answered after 4 s, and that a refused volume change stops `/api/stats`
 offering volume control on that output.
 

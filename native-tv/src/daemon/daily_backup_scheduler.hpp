@@ -13,14 +13,17 @@ struct DailyBackupTimings {
     EventLoop::Milliseconds interval = EventLoop::Milliseconds(3600000);
 };
 
-// Runs the managed daily-backup check away from the event-loop thread. The
-// callback may perform blocking Luna and loopback HTTP work.
+// Runs a check five minutes after start and then hourly, away from the
+// event-loop thread: the daily backup's, and the opt-in release check's (the
+// label names it in the log). The callback may perform blocking Luna, loopback
+// HTTP and network work.
 class DailyBackupScheduler {
   public:
     using Check = std::function<bool(std::string &)>;
 
     DailyBackupScheduler(EventLoop &loop, Check check, Logger *logger = nullptr,
-                         DailyBackupTimings timings = DailyBackupTimings());
+                         DailyBackupTimings timings = DailyBackupTimings(),
+                         std::string label = "daily backup");
     ~DailyBackupScheduler();
     DailyBackupScheduler(const DailyBackupScheduler &) = delete;
     DailyBackupScheduler &operator=(const DailyBackupScheduler &) = delete;
@@ -35,6 +38,7 @@ class DailyBackupScheduler {
     Check check_;
     Logger *logger_;
     DailyBackupTimings timings_;
+    std::string label_;
     EventLoop::TimerId initialTimer_ = 0;
     EventLoop::TimerId intervalTimer_ = 0;
     bool started_ = false;

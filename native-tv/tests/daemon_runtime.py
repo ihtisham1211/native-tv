@@ -10784,6 +10784,19 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertFalse(control("setTmdbKey", "")[1]["tmdbKeySet"])
                 self.assertEqual(saved()["tmdbKey"], "")
 
+                # YouTube: 20 to 100 letters, digits, - and _ are saved, an empty string removes the key, and the
+                # status never shows it.
+                for bad in ("short", "has a space 0123456789", "x" * 101, "bad/key-" + "a" * 20, 7, None):
+                    self.assertIn("20 to 100", control("setYoutubeKey", bad)[1]["error"])
+                self.assertNotIn("youtubeKey", saved())
+                dummy = "AIzaDummyKeyForTests-0123456789_abcdef"
+                result = control("setYoutubeKey", " " + dummy + " ")[1]
+                self.assertTrue(result["youtubeKeySet"])
+                self.assertNotIn(dummy, json.dumps(result))
+                self.assertEqual(saved()["youtubeKey"], dummy)
+                self.assertFalse(control("setYoutubeKey", "")[1]["youtubeKeySet"])
+                self.assertEqual(saved()["youtubeKey"], "")
+
                 # NTP: a bad port and a bad host are refused, a good one is saved on.
                 self.assertIn("1 to 65535", control("setNtpServer", "pool.ntp.org:99999")[1]["error"])
                 self.assertIn("server name", control("setNtpServer", "not a host!")[1]["error"])
@@ -10796,6 +10809,19 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertFalse(control("setNtpEnabled", False)[1]["ntpSettings"]["enabled"])
                 self.assertEqual(saved()["ntp"]["server"], "time.example.org")
                 self.assertEqual(control("setNtpServer", "")[1]["ntpSettings"]["server"], "")
+
+                # Release check: the opt-in switch is saved under "update", where backups already carry it.
+                # Nothing has asked GitHub, so the status knows only the installed version.
+                result = control("setReleaseCheck", True)[1]
+                self.assertTrue(result["releaseCheck"])
+                self.assertEqual(saved()["update"], {"check": True})
+                release = result["release"]
+                self.assertRegex(release["current"], r"^\d+\.\d+\.\d+$")
+                self.assertIsNone(release["latest"])
+                self.assertIsNone(release["checkedAgoS"])
+                self.assertFalse(release["available"])
+                self.assertFalse(control("setReleaseCheck", False)[1]["releaseCheck"])
+                self.assertEqual(saved()["update"], {"check": False})
 
                 result = control("setBackupDaily", True)[1]
                 self.assertEqual(result["backupDaily"], {"enabled": True})

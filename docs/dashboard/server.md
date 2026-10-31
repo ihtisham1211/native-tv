@@ -12,6 +12,10 @@ The **Server and backup** tab of the **Settings** section, `/?tab=server`, holds
 
 **Daily backup** saves the same backup on the TV once a day, in `/var/lib/tvweb/backups`, and keeps the last 7. It is off by default. Switched on, it saves that day's at once, then one each day the TV is on, as the server checks hourly. Each one kept is listed by its date with **Download** and **Restore**. Switching it off keeps those saved.
 
+**Updates** asks GitHub for the newest published release and says whether it is newer than the one on the TV. **Check for updates** asks once. When there is a newer one, the card shows its release notes and `.ipk` with the package's SHA-256, and **Open Homebrew Channel** opens that app on the TV, where Native Tv is updated; see [Updating](../getting-started/managing.md#updating). Native Tv does not install its own releases. A server built from a git checkout is told to pull and deploy again. The check fetches the release's manifest over HTTPS, so GitHub sees the TV's address and the version in use, and nothing else is sent.
+
+**Check daily** is off by default, so the TV contacts GitHub only when asked. Switched on, it checks five minutes after the server starts and again once a day has passed, retrying after an hour when GitHub could not be reached. It is `"update": {"check": true}` in `config.json`, which [Settings backup](#native-tv) carries.
+
 **App on the TV's home screen** adds or removes [the dashboard's own app](../apps/tv-app.md), which opens it on the TV and is driven by the remote.
 
 ## Advanced

@@ -24,7 +24,7 @@ it before exposing it more widely.
   network debugger. The TV app asks for it too, so holding the remote does not
   get round it. Everyday controls (volume, input, picture, launching apps) and
   reading the dashboard do not ask, and neither do the Server tab's other
-  switches (the time server, experimental features, history, backups). Entering the PIN opens a session of ten idle
+  switches (the time server, update checks, experimental features, history, backups). Entering the PIN opens a session of ten idle
   minutes, kept by the browser tab or the TV app. Five wrong PINs in a row lock
   the check for 30 seconds, doubling to an hour, for the dashboard and the TV
   together, so someone on the network can keep the owner waiting but cannot
@@ -162,6 +162,16 @@ it before exposing it more widely.
 
 `"host": "127.0.0.1"` is the one to use to keep the on-TV app while closing the port to everything else.
 
+## The release check
+
+The Server tab's **Check for updates** button, and **Check daily** once switched
+on (`"update": {"check": true}`, off by default), fetch the latest release's
+manifest from `github.com/ihtisham1211/native-tv` over HTTPS. GitHub sees the
+TV's address and the `tvweb/<version>` the request names; no other identifier is
+sent. The answer is only shown: the version and the package's SHA-256 are read
+from it, and the links offered are built from that version, never taken from the
+manifest. The installer still refuses Native Tv's own package, so a release
+cannot install itself; it is installed from the Homebrew Channel.
 
 ## Moving from telnet to SSH
 
@@ -292,6 +302,11 @@ metadata.
 The daily Home feed refresh asks TMDB for the details of each title it would list, the
 same request a title opens with, and keeps only titles with a YouTube trailer or, when
 `netflixDeepLinks` is on, a Netflix link.
+
+A configured YouTube key (set in the dashboard's Native Tv Home tab or as `youtubeKey` in
+`config.json`; the dashboard never shows it again) makes the same refresh ask
+`www.googleapis.com`, over HTTPS, for the most popular videos, with the key. The key is saved
+as 20 to 100 letters, digits, `-` and `_`, and nothing else is sent with it.
 
 `netflixDeepLinks: true` separately enables requests to `www.wikidata.org`
 for the selected title's exact Wikidata QID, obtained from TMDB. Wikidata

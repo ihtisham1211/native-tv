@@ -67,6 +67,7 @@ function renderServerStatus(d) {
     if (document.activeElement !== portInput && !portInput.dataset.dirty) portInput.value = d.daemon.port;
   }
   if (d.backupDaily) renderBackupDaily(d.backupDaily, writable);
+  if (d.release !== undefined) renderRelease(d.release, d.releaseCheck, writable);
   const hlRow = q('exp-homelayout-row');
   if (hlRow) {
     hlRow.hidden = !d.homeLayout;
@@ -389,6 +390,55 @@ function renderBackupDaily(daily, writable) {
   for (const b of list.querySelectorAll('button')) {
     b.onclick = () => (b.dataset.do === 'download' ? downloadSavedBackup : restoreSavedBackup)(b.dataset.name);
   }
+}
+
+// Whether GitHub has a newer release. It only reports: the Homebrew Channel installs it.
+function renderRelease(r, daily, writable) {
+  q('release-row').hidden = q('release-daily-row').hidden = !r;
+  if (!r) return;
+  updateToggle('release-daily', {
+    cls: daily ? 'good' : 'idle',
+    label: daily ? t('common.on', 'On') : t('common.off', 'Off'),
+    on: !!daily, disabled: !writable
+  });
+  const check = q('release-check');
+  check.disabled = !writable || r.checking;
+  check.textContent = r.checking ? t('server.release.checking', 'Checking\u2026') : t('server.release.check', 'Check for updates');
+  const vars = {
+    current: r.current, latest: r.latest ? r.latest.version : '', error: r.error || '',
+    age: cfgAge(r.checkedAgoS == null ? null : r.checkedAgoS * 1000)
+  };
+  let line = r.available ? t('server.release.available', 'Version {latest} is out. This TV has {current}.', vars)
+    : r.latest ? t('server.release.current', 'No release newer than {current}, checked {age}.', vars)
+    : r.error ? t('server.release.failed', 'Could not check: {error}. This TV has {current}.', vars)
+    : t('server.release.never', 'Not checked yet. This TV has {current}.', vars);
+  if (r.error && r.latest) line += ' ' + t('server.release.failedLater', 'The latest check failed: {error}.', vars);
+  q('release-status').textContent = line;
+  const offer = q('release-offer');
+  offer.hidden = !r.available;
+  q('release-hbc').hidden = !r.available || r.fromSource;
+  if (!r.available) return;
+  offer.innerHTML = `<div>${esc(r.fromSource
+    ? t('server.release.source', 'This server was built from a git checkout. Pull the release and deploy it again.')
+    : t('server.release.how', 'On the TV, open the Homebrew Channel and update Native Tv. If it is not listed there, install the .ipk.'))}</div>` +
+    `<div><a href="${esc(r.latest.releaseUrl)}" target="_blank" rel="noopener">${esc(t('server.release.notes', 'Release notes'))}</a>` +
+    ` &middot; <a href="${esc(r.latest.ipkUrl)}" target="_blank" rel="noopener">${esc(t('server.release.ipk', 'Download the .ipk'))}</a></div>` +
+    `<div class="rel-sha">${esc(t('server.release.sha', 'SHA-256 {hash}', { hash: r.latest.sha256 }))}</div>`;
+}
+
+async function checkRelease() {
+  const b = q('release-check');
+  b.disabled = true;
+  b.textContent = t('server.release.checking', 'Checking\u2026');
+  const r = await sendCommand('checkRelease');
+  if (r && r.ok) renderServerStatus(r); else loadServerStatus();
+}
+
+async function toggleReleaseCheck() {
+  const b = q('release-daily');
+  b.disabled = true;
+  const r = await sendCommand('setReleaseCheck', !b.dataset.on);
+  if (r && r.ok) renderServerStatus(r); else loadServerStatus();
 }
 
 async function toggleBackupDaily() {

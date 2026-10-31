@@ -295,6 +295,35 @@ int main() {
         assert(feed["rows"][3]["items"].size() == 3 && feed["rows"][3]["items"][0]["id"].number() == 2 &&
                feed["rows"][3]["items"][1]["id"].number() == 12 && feed["rows"][3]["items"][2]["id"].number() == 22);
     }
+    // A key saved after the cache was made is asked for at once, not tomorrow; a cache made with the keys is
+    // left alone, and a removed key only hides its row.
+    const std::string addedDir = directory.path() + "/added";
+    assert(mkdir(addedDir.c_str(), 0700) == 0);
+    asked.clear();
+    {
+        HomeDiscover titlesOnly(addedDir, fetcher, [&clock] { return clock; });
+        (void)titlesOnly.feed("tmdb", "");
+        assert(waitForAsked(3));
+    }
+    {
+        HomeDiscover sameKeys(addedDir, fetcher, [&clock] { return clock; });
+        assert(sameKeys.feed("tmdb", "")["rows"].size() == 3);
+    }
+    assert(asked.size() == 3);
+    {
+        HomeDiscover withYoutube(addedDir, fetcher, [&clock] { return clock; });
+        assert(withYoutube.feed("tmdb", "youtube-key")["rows"].size() == 3); // no YouTube row in the cache yet
+        assert(waitForAsked(7));
+    }
+    {
+        HomeDiscover refreshed(addedDir, fetcher, [&clock] { return clock; });
+        assert(refreshed.feed("tmdb", "youtube-key")["rows"].size() == 4);
+        assert(refreshed.feed("tmdb", "")["rows"].size() == 3);
+    }
+    assert(asked.size() == 7);
+    (void)unlink((addedDir + "/home-discover.json").c_str());
+    (void)unlink((addedDir + "/home-discover.json.tmp").c_str());
+    (void)rmdir(addedDir.c_str());
     (void)unlink((netflixDir + "/home-discover.json").c_str());
     (void)unlink((netflixDir + "/home-discover.json.tmp").c_str());
     (void)rmdir(netflixDir.c_str());

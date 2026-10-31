@@ -107,7 +107,29 @@ Switching an app off frees its memory once the app is next closed or the TV rest
 
 ### Turn off LG's bloatware background services
 
-Stops background services that most TVs don't need, such as the connected-car listener, the USB camera watcher, LG's diagnostics and telemetry uploaders, its advertising service, Live Plus, push messages and sports alerts, and the ThinQ smart home, cloud and Family Care services. None of them is needed for casting to the TV. Only the services present on the TV are listed. A service switched off stays off across restarts, and is stopped again if something on the TV starts it. Most switch in under a second; LG Promotions & Tips Popups takes about 12 seconds, in both directions, so the switch waits that long for the TV.
+Stops background services that most TVs don't need. None of them is needed for casting to the TV. Only the services present on the TV are listed. A service switched off stays off across restarts, and is stopped again if something on the TV starts it. Most switch in under a second; LG Promotions & Tips Popups takes about 12 seconds, in both directions, so the switch waits that long for the TV.
+
+| Kind | Service | What it does | RAM |
+| :-- | :-- | :-- | --: |
+| Telemetry | Telemetry & Diagnostics Uploader | Uploads crash logs, diagnostic traces and usage telemetry to LG's servers. | |
+| Telemetry | Remote Diagnostics Daemon | Logs diagnostic traces, core dumps and event data to internal flash, continuously. | |
+| Telemetry | Jira Crash Reporter | Generates automated crash reports. Older webOS versions only. | |
+| Telemetry | Remote Logging Daemon | Ships system log messages to remote servers. | 1.7 MB |
+| Telemetry | ACR Content Miner | Scans and indexes what is on screen, for advertising and viewing-habit telemetry. | 4.2 MB |
+| Ads | LG Advertising Service | Fetches the ads shown on the TV and keeps its advertising ID. | 4.3 MB |
+| Ads | Live Plus | Works with screen recognition (ACR) to show interactive offers about what is on screen. | 4.5 MB |
+| Ads | LG Promotions & Tips Popups | Pushes marketing notifications, promotional popups and feature tips to the TV. | 3.1 MB |
+| Ads | LG Push Messages | Receives messages LG sends to the TV, such as promotions and sports alerts. | 4.9 MB |
+| Ads | Sports Alerts | Pops up scores for the teams followed on the TV. | 3.8 MB |
+| ThinQ | LG Cloud Link | Keeps the TV linked to LG's ThinQ cloud. Not needed unless the TV is controlled from the LG ThinQ app. | 6.4 MB |
+| ThinQ | ThinQ Smart Home | Controls LG ThinQ appliances from the TV's Home Hub. Not needed without ThinQ appliances. | 9.3 MB |
+| ThinQ | ThinQ Device Pairing | Pairs the TV with other LG ThinQ devices. | 7.0 MB |
+| ThinQ | ThinQ AI | Connects the TV to LG's ThinQ AI cloud service. | 3.0 MB |
+| ThinQ | Family Care | Tracks screen time for LG's Family Care limits. Not needed unless Family Care is set up. | 4.6 MB |
+| Hardware | Car-to-Home Telematics | Listens for Hyundai and Kia Bluelink vehicle status in Home Dashboard. Not needed unless a connected vehicle is linked. | 2.1 MB |
+| Hardware | USB Camera Listener | Detects USB webcams in the background. Not needed unless a webcam is attached. | 2.5 MB |
+
+The RAM column is the approximate memory the dashboard shows beside each switch. The three without a figure show a "Telemetry" or "Flash writes" badge instead.
 
 ## Notes
 

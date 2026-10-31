@@ -1233,6 +1233,35 @@ whatever failed after connecting. A plain level in the pairing file, should
 an older TV write one, is used until the remote has given one.
 TV-RESEARCH.md has how this was found.
 
+## Checking for a newer release
+
+`service/release_check` fetches
+`github.com/ihtisham1211/native-tv/releases/latest/download/<id>.manifest.json`,
+the file `scripts/build-ipk.py` writes and the Homebrew Channel workflow attaches
+to each published release (a pre-release is never "latest"). The manifest has to
+name Native Tv's app id, an `x.y.z` version and a 64-digit SHA-256; the release
+and `.ipk` links are then built from that version, not read from the file. The
+request is libcurl through `AppPackageFetcher`, cancelled after 20 seconds, and
+the manifest is read to 64 KB. A server built from a clone reports its version
+without the `+commit` suffix, and says it was built from source.
+
+The result is only reported, in `/api/update`'s `release` block (the route is
+the shared server status, not an update route): installing stays with the
+Homebrew Channel, because `AppPackagePolicy` refuses Native Tv's own package and
+its SHA-256 comes from the same release as the package, so it detects a corrupted
+download but proves nothing about who published it. The dashboard's **Open
+Homebrew Channel** is `launchApp` on `org.webosbrew.hbchannel`. Installing the
+`.ipk` does not replace the running server either: that happens when the app's
+launch page next runs `install.sh`.
+
+`update.check` in `config.json` (off by default; the key the backups already
+carry) switches the daily check on. It reuses `DailyBackupScheduler`: five
+minutes after start and then hourly, running `checkReleaseIfDue` off the loop
+thread. A check is due when none has been made in this run, a day after the last
+answer, or an hour after a failed one. The time is monotonic, so a clock set by
+NTP cannot age or rejuvenate a check. The last answer is kept in memory only; a
+restart checks again, once.
+
 ## Settings backups
 
 `service/backup` makes a JSON file of the LG settings `lg_settings`
@@ -1526,7 +1555,10 @@ for a client that cannot run, and LG's Home comes back for one that cannot stay 
   escape's return and the wake open find it halted; the server's restart, or switching Home on or off, starts it over.
 - *The registration.* sam can only send a running native app its `relaunch` over the connection the app opens with
   `registerNativeApp`; LG's SDL does it when `SDL_HINT_WEBOS_REGISTER_APP` is set, which the client does in `main.cpp`
-  before `SDL_Init`. Without it a launch of the client behind the stub left the stub in front for good: the log showed the
+  before `SDL_Init`, but only for the client sam starts: a bounded run (`--duration-ms`, `--time`: the E2E cases and
+  `scripts/tv-screenshot.sh`) is started by hand under the jailer, and sam keeps the registration of such a run after it
+  exits, so the next launch of the app found a client that was gone and started none (the Home key stayed on the stub).
+  Without the registration a launch of the client behind the stub left the stub in front for good: the log showed the
   launch at 0, 15 and 30 s, and no window change.
 - *The Home key.* It reaches LG's filters and opens `com.webos.app.home`, the stub, which asks for the client's Home screen again each time
   it is shown (`visibilitychange`, `webOSRelaunch`) and never while hidden. The client is meant to go to its Home screen on any launch or

@@ -116,14 +116,14 @@ remote's Home button still opens LG's Home. **Reset the layout** switches
 off.
 
 The titles come from [The Movie Database](https://www.themoviedb.org/), with the
-owner's own free API key (32 letters and digits, from themoviedb.org under Settings, API),
+owner's own free API key (the **API Key** of 32 letters and digits, from themoviedb.org under Settings, API; the longer **API Read Access Token** beside it is refused),
 pasted into **Films and series** on the Native Tv Home tab of the dashboard and saved there: it is kept on the TV
 and never shown again, and **Remove** takes it away. The titles are fetched once a day, in the morning, and kept
 only if they have a YouTube trailer or, with `"netflixDeepLinks": true`, a Netflix link; the pictures are kept on the TV, so browsing the rows uses no internet. Without a key, the Home tab shows only what is on the
 TV. TMDB asks that its data is credited: this product uses the TMDB API but is
 not endorsed or certified by TMDB.
 
-A `"youtubeKey"` (a free YouTube Data API key) adds **Trending on YouTube**, the
+A YouTube Data API key (free, made in the Google Cloud console with the YouTube Data API v3 enabled), pasted into **Trending on YouTube** below it on the same tab or set as `"youtubeKey"` in `config.json`, adds **Trending on YouTube**, the
 videos trending in the US; OK plays the video in YouTube's app. YouTube's own
 personal suggestions cannot be read by anything but its app, so the row is the
 public list.

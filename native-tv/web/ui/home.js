@@ -60,15 +60,21 @@ async function loadHome(afterSave) {
   setHomeAvailable(homeStatus);
   if (!homeAvailable && activeTab === 'home') return showTab('control');
   renderHome();
-  loadTmdb();
+  loadHomeKeys();
 }
 
-/* ---- Films and series (TMDB) ----
-   The key is saved on the TV through the server and never read back: the page only learns whether one is set. */
+/* ---- Films and series (TMDB) and Trending on YouTube ----
+   Each key is saved on the TV through the server and never read back: the page only learns whether one is set. */
 let tmdbKeySet = false;
-async function loadTmdb() {
-  try { tmdbKeySet = (await (await fetch(api('/api/update'), { cache: 'no-store' })).json()).tmdbKeySet === true; } catch (e) { return; }
+let youtubeKeySet = false;
+async function loadHomeKeys() {
+  try {
+    const status = await (await fetch(api('/api/update'), { cache: 'no-store' })).json();
+    tmdbKeySet = status.tmdbKeySet === true;
+    youtubeKeySet = status.youtubeKeySet === true;
+  } catch (e) { return; }
   renderTmdb();
+  renderYoutube();
 }
 function renderTmdb() {
   const row = q('home-tmdb-row');
@@ -89,6 +95,26 @@ async function homeTmdbSave() {
 async function homeTmdbRemove() {
   const r = await sendCommand('setTmdbKey', '');
   if (r && r.ok) { tmdbKeySet = r.tmdbKeySet === true; renderTmdb(); }
+}
+function renderYoutube() {
+  const row = q('home-youtube-row');
+  if (!row) return;
+  row.hidden = false;
+  q('home-youtube-state').textContent = youtubeKeySet
+    ? t('home.youtubeOn', 'A YouTube key is saved. Trending on YouTube is on.')
+    : t('home.youtubeOff', 'No YouTube key is saved, so Native Tv Home shows no Trending on YouTube row.');
+  q('home-youtube-remove').hidden = !youtubeKeySet;
+}
+async function homeYoutubeSave() {
+  const input = q('home-youtube-key');
+  const key = input.value.trim();
+  if (!key) return;
+  const r = await sendCommand('setYoutubeKey', key);
+  if (r && r.ok) { input.value = ''; youtubeKeySet = r.youtubeKeySet === true; renderYoutube(); }
+}
+async function homeYoutubeRemove() {
+  const r = await sendCommand('setYoutubeKey', '');
+  if (r && r.ok) { youtubeKeySet = r.youtubeKeySet === true; renderYoutube(); }
 }
 
 function homeWritable() { return !!(!homeSaving && homeStatus && (homeStatus.supported.ok || homeStatus.enabled || homeStatus.restorePending) && homeStatus.writable !== false); }

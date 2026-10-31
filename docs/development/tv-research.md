@@ -1640,6 +1640,12 @@ is the hint's literal name) and the app id comes from `APPID`.
   logs no window change, and the other card stays in front. Three launches 15 s
   apart did the same. A cold start works, as sam spawns the process.
 - **With it** the same launch brings the app's window to the front 20 to 70 ms later.
+- **A registered client that sam did not start** (the jailer, as the E2E cases and the
+  screenshot script run it) leaves its registration behind when it exits: the next
+  launch of the app starts no process, and the Home key stays on the stub (E2E-081 and
+  E2E-082 after a client case, 5 s and more). A client that sam started, and that was
+  killed or crashed, is started again at once (1.1 s). The client therefore registers
+  only when it is not a bounded run.
 - **A launch from the card that covers the app** reaches sam a few ms before that
   card's window is shown, while the app is still in front, and does nothing. The
   Native Tv Home stub (`com.webos.app.home`) launches the client when it loads and

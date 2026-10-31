@@ -52,6 +52,7 @@
 #include "service/history_recorder.hpp"
 #include "service/oled_care.hpp"
 #include "service/remote_keys.hpp"
+#include "service/release_check.hpp"
 #include "service/sound_outputs.hpp"
 #include <algorithm>
 #include <atomic>
@@ -970,6 +971,8 @@ int main(int argc, char **argv) {
         std::function<Json()> mqttStandingProvider;
         std::unique_ptr<HttpFrontDoor> frontDoor;
         std::unique_ptr<DailyBackupScheduler> dailyBackupScheduler;
+        std::unique_ptr<service::ReleaseChecker> releaseChecker;
+        std::unique_ptr<DailyBackupScheduler> releaseCheckScheduler;
         HttpServer httpServer;
         HttpServer phoneHandoffServer;
         HttpServer iconHttpServer;
@@ -1922,6 +1925,28 @@ int main(int argc, char **argv) {
                 &logger));
             if (!dailyBackupScheduler->start())
                 throw std::runtime_error("could not schedule native daily backups");
+            // Asks GitHub for the newest release when the Server tab's button is
+            // pressed, and daily once "update": {"check": true} is set. It only
+            // reports; installing stays with the Homebrew Channel.
+            releaseChecker.reset(new service::ReleaseChecker(
+                NATIVETV_SERVER_VERSION,
+                service::fetchOverCurl(std::string("tvweb/") + NATIVETV_SERVER_VERSION,
+                                       [fetchIp = loaded.config.document["fetch"]["ip"].string()]() {
+                                           return fetchIp;
+                                       }),
+                []() {
+                    return static_cast<long long>(std::chrono::duration_cast<std::chrono::seconds>(
+                        std::chrono::steady_clock::now().time_since_epoch()).count());
+                }));
+            frontDoor->setReleaseChecker(releaseChecker.get());
+            releaseCheckScheduler.reset(new DailyBackupScheduler(
+                loop,
+                [&frontDoor](std::string &error) {
+                    return frontDoor && frontDoor->checkReleaseIfDue(error);
+                },
+                &logger, DailyBackupTimings(), "release check"));
+            if (!releaseCheckScheduler->start())
+                logger.warning("release check: could not schedule the daily check");
             if (httpServer.usingIpv4Fallback())
                 logger.warning("HTTP dual-stack listener unavailable; using IPv4-only fallback");
 
@@ -2419,7 +2444,7 @@ int main(int argc, char **argv) {
             loop.scheduleEvery(EventLoop::Milliseconds(250),
             [&loop, &stateSubscriptions, &historyRecorder, &screenTimeEnforcer,
              &remoteBattery, &gameFrameRate, &adBlockManager,
-             &dailyBackupScheduler, &mqttShadowClient, &mqttShadowPublisher,
+             &dailyBackupScheduler, &releaseCheckScheduler, &mqttShadowClient, &mqttShadowPublisher,
              &mqttShadowTelemetryPublisher, &remoteButtonsReader,
              &remoteHomeHoldTimer,
              &remoteButtonLogWatcher,
@@ -2460,6 +2485,8 @@ int main(int argc, char **argv) {
                         adBlockManager->stop();
                     if (dailyBackupScheduler)
                         dailyBackupScheduler->stop();
+                    if (releaseCheckScheduler)
+                        releaseCheckScheduler->stop();
                     if (mqttShadowPublisher)
                         mqttShadowPublisher->stop();
                     if (mqttShadowTelemetryPublisher)
