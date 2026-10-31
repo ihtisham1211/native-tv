@@ -5578,7 +5578,7 @@
     },
     {
       "id": "E2E-137",
-      "title": "TV Settings Home rows change and come back (1 of 3)",
+      "title": "TV Settings Home rows change and come back (1 of 5)",
       "purpose": "Every switch and choice of the TV's Home Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. Native Tv Home's own switch is left out: E2E-080 to 083 turn the takeover on and off.",
       "kind": "run",
       "requires": [
@@ -5605,7 +5605,7 @@
     },
     {
       "id": "E2E-138",
-      "title": "TV Settings Home rows change and come back (2 of 3)",
+      "title": "TV Settings Home rows change and come back (2 of 5)",
       "purpose": "Every switch and choice of the TV's Home Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. Native Tv Home's own switch is left out: E2E-080 to 083 turn the takeover on and off.",
       "kind": "run",
       "requires": [
@@ -5632,7 +5632,7 @@
     },
     {
       "id": "E2E-139",
-      "title": "TV Settings Home rows change and come back (3 of 3)",
+      "title": "TV Settings Home rows change and come back (3 of 5)",
       "purpose": "Every switch and choice of the TV's Home Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. Native Tv Home's own switch is left out: E2E-080 to 083 turn the takeover on and off.",
       "kind": "run",
       "requires": [
@@ -5646,14 +5646,68 @@
         "Read the server's port from the TV, as deploy.py does (the access token is never read).",
         "Send the script over ssh and run the client for 240 s through the app's jailer, with the Settings screen of the home group open.",
         "The client walks the screen row by row and page by page. On each row the screen calls a switch or a choice it presses OK, waits for the write to come back, checks the row shows another value, and presses OK until the row shows its first value again. It leaves alone the rows the script names.",
-        "Read the report: every pressed row must have changed and come back, and at least 10 rows must have been pressed.",
+        "Read the report: every pressed row must have changed and come back, and at least 8 rows must have been pressed.",
         "Delete the script and the lock folder."
       ],
       "criteria": {
         "exitCode": 0,
         "framesMin": 30,
         "sweep": {
-          "pressedMin": 10
+          "pressedMin": 8
+        }
+      }
+    },
+    {
+      "id": "E2E-140",
+      "title": "TV Settings Home rows change and come back (4 of 5)",
+      "purpose": "Every switch and choice of the TV's Home Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. Native Tv Home's own switch is left out: E2E-080 to 083 turn the takeover on and off.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:home",
+      "script": "sweep-home-4.json",
+      "durationMs": 240000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 240 s through the app's jailer, with the Settings screen of the home group open.",
+        "The client walks the screen row by row and page by page. On each row the screen calls a switch or a choice it presses OK, waits for the write to come back, checks the row shows another value, and presses OK until the row shows its first value again. It leaves alone the rows the script names.",
+        "Read the report: every pressed row must have changed and come back, and at least 8 rows must have been pressed.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "pressedMin": 8
+        }
+      }
+    },
+    {
+      "id": "E2E-145",
+      "title": "TV Settings Home rows change and come back (5 of 5)",
+      "purpose": "Every switch and choice of the TV's Home Settings is pressed through the TV's own screen, as the owner would with the remote, and put back: each must change when OK is pressed, show the new value after the write and come back to the first value (a switch in two presses, a choice after one lap of its values). It is the TV-side counterpart of the API round trips; a row it cannot put back fails the case, and so does one that does not change. Native Tv Home's own switch is left out: E2E-080 to 083 turn the takeover on and off.",
+      "kind": "run",
+      "requires": [
+        "control"
+      ],
+      "screen": "dashboard:home",
+      "script": "sweep-home-5.json",
+      "durationMs": 240000,
+      "steps": [
+        "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
+        "Read the server's port from the TV, as deploy.py does (the access token is never read).",
+        "Send the script over ssh and run the client for 240 s through the app's jailer, with the Settings screen of the home group open.",
+        "The client walks the screen row by row and page by page. On each row the screen calls a switch or a choice it presses OK, waits for the write to come back, checks the row shows another value, and presses OK until the row shows its first value again. It leaves alone the rows the script names.",
+        "Read the report: every pressed row must have changed and come back, and at least 8 rows must have been pressed.",
+        "Delete the script and the lock folder."
+      ],
+      "criteria": {
+        "exitCode": 0,
+        "framesMin": 30,
+        "sweep": {
+          "pressedMin": 8
         }
       }
     },

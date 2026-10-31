@@ -13403,6 +13403,8 @@ void HttpFrontDoor::setLgAdsControl(HttpExchange &exchange, const Json &value) c
     }
     settingsLock.unlock();
     invalidateLgSettingsCache();
+    // The TV's Privacy page reads /api/privacy, which keeps the settings rows for 20 s of its own.
+    invalidatePrivacyCache();
     Json response = Json::object();
     response.set("ok", Json::flag(!failed && written > 0));
     response.set("written", Json::numeric(written));

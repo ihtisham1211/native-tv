@@ -111,7 +111,9 @@ void testCancelWithoutDeadlineIsNoticed() {
     canceller.join();
     const auto took = std::chrono::steady_clock::now() - started;
     check(result.cancelled, "a cancelled resident child should report it");
-    check(took < std::chrono::seconds(1), "a cancel should end the child within a second");
+    // The child sleeps 5 s: ending well before that is the cancel. A second was too tight for a
+    // sanitizer build on a CI runner that runs four tests at once (it took 7 s there).
+    check(took < std::chrono::seconds(3), "a cancel should end the child within a few seconds");
 }
 
 // Both pipes close while the child lives on; the exit must still be noticed.

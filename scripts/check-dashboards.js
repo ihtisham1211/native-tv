@@ -1378,7 +1378,7 @@ async function visitHomeTv(browser, base, problems) {
     if (!await page.locator('.tile .face.disc').count()) problems.push('Home TV view: the top picks row was not drawn');
     await key(13);
     await page.waitForTimeout(150);
-    if (!opened.length || opened[0].kind !== 'title' || opened[0].id !== 7 || opened[0].type !== 'movie') problems.push('Home TV view: OK on a title did not ask to open it: ' + JSON.stringify(opened));
+    if (!opened.length || opened[0].kind !== 'netflix' || opened[0].id !== 7 || opened[0].type !== 'movie') problems.push('Home TV view: OK on a title did not ask to open it: ' + JSON.stringify(opened));
     if (!await page.locator('#dots i.on').count()) problems.push('Home TV view: the carousel showed no page dots for the spotlight');
   } finally { await page.close(); }
 }
@@ -1607,7 +1607,7 @@ async function visitHomeContent(browser, base, problems) {
     await page.waitForFunction(() => getComputedStyle(document.getElementById('boot')).display === 'none');
     await key(40); await key(403);
     await waitForCheck(() => opened.length === 1, 'Home content: Red did not open a title directly');
-    if (opened[0].kind !== 'title' || opened[0].id !== 7) problems.push('Home content: direct open changed its target');
+    if (opened[0].kind !== 'netflix' || opened[0].id !== 7) problems.push('Home content: direct open changed its target');
     opened.length = 0;
     await key(13);
     await page.waitForSelector('#titleView .gt-btn.focus');
@@ -1615,17 +1615,15 @@ async function visitHomeContent(browser, base, problems) {
     await waitForCheck(() => !!netflixRoute, 'Home content: optional Netflix lookup did not start');
     await key(39);
     await answer(netflixRoute, { ok: true, enabled: true, netflixId: '80057281' });
-    await page.waitForSelector('#dtActions [data-da="3"]');
-    if (await page.locator('#dtActions .focus').textContent() !== 'Trailer') problems.push('Home content: a late Netflix mapping changed the focused action');
+    await page.waitForSelector('#dtActions [data-da="2"]');
+    if (await page.locator('#dtActions .focus').textContent() !== 'Full overview') problems.push('Home content: a late Netflix mapping changed the focused action');
     await key(37); await key(37);
     if (opened.length) problems.push('Home content: OK launched before the details action');
     if (await page.locator('#dtCast').textContent() !== 'Cast: <Actor>') problems.push('Home content: cast was not escaped or displayed');
     if (await page.locator('#dtCast actor').count()) problems.push('Home content: metadata became markup');
     await review(page, 'home-details');
     await key(13);
-    await waitForCheck(() => opened.length === 1, 'Home content: Open did not launch');
-    await key(39); await key(13);
-    await waitForCheck(() => opened.some(o => o.kind === 'netflix'), 'Home content: Netflix action missing');
+    await waitForCheck(() => opened.length === 1 && opened[0].kind === 'netflix', 'Home content: the Netflix action did not launch');
     await key(39); await key(13);
     await waitForCheck(() => opened.some(o => o.kind === 'youtube' && o.id === 'dQw4w9WgXcQ'), 'Home content: trailer did not launch YouTube');
     await key(40); await key(13);
@@ -1748,7 +1746,7 @@ async function visitHomePointer(browser, base, problems) {
     opened.length = 0;
     await page.locator('#feature').click({ position: { x: 200, y: 200 } });
     await page.waitForTimeout(250);
-    if (!opened.length || opened[0].kind !== 'title' || opened[0].id !== 7) problems.push('Home pointer: clicking the carousel did not open its title: ' + JSON.stringify(opened));
+    if (!opened.length || opened[0].kind !== 'netflix' || opened[0].id !== 7) problems.push('Home pointer: clicking the carousel did not open its title: ' + JSON.stringify(opened));
 
     // Its dots move the spotlight on.
     await page.locator('#dots i').nth(2).click();

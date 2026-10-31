@@ -1,1 +1,1 @@
-[{"at":5000,"sweep":{"press":true,"startAfter":20,"skip":["native tv home","web dashboard","ip control","timer"],"withinMs":175000}}]
+[{"at":5000,"sweep":{"press":true,"startAfter":20,"maxRows":8,"skip":["native tv home","web dashboard","ip control","timer"],"withinMs":175000}}]
