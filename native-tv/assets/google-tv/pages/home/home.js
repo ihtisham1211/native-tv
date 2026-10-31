@@ -725,7 +725,6 @@
 
   function render() {
     if (!data || !layout) return;
-    applyColours(layout.colours);
     // Tabs are re-resolved from their keys, so a tab appearing or going away
     // (a channel added, Show Live switched) moves nothing else and the tab in
     // view stays; one that goes away falls back to Home.
@@ -1549,16 +1548,7 @@
     return out;
   }
   // The dashboards' text and accent colour, swapped into this stylesheet.
-  function applyColours(c) {
-    var key = c ? c.text + c.accent : '';
-    if (key === lookShown) return;
-    lookShown = key;
-    if (!c) { $('look').textContent = LOOK; return; }
-    var swap = { '#ece7df': c.text, '#b3ada3': shade(c.text, 0.84), '#8d877d': shade(c.text, 0.66), '#e9ad55': c.accent };
-    // Replace once: a chosen accent may itself be one of the original colours. The focus ring takes the accent.
-    $('look').textContent = LOOK.replace(/8px #ece7df\b|#(?:ece7df|b3ada3|8d877d|e9ad55)\b/g,
-      function (m) { return m === '8px #ece7df' ? '8px ' + c.accent : swap[m]; });
-  }
+
 
   // ---------------------------------------------------------------- data
 
