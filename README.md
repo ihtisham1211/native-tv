@@ -164,7 +164,7 @@ Installing and running Native Tv needs no account or key: the dashboard, the TV 
 | Key | What it adds | Where it goes |
 | :-- | :-- | :-- |
 | TMDB API key | The film and series rows: titles, posters, details and trailers. Without it Home shows only what is on the TV | The browser dashboard: Apps, **Native Tv Home** tab, **Films and series** (or `"tmdbKey"` in `config.json`) |
-| YouTube Data API key | The **Trending on YouTube** row | `"youtubeKey"` in `config.json` only |
+| YouTube Data API key | The **Trending on YouTube** row | The same tab, **Trending on YouTube** (or `"youtubeKey"` in `config.json`) |
 
 The TV app has no field for either key. The Native Tv Home tab (`http://<tv-ip>:8080/?tab=home`) appears only on TVs where Native Tv Home is offered: webOS 9 and 10, and webOS 11 once `"allowExperimentalHome": true` is set.
 
@@ -180,7 +180,7 @@ The TV app has no field for either key. The Native Tv Home tab (`http://<tv-ip>:
 1. In the [Google Cloud console](https://console.cloud.google.com/), create a project or pick one.
 2. Under APIs & Services, Library, enable **YouTube Data API v3**.
 3. Under APIs & Services, Credentials, choose Create credentials, then API key. Restricting the key to the YouTube Data API v3 is optional.
-4. The dashboard has no field for it. Add `"youtubeKey": "<the key>"` to `/var/lib/tvweb/config.json` on the TV, or to `native-tv/lifecycle/config.json` before the first deploy, then run `ssh root@<tv-ip> /var/lib/tvweb/tvwebctl restart`.
+4. Paste the key into **Trending on YouTube** on the dashboard's Native Tv Home tab, below **Films and series**, and save it. Or add `"youtubeKey": "<the key>"` to `/var/lib/tvweb/config.json` on the TV, or to `native-tv/lifecycle/config.json` before the first deploy: the server reads the file again when it changes, so no restart is needed.
 
 This product uses the TMDB API but is not endorsed or certified by TMDB. [Native Tv Home](https://ihtisham1211.github.io/native-tv/dashboard/home/) has the details of what is fetched and when.
 
