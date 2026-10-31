@@ -1410,6 +1410,24 @@ class DaemonRuntimeTests(unittest.TestCase):
                     [item["path"] for item in nodeRequests[nodeBefore:]
                      if item["path"] == "/api/control"], [],
                     "dashboard LG settings no longer reach Node")
+
+                # The master switch writes every ad and promotion switch the TV reports, one write
+                # for each LG category.
+                before = len(calls)
+                status, body = postControl('{"action":"lgAds","value":false}')
+                self.assertEqual(status, 200, body.decode("utf-8", "replace"))
+                calls = [json.loads(line) for line in details.read_text().splitlines()]
+                adCalls = calls[before:]
+                self.assertEqual(json.loads(body), {"ok": True, "written": 5})
+                self.assertEqual(
+                    [(call["uri"].rsplit("/", 1)[1], call["payload"]["category"]) for call in adCalls],
+                    [("getSystemSettings", "general"), ("setSystemSettings", "general"),
+                     ("getSystemSettings", "other"), ("setSystemSettings", "other"),
+                     ("getSystemSettings", "option")])
+                self.assertEqual(adCalls[1]["payload"]["settings"], {
+                    "screenSaverAd": "off", "homePromotion": "off", "aiNudge": "off",
+                    "aiSettingsNudge": "off"})
+                self.assertEqual(adCalls[3]["payload"]["settings"], {"contentRecommendation": "off"})
                 before = len(calls)
                 status, body = postControl(
                     '{"action":"lgSetting","value":{"id":"soundOutput","value":"nonsense"}}')
@@ -1778,6 +1796,113 @@ class DaemonRuntimeTests(unittest.TestCase):
                 result = json.loads(body)
                 self.assertEqual(result["panelHours"], 5736,
                                  "34421 units from the panel controller, not the file's 5731 hours")
+            finally:
+                if process.poll() is None:
+                    process.send_signal(signal.SIGTERM)
+                    try:
+                        process.communicate(timeout=6)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.communicate(timeout=3)
+
+    def test_native_oled_care_does_not_read_a_blank_reply_as_off(self):
+        binary = Path(sys.argv[1]).resolve()
+        fakeLuna = binary.parent / "native-fake-luna-send"
+        publicPort = unused_port_pair()
+        token = "oled-blank-test-token"
+        with tempfile.TemporaryDirectory(prefix="nativetv-native-oled-blank-") as folder:
+            root = Path(folder)
+            config = root / "config.json"
+            assets = root / "assets"
+            assets.mkdir()
+            config.write_text(json.dumps({
+                "host": "127.0.0.1", "port": publicPort, "token": token, "allowControl": True}))
+            environment = os.environ.copy()
+            environment["TVWEB_LUNA_SEND"] = str(fakeLuna)
+            environment["TVWEB_DATA_DIR"] = str(root)
+            environment["NATIVETV_FAKE_LUNA_MODE"] = "oled-care"
+            environment["NATIVETV_FAKE_LUNA_BLANK_PROTECTIONS"] = "1"
+            process = subprocess.Popen(
+                [str(binary), "--config", str(config), "--heartbeat", str(root / "tvweb.beat"),
+                 "--workers", "4", "--listen", "--assets-root", str(assets)],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=environment)
+
+            def request(path):
+                req = Request("http://127.0.0.1:%d%s" % (publicPort, path),
+                              headers={"Authorization": "Bearer " + token})
+                with urlopen(req, timeout=8) as response:
+                    return response.status, response.read()
+
+            try:
+                deadline = time.monotonic() + 8
+                while time.monotonic() < deadline and process.poll() is None:
+                    try:
+                        request("/api/caps")
+                        break
+                    except (OSError, URLError):
+                        time.sleep(0.03)
+                self.assertIsNone(process.poll(), "daemon exited early")
+                status, body = request("/api/oledcare")
+                self.assertEqual(status, 200, body.decode("utf-8", "replace"))
+                result = json.loads(body)
+                # The TV answered returnValue true with no enable: neither protection is known, and
+                # neither is off (a sweep through the TV's own screen once turned the real one off).
+                self.assertIsNone(result["gsr"], result)
+                self.assertIsNone(result["tpc"], result)
+            finally:
+                if process.poll() is None:
+                    process.send_signal(signal.SIGTERM)
+                    try:
+                        process.communicate(timeout=6)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.communicate(timeout=3)
+
+    def test_native_oled_care_keeps_a_change_only_if_it_lasts(self):
+        binary = Path(sys.argv[1]).resolve()
+        fakeLuna = binary.parent / "native-fake-luna-send"
+        publicPort = unused_port_pair()
+        token = "oled-blip-test-token"
+        with tempfile.TemporaryDirectory(prefix="nativetv-native-oled-blip-") as folder:
+            root = Path(folder)
+            config = root / "config.json"
+            assets = root / "assets"
+            assets.mkdir()
+            config.write_text(json.dumps({
+                "host": "127.0.0.1", "port": publicPort, "token": token, "allowControl": True}))
+            environment = os.environ.copy()
+            environment["TVWEB_LUNA_SEND"] = str(fakeLuna)
+            environment["TVWEB_DATA_DIR"] = str(root)
+            environment["NATIVETV_FAKE_LUNA_MODE"] = "oled-care"
+            environment["NATIVETV_FAKE_LUNA_GSR_BLIP"] = str(root / "gsr-asked")
+            environment["TVWEB_OLED_CACHE_SECONDS"] = "0"
+            environment["TVWEB_OLED_CONFIRM_MS"] = "50"
+            process = subprocess.Popen(
+                [str(binary), "--config", str(config), "--heartbeat", str(root / "tvweb.beat"),
+                 "--workers", "4", "--listen", "--assets-root", str(assets)],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=environment)
+
+            def request(path):
+                req = Request("http://127.0.0.1:%d%s" % (publicPort, path),
+                              headers={"Authorization": "Bearer " + token})
+                with urlopen(req, timeout=8) as response:
+                    return response.status, response.read()
+
+            try:
+                deadline = time.monotonic() + 8
+                while time.monotonic() < deadline and process.poll() is None:
+                    try:
+                        request("/api/caps")
+                        break
+                    except (OSError, URLError):
+                        time.sleep(0.03)
+                self.assertIsNone(process.poll(), "daemon exited early")
+                first = json.loads(request("/api/oledcare")[1])
+                self.assertTrue(first["gsr"], first)
+                # The next question the TV answers "off", and the one after "on" again: LG's service
+                # does that for a moment when an app starts. The reading must stay on.
+                second = json.loads(request("/api/oledcare")[1])
+                self.assertTrue(second["gsr"], second)
             finally:
                 if process.poll() is None:
                     process.send_signal(signal.SIGTERM)
@@ -5086,7 +5211,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                     "backup": {"daily": False},
                     "screenTime": {"action": "off", "appAction": "home", "apps": {},
                                    "bedtimeEnd": "", "bedtimeStart": "",
-                                   "enabled": True, "dailyMinutes": 90},
+                                   "enabled": True, "dailyMinutes": 90, "idleMinutes": 0},
                     "update": {"check": False}
                 })
                 # The Home layout is the daemon's own reading of home.json now.
@@ -9412,7 +9537,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertFalse(held["switching"])
                 self.assertEqual(held["external"], {"active": False, "hook": True})
                 self.assertEqual([m["id"] for m in held["modes"]],
-                                 ["stock", "clock", "starfield", "fireworks",
+                                 ["stock", "clock", "black", "starfield", "fireworks",
                                   "bokeh", "harmonograph", "vitals"])
                 available = {m["id"]: m["available"] for m in held["modes"]}
                 self.assertEqual([k for k, v in available.items() if v], ["stock"])
@@ -10646,6 +10771,18 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertEqual(saved()["prometheus"], {"enabled": True})
                 self.assertEqual(saved()["mqtt"], {"host": "keep.example"})
                 self.assertFalse(control("setPrometheusEnabled", False)[1]["prometheusEnabled"])
+
+                # TMDB: only 32 hex digits are saved, an empty string removes the key, and the status never shows it.
+                for bad in ("not-a-key", "b8fe46caf8c7b133b892df044c7e2f3", 7, None):
+                    self.assertIn("32 letters and digits", control("setTmdbKey", bad)[1]["error"])
+                self.assertNotIn("tmdbKey", saved())
+                dummy = "0123456789abcdef0123456789ABCDEF"
+                result = control("setTmdbKey", " " + dummy + " ")[1]
+                self.assertTrue(result["tmdbKeySet"])
+                self.assertNotIn(dummy, json.dumps(result))
+                self.assertEqual(saved()["tmdbKey"], dummy)
+                self.assertFalse(control("setTmdbKey", "")[1]["tmdbKeySet"])
+                self.assertEqual(saved()["tmdbKey"], "")
 
                 # NTP: a bad port and a bad host are refused, a good one is saved on.
                 self.assertIn("1 to 65535", control("setNtpServer", "pool.ntp.org:99999")[1]["error"])

@@ -6,6 +6,7 @@ choice  Nightly power-down = 02:00–07:00 -> Move it an hour later {24 values} 
 toggle  Wake-on-LAN = On [on] -> Turn off <power>
 ## Timers
 choice  Sleep timer = 30 min -> Change {6 values} <timer>
+choice  Switch off when idle = Off -> Change {11 values} <settings>
 toggle  On Timer = Off (07:00, repeats Mon Tue Wed Thu Fri) [off] -> Turn on <timer>
 toggle  Off Timer = 23:30, once [on] -> Turn off <timer>
 ## Sound and HDMI

@@ -54,6 +54,9 @@ int main(int argc, char **argv) {
                   !Retry::shouldRetry(0, true, Retry::budget()),
               "Readiness attempts stop at the overall timeout budget");
         HttpServices services(argv[1]);
+        check(services.write("none", Operation::None, Json::object()) == 0 &&
+                  services.read("none", Operation::None) == 0,
+              "An operation with no route does not start, and does not throw into the screen");
         services.read("caps", Operation::Capabilities);
         auto response = wait(services, "caps");
         check(response.ok() && response.json()["ok"].boolean(),

@@ -22,9 +22,17 @@ using kit::easing;
 using say::msg;
 constexpr const char *kStats = "profiles:stats", *kGo = "profiles.go", *kStatsMemory = "quick.stats";
 constexpr float kAvatarTop = 380, kGap = 48, kMaxAvatar = 180, kMinAvatar = 120;
+// The avatar colours the server takes (kColors in service/home_profiles.cpp).
+constexpr const char *kColours[] = {"#a8c7fa", "#f2b8b5", "#6dd58c", "#ffb74d", "#7fcfff", "#d0bcff"};
+constexpr size_t kColourCount = sizeof(kColours) / sizeof(kColours[0]);
+constexpr float kSwatch = 52, kSwatchGap = 28;
 
-Color profileColor(const Json &person) {
-    std::string value = person["color"].string();
+Color hexColour(const std::string &value) {
+    return kit::rgb(static_cast<unsigned>(std::strtoul(value.c_str() + 1, nullptr, 16)));
+}
+
+Color profileColor(const Json &person, const std::string &shown = "") {
+    std::string value = shown.empty() ? person["color"].string() : shown;
     if (value.size() == 7 && value[0] == '#' &&
         value.find_first_not_of("0123456789abcdefABCDEF", 1) == std::string::npos)
         return kit::rgb(static_cast<unsigned>(std::strtoul(value.c_str() + 1, nullptr, 16)));
@@ -58,6 +66,7 @@ class ProfilesScreen final : public ScreenView {
                 index = i;
         selected_ = index;
         active_ = shownActive(host);
+        colour_ = colourIndexOf(host);
         // The first profile is named after the TV: its model comes from the stats.
         if (!host.memory().count(kStatsMemory))
             statsGeneration_ = host.services().read(kStats, Operation::Metrics);
@@ -95,21 +104,41 @@ class ProfilesScreen final : public ScreenView {
         bool hasActive = activeIndex(host) < count;
         switch (key) {
         case Key::Left:
-            if (!onButton_ && selected_)
+            if (onColours_)
+                colour_ = colour_ ? colour_ - 1 : 0;
+            else if (!onButton_ && selected_)
                 --selected_;
             break;
         case Key::Right:
-            if (!onButton_ && selected_ < count)
+            if (onColours_)
+                colour_ = std::min(colour_ + 1, kColourCount - 1);
+            else if (!onButton_ && selected_ < count)
                 ++selected_;
             break;
         case Key::Down:
-            onButton_ = hasActive;
+            // Avatars, then the colours of the profile in use, then Rename.
+            if (!hasActive)
+                break;
+            if (onColours_) {
+                onColours_ = false;
+                onButton_ = true;
+            } else if (!onButton_) {
+                onColours_ = true;
+                colour_ = colourIndexOf(host);
+            }
             break;
         case Key::Up:
-            onButton_ = false;
+            if (onButton_) {
+                onButton_ = false;
+                onColours_ = true;
+            } else
+                onColours_ = false;
             break;
         case Key::Ok:
-            choose(host);
+            if (onColours_)
+                chooseColour(host);
+            else
+                choose(host);
             return true;
         default:
             return false;
@@ -126,6 +155,15 @@ class ProfilesScreen final : public ScreenView {
             leaveFor(host);
             return;
         }
+        if (hit.compare(0, 11, "profiles:c:") == 0) {
+            onColours_ = true;
+            onButton_ = false;
+            colour_ = std::min(static_cast<size_t>(std::atoi(hit.c_str() + 11)), kColourCount - 1);
+            focusMoved(host, false);
+            chooseColour(host);
+            return;
+        }
+        onColours_ = false;
         onButton_ = hit == "profiles:rename";
         if (hit == "profiles:add")
             selected_ = host.view().catalogue["profiles"].size();
@@ -169,11 +207,10 @@ class ProfilesScreen final : public ScreenView {
             scene.pushOpacity(static_cast<float>(1 - hidden) * 1.0f);
             scene.pushTransform(Transform::translate(0, static_cast<float>(28 * hidden)));
             scene.pushTransform(kit::focus::transformAt(rest, look.scale));
-            Node &disc = scene.shape(rest, add ? kit::color::surface2 : profileColor(people[i]),
-                                     diameter / 2);
+            const Color tint = add ? kit::color::surface2 : profileColor(people[i], shownColour(host, people[i]));
+            Node &disc = scene.shape(rest, tint, diameter / 2);
             if (!add)
-                disc.gradient = Gradient::between(145, profileColor(people[i]),
-                                                  kit::focus::mix(profileColor(people[i]), kit::color::ink, .45f));
+                disc.gradient = Gradient::between(145, tint, kit::focus::mix(tint, kit::color::ink, .45f));
             else
                 disc.ring = {3, 0, kit::alpha::outlineStrong};
             if (look.ringAlpha > 0) {
@@ -212,8 +249,29 @@ class ProfilesScreen final : public ScreenView {
             scene.hits.push_back({look.rect, add ? "profiles:add" : "profiles:p:" + std::to_string(i)});
         }
         if (activeIndex(host) < count && !host.optimistic().pending("profiles.active")) {
+            // The colour of the profile in use: a row of round swatches, Left and Right between them.
+            const float swatchesWidth = kColourCount * kSwatch + (kColourCount - 1) * kSwatchGap;
+            const std::string current = shownColour(host, people[activeIndex(host)]);
+            const float swatchTop = kAvatarTop + diameter + 116;
+            const float rise = static_cast<float>(1 - motion.value(id("e", count + 1)));
+            for (size_t i = 0; i < kColourCount; ++i) {
+                Rect box = {(kit::canvas::width - swatchesWidth) / 2 + static_cast<float>(i) * (kSwatch + kSwatchGap),
+                            swatchTop, kSwatch, kSwatch};
+                const float focus = static_cast<float>(motion.value(id("c", i)));
+                kit::focus::Look look = kit::focus::lookAt(box, kit::motion::scale::app, focus);
+                scene.pushOpacity(rise);
+                scene.pushTransform(kit::focus::transformAt(box, look.scale));
+                Node &dot = scene.shape(box, hexColour(kColours[i]), kSwatch / 2);
+                if (look.ringAlpha > 0)
+                    dot.ring = {0, look.ringWidth, kit::focus::withAlpha(kit::elevation::focusRingColor, look.ringAlpha)};
+                if (current == kColours[i])
+                    paint.glyphs.icon(scene, {box.x + 11, box.y + 11, 30, 30}, "check", kit::color::ink);
+                scene.popTransform();
+                scene.popOpacity();
+                scene.hits.push_back({look.rect, "profiles:c:" + std::to_string(i)});
+            }
             kit::PillButton rename;
-            rename.rest = {kit::canvas::width / 2 - 170, kAvatarTop + diameter + 156, 340, 64};
+            rename.rest = {kit::canvas::width / 2 - 170, kAvatarTop + diameter + 196, 340, 64};
             rename.id = "profiles:rename";
             rename.label = msg("tv.profiles.rename", "Rename profile");
             rename.icon = "keyboard";
@@ -229,6 +287,8 @@ class ProfilesScreen final : public ScreenView {
         Json value = Json::object();
         value.set("selected", Json::numeric(static_cast<double>(selected_)));
         value.set("onButton", Json::flag(onButton_));
+        value.set("onColours", Json::flag(onColours_));
+        value.set("colour", Json::text(kColours[std::min(colour_, kColourCount - 1)]));
         value.set("busy", Json::flag(busy_));
         value.set("active", Json::text(active_));
         return value;
@@ -254,8 +314,48 @@ class ProfilesScreen final : public ScreenView {
                 host.motion().tween(name, to, kit::motion::ms::focus, easing(kit::motion::ease::out));
         };
         for (size_t i = 0; i <= count; ++i)
-            glide(id("f", i), !onButton_ && i == selected_ ? 1 : 0);
+            glide(id("f", i), !onButton_ && !onColours_ && i == selected_ ? 1 : 0);
+        for (size_t i = 0; i < kColourCount; ++i)
+            glide(id("c", i), onColours_ && i == colour_ ? 1 : 0);
         glide("profiles:fb", onButton_ ? 1 : 0);
+        host.invalidate();
+    }
+    // The colour on screen for a profile: a change that is still on its way shows at once.
+    static std::string shownColour(ScreenHost &host, const Json &person) {
+        return host.optimistic().text("profile.colour." + person["id"].string(), person["color"].string());
+    }
+    static size_t colourIndexOf(ScreenHost &host) {
+        std::vector<Json> people = host.view().catalogue["profiles"].items();
+        const size_t at = activeIndex(host);
+        if (at >= people.size())
+            return 0;
+        const std::string now = shownColour(host, people[at]);
+        for (size_t i = 0; i < kColourCount; ++i)
+            if (now == kColours[i])
+                return i;
+        return 0;
+    }
+    void chooseColour(ScreenHost &host) {
+        std::vector<Json> people = host.view().catalogue["profiles"].items();
+        const size_t at = activeIndex(host);
+        if (at >= people.size())
+            return;
+        const std::string id = people[at]["id"].string(), colour = kColours[std::min(colour_, kColourCount - 1)];
+        if (shownColour(host, people[at]) == colour)
+            return;
+        Write write;
+        write.operation = Operation::SetProfile;
+        write.body = [id](const Json &target) {
+            Json body = Json::object();
+            body.set("action", Json::text("rename"));
+            body.set("id", Json::text(id));
+            body.set("color", target);
+            return body;
+        };
+        write.readChannel = "catalogue";
+        write.readOperation = Operation::HomeCatalogue;
+        write.failure = msg("tv.profiles.colourFailed", "The colour could not be saved");
+        host.optimistic().set("profile.colour." + id, Json::text(colour), Json::text(people[at]["color"].string()), write);
         host.invalidate();
     }
     static std::string modelOf(ScreenHost &host) {
@@ -329,7 +429,8 @@ class ProfilesScreen final : public ScreenView {
     }
 
     size_t selected_ = 0;
-    bool onButton_ = false, busy_ = false;
+    bool onButton_ = false, onColours_ = false, busy_ = false;
+    size_t colour_ = 0;
     std::string active_; // the profile in use as shown, for the snapshot
     unsigned statsGeneration_ = 0;
 };

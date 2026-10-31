@@ -529,7 +529,7 @@ Json backupSettingDefault(const std::string &section, const std::string &key) {
     if (section == "backup" && key == "daily") return Json::flag(false);
     if (section == "screenTime") {
         if (key == "enabled") return Json::flag(false);
-        if (key == "dailyMinutes") return Json::numeric(0);
+        if (key == "dailyMinutes" || key == "idleMinutes") return Json::numeric(0);
         if (key == "bedtimeStart" || key == "bedtimeEnd") return Json::text("");
         if (key == "action") return Json::text("off");
         if (key == "appAction") return Json::text("home");

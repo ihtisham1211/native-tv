@@ -25,6 +25,14 @@ class HomeDiscover {
 
     Json feed(const std::string &tmdbKey, const std::string &youtubeKey);
 
+    // Whether a title can be opened somewhere: as a YouTube trailer or a Netflix title. With one set,
+    // the feed lists only the titles it says yes to; without, it lists what TMDB returns.
+    using LinkCheck = std::function<bool(const std::string &type, const std::string &id)>;
+    void setLinkCheck(LinkCheck check);
+    // Whether a title has a Netflix link: the feed's "Available on Netflix" row lists the titles trending this
+    // week that it says yes to. Without one, there is no such row.
+    void setNetflixCheck(LinkCheck check);
+
   private:
     void workerLoop();
     void refresh(const std::string &tmdbKey, const std::string &youtubeKey);
@@ -35,6 +43,8 @@ class HomeDiscover {
     std::string cachePath_;
     Fetcher fetcher_;
     Clock clock_;
+    LinkCheck linkCheck_;
+    LinkCheck netflixCheck_;
     std::mutex mutex_;
     std::condition_variable changed_;
     std::thread worker_;

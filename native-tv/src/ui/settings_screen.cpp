@@ -767,6 +767,9 @@ class SettingsScreen final : public ScreenView {
         Json body = command.body;
         write.body = [body](const Json &) { return body; };
         write.failure = say::msg("tv.failed", "That did not work");
+        // Stopping or starting one of LG's background services takes up to 12 s on the B3.
+        if (command.operation == Operation::SetBackgroundService)
+            write.timeoutMs = 30000;
         write.readChannel = dataChannel(section);
         write.readOperation = read;
         write.done = [world, quiet, network](bool ok, const Json &) {

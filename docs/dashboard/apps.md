@@ -39,9 +39,9 @@ It is off until it is switched on in this section (after a warning) or a token i
 
 Lists the web pages on the Home screen, each of which opens in the TV's browser. A page saved from the browser takes its whole title as its name, so a long one can be given a shorter name here. Pages can also be added, pointed at a new address, or removed.
 
-## Home screen and remote
+## LG launcher and remote
 
-### Home screen layout
+### LG launcher layout
 
 Switches parts of LG's Home screen off, for a Home screen with only the apps and inputs on it:
 
@@ -61,7 +61,7 @@ read again when the Home screen opens and shortly after the TV switches on,
 never while it is in standby. Only input tiles added by Native Tv are updated;
 a failed discovery keeps the last good title.
 
-**Put back LG's Home screen** shows every part again and takes off the input tiles added here; ones added on the TV stay. The TV app has the same switches.
+**Put back LG's launcher** shows every part again and takes off the input tiles added here; ones added on the TV stay. The TV app has the same switches.
 
 It is offered on webOS 9 (LG's webOS 24), where it has been tried on a C2, and as an [experimental feature](../administration/experimental.md#home-screen-layout-on-webos-10) on webOS 10 (LG's webOS 25), where it has been tried on a C2 with webOS 10.3.1. webOS 3 and 4 have a much plainer Home screen, so they do not have it. A webOS 8 TV may have the same home app as webOS 9, and webOS 11 a layout of its own; neither is offered it until one has been tried.
 
@@ -105,7 +105,7 @@ LG keeps some apps loaded so they open faster, including ones that are never use
 
 Switching an app off frees its memory once the app is next closed or the TV restarts, and it then takes a few seconds longer to open. Switching it back on returns it to LG's setting. Home, Live TV, the HDMI inputs and the other parts the TV relies on are not listed, and the section only appears on TVs that keep such a list.
 
-### Turn off background services
+### Turn off LG's bloatware background services
 
 Stops background services that most TVs don't need, such as the connected-car listener, the USB camera watcher, LG's diagnostics and telemetry uploaders, its advertising service, Live Plus, push messages and sports alerts, and the ThinQ smart home, cloud and Family Care services. None of them is needed for casting to the TV. Only the services present on the TV are listed. A service switched off stays off across restarts, and is stopped again if something on the TV starts it. Most switch in under a second; LG Promotions & Tips Popups takes about 12 seconds, in both directions, so the switch waits that long for the TV.
 

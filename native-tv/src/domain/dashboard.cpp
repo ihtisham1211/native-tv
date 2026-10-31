@@ -320,8 +320,8 @@ void apps(Rows &rows, const Json &data) {
     Json hs = data["homeScreen"];
     bool locked = hs["experimental"].valid() && !hs["experimental"]["allowed"].boolean();
     if (hs["parts"].size()) {
-        page(rows, say::msg("tv.settings.page.homeScreen", "Home screen"));
-        head(rows, say::msg("apps.home", "Home screen layout"));
+        page(rows, say::msg("tv.settings.page.homeScreen", "LG launcher"));
+        head(rows, say::msg("apps.home", "LG launcher layout"));
         if (data["nativeTvHome"].boolean())
             row(rows, say::msg("tv.apps.nativeTvHome", "Native Tv Home is on"), "", Command(),
                 say::msg("apps.nativeTvHomeNote",
@@ -345,7 +345,7 @@ void apps(Rows &rows, const Json &data) {
                                                {"onHome", Json::flag(!input["onHome"].boolean())}}))
                                 : Command(),
             say::msg("tv.apps.home.input.hint",
-                     "A tile among the apps on the Home screen that switches to this input."),
+                     "A tile among the apps on LG’s launcher that switches to this input."),
             "", input["onHome"].boolean() ? 1 : 0);
     for (const auto &part : hs["parts"].items())
         row(rows, part["title"].string(),
@@ -357,10 +357,10 @@ void apps(Rows &rows, const Json &data) {
                                 : Command(),
             part["desc"].string() + " " +
                 say::msg("tv.apps.home.restart",
-                         "The Home screen starts again, which takes a few seconds."),
+                         "LG’s launcher starts again, which takes a few seconds."),
             "", part["shown"].boolean() ? 1 : 0);
     if (hs["parts"].size() && writable && !locked)
-        row(rows, say::msg("apps.home.restore", "Put back LG’s Home screen"),
+        row(rows, say::msg("apps.home.restore", "Put back LG’s launcher"),
             say::msg("tv.apps.home.restore.value", "Put back"),
             post(Operation::SetLgHomeLayout, fields({{"restore", Json::flag(true)}}), true),
             say::msg("tv.apps.home.restore.hint",
@@ -462,9 +462,9 @@ void apps(Rows &rows, const Json &data) {
             hint, "", app["off"].boolean() ? 0 : 1);
     }
     if (data["services"].size()) {
-        page(rows, say::msg("tv.settings.page.services", "Services"));
+        page(rows, say::msg("tv.settings.page.services", "LG bloatware"));
         head(rows,
-             say::msg("tv.apps.head.turnOffBackgroundServices", "Turn Off Background Services"));
+             say::msg("tv.apps.head.turnOffBackgroundServices", "Turn off LG’s bloatware services"));
     }
     for (const auto &service : data["services"].items()) {
         bool disabled = service["disabled"].boolean(),
@@ -581,7 +581,8 @@ void options(Rows &rows, const Json &data, const Json &caps) {
                            "the TV on from standby. Requires Quick Boot (Quick Start+) to keep the "
                            "network connection responsive while off. LG calls this Mobile TV On."));
     }
-    if (data.has("sleepTimer") || timers["on"].valid() || timers["off"].valid()) {
+    if (data.has("sleepTimer") || timers["on"].valid() || timers["off"].valid() ||
+        data["idlePowerOff"].valid()) {
         page(rows, say::msg("adv.timers", "Timers"));
         head(rows, say::msg("adv.timers", "Timers"));
         if (data.has("sleepTimer")) {
@@ -601,6 +602,39 @@ void options(Rows &rows, const Json &data, const Json &caps) {
                     options.push_back({sleepWord(step), control("sleepTimer", Json::text(step))});
                 return options;
             }();
+        }
+        Json idle = data["idlePowerOff"];
+        if (idle.valid()) {
+            // The times offered come from the server: Off, 15 and 30 minutes, then every hour up to eight.
+            auto word = [](int minutes) {
+                Json n = vars({{"n", std::to_string(minutes < 60 ? minutes : minutes / 60)}});
+                return minutes == 0   ? say::msg("common.off", "Off")
+                       : minutes < 60 ? say::msg("adv.idle.minutes", "{n} minutes", n)
+                       : minutes == 60 ? say::msg("adv.idle.hour", "1 hour")
+                                       : say::msg("adv.idle.hours", "{n} hours", n);
+            };
+            const bool idleWritable = idle["writable"].boolean();
+            const int now = static_cast<int>(idle["minutes"].number());
+            Choices options;
+            size_t at = 0;
+            for (const auto &choice : idle["choices"].items()) {
+                int minutes = static_cast<int>(choice.number());
+                if (minutes == now)
+                    at = options.size();
+                options.push_back({word(minutes), idleWritable ? post(Operation::SetScreenTime,
+                                                                       fields({{"idleMinutes", choice}}))
+                                                                : Command()});
+            }
+            if (!options.empty())
+                row(rows, say::msg("adv.idle", "Switch off when idle"), word(now),
+                    idleWritable ? options[(at + 1) % options.size()].second : Command(),
+                    say::msg("tv.options.idle.hint",
+                             "Switches the TV off when no key has been pressed and no app, input "
+                             "or volume has changed for this long, and nothing is playing. A "
+                             "warning shows a minute before; any key keeps it on. An HDMI input is "
+                             "never switched off."),
+                    say::msg("tv.settings.change", "Change"))
+                    .choices = options;
         }
         for (const auto &key : {"on", "off"}) {
             Json timer = timers[key];
@@ -855,15 +889,32 @@ void saver(Rows &rows, const Json &data) {
                 slow ? say::msg("tv.saver.slowSwitch", "Switching to or from LG's screen saver may "
                                                        "leave the screen dark for about a minute.")
                 : stock ? say::msg("tv.saver.stock.hint", "LG’s own screen saver.")
+                : mode["id"].string() == "black" ? mode["description"].string()
                         : say::msg("tv.saver.ours.hint",
                                    "Replaces LG’s screen saver. Everything on it drifts slowly so "
                                    "no pixel holds the same image."),
                 pressAction(say::msg("tv.saver.use", "Press OK to use this one")));
         }
-    bool brightness =
-        writable && data["current"].string() != "stock" && !data["current"].string().empty();
-    if (brightness || writable)
+    if (writable) {
+        head(rows, say::msg("ss.showNow", "Show it now"));
+        row(rows, say::msg("ss.start", "Start screen saver"), "", control("screensaver"),
+            say::msg("tv.saver.startScreenSaver.hint",
+                     "Shows the screen saver in use straight away, to see how it looks. Any button "
+                     "on the remote ends it."),
+            pressAction(say::msg("tv.saver.startScreenSaver.press", "Press OK to start it")));
+    }
+    // The black screen has nothing to dim.
+    bool brightness = writable && data["current"].string() != "stock" &&
+                      data["current"].string() != "black" && !data["current"].string().empty();
+    bool starts = false;
+    for (const auto &setting : data["lgSettings"].items())
+        starts = starts || setting["section"].string() == "screensaver";
+    if (brightness || starts)
         page(rows, say::msg("tv.settings.page.saverOptions", "Options"));
+    if (starts) {
+        head(rows, say::msg("tv.saver.head.whenItStarts", "When it starts"));
+        lgRows(rows, data["lgSettings"], writable, "screensaver");
+    }
     if (brightness) {
         bool bright = data["level"].string() == "bright";
         head(rows, say::msg("tv.saver.head.howItLooks", "How it looks"));
@@ -881,14 +932,6 @@ void saver(Rows &rows, const Json &data) {
             {say::msg("ss.dim", "Dim"),
              control("screensaverMode",
                      fields({{"mode", data["current"]}, {"level", Json::text("dim")}}))}};
-    }
-    if (writable) {
-        head(rows, say::msg("ss.showNow", "Show it now"));
-        row(rows, say::msg("ss.start", "Start screen saver"), "", control("screensaver"),
-            say::msg("tv.saver.startScreenSaver.hint",
-                     "Shows the screen saver in use straight away, to see how it looks. Any button "
-                     "on the remote ends it."),
-            pressAction(say::msg("tv.saver.startScreenSaver.press", "Press OK to start it")));
     }
 }
 
@@ -990,7 +1033,7 @@ void privacy(Rows &rows, const Json &data, const std::string &sub) {
                 Command(),
                 (detail.empty() ? "" : detail + " ") +
                     say::msg("tv.service.whereOff",
-                             "Switched off in the Apps tab, under Turn Off Background Services."));
+                             "Switched off in the Apps tab, under Turn off LG’s bloatware services."));
         }
         if (!any)
             row(rows, say::msg("tv.service.noneOnThisTv", "None on this TV"));
@@ -1083,19 +1126,20 @@ void privacy(Rows &rows, const Json &data, const std::string &sub) {
                                                  std::string(level) == "full" && mode != "full")});
             return options;
         }();
+        // The owner's own list, a hosts file sent from the browser dashboard; the row is there with none, to say so.
         Json custom = data["adblock"]["custom"];
-        if (custom.valid()) {
-            Json v = vars({{"n", compactNumber(custom["count"].number())}});
-            row(rows, say::msg("pv.adblock.custom", "Custom ad blocking"),
-                !custom["enabled"].boolean()
-                    ? say::msg("tv.privacy.custom.off", "Off, {n} names kept", v)
-                : custom["mode"].string() == "add"
-                    ? say::msg("tv.privacy.custom.add", "{n} names, with Native Tv’s", v)
-                    : say::msg("tv.privacy.custom.replace", "{n} names, instead of Native Tv’s", v),
-                Command(),
-                say::msg("tv.privacy.custom.hint",
-                         "Changed or removed in the browser dashboard: Privacy, then Advanced."));
-        }
+        Json v = vars({{"n", compactNumber(custom["count"].number())}});
+        row(rows, say::msg("pv.adblock.custom", "Custom ad blocking"),
+            !custom.valid() ? say::msg("tv.privacy.custom.none", "No list")
+            : !custom["enabled"].boolean()
+                ? say::msg("tv.privacy.custom.off", "Off, {n} names kept", v)
+            : custom["mode"].string() == "add"
+                ? say::msg("tv.privacy.custom.add", "{n} names, with Native Tv’s", v)
+                : say::msg("tv.privacy.custom.replace", "{n} names, instead of Native Tv’s", v),
+            Command(),
+            say::msg("tv.privacy.custom.hint",
+                     "Your own list of names to block, sent from the browser dashboard (Privacy, "
+                     "under the blocker) and changed or removed there."));
     }
     if (data["tvUpdates"]["blocked"].isBoolean()) {
         bool blocked = data["tvUpdates"]["blocked"].boolean();
@@ -1116,6 +1160,15 @@ void privacy(Rows &rows, const Json &data, const std::string &sub) {
     if (promotions) {
         page(rows, say::msg("tv.settings.page.lgAds", "LG ads"));
         head(rows, say::msg("pv.promotions", "LG ads and promotions"));
+        bool anyOn = false;
+        for (const auto &setting : data["lgSettings"].items())
+            anyOn = anyOn || (setting["section"].string() == "promotions" && setting["on"].boolean());
+        row(rows, say::msg("pv.promotions.all", "All LG ads and promotions"), on(anyOn),
+            control("lgAds", Json::flag(!anyOn)),
+            say::msg("tv.privacy.allAds.hint",
+                     "Switches every ad and promotion below on or off together. Each can still be "
+                     "set by itself."),
+            "", anyOn ? 1 : 0);
         lgRows(rows, data["lgSettings"], true, "promotions");
     }
     if (data["acr"].valid()) {
@@ -1361,28 +1414,12 @@ void homeSettings(Rows &rows, const Json &data, const std::string &sub) {
                  "Each profile has its own layout, which the rows and settings here change. Names, "
                  "colours and removing are on the browser dashboard’s Home tab."),
         say::msg("tv.settings.open", "Open"));
-    auto presets = data["colourPresets"].items();
-    if (!presets.empty()) {
-        size_t at = 0;
-        for (size_t i = 0; i < presets.size(); ++i)
-            if (presets[i]["text"].string() == layout["colours"]["text"].string() &&
-                presets[i]["accent"].string() == layout["colours"]["accent"].string())
-                at = i;
-        Json next = presets[(at + 1) % presets.size()];
-        row(rows, say::msg("home.colours.title", "Colours"),
-            layout["colours"].valid()
-                ? presets[at]["id"].string(say::msg("home.colours.custom", "Custom"))
-                : say::msg("home.colours.warm", "Warm"),
-            writable ? post(Operation::SetHomeLayout,
-                            fields({{"colours", (at + 1) % presets.size() == 0
-                                                    ? Json()
-                                                    : fields({{"text", next["text"]},
-                                                              {"accent", next["accent"]}})}}))
-                     : Command(),
-            say::msg("home.colours.tvHint", "The text and accent on Native Tv Home. Any colour can "
-                                            "be picked on the browser dashboard’s Home tab."),
-            say::msg("tv.settings.change", "Change"));
-    }
+    row(rows, say::msg("home.reset", "Reset the layout"), "",
+        writable ? post(Operation::SetHomeLayout, fields({{"reset", Json::flag(true)}}), true)
+                 : Command(),
+        say::msg("home.resetDesc", "The rows, apps and inputs go back to their first order, with "
+                                   "LG’s promotions hidden again. Channels stay as they are."),
+        pressAction(say::msg("tv.home.reset.press", "Press OK, then again, to reset")));
     Json catalogue = data["catalogue"];
     bool channelsListed = false;
     for (const auto &kind : {"app", "dev", "ch"}) {
@@ -1488,21 +1525,6 @@ void homeSettings(Rows &rows, const Json &data, const std::string &sub) {
             "tv.home.ch.hint",
             "From the TV’s own channel list. Each one added goes on the end of the Channels row."),
         say::msg("tv.settings.open", "Open"));
-    page(rows, say::msg("tv.home.head.more", "More"));
-    head(rows, say::msg("home.wall.title", "Wallpaper"));
-    row(rows, say::msg("home.wall.title", "Wallpaper"),
-        data["wallpapers"]["available"].boolean() ? say::msg("home.wall.uploadedValue", "Uploaded")
-                                                  : say::msg("home.wall.black", "Black"),
-        Command(),
-        say::msg("home.wall.tvHint",
-                 "Images for each time of day are uploaded on the browser dashboard’s Home tab."));
-    head(rows, say::msg("tv.home.head.more", "More"));
-    row(rows, say::msg("home.reset", "Reset the layout"), "",
-        writable ? post(Operation::SetHomeLayout, fields({{"reset", Json::flag(true)}}), true)
-                 : Command(),
-        say::msg("home.resetDesc", "The rows, apps and inputs go back to their first order, with "
-                                   "LG’s promotions hidden again. Channels stay as they are."),
-        pressAction(say::msg("tv.home.reset.press", "Press OK, then again, to reset")));
 }
 
 // ---- Service Menu and Settings -----------------------------------------------------------------

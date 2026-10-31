@@ -436,6 +436,9 @@ Json Application::snapshot() const {
             for (size_t i = 0; i < home.rows[home.row].cards.size() && i < 3; ++i)
                 rowHead += (rowHead.empty() ? "" : ",") + home.rows[home.row].cards[i].id;
         value.set("rowHead", Json::text(rowHead));
+        value.set("rowCards", Json::numeric(home.row < home.rows.size()
+                                                ? home.rows[home.row].cards.size()
+                                                : 0));
         value.set("rowGroup",
                   Json::text(home.row < home.rows.size() ? home.rows[home.row].group : ""));
         value.set("heroTitle", Json::text(home.art.text.title));

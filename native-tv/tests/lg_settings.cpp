@@ -35,6 +35,20 @@ Json response(const std::vector<std::string> &sections, const char *settings,
 } // namespace
 
 int main() {
+    // 0. The screen saver's start time: LG's four values only, and a row only on a TV that reports it.
+    {
+        assert((lgSettingsCategories({"screensaver"}) == std::vector<std::string>{"option"}));
+        assert((lgSettingsKeys("option", {"screensaver"}) == std::vector<std::string>{"screenSaverTimer"}));
+        assert(ids(response({"screensaver"}, R"({"option":{}})")).empty());
+        const Json r = response({"screensaver"}, R"({"option":{"screenSaverTimer":"10"}})");
+        assert((ids(r) == std::vector<std::string>{"screenSaverTimer"}));
+        assert(row(r, "screenSaverTimer")["value"].string() == "10" && row(r, "screenSaverTimer")["choices"].size() == 4);
+        const LgSettingWrite twenty = lgSettingWrite(Json::parse(R"({"id":"screenSaverTimer","value":"20"})"));
+        assert(twenty.valid && twenty.category == "option" && twenty.key == "screenSaverTimer" &&
+               twenty.storedValue.string() == "20");
+        // Any other time, such as 2 or 4, stops the screen saver coming at all on a C5.
+        assert(!lgSettingWrite(Json::parse(R"({"id":"screenSaverTimer","value":"4"})")).valid);
+    }
     // 1. Only the rows the TV has come back, one read per category of the section.
     // A B8-like TV: no screen saver ads, no smart tips, no Content Recommendation.
     {

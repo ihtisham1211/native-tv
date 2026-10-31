@@ -1,6 +1,8 @@
+#include "adapters/legacy_routes.hpp"
 #include "service/home_image_proxy.hpp"
 #include "core/md5.hpp"
 #include <cassert>
+#include <cctype>
 #include <chrono>
 #include <condition_variable>
 #include <cstdio>
@@ -123,9 +125,38 @@ nativetv::Json warmRows(const std::vector<std::string> &names) {
 }
 } // namespace
 
+std::string percentDecoded(const std::string &text) {
+    std::string result;
+    for (size_t i = 0; i < text.size(); ++i) {
+        if (text[i] == '%' && i + 2 < text.size() + 0 && std::isxdigit(static_cast<unsigned char>(text[i + 1])) &&
+            std::isxdigit(static_cast<unsigned char>(text[i + 2]))) {
+            result += static_cast<char>(std::strtol(text.substr(i + 1, 2).c_str(), nullptr, 16));
+            i += 2;
+        } else
+            result += text[i];
+    }
+    return result;
+}
+
+// What the client asks the server for must be a picture the server serves: a YouTube thumbnail at a
+// size it refuses (hqdefault) is a card that never gets its picture.
+void testTheClientAsksForPicturesTheServerServes() {
+    const std::string youtube = nativetv::legacyAssetRoute("youtube:dQw4w9WgXcQ");
+    const std::string prefix = "/api/home/image?u=";
+    assert(youtube.compare(0, prefix.size(), prefix) == 0);
+    assert(nativetv::service::HomeImageProxy::allowedUrl(
+        percentDecoded(youtube.substr(prefix.size()))));
+    for (const char *size : {"w342", "w500", "w1280"}) {
+        const std::string tmdb = nativetv::legacyAssetRoute(std::string("tmdb:") + size + ":/abcdefghij1234567890.jpg");
+        assert(nativetv::service::HomeImageProxy::allowedUrl(
+            percentDecoded(tmdb.substr(prefix.size(), tmdb.find('&') == std::string::npos ? std::string::npos : tmdb.find('&') - prefix.size()))));
+    }
+}
+
 int main() {
     using namespace nativetv;
     using namespace nativetv::service;
+    testTheClientAsksForPicturesTheServerServes();
     const std::string valid = tmdbUrl("abcdefghijklmnop");
     assert(HomeImageProxy::allowedUrl(valid));
     assert(HomeImageProxy::allowedUrl(

@@ -715,12 +715,23 @@ void settingsRow(Paint paint, const SettingsRow &item) {
                 box.y + (box.h - layout::toggleH) / 2, layout::toggleW, layout::toggleH},
                item.on, item.focus);
     } else {
+        // A stepper's value sits between two chevrons, so the owner can see it has others to go to.
+        const float chevron = item.stepper ? 34.0f : 0.0f;
         float width = box.w / 3;
-        text(paint,
-             {box.x + box.w - layout::srowPadRight - width, box.y + (box.h - type::labelL.line) / 2,
-              width, type::labelL.line},
-             item.value, type::labelL, focus::inkAt(color::onSurface2, color::onFocus, item.focus),
-             Node::Align::Right);
+        const float right = box.x + box.w - layout::srowPadRight;
+        const Color ink = focus::inkAt(color::onSurface2, color::onFocus, item.focus);
+        text(paint, {right - chevron - width, box.y + (box.h - type::labelL.line) / 2, width, type::labelL.line},
+             item.value, type::labelL, ink, Node::Align::Right);
+        if (item.stepper) {
+            const float valueWidth = std::min(width, paint.glyphs.measure(item.value, type::labelL));
+            const float fade = .5f + .5f * focus::clamp01(item.focus);
+            const float middle = box.y + box.h / 2;
+            paint.glyphs.icon(scene, centreOf({right - 22, middle - 11, 22, 22}, 22), "arrowright",
+                              faded(ink, fade));
+            paint.glyphs.icon(scene,
+                              centreOf({right - chevron - valueWidth - 30, middle - 11, 22, 22}, 22),
+                              "arrowleft", faded(ink, fade));
+        }
     }
     hit(scene, look.rect, item.id);
 }

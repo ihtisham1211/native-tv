@@ -9,8 +9,10 @@ namespace nativetv {
 // B3's GPU about eight times a plain fill, and a Home frame has several screens' worth of them.
 enum class Program { Sdf, Image, Mask, Flat, FlatImage };
 constexpr int kProgramCount = 5;
-// Textures one draw can sample. GLES2 guarantees 8 units; four keeps the selection chain short.
-constexpr int kTextureSlots = 4;
+// Textures one draw can sample. GLES2 guarantees 8 units. A row of picture cards needs one slot per
+// picture, and a draw that runs out of slots splits the row into groups, each repeating the card's
+// whole cycle of draws (picture, scrim, name): four slots made Home with a feed draw 45 times a frame.
+constexpr int kTextureSlots = 8;
 
 // Complete GLSL source for one stage. Compiles as GLSL ES 1.00 and as desktop GLSL 1.10/1.20
 // (the macOS development build), so there is no #version line and precision is guarded.

@@ -47,6 +47,10 @@ struct Write {
     Json readArguments;
     // The message when the TV refuses ("That did not work"); the reply's own reason follows it.
     std::string failure;
+    // How long this write may go unanswered before it fails; 0 is the layer's own `timeoutMs`. A write
+    // that waits on a service of the TV (12 s to stop one) needs more than the usual eight seconds, or
+    // the row goes back to a state the TV no longer has.
+    double timeoutMs = 0;
     // The newest write was answered (ok) or failed, and nothing newer waits. Called once per
     // settling. On failure the shown value has already gone back.
     std::function<void(bool ok, const Json &reply)> done;

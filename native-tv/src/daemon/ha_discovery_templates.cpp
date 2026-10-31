@@ -1873,14 +1873,15 @@ const Json &templates() {
       "options": [
         "LG default",
         "Clock",
+        "Black screen",
         "Starfield",
         "Fireworks",
         "Bokeh",
         "Harmonograph",
         "Panel vitals"
       ],
-      "command_template": "{{ {\"LG default\":\"stock\",\"Clock\":\"clock\",\"Starfield\":\"starfield\",\"Fireworks\":\"fireworks\",\"Bokeh\":\"bokeh\",\"Harmonograph\":\"harmonograph\",\"Panel vitals\":\"vitals\"}[value] }}",
-      "value_template": "{{ {\"stock\":\"LG default\",\"clock\":\"Clock\",\"starfield\":\"Starfield\",\"fireworks\":\"Fireworks\",\"bokeh\":\"Bokeh\",\"harmonograph\":\"Harmonograph\",\"vitals\":\"Panel vitals\"}.get(value_json.get('screensaverMode'), \"LG default\") }}",
+      "command_template": "{{ {\"LG default\":\"stock\",\"Clock\":\"clock\",\"Black screen\":\"black\",\"Starfield\":\"starfield\",\"Fireworks\":\"fireworks\",\"Bokeh\":\"bokeh\",\"Harmonograph\":\"harmonograph\",\"Panel vitals\":\"vitals\"}[value] }}",
+      "value_template": "{{ {\"stock\":\"LG default\",\"clock\":\"Clock\",\"black\":\"Black screen\",\"starfield\":\"Starfield\",\"fireworks\":\"Fireworks\",\"bokeh\":\"Bokeh\",\"harmonograph\":\"Harmonograph\",\"vitals\":\"Panel vitals\"}.get(value_json.get('screensaverMode'), \"LG default\") }}",
       "icon": "mdi:television-shimmer",
       "unique_id": "lg_tv_screensaver_mode",
       "default_entity_id": "select.lg_tv_screensaver_mode",

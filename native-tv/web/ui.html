@@ -788,7 +788,7 @@
 <div class="tabs" role="tablist" aria-label="Apps sections" data-t-aria-label="sub.apps.label">
 <button type="button" class="tab" role="tab" id="tab-btn-apps" data-tab="apps" aria-controls="appspane" aria-selected="false" tabindex="-1"><span data-t="sub.installed">Installed</span></button>
 <button type="button" class="tab" role="tab" id="tab-btn-catalogue" data-tab="catalogue" aria-controls="appspane" aria-selected="false" tabindex="-1"><span data-t="sub.catalogue">Catalogue</span></button>
-<button type="button" class="tab" role="tab" id="tab-btn-homescreen" data-tab="homescreen" aria-controls="appspane" aria-selected="false" tabindex="-1"><span data-t="sub.homeScreen">Home screen</span></button>
+<button type="button" class="tab" role="tab" id="tab-btn-homescreen" data-tab="homescreen" aria-controls="appspane" aria-selected="false" tabindex="-1"><span data-t="sub.homeScreen">LG launcher</span></button>
 <button type="button" class="tab" role="tab" id="tab-btn-home" data-tab="home" aria-controls="homepane" aria-selected="false" tabindex="-1" hidden><span data-t="sub.nativeTvHome">Native Tv Home</span></button>
 <span class="tab-ind"></span></div>
       <section class="panel grid" id="appspane" role="tabpanel" hidden>
@@ -893,7 +893,7 @@
           </details>
 <details class="pv-d card" id="disc-system-services" hidden style="--p:2;--t:4;--d:6">
             <summary><span class="badge"><svg class="ic" aria-hidden="true"><use href="#i-sensors"/></svg></span>
-              <span data-t="apps.services">Turn off background services</span>
+              <span data-t="apps.services">Turn off LG’s bloatware background services</span>
               <span class="cur" id="apps-services-summary"></span>
             </summary>
             <div class="pv-sub" data-t="apps.services.desc">
@@ -906,7 +906,7 @@
                 class="sub"
                 data-t="apps.loadingServices"
               >
-                Loading background services&hellip;
+                Loading LG’s bloatware services&hellip;
               </div>
             </div>
           </details>
@@ -1245,7 +1245,7 @@
 <div data-pane="launch" hidden>
 <details class="pv-d card" id="disc-homescreen" hidden style="--p:2;--t:4;--d:12" open>
             <summary><span class="badge"><svg class="ic" aria-hidden="true"><use href="#i-home"/></svg></span>
-              <span data-t="apps.home">Home screen layout</span>
+              <span data-t="apps.home">LG launcher layout</span>
               <span class="cur" id="apps-home-summary"></span>
             </summary>
             <div class="pv-note" data-nativetv-home-note hidden>
@@ -1265,9 +1265,9 @@
               >
             </div>
             <div class="pv-sub" data-t="apps.home.desc">
-              Which parts of LG&rsquo;s Home screen show, and which inputs have
-              a tile among the apps. A change takes a few seconds, while the
-              Home screen starts again.
+              Which parts of LG&rsquo;s launcher show, and which inputs have
+              a tile among the apps. A change takes a few seconds, while
+              LG&rsquo;s launcher starts again.
             </div>
             <div class="prot-table" id="apps-home-exp" hidden>
               <div class="prot-row">
@@ -1276,10 +1276,10 @@
                     Experimental on this TV
                   </div>
                   <div class="prot-desc" data-t="apps.home.exp.desc">
-                    On webOS 10 Native Tv lays its own Home screen layout over
+                    On webOS 10 Native Tv lays its own launcher layout over
                     LG&rsquo;s each time the TV starts, so LG&rsquo;s can show
                     for a moment first, and it has been tried on only a few TVs.
-                    Put back LG&rsquo;s Home screen, or switching this off,
+                    Put back LG&rsquo;s launcher, or switching this off,
                     undoes it.
                   </div>
                 </div>
@@ -1300,7 +1300,7 @@
             </div>
             <div id="apps-home-inputs"></div>
             <div class="pv-g" data-t="apps.home.parts">
-              Parts of the Home screen
+              Parts of LG&rsquo;s launcher
             </div>
             <div class="prot-table" id="apps-home-parts"></div>
             <div class="btns acts">
@@ -1311,7 +1311,7 @@
                 onclick="restoreHome()"
                 data-t="apps.home.restore"
               >
-                Put back LG&rsquo;s Home screen
+                Put back LG&rsquo;s launcher
               </button>
             </div>
           </details>
@@ -1695,6 +1695,38 @@
               </button>
             </div>
           </div>
+          <div class="prot-row" id="home-tmdb-row" hidden>
+            <div class="prot-main">
+              <div class="prot-title" data-t="home.tmdb">
+                Films and series
+              </div>
+              <div class="prot-desc" data-t="home.tmdbDesc">
+                Native Tv Home lists what is trending and recent from TMDB,
+                and shows only titles that open on Netflix or YouTube. It needs
+                a TMDB API key (free at themoviedb.org, under Settings, API),
+                the 32-character one. The key is kept on the TV and never shown again.
+              </div>
+              <div class="prot-desc" id="home-tmdb-state" aria-live="polite"></div>
+              <div class="tmdb-key">
+                <input
+                  type="password"
+                  id="home-tmdb-key"
+                  class="pill-sel"
+                  autocomplete="off"
+                  spellcheck="false"
+                  maxlength="40"
+                  data-t-aria-label="home.tmdbKeyLabel"
+                  aria-label="TMDB API key"
+                  placeholder="TMDB API key"
+                  data-t-placeholder="home.tmdbKeyLabel"
+                />
+              </div>
+            </div>
+            <div class="prot-status">
+              <button type="button" class="pill good" id="home-tmdb-save" onclick="homeTmdbSave()" data-t="home.tmdbSave">Save</button>
+              <button type="button" class="pill bad" id="home-tmdb-remove" onclick="homeTmdbRemove()" data-t="home.tmdbRemove" hidden>Remove</button>
+            </div>
+          </div>
         </div>
 </article>
 <div id="home-more">
@@ -1702,7 +1734,7 @@
 <div class="card-h"><span class="badge"><svg class="ic" aria-hidden="true"><use href="#i-settings"/></svg></span><h2 data-t="home.profiles.title">Profiles</h2></div>
 <div class="sub" data-t="home.profiles.desc">
             Each profile has a Home layout of its own: its rows and tiles, tabs,
-            clock and colours. What is set below changes the profile in use.
+            clock. What is set below changes the profile in use.
             With more than one, Native Tv Home shows an avatar in its bar to
             switch between them, and Quick settings lists them too.
           </div>
@@ -1738,41 +1770,6 @@
 <div class="sub" data-t="home.resetDesc">
             The rows, apps and inputs go back to their first order, with LG’s
             promotions hidden again. Channels stay as they are.
-          </div>
-</article>
-<article class="card" style="--p:2;--t:4;--d:6">
-<div class="card-h"><span class="badge"><svg class="ic" aria-hidden="true"><use href="#i-light_mode"/></svg></span><h2 data-t="home.colours.title">Colours</h2></div>
-<div class="sub" data-t="home.colours.desc">
-            The text on Native Tv Home, and the accent that frames the chosen
-            tile and marks what was last on. The quieter text is a shade of the
-            text colour.
-          </div>
-<div class="home-looks" id="home-looks"></div>
-<div class="home-custom">
-            <label
-              ><input
-                type="color"
-                id="home-col-text"
-                onchange="homeCustomColours()"
-              />
-              <span data-t="home.colours.text">Text</span></label
-            >
-            <label
-              ><input
-                type="color"
-                id="home-col-accent"
-                onchange="homeCustomColours()"
-              />
-              <span data-t="home.colours.accent">Accent</span></label
-            >
-            <button
-              type="button"
-              id="home-col-reset"
-              onclick="homeSaveLayout({ colours: null })"
-              data-t="home.colours.reset"
-            >
-              Use the default colours
-            </button>
           </div>
 </article>
 <article class="card" style="--p:2;--t:4;--d:6">
@@ -1921,6 +1918,7 @@
               <div class="ss-level-lbl" data-t="ss.brightness">Brightness</div>
               <div class="btns" id="ss-level"></div>
             </div>
+<div id="ss-start" data-reload="loadScreensavers"></div>
 <div class="ss-level-row">
               <div class="ss-level-lbl" data-t="ss.showNow">Show it now</div>
               <div class="btns acts">
@@ -2041,96 +2039,6 @@
                   the Advanced tab.</span
                 >
               </div>
-</article>
-<article class="card" style="--p:2;--t:4;--d:5">
-<div class="card-h"><span class="badge"><svg class="ic" aria-hidden="true"><use href="#i-visibility_off"/></svg></span><h2 data-t="pv.adid">Advertising identifier</h2></div>
-<div class="pv-sub" data-t="pv.adid.desc">
-                A unique ID your TV hands to advertisers so they can recognise
-                it and target ads at you. Resetting it breaks the link to any
-                profile built from past activity.
-              </div>
-<div id="pv-adid"></div>
-<div id="pv-lmt"></div>
-<div class="sub" id="pv-adnote"></div>
-<div class="btns acts">
-                <button
-                  id="adid-reset"
-                  onclick="privAction('resetAdId')"
-                  data-t="pv.adid.reset"
-                >
-                  Reset advertising ID
-                </button>
-                <button
-                  id="adcookies-clear"
-                  onclick="privAction('clearAdCookies')"
-                  data-t="pv.cookies.clear"
-                >
-                  Clear ad cookies
-                </button>
-              </div>
-</article>
-<details class="pv-d card" id="pv-adv" style="--p:2;--t:4;--d:12">
-<summary><span class="badge"><svg class="ic" aria-hidden="true"><use href="#i-developer_mode"/></svg></span>
-            <span data-t="tab.advanced">Advanced</span>
-            <span class="cur" data-t="pv.advanced.sub"
-              >Every setting, one by one</span
-            >
-          </summary>
-<details class="pv-d" id="pv-promo-d" hidden>
-            <summary>
-              <span data-t="pv.promotions">LG ads and promotions</span>
-              <span class="cur" id="pv-promo-cur"></span>
-            </summary>
-            <div class="prot-table" id="pv-promo"></div>
-          </details>
-<details class="pv-d">
-            <summary>
-              <span data-t="pv.consent">What LG is allowed to collect</span>
-              <span class="cur" id="pv-consent-cur"></span>
-            </summary>
-            <div class="pv-sub">
-              <span data-t="pv.consent.desc"
-                >These are the agreements recorded on the TV.</span
-              >
-              <b data-t="pv.consent.private">Off is the private setting.</b>
-            </div>
-            <div id="pv-consent" class="pv-list"></div>
-            <div class="pv-note" id="pv-consent-note"></div>
-          </details>
-<details class="pv-d">
-            <summary>
-              <span data-t="pv.runningNow">What&rsquo;s running now</span>
-              <span class="cur" id="pv-running-cur"></span>
-            </summary>
-            <div class="pv-sub" data-t="pv.runningNow.desc">
-              What LG's collection machinery is doing at this moment, which is a
-              separate question from what it is permitted to collect.
-            </div>
-            <!-- The feature and the process behind it are different questions: ACR can
-       report "not running" while acr2 is alive, which read as a contradiction
-       when the two sat in one list. -->
-            <div class="pv-list">
-              <div class="pv-grp">
-                <div class="pv-g">
-                  <span data-t="pv.recognition">Recognition</span>
-                </div>
-                <div id="pv-live"></div>
-              </div>
-              <div class="pv-grp">
-                <div class="pv-g">
-                  <span data-t="pv.diagnostics">Diagnostics services</span>
-                </div>
-                <div id="pv-daemons"></div>
-              </div>
-              <div class="pv-grp" id="pv-mic-grp" hidden>
-                <div class="pv-g">
-                  <span data-t="pv.microphone">Microphone</span>
-                </div>
-                <div id="pv-mic"></div>
-              </div>
-            </div>
-            <div class="pv-note" id="pv-running-note"></div>
-          </details>
 <details class="pv-d" id="disc-adblock-custom">
             <summary>
               <span data-t="pv.adblock.custom">Custom ad blocking</span>
@@ -2236,6 +2144,97 @@
               aria-live="polite"
             ></div>
           </details>
+</article>
+<article class="card" style="--p:2;--t:4;--d:5">
+<div class="card-h"><span class="badge"><svg class="ic" aria-hidden="true"><use href="#i-visibility_off"/></svg></span><h2 data-t="pv.adid">Advertising identifier</h2></div>
+<div class="pv-sub" data-t="pv.adid.desc">
+                A unique ID your TV hands to advertisers so they can recognise
+                it and target ads at you. Resetting it breaks the link to any
+                profile built from past activity.
+              </div>
+<div id="pv-adid"></div>
+<div id="pv-lmt"></div>
+<div class="sub" id="pv-adnote"></div>
+<div class="btns acts">
+                <button
+                  id="adid-reset"
+                  onclick="privAction('resetAdId')"
+                  data-t="pv.adid.reset"
+                >
+                  Reset advertising ID
+                </button>
+                <button
+                  id="adcookies-clear"
+                  onclick="privAction('clearAdCookies')"
+                  data-t="pv.cookies.clear"
+                >
+                  Clear ad cookies
+                </button>
+              </div>
+</article>
+<details class="pv-d card" id="pv-adv" style="--p:2;--t:4;--d:12">
+<summary><span class="badge"><svg class="ic" aria-hidden="true"><use href="#i-developer_mode"/></svg></span>
+            <span data-t="tab.advanced">Advanced</span>
+            <span class="cur" data-t="pv.advanced.sub"
+              >Every setting, one by one</span
+            >
+          </summary>
+<details class="pv-d" id="pv-promo-d" hidden>
+            <summary>
+              <span data-t="pv.promotions">LG ads and promotions</span>
+              <span class="cur" id="pv-promo-cur"></span>
+            </summary>
+            <div class="prot-table" id="pv-promo"></div>
+          </details>
+<details class="pv-d">
+            <summary>
+              <span data-t="pv.consent">What LG is allowed to collect</span>
+              <span class="cur" id="pv-consent-cur"></span>
+            </summary>
+            <div class="pv-sub">
+              <span data-t="pv.consent.desc"
+                >These are the agreements recorded on the TV.</span
+              >
+              <b data-t="pv.consent.private">Off is the private setting.</b>
+            </div>
+            <div id="pv-consent" class="pv-list"></div>
+            <div class="pv-note" id="pv-consent-note"></div>
+          </details>
+<details class="pv-d">
+            <summary>
+              <span data-t="pv.runningNow">What&rsquo;s running now</span>
+              <span class="cur" id="pv-running-cur"></span>
+            </summary>
+            <div class="pv-sub" data-t="pv.runningNow.desc">
+              What LG's collection machinery is doing at this moment, which is a
+              separate question from what it is permitted to collect.
+            </div>
+            <!-- The feature and the process behind it are different questions: ACR can
+       report "not running" while acr2 is alive, which read as a contradiction
+       when the two sat in one list. -->
+            <div class="pv-list">
+              <div class="pv-grp">
+                <div class="pv-g">
+                  <span data-t="pv.recognition">Recognition</span>
+                </div>
+                <div id="pv-live"></div>
+              </div>
+              <div class="pv-grp">
+                <div class="pv-g">
+                  <span data-t="pv.diagnostics">Diagnostics services</span>
+                </div>
+                <div id="pv-daemons"></div>
+              </div>
+              <div class="pv-grp" id="pv-mic-grp" hidden>
+                <div class="pv-g">
+                  <span data-t="pv.microphone">Microphone</span>
+                </div>
+                <div id="pv-mic"></div>
+              </div>
+            </div>
+            <div class="pv-note" id="pv-running-note"></div>
+          </details>
+
 </details>
 </section>
 </section>
@@ -2986,13 +2985,13 @@
                     class="prot-title"
                     data-t="server.experimental.tileHiding"
                   >
-                    Home screen tile hiding
+                    LG launcher tile hiding
                   </div>
                   <div
                     class="prot-desc"
                     data-t="server.experimental.tileHiding.short"
                   >
-                    Allows hiding built-in apps from the Home screen, on the
+                    Allows hiding built-in apps from LG&rsquo;s launcher, on the
                     Apps tab.
                   </div>
                   <div
@@ -3022,13 +3021,13 @@
                     class="prot-title"
                     data-t="server.experimental.homeLayout"
                   >
-                    Home screen layout (webOS 10)
+                    LG launcher layout (webOS 10)
                   </div>
                   <div
                     class="prot-desc"
                     data-t="server.experimental.homeLayout.short"
                   >
-                    Allows switching off parts of LG&rsquo;s Home screen on
+                    Allows switching off parts of LG&rsquo;s launcher on
                     webOS 10, on the Apps tab.
                   </div>
                 </div>
@@ -3526,6 +3525,35 @@
               </button>
             </div>
             <div class="timer-days" id="days_offtimer"></div>
+          </div>
+        </div>
+</article>
+<article class="card" id="adv-idleoff" style="--p:2;--t:4;--d:11">
+<div class="card-h"><span class="badge"><svg class="ic" aria-hidden="true"><use href="#i-schedule"/></svg></span><h2 data-t="adv.idle">Switch off when idle</h2></div>
+<div class="prot-table">
+          <div class="prot-row">
+            <div class="prot-main">
+              <div class="prot-title" data-t="adv.idle.after">
+                Switch the TV off after
+              </div>
+              <div class="prot-desc" data-t="adv.idle.desc">
+                Switches the TV off when no key has been pressed and no app,
+                input or volume has changed for this long, and nothing is
+                playing. The TV shows a warning a minute before; any key keeps
+                it on. An HDMI input is never switched off, as the TV cannot see
+                what a console or a box is doing.
+              </div>
+              <div class="prot-desc st-note" id="idle-note" hidden></div>
+            </div>
+            <div class="prot-status">
+              <select
+                class="pill-sel"
+                id="idle-minutes"
+                aria-label="Switch the TV off after"
+                data-t-aria-label="adv.idle.after"
+                onchange="saveScreenTime({ idleMinutes: Number(this.value) })"
+              ></select>
+            </div>
           </div>
         </div>
 </article>

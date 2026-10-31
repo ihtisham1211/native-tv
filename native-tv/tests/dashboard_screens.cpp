@@ -236,6 +236,25 @@ void models() {
     for (size_t i = 0; i < settingGroups().size(); ++i)
         check(settingGroups()[i].key == dashboardTabs()[i].key,
               "The sections keep the dashboard's keys and order");
+    // A heading that says what the switch under it says (Privacy's "Screen content recognition") must not
+    // share its id: pressing the switch found the heading, which has no command, and the app ended.
+    {
+        MenuRow heading;
+        heading.label = "Screen content recognition";
+        heading.heading = true;
+        MenuRow row;
+        row.label = "Screen content recognition";
+        row.value = "On";
+        row.state = 1;
+        row.command.operation = Operation::Control;
+        row.command.body = Json::parse(R"({"action":"acr","value":false})");
+        const auto items = settingItems("privacy", {heading, row});
+        std::string headingId, switchId;
+        for (const auto &item : items)
+            (item.kind == SettingItem::Kind::Heading ? headingId : switchId) = item.id;
+        check(!headingId.empty() && !switchId.empty() && headingId != switchId,
+              "A heading and a row of the same words have different ids");
+    }
     bool on = false;
     check(settingToggleValue("Shown", on) && on && settingToggleValue("Not on Home", on) && !on &&
               !settingToggleValue("Browse", on),
@@ -465,7 +484,7 @@ void settings() {
     clock = run(app, clock, 700);
     check(app.snapshot()["pages"].number() == 6 && app.snapshot()["page"].string() == "Installed",
           "Apps are six short subsections, the first showing");
-    check(app.shows("Quick Access") && app.shows("Kept ready") && app.shows("Services"),
+    check(app.shows("Quick Access") && app.shows("Kept ready") && app.shows("LG bloatware"),
           "…named after what the dashboard grouped");
     app.key(Key::Up);
     check(app.snapshot()["section"].string() == "system" && !app.snapshot()["loading"].boolean(),
@@ -504,7 +523,7 @@ void settings() {
               app.snapshot()["focus"].string() == "1",
           "Right on the tabs shows the next subsection");
     app.key(Key::Left);
-    check(app.snapshot()["page"].string() == "Home screen", "Left steps back");
+    check(app.snapshot()["page"].string() == "LG launcher", "Left steps back");
     app.key(Key::Down);
     check(zone(app) == "rows" && app.snapshot()["focus"].string() == "HDMI 1",
           "Down returns to the rows of that subsection");
@@ -513,7 +532,7 @@ void settings() {
     clock = run(app, clock, 300);
     app.key(Key::Up);
     check(app.snapshot()["section"].string() == "apps" &&
-              app.snapshot()["page"].string() == "Home screen",
+              app.snapshot()["page"].string() == "LG launcher",
           "A section opens on the subsection it was left on");
     app.key(Key::Right);
     app.key(Key::Up);
@@ -555,12 +574,12 @@ void settings() {
     home.key(Key::Right);
     check(home.snapshot()["page"].string() == "Appearance", "Appearance has the switches");
     home.key(Key::Down);
-    for (int i = 0; i < 12; ++i)
+    for (int i = 0; i < 13; ++i)
         home.key(Key::Down);
     t = run(home, t, 1200);
     std::string last = home.snapshot()["focusId"].string();
     float scrolled = static_cast<float>(home.animation().value("set:sy"));
-    check(last == "Profile#0" && scrolled < -50,
+    check(last == "Reset the layout#0" && scrolled < -50,
           "The last row is focused and the list has scrolled");
     for (int i = 0; i < 3; ++i) {
         reply(home, "settings:data:home", section("home"));
@@ -697,6 +716,68 @@ void writes() {
     sleep.key(Key::Ok);
     check(sleep.snapshot()["focusValue"].string() == "90 min", "The next press goes on from 60");
     at = run(sleep, at, 200);
+    // Left and Right step through the values of a row that has them, a chevron on each side of the value.
+    answerWrite(sleep, timers);
+    at = run(sleep, at, 200);
+    sleep.key(Key::Left);
+    check(sleep.snapshot()["focusValue"].string() == "60 min" && sleep.snapshot()["zone"].string() == "rows",
+          "Left steps back to 60, and stays on the row");
+    sleep.key(Key::Right);
+    sleep.key(Key::Right);
+    check(sleep.snapshot()["focusValue"].string() == "120 min", "Right steps forward");
+    answerWrite(sleep, timers);
+    at = run(sleep, at, 200);
+
+    // The idle power-off sits after the sleep timer: Off, 15 and 30 minutes, then every hour up to eight.
+    sleep.key(Key::Down);
+    check(sleep.snapshot()["focus"].string() == "Switch off when idle" &&
+              sleep.snapshot()["focusValue"].string() == "Off",
+          "Switch off when idle follows the sleep timer, and reads Off");
+    sleep.key(Key::Right);
+    check(sleep.snapshot()["focusValue"].string() == "15 minutes" && timers.writes().size() > 0 &&
+              timers.writes().back()->operation == Operation::SetScreenTime &&
+              timers.writes().back()->body["idleMinutes"].number() == 15,
+          "Right steps it to 15 minutes at once and writes the time to the screen-time route");
+    answerWrite(sleep, timers);
+    at = run(sleep, at, 200);
+    for (int i = 0; i < 3; ++i) {
+        sleep.key(Key::Right);
+        answerWrite(sleep, timers);
+        at = run(sleep, at, 200);
+    }
+    check(sleep.snapshot()["focusValue"].string() == "2 hours", "30 minutes, 1 hour, then 2 hours");
+    sleep.key(Key::Left);
+    sleep.key(Key::Left);
+    sleep.key(Key::Left);
+    sleep.key(Key::Left);
+    check(sleep.snapshot()["focusValue"].string() == "Off", "Left steps back down to Off");
+    answerWrite(sleep, timers);
+    at = run(sleep, at, 200);
+
+    // Settings has no Home bar: Up from the top of a page with no tabs goes nowhere, and Left on a row that is
+    // not a stepper still goes back to the sections.
+    FakeTransport plain;
+    Application locked(plain, "dashboard:service");
+    reply(locked, "settings:data:service", section("service"));
+    uint32_t held = run(locked, 16, 700);
+    locked.key(Key::Up);
+    check(!locked.snapshot()["barFocus"].boolean() && locked.screenName() == "dashboard:service",
+          "Up from the top of Settings does not reach the Home bar");
+    locked.key(Key::Left);
+    check(locked.snapshot()["zone"].string() == "sections", "Left on a row that does not step goes to the sections");
+    (void)held;
+
+    // Live opened from the Metrics page goes back to it, not to Home.
+    FakeTransport metrics;
+    Application fromMetrics(metrics, "dashboard:system");
+    reply(fromMetrics, "settings:data:system", fixture("stats-c4-webos9.json"));
+    uint32_t seen = run(fromMetrics, 16, 700);
+    check(fromMetrics.snapshot()["focus"].string() == "Live", "Live is the first row of Metrics");
+    fromMetrics.key(Key::Ok);
+    check(fromMetrics.screenName() == "live", "OK on it opens Live");
+    fromMetrics.key(Key::Back);
+    check(fromMetrics.screenName().compare(0, 9, "dashboard") == 0, "Back from Live returns to Metrics");
+    (void)seen;
 
     // An action asks twice, is pending until the TV answers, and says when it did not work.
     FakeTransport power;
@@ -772,7 +853,12 @@ void writes() {
     sv = run(saver, sv, 200);
     check(saver.snapshot()["focusValue"].string() == "Dim" && saver.shows("no screen"),
           "A refused brightness goes back to Dim and says why");
-    saver.key(Key::Down);
+    // Start screen saver sits on the first page, under the screen savers.
+    saver.key(Key::Up);
+    saver.key(Key::Left);
+    check(saver.snapshot()["page"].string() == "Screen saver", "Back to the first page");
+    for (int i = 0; i < 12 && saver.snapshot()["focus"].string() != "Start screen saver"; ++i)
+        saver.key(Key::Down);
     check(saver.snapshot()["focus"].string() == "Start screen saver", "Start screen saver");
     saver.key(Key::Ok);
     sv = run(saver, sv, 100);
@@ -787,6 +873,30 @@ void writes() {
     sv = run(saver, sv, 200);
     check(!saver.snapshot()["focusPending"].boolean() && saver.shows("not now"),
           "A refused start clears the pending state and says why");
+    // Where the TV reports when its screen saver starts, the Options page has it, and Right steps it.
+    FakeTransport timed;
+    Application timer(timed, "dashboard:saver");
+    Json withTimer = section("saver");
+    withTimer.set("lgSettings",
+                  Json::parse(R"([{"id":"screenSaverTimer","section":"screensaver","type":"choice","title":"Start after",
+                      "desc":"","value":"10","active":true,"choices":[{"value":"3","label":"3 minutes"},
+                      {"value":"10","label":"10 minutes"},{"value":"20","label":"20 minutes"},
+                      {"value":"30","label":"30 minutes"}]}])"));
+    reply(timer, "settings:data:saver", withTimer.dump());
+    uint32_t ti = run(timer, 16, 700);
+    timer.key(Key::Up);
+    timer.key(Key::Right);
+    timer.key(Key::Down);
+    check(timer.snapshot()["focus"].string() == "Start after" &&
+              timer.snapshot()["focusValue"].string() == "10 minutes",
+          "Start after is the first row of Options and reads 10 minutes");
+    timer.key(Key::Right);
+    ti = run(timer, ti, 100);
+    check(timed.writes().size() == 1 && timed.writes()[0]->body["action"].string() == "lgSetting" &&
+              timed.writes()[0]->body["value"]["id"].string() == "screenSaverTimer" &&
+              timed.writes()[0]->body["value"]["value"].string() == "20" &&
+              timer.snapshot()["focusValue"].string() == "20 minutes",
+          "Right steps it to 20 minutes at once and writes it");
     // A switch the server refuses is put back, and the row can be pressed again.
     FakeTransport refusedNetwork;
     Application refusedWeb(refusedNetwork, "dashboard:settings");

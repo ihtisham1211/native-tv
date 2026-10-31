@@ -23,6 +23,23 @@ int main() {
                           "\"bedtimeStart\":\"\"}"), value, error) &&
               value["dailyMinutes"].number() == 90 && error.empty(),
           "valid partial settings are copied");
+    // The idle power-off: 15 and 30 minutes, then every hour up to eight, and 0 for off.
+    for (int minutes : {0, 15, 30, 60, 120, 180, 240, 300, 360, 420, 480})
+        check(service::validateScreenTimePatch(
+                  Json::parse("{\"idleMinutes\":" + std::to_string(minutes) + "}"), value, error) &&
+                  value["idleMinutes"].number() == minutes,
+              "idle power-off time " + std::to_string(minutes) + " is accepted");
+    for (const char *invalid : {"10", "45", "90", "540", "-15", "1.5", "\"30\"", "true"})
+        check(!service::validateScreenTimePatch(Json::parse(std::string("{\"idleMinutes\":") + invalid + "}"),
+                                                value, error) &&
+                  error == "invalid idleMinutes",
+              std::string("idle power-off time ") + invalid + " is rejected");
+    check(service::screenTimeSettings(Json::parse("{}"), true, true)["idleMinutes"].number() == 0 &&
+              service::screenTimeSettings(Json::parse("{\"screenTime\":{\"idleMinutes\":60}}"), true,
+                                          true)["idleMinutes"].number() == 60 &&
+              service::screenTimeSettings(Json::parse("{\"screenTime\":{\"idleMinutes\":61}}"), true,
+                                          true)["idleMinutes"].number() == 0,
+          "idle power-off is off by default and a value that is not offered is ignored");
     check(!service::validateScreenTimePatch(Json::parse("{\"dailyMinutes\":2000}"),
                                             value, error) &&
               error == "invalid dailyMinutes",

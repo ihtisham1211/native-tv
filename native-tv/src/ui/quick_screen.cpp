@@ -635,8 +635,11 @@ class QuickScreen final : public ScreenView {
         } else if (row.kind == Row::Kind::Slider) {
             if (!waiting)
                 item.value = row.id == "volume" ? volumeText() : lightKnown() ? std::to_string(static_cast<int>(shownLight_)) : "—";
-        } else if (!waiting)
+        } else if (!waiting) {
             item.value = trail(host, row);
+            // The rows Left and Right step through the values of show a chevron on each side.
+            item.stepper = level_ == Level::Main && steps(row.id) && loaded_ && !dim;
+        }
         kit::settingsRow(paint, item);
         float right = rest.x + rest.w - layout::srowPadRight;
         // A value still being read is a turning spinner where the number goes.
@@ -738,6 +741,51 @@ class QuickScreen final : public ScreenView {
             stepVolume(host, direction);
         else if (row.id == "light")
             stepLight(host, direction * kLightStep);
+        else if (steps(row.id))
+            stepList(host, row.id, direction);
+    }
+    // Picture mode, Sound output and the Sleep timer have a list of values: OK opens it, and Left and Right
+    // go to the previous or the next one without opening it.
+    static bool steps(const std::string &id) {
+        return id == "picture" || id == "sound" || id == "sleep";
+    }
+    void stepList(ScreenHost &host, const std::string &which, int direction) {
+        if (!loaded_)
+            return;
+        std::vector<std::string> values;
+        std::string current;
+        if (which == "picture") {
+            for (const auto &mode : stats_["picture"]["modes"].items())
+                values.push_back(mode["value"].string());
+            current = pictureValue(host);
+        } else if (which == "sound") {
+            for (const auto &output : stats_["sound"]["outputs"].items())
+                values.push_back(output["id"].string());
+            current = soundValue(host);
+        } else {
+            for (const char *value : kSleep)
+                values.push_back(value);
+            current = sleepValue(host);
+        }
+        if (values.empty())
+            return;
+        const auto found = std::find(values.begin(), values.end(), current);
+        const size_t count = values.size();
+        size_t target = found == values.end() ? (direction > 0 ? 0 : count - 1)
+                        : direction > 0       ? (static_cast<size_t>(found - values.begin()) + 1) % count
+                                              : (static_cast<size_t>(found - values.begin()) + count - 1) % count;
+        const std::string &value = values[target];
+        if (which == "picture")
+            host.optimistic().set("quick.picture", Json::text(value), Json::text(stats_["picture"]["mode_raw"].string()),
+                                  controlWrite("pictureMode"));
+        else if (which == "sound")
+            host.optimistic().set("quick.sound", Json::text(value), Json::text(stats_["sound"]["output_raw"].string()),
+                                  controlWrite("soundOutput"));
+        else
+            host.optimistic().set("quick.sleep", Json::text(value), Json::text(stats_["sleepTimer"].string()),
+                                  controlWrite("sleepTimer"));
+        syncShown(host);
+        host.invalidate();
     }
     // Held, the key repeats: each repeat changes the shown value at once and the layer sends the
     // newest target at most every 120 ms.

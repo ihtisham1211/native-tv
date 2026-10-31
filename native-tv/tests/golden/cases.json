@@ -132,6 +132,41 @@
       ]
     },
     {
+      "name": "apps-edit",
+      "time": 3600,
+      "fixture": "home",
+      "args": [
+        "--screen",
+        "home"
+      ],
+      "script": [
+        {
+          "at": 1500,
+          "key": "up"
+        },
+        {
+          "at": 1560,
+          "key": "right"
+        },
+        {
+          "at": 1900,
+          "key": "down"
+        },
+        {
+          "at": 2400,
+          "key": "right"
+        },
+        {
+          "at": 2900,
+          "longPress": true
+        },
+        {
+          "at": 3300,
+          "key": "up"
+        }
+      ]
+    },
+    {
       "name": "apps-enter",
       "time": 1900,
       "fixture": "home",
@@ -750,13 +785,17 @@
         },
         {
           "at": 1740,
+          "key": "right"
+        },
+        {
+          "at": 1800,
           "key": "ok"
         }
       ]
     },
     {
       "name": "quick-slide",
-      "time": 1840,
+      "time": 1900,
       "fixture": "home",
       "args": [
         "--screen",
@@ -789,6 +828,10 @@
         },
         {
           "at": 1740,
+          "key": "right"
+        },
+        {
+          "at": 1800,
           "key": "ok"
         }
       ]
@@ -828,6 +871,10 @@
         },
         {
           "at": 1740,
+          "key": "right"
+        },
+        {
+          "at": 1800,
           "key": "ok"
         },
         {
@@ -875,6 +922,10 @@
         },
         {
           "at": 1740,
+          "key": "right"
+        },
+        {
+          "at": 1800,
           "key": "ok"
         },
         {
@@ -952,6 +1003,42 @@
       "profiles": 3
     },
     {
+      "name": "profile-colour",
+      "time": 3000,
+      "fixture": "home",
+      "args": [
+        "--screen",
+        "home"
+      ],
+      "script": [
+        {
+          "at": 1500,
+          "key": "up"
+        },
+        {
+          "at": 1560,
+          "key": "left"
+        },
+        {
+          "at": 1620,
+          "key": "ok"
+        },
+        {
+          "at": 2200,
+          "key": "down"
+        },
+        {
+          "at": 2260,
+          "key": "right"
+        },
+        {
+          "at": 2320,
+          "key": "right"
+        }
+      ],
+      "profiles": 3
+    },
+    {
       "name": "rename",
       "time": 3400,
       "fixture": "home",
@@ -978,6 +1065,10 @@
         },
         {
           "at": 2200,
+          "key": "down"
+        },
+        {
+          "at": 2230,
           "key": "down"
         },
         {

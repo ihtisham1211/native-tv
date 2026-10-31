@@ -3,6 +3,7 @@
 #include "daemon/luna.hpp"
 #include "daemon/screen_time_enforcer.hpp"
 #include "service/history_recorder.hpp"
+#include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
@@ -603,6 +604,146 @@ bool runAppAndScreenSaverCase() {
 }
 } // namespace
 
+// The idle power-off: it warns and then switches off once the time is up with nothing happening, starts
+// again on a key press, and does not count while an HDMI input is up or something is playing.
+bool runIdleCase() {
+    char temporary[] = "/tmp/nativetv-screen-time-idle-XXXXXX";
+    const char *created = mkdtemp(temporary);
+    if (!created)
+        return false;
+    const std::string root(created);
+    const std::string details = root + "/luna-details.jsonl";
+    setenv("NATIVETV_FAKE_LUNA_MODE", "screen-time", 1);
+    setenv("NATIVETV_FAKE_LUNA_DETAILS", details.c_str(), 1);
+
+    int64_t wall = 1793016000000LL;
+    std::atomic<double> idle{0};
+    EventLoop loop(2, 32, 64);
+    ChildProcessRunner children;
+    LunaClientOptions lunaOptions;
+    lunaOptions.executable = NATIVETV_FAKE_LUNA_SEND;
+    LunaClient luna(loop, children, nullptr, lunaOptions);
+    CommandPolicyExecutor commandPolicy(luna);
+    state::Cache state;
+    Json power = Json::object();
+    power.set("state", Json::text("Active"));
+    power.set("systemOn", Json::flag(true));
+    power.set("screenOn", Json::flag(true));
+    Json snapshot = Json::object();
+    snapshot.set("power", power);
+    for (const char *key : {"state", "systemOn", "screenOn"})
+        state.update(state::Event{"power", key, power[key], wall, true, true});
+    state.update(state::Event{"application", "app", Json::text("netflix"), wall, true, true});
+
+    HistoryRecorderOptions historyOptions;
+    historyOptions.directory = root + "/history";
+    historyOptions.enabled = false;
+    historyOptions.wallNowMs = [&wall]() { return wall; };
+    HistoryRecorder history(historyOptions);
+    history.start(snapshot);
+
+    ScreenTimeTimings timings;
+    timings.check = std::chrono::milliseconds(20);
+    timings.grace = std::chrono::milliseconds(600); // more than the toast's process takes to start
+    timings.powerSettle = std::chrono::milliseconds(20);
+    timings.wallNowMs = [&wall]() { return wall; };
+    timings.steadyNowMs = [&idle]() { return idle.load(); };
+    const double minute = 60000;
+
+    const Json settings = Json::parse(
+        "{\"enabled\":false,\"idleMinutes\":15}");
+    std::unique_ptr<ScreenTimeEnforcer> enforcer;
+    std::thread loopThread;
+    bool ok = false;
+    const auto toasts = [&]() { return occurrences(readFile(details), "createToast"); };
+    const auto powerOffs = [&]() { return occurrences(readFile(details), "powerOff"); };
+    const auto settle = [](int milliseconds) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(milliseconds));
+    };
+    try {
+        check(loop.post([&]() {
+                  enforcer.reset(new ScreenTimeEnforcer(loop, state, history, luna, root,
+                                                        root + "/proc", root, settings, true, true,
+                                                        nullptr, timings, &commandPolicy));
+                  (void)enforcer->start();
+              }), "the idle power-off should start on the event loop");
+        loopThread = std::thread([&]() { loop.run(); });
+        settle(150); // the enforcer is made on the loop: it starts counting from the clock as it is then
+
+        idle = 14 * minute;
+        settle(200);
+        check(toasts() == 0 && powerOffs() == 0, "before the time is up nothing is said or done");
+        idle = 15 * minute;
+        check(waitForOccurrences(details, "createToast", 1, std::chrono::seconds(3)),
+              "when the time is up a toast says the TV is about to switch off");
+        check(waitForOccurrences(details, "powerOff", 1, std::chrono::seconds(3)),
+              "and a minute later the TV is switched off");
+
+        // A key press inside the minute keeps it on, and starts the count again.
+        idle = 31 * minute;
+        check(waitForOccurrences(details, "createToast", 2, std::chrono::seconds(3)),
+              "the next idle period warns again");
+        enforcer->noteActivity();
+        settle(1000);
+        check(powerOffs() == 1, "a key press during the warning keeps the TV on");
+        check(toasts() == 2, "and the count starts again from it");
+
+        // An HDMI input is never idle, and an app or input change counts as activity.
+        loop.post([&]() { state.update(state::Event{"application", "app", Json::text("hdmi1"), wall, false, true}); });
+        settle(100); // the state is in before the clock moves on
+        idle = 90 * minute;
+        settle(300);
+        check(toasts() == 2 && powerOffs() == 1, "on an HDMI input the TV is not switched off");
+        idle = 90 * minute;
+        loop.post([&]() { state.update(state::Event{"application", "app", Json::text("netflix"), wall, false, true}); });
+        settle(100);
+        idle = 90 * minute + 14 * minute;
+        settle(200);
+        check(toasts() == 2, "leaving the input starts the count again");
+
+        // Playing is not idle.
+        loop.post([&]() {
+            state.update(state::Event{"media", "snapshot", Json::text("{\"state\":\"playing\"}"), wall, false, true});
+        });
+        settle(100);
+        idle = 200 * minute;
+        settle(300);
+        check(toasts() == 2 && powerOffs() == 1, "while something is playing the TV is not switched off");
+
+        // With power actions off in the config there is nothing to warn about.
+        loop.post([&]() {
+            enforcer->stop();
+            enforcer.reset(new ScreenTimeEnforcer(loop, state, history, luna, root, root + "/proc",
+                                                  root, settings, true, false, nullptr, timings,
+                                                  &commandPolicy));
+            (void)enforcer->start();
+            state.update(state::Event{"media", "snapshot", Json::text("{\"state\":\"idle\"}"), wall, false, true});
+        });
+        settle(100);
+        idle = 400 * minute;
+        settle(300);
+        check(toasts() == 2 && powerOffs() == 1, "without allowPower the idle power-off does nothing");
+        ok = true;
+    } catch (const std::exception &error) {
+        std::fprintf(stderr, "FAIL: %s\n", error.what());
+        std::fprintf(stderr, "Luna calls: %s\n", readFile(details).c_str());
+    }
+    (void)loop.post([&]() {
+        if (enforcer)
+            enforcer->stop();
+        enforcer.reset();
+        loop.stop();
+    });
+    if (loopThread.joinable())
+        loopThread.join();
+    unlink((root + "/luna-details.jsonl").c_str());
+    rmdir((root + "/history").c_str());
+    rmdir(root.c_str());
+    unsetenv("NATIVETV_FAKE_LUNA_MODE");
+    unsetenv("NATIVETV_FAKE_LUNA_DETAILS");
+    return ok;
+}
+
 int main() {
     char temporary[] = "/tmp/nativetv-screen-time-runtime-XXXXXX";
     const char *created = mkdtemp(temporary);
@@ -779,6 +920,8 @@ int main() {
     if (!ok)
         return 1;
     if (!runAppAndScreenSaverCase())
+        return 1;
+    if (!runIdleCase())
         return 1;
     std::cout << "native screen-time runtime checks passed\n";
     return 0;

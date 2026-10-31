@@ -153,12 +153,16 @@ void ScreenTimeEnforcer::applyOnLoop(const Json &settings) {
     warned_.clear();
     warnedDay_.clear();
     clearSwitchedOff();
+    if (idleTimer_) loop_.cancelTimer(idleTimer_);
+    idleTimer_ = 0;
     if (!startChecks() && logger_)
         logger_->error("screentime: could not restart policy checks");
 }
 
 void ScreenTimeEnforcer::stop() {
     running_ = false;
+    if (idleTimer_) loop_.cancelTimer(idleTimer_);
+    idleTimer_ = 0;
     if (checkTimer_) loop_.cancelTimer(checkTimer_);
     checkTimer_ = 0;
     cancelPending();
@@ -180,9 +184,10 @@ void ScreenTimeEnforcer::stop() {
 }
 
 bool ScreenTimeEnforcer::startChecks() {
-    if (!settings_["enabled"].boolean())
+    if (!settings_["enabled"].boolean() && !idleMinutes())
         return true;
     running_ = true;
+    lastActivityMs_ = idleNow();
     if (!listening_) {
         listening_ = true;
         const Json power = state_.snapshot()["power"];
@@ -204,6 +209,11 @@ bool ScreenTimeEnforcer::startChecks() {
 void ScreenTimeEnforcer::onStateChange(const state::Event &event) {
     if (!running_)
         return;
+    // What a person does shows in the state: another app or input, the volume, the TV waking up.
+    if (!event.snapshot &&
+        (event.group == "application" || event.group == "audio" ||
+         (event.group == "power" && compactState(event.value.string()) == "active")))
+        activityOnLoop();
     if (event.group == "power")
         powerChanged();
     else if (event.group == "application" && event.key == "app")
@@ -375,6 +385,7 @@ void ScreenTimeEnforcer::toast(const std::string &message) {
 void ScreenTimeEnforcer::check() {
     if (!running_ || settling_ || acting_)
         return;
+    checkIdle();
     Assessment assessment = assess();
     if (!assessment.valid) {
         cancelPending();
@@ -457,6 +468,72 @@ void ScreenTimeEnforcer::run(const std::string &action, const std::string &id) {
     } else if (action == "home") {
         launchHome();
     }
+}
+
+double ScreenTimeEnforcer::idleNow() const {
+    if (timings_.steadyNowMs)
+        return timings_.steadyNowMs();
+    return std::chrono::duration<double, std::milli>(
+               std::chrono::steady_clock::now().time_since_epoch()).count();
+}
+
+int ScreenTimeEnforcer::idleMinutes() const {
+    const Json minutes = settings_["idleMinutes"];
+    return minutes.isNumber() ? static_cast<int>(minutes.number()) : 0;
+}
+
+void ScreenTimeEnforcer::noteActivity() {
+    const std::weak_ptr<int> lifetime = lifetime_;
+    (void)loop_.post([this, lifetime]() {
+        if (!lifetime.expired()) activityOnLoop();
+    });
+}
+
+void ScreenTimeEnforcer::activityOnLoop() {
+    lastActivityMs_ = idleNow();
+    cancelIdle();
+}
+
+void ScreenTimeEnforcer::cancelIdle() {
+    if (idleTimer_) loop_.cancelTimer(idleTimer_);
+    idleTimer_ = 0;
+}
+
+// The idle power-off: the TV is on, nobody has pressed a key or changed an app, input or the volume, and
+// nothing is playing. An HDMI input is never counted idle (the TV cannot see what a console or box is
+// doing there). When the time is up a toast says so, and a minute later, if nothing has happened, the TV
+// is switched off.
+void ScreenTimeEnforcer::checkIdle() {
+    const int minutes = idleMinutes();
+    const Json snapshot = state_.snapshot();
+    const double now = idleNow();
+    const bool on = snapshot["power"]["systemOn"].boolean();
+    const std::string app = snapshot["application"]["app"].string();
+    // The media state is kept as one scalar of JSON text (see state/mediaValue).
+    const std::string mediaText = snapshot["media"]["snapshot"].string();
+    const bool playing = !mediaText.empty() && Json::parse(mediaText)["state"].string() == "playing";
+    const bool busy = app.compare(0, 4, "hdmi") == 0 || playing;
+    if (!minutes || !on || !allowControl_ || !allowPower_ || busy) {
+        lastActivityMs_ = now;
+        cancelIdle();
+        return;
+    }
+    if (idleTimer_ || now - lastActivityMs_ < minutes * 60000.0)
+        return;
+    const double since = lastActivityMs_;
+    toast("The TV has been idle for " + minutesText(minutes * 60.0) +
+          ". It switches off in a minute; press any key to keep it on.");
+    idleTimer_ = loop_.scheduleAfter(timings_.grace, [this, since, minutes]() {
+        idleTimer_ = 0;
+        if (!running_ || lastActivityMs_ != since || idleMinutes() != minutes)
+            return;
+        if (logger_)
+            logger_->info("screentime: idle for " + minutesText(minutes * 60.0) + ", switching off");
+        powerOff();
+        lastActivityMs_ = idleNow();
+    });
+    if (!idleTimer_ && logger_)
+        logger_->error("screentime: could not schedule the idle grace period");
 }
 
 void ScreenTimeEnforcer::powerOff() {

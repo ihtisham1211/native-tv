@@ -63,8 +63,13 @@ int HttpServices::progress(void *context, curl_off_t, curl_off_t, curl_off_t, cu
 }
 unsigned HttpServices::read(const std::string &channel, Operation operation,
                             const Json &arguments) {
-    return get(channel, legacyRoute(operation, arguments), false,
-               operation == Operation::Capabilities);
+    std::string path;
+    try {
+        path = legacyRoute(operation, arguments);
+    } catch (const std::invalid_argument &) {
+        return 0; // an operation with no route is a request that did not start, as a refused path is
+    }
+    return get(channel, path, false, operation == Operation::Capabilities);
 }
 unsigned HttpServices::image(const std::string &path) {
     return get("image:" + path, legacyAssetRoute(path), true);
@@ -95,7 +100,12 @@ unsigned HttpServices::get(const std::string &channel, const std::string &path, 
     return generation;
 }
 unsigned HttpServices::write(const std::string &channel, Operation operation, const Json &body) {
-    std::string path = legacyRoute(operation, body);
+    std::string path;
+    try {
+        path = legacyRoute(operation, body);
+    } catch (const std::invalid_argument &) {
+        return 0; // no route for the operation: it did not start, and the screen can say so
+    }
     if (path.empty() || path[0] != '/' || path.compare(0, 2, "//") == 0 ||
         path.find_first_of("\r\n") != std::string::npos)
         return 0;
@@ -186,7 +196,10 @@ void HttpServices::run(bool image) {
                 std::string url = origin_ + request.path;
                 curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
                 curl_easy_setopt(curl, CURLOPT_NOSIGNAL, 1L);
-                long timeoutMs = 12000L;
+                // A write may wait on the TV: stopping or starting LG's LG Promotions & Tips Popups
+                // service takes 12.3 s on the B3, so a 12 s limit rolled the switch back to a state
+                // the service no longer had.
+                long timeoutMs = request.post ? 40000L : 12000L;
                 long connectTimeoutMs = 2000L;
                 if (request.readiness) {
                     auto elapsed = std::chrono::duration_cast<ReadinessRetry::Milliseconds>(

@@ -325,6 +325,7 @@ void SettingsList::build(ScreenHost &host, kit::Paint paint) {
         row.title = item.title;
         row.value = item.value;
         row.toggle = item.kind == SettingItem::Kind::Toggle;
+        row.stepper = item.kind == SettingItem::Kind::Choice && !item.choices.empty();
         row.on = static_cast<float>(motion.value(id("on", item.id)));
         row.focus = static_cast<float>(motion.value(id("f", item.id)));
         row.enter = enter;

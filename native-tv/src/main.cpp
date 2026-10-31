@@ -12,6 +12,7 @@
 #include "platform/gl_window.hpp"
 #include "platform/paths.hpp"
 #include "platform/probe.hpp"
+#include "platform/row_sweep.hpp"
 #include "ui/application.hpp"
 #include "ui/kit/run_glyphs.hpp"
 #include <SDL_image.h>
@@ -378,6 +379,7 @@ int main(int argc, char **argv) {
             unsigned frames = 0;
             Json screens = Json::array();
             Json checkpoints = Json::array();
+            RowSweep sweep;
             std::string lastScreen;
             Uint32 wallClockAt = 0;
             bool scriptedWallClock = false;
@@ -519,7 +521,12 @@ int main(int argc, char **argv) {
                                     okAt = now;
                                 }
                             } else if (key == Key::Back) {
-                                if (!backDown && !event.key.repeat) {
+                                // Only Home tells a tap from a hold (the recent apps); everywhere else Back
+                                // acts on the press, so a remote that sends no release never loses it.
+                                if (event.key.repeat) {
+                                } else if (app.screenName() != "home")
+                                    app.key(Key::Back);
+                                else if (!backDown) {
                                     backDown = true;
                                     backHeld = false;
                                     backAt = now;
@@ -563,6 +570,10 @@ int main(int argc, char **argv) {
                 }
                 if (pumpNetwork(now))
                     draw = true;
+                if (sweep.active()) {
+                    sweep.step(now, [&app]() { return app.snapshot(); }, [&app](Key key) { app.key(key); });
+                    draw = true;
+                }
                 while (step < script.size() && now >= script[step]["at"].number()) {
                     Json instruction = script[step++];
                     if (instruction.has("wallClock")) {
@@ -595,6 +606,8 @@ int main(int argc, char **argv) {
                         app.longPress();
                     if (instruction["longBack"].boolean()) // Back held past it
                         app.longBack();
+                    if (instruction.has("sweep"))
+                        sweep.start(instruction["sweep"], now);
                     if (instruction.has("click"))
                         app.click(static_cast<float>(
                                       instruction["click"][static_cast<size_t>(0)].number()),
@@ -645,7 +658,8 @@ int main(int argc, char **argv) {
                 const bool ambient = animating && !loading && ambientOnly(app);
                 draw = animating || draw || fixed;
                 // The last frame of a bounded run is always drawn, so it can be captured.
-                const bool lastFrame = stops && now >= stopAt;
+                // A run that was only waiting for its sweep ends a moment after it, with the last frame captured.
+                const bool lastFrame = (stops && now >= stopAt) || sweep.finishedFor(now, 1500);
                 if ((active || lastFrame) && (draw || lastFrame)) {
                     const int wanted = fixed ? 0 : (ambient ? 2 : 1);
                     if (wanted != pace) {
@@ -743,7 +757,8 @@ int main(int argc, char **argv) {
                             {"textureBytes", Json::numeric(renderer.textureBytes())},
                             {"startup", startup},
                             {"screens", screens},
-                            {"checkpoints", checkpoints}});
+                            {"checkpoints", checkpoints},
+                            {"sweep", sweep.results()}});
                 std::ofstream file(opts.report);
                 file << report.dump() << '\n';
             }

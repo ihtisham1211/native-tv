@@ -155,7 +155,7 @@ With Quick Start+ off, until Native Tv Home is in place the TV shows its last in
 rm -rf /mnt/lg/cmn_data/manifest /tmp/checkpoint/*com.webos.app.home* /mnt/lg/cmn_data/checkpoint/*com.webos.app.home* && reboot
 ```
 
-LG's Home then starts on its default layout, without one set with [Home screen layout](apps.md#home-screen-layout). A TV that already had the empty layout from an earlier build keeps the option on.
+LG's Home then starts on its default layout, without one set with [LG launcher layout](apps.md#lg-launcher-layout). A TV that already had the empty layout from an earlier build keeps the option on.
 
 The Native Tv server answers about ten seconds later; Native Tv Home opened in between shows the Native Tv mark on black with a slowly turning ring, and fades into the home screen once the server answers. After 30 seconds without an answer it says so under the mark. It does the same whenever the server is not running, as during an update. Should the server stop, or fail three times in ten minutes, LG's Home is given its place back until the server is running again.
 

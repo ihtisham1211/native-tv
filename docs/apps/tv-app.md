@@ -14,7 +14,7 @@ Because the panel is an OLED, no screen of the app holds still at full brightnes
 
 The app is drawn on the GPU at the display's 60 frames a second, with no browser, JavaScript or garbage collector between the remote and the picture. How it holds that on a TV:
 
-* **Few draw calls.** A frame's shapes, pictures and text are batched by kind, so a row of cards costs one draw per kind, not one per card. A frame never exceeds 40 draw calls (32 is typical), 8192 vertices and 64 MB of textures, and a draw call costs the B3 about 0.03 ms.
+* **Few draw calls.** A frame's shapes, pictures and text are batched by kind, so a row of cards costs one draw per kind, not one per card. A frame never exceeds 40 draw calls (32 is typical; Home with its icons and posters measured 41 on a B3, and its budget is 48), 8192 vertices and 64 MB of textures, and a draw call costs the B3 about 0.03 ms.
 * **Pictures never stall a frame.** Posters and icons are decoded on worker threads at the size they are drawn, uploaded at most 1 MB a frame and faded in over 220 ms.
 * **Motion keeps its momentum.** Rows, pages, lists, drawers and the tab pill move on springs that carry their position and speed over when the next key arrives, so holding a direction glides on instead of restarting. Focus and the keyboard are short tweens (80 to 170 ms).
 * **Keys are read after the wait for the display.** The B3's driver blocks the first GL call of a frame for about 21 ms roughly every seven seconds; the loop takes that wait before it reads the clock and the keys, not after.

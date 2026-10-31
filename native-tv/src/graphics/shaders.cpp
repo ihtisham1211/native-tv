@@ -76,11 +76,19 @@ const char *kFetchChain =
     "uniform sampler2D u_tex1;\n"
     "uniform sampler2D u_tex2;\n"
     "uniform sampler2D u_tex3;\n"
+    "uniform sampler2D u_tex4;\n"
+    "uniform sampler2D u_tex5;\n"
+    "uniform sampler2D u_tex6;\n"
+    "uniform sampler2D u_tex7;\n"
     "vec4 fetch(float slot, vec2 uv) {\n"
     "  if (slot < 0.5) return SAMPLE(u_tex0, uv);\n"
     "  if (slot < 1.5) return SAMPLE(u_tex1, uv);\n"
     "  if (slot < 2.5) return SAMPLE(u_tex2, uv);\n"
-    "  return SAMPLE(u_tex3, uv);\n"
+    "  if (slot < 3.5) return SAMPLE(u_tex3, uv);\n"
+    "  if (slot < 4.5) return SAMPLE(u_tex4, uv);\n"
+    "  if (slot < 5.5) return SAMPLE(u_tex5, uv);\n"
+    "  if (slot < 6.5) return SAMPLE(u_tex6, uv);\n"
+    "  return SAMPLE(u_tex7, uv);\n"
     "}\n";
 // A draw that uses one texture has nothing to choose between; the full-screen picture costs 1.3
 // ms with this and 3.4 ms with the chain.

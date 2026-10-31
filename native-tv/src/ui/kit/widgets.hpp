@@ -219,6 +219,8 @@ struct SettingsRow {
     Rect rest;
     std::string id, icon, title, value;
     bool toggle = false;
+    // A row whose value OK steps to the next and Left and Right step through: its value has a chevron on each side.
+    bool stepper = false;
     float on = 0; // toggle position 0..1
     float focus = 0;
     Enter enter;

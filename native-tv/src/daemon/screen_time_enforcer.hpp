@@ -29,6 +29,7 @@ struct ScreenTimeTimings {
     EventLoop::Milliseconds keyPress{50};
     EventLoop::Milliseconds powerSettle{1500};
     std::function<int64_t()> wallNowMs;
+    std::function<double()> steadyNowMs; // for the idle power-off; the steady clock when unset
 };
 
 // Runs the screen-time policy on the daemon loop using the native state and
@@ -50,6 +51,8 @@ class ScreenTimeEnforcer {
     bool start();
     bool apply(const Json &settings, std::string *error = nullptr);
     void stop();
+    // A key press or click was seen (called from any thread): the idle power-off starts counting again.
+    void noteActivity();
 
   private:
     struct Assessment {
@@ -74,6 +77,11 @@ class ScreenTimeEnforcer {
     void toast(const std::string &message);
     void run(const std::string &action, const std::string &id);
     void powerOff();
+    void checkIdle();
+    void cancelIdle();
+    void activityOnLoop();
+    double idleNow() const;
+    int idleMinutes() const;
     void turnScreenOff();
     void launchHome();
     bool command(const std::string &action, const std::string &uri,
@@ -127,6 +135,8 @@ class ScreenTimeEnforcer {
     EventLoop::TimerId screenSaverTimer_ = 0;
     EventLoop::TimerId powerTimer_ = 0;
     EventLoop::TimerId keyTimer_ = 0;
+    EventLoop::TimerId idleTimer_ = 0;
+    double lastActivityMs_ = 0;
     int keyFd_ = -1;
     unsigned keyCode_ = 0;
     std::function<void(bool)> keyCallback_;

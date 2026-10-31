@@ -3,6 +3,7 @@
 #include "core/json.hpp"
 #include <cstdint>
 #include <string>
+#include <vector>
 
 namespace nativetv {
 namespace service {
@@ -19,6 +20,9 @@ struct ScreenTimeBedtime {
     bool inside = false;
     int64_t untilStartSeconds = 0;
 };
+
+// The times the idle power-off offers, in minutes (0 is off): 15 and 30 minutes, then every hour up to eight.
+const std::vector<int> &screenTimeIdleChoices();
 
 // Validate and copy a partial screen-time settings document using the same
 // accepted fields and error strings as the legacy API.

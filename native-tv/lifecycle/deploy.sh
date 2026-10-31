@@ -98,7 +98,7 @@ assets/google-tv/pages/setup-phone/index.html assets/google-tv/pages/setup-phone
 assets/screensavers/clock.qml assets/screensavers/fireworks.qml \
 assets/screensavers/starfield.qml assets/screensavers/vitals.qml assets/screensavers/star.png \
 assets/screensavers/bokeh.qml assets/screensavers/bokeh.png \
-assets/screensavers/harmonograph.qml"
+assets/screensavers/harmonograph.qml assets/screensavers/black.qml"
 
 for t in tar base64 fold; do
   command -v "$t" >/dev/null 2>&1 && continue

@@ -229,7 +229,8 @@ input[type=text], input[type=search], input[type=password], input[type=number], 
 .toast-form button:disabled { opacity: .38; }
 #port-input { max-width: 120px; flex: 0 1 120px; }
 .pill-sel { appearance: none; -webkit-appearance: none; min-height: 40px; max-width: 100%; padding: 0 36px 0 14px; border: 0; border-radius: var(--shape-md); background: var(--c-surface-container-highest) var(--caret) right 10px center / 20px no-repeat; font: var(--type-label-l); cursor: pointer; outline: none; }
-input[type=time].pill-sel { padding-right: 14px; background-image: none; }
+input[type=time].pill-sel, #home-tmdb-key { padding-right: 14px; background-image: none; }
+#home-tmdb-key { width: min(100%, 360px); margin-top: 8px; cursor: text; }
 .pill-sel:focus-visible { box-shadow: inset 0 0 0 2px var(--c-primary); }
 .pill-sel option { background: var(--c-surface-container-high); color: var(--c-on-surface); }
 
@@ -606,20 +607,6 @@ input[type=file]::file-selector-button { margin-right: 12px; padding: 0 20px; he
 .home-profile input[type=text] { flex: 1 1 140px; min-width: 0; height: 36px; padding: 0 10px; border: 0; border-radius: var(--shape-sm); background: var(--c-surface-container-highest); color: inherit; outline: none; }
 .home-profile input[type=text]:disabled { opacity: .5; }
 .home-pf-colours { display: flex; gap: 6px; }
-.home-looks { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0 8px; }
-.home-look { display: flex; flex-direction: column; gap: 6px; text-align: left; }
-.home-look-screen { position: relative; display: block; width: 132px; aspect-ratio: 16 / 9; border-radius: var(--shape-sm); background: #000; outline: 2px solid transparent; outline-offset: 3px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / .12); overflow: hidden; }
-.home-look.picked .home-look-screen { outline-color: var(--look-text); }
-.home-look-clock { position: absolute; left: 10px; top: 7px; font: 400 26px/1 var(--font); letter-spacing: -.5px; color: var(--look-text); }
-.home-look-row { position: absolute; left: 10px; bottom: 9px; font-size: 10px; color: var(--look-text); opacity: .69; }
-.home-look-screen i { position: absolute; right: 10px; bottom: 11px; width: 7px; height: 7px; border-radius: 50%; background: var(--look-accent); }
-.home-look-name { font: var(--type-body-s); opacity: .8; }
-.home-look.picked .home-look-name { opacity: 1; font-weight: 500; }
-.home-look:disabled { cursor: default; opacity: .6; }
-.home-custom { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; margin: 4px 0 8px; }
-.home-custom label { display: flex; align-items: center; gap: 8px; }
-.home-custom input[type=color] { width: 40px; height: 28px; padding: 0; border: 1px solid var(--c-outline); border-radius: var(--shape-sm); background: none; }
-.home-custom button { min-height: 36px; padding: 0 16px; border-radius: var(--shape-full); background: var(--c-secondary-container); color: var(--c-on-secondary-container); font: var(--type-label-l); }
 .home-upload button { min-height: 36px; padding: 0 16px; border-radius: var(--shape-full); background: var(--c-secondary-container); color: var(--c-on-secondary-container); font: var(--type-label-l); }
 .home-pf-col { width: 28px; height: 28px; border-radius: 50%; }
 .home-pf-col.picked { box-shadow: 0 0 0 2px var(--c-surface-container), 0 0 0 4px var(--c-primary); }

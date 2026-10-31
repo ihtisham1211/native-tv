@@ -951,6 +951,8 @@ int main(int argc, char **argv) {
             std::make_shared<std::atomic<bool>>(false);
         std::unique_ptr<service::HistoryRecorder> historyRecorder;
         std::unique_ptr<ScreenTimeEnforcer> screenTimeEnforcer;
+        // What the remote's reader thread tells about key presses: set once the enforcer exists.
+        std::atomic<ScreenTimeEnforcer *> screenTimeActivity{nullptr};
         std::unique_ptr<SyslogForwarder> syslogForwarder;
         std::unique_ptr<NtpClient> ntpClient;
         std::unique_ptr<GameFrameRate> gameFrameRate;
@@ -1651,10 +1653,13 @@ int main(int argc, char **argv) {
                 }
                 remoteButtonsReader.reset(new RemoteButtonsReader(
                     [&stateBridge, &mqttShadowClient, &mqttShadowTopics,
-                     &remoteHomeHoldTimer, &screensaverManager,
+                     &remoteHomeHoldTimer, &screensaverManager, &screenTimeActivity,
                      nativeRemoteInputConfigured](const RemoteButtonEvent &event) {
                         if (nativeRemoteInputConfigured && event.pressed && screensaverManager)
                             screensaverManager->remoteKeyPressed();
+                        if (event.pressed)
+                            if (ScreenTimeEnforcer *enforcer = screenTimeActivity.load())
+                                enforcer->noteActivity();
                         if (nativeRemoteInputConfigured && stateBridge) {
                             if (event.type == RemoteButtonEventType::HomeKey &&
                                 remoteHomeHoldTimer)
@@ -1774,6 +1779,7 @@ int main(int argc, char **argv) {
                     loaded.config.document["screenTime"], loaded.config.allowControl,
                     loaded.config.allowPower, &logger, ScreenTimeTimings(),
                     &commandPolicy));
+                screenTimeActivity.store(screenTimeEnforcer.get());
             }
             HttpProxy proxy(std::move(proxyOptions), nodeFreeHooks);
             HttpProxyOptions handoffProxyOptions;

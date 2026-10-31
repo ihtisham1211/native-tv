@@ -1,5 +1,6 @@
 #include "service/backup.hpp"
 #include "domain/names.hpp"
+#include "service/screen_time.hpp"
 
 #include <cerrno>
 #include <algorithm>
@@ -146,6 +147,12 @@ bool validSetting(const std::string &section, const std::string &key,
     if (section == "screenTime") {
         if (key == "enabled") return value.isBoolean();
         if (key == "dailyMinutes") return validMinutes(value, 0);
+        if (key == "idleMinutes") {
+            for (int choice : screenTimeIdleChoices())
+                if (value.isNumber() && value.number() == choice)
+                    return true;
+            return false;
+        }
         if (key == "bedtimeStart" || key == "bedtimeEnd") return validClock(value);
         if (key == "action") return validAction(value, false);
         if (key == "appAction") return validAction(value, true);
@@ -161,7 +168,7 @@ std::vector<std::string> backupSettingKeys(const std::string &section) {
     if (section == "history") return {"enabled"};
     if (section == "backup") return {"daily"};
     if (section == "screenTime")
-        return {"enabled", "dailyMinutes", "bedtimeStart", "bedtimeEnd",
+        return {"enabled", "dailyMinutes", "idleMinutes", "bedtimeStart", "bedtimeEnd",
                 "action", "appAction", "apps"};
     if (section == "prometheus") return {"enabled"};
     if (section == "update") return {"check"};

@@ -13,6 +13,13 @@ function stActionLabel(a) {
   }[a];
 }
 
+// 15 and 30 minutes, then hours; 0 is off.
+function stIdleLabel(m) {
+  if (!m) return t('common.off', 'Off');
+  if (m < 60) return t('adv.idle.minutes', '{n} minutes', { n: m });
+  return m === 60 ? t('adv.idle.hour', '1 hour') : t('adv.idle.hours', '{n} hours', { n: m / 60 });
+}
+
 function stMinutesLabel(m) {
   return m ? watchDuration(m * 60) : t('adv.screenTime.noLimit', 'No limit');
 }
@@ -52,6 +59,12 @@ function renderScreenTime(d) {
   if (d.watchedToday !== null) {
     today.textContent = t('adv.screenTime.today', 'Today so far: {time}', { time: watchDuration(d.watchedToday) });
   }
+
+  stOptions(q('idle-minutes'), d.idleChoices, s.idleMinutes, stIdleLabel);
+  q('idle-minutes').disabled = off || !d.allowPower;
+  const idleNote = q('idle-note');
+  idleNote.textContent = d.allowPower ? '' : t('adv.idle.noPower', 'Power actions are turned off in the server’s config, so the TV cannot be switched off.');
+  idleNote.hidden = d.allowPower;
 
   stOptions(q('st-daily'), ST_DAILY_MINUTES, s.dailyMinutes, stMinutesLabel);
   for (const [id, v] of [['st-bed-from', s.bedtimeStart], ['st-bed-to', s.bedtimeEnd]]) {

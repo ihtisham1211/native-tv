@@ -362,6 +362,7 @@ class HttpFrontDoor {
     void setControl(HttpExchange &exchange) const;
     void setConsentControl(HttpExchange &exchange, const Json &value) const;
     void setAcrControl(HttpExchange &exchange, const Json &value) const;
+    void setLgAdsControl(HttpExchange &exchange, const Json &value) const;
     Json applyConsentChange(const std::string &key, bool enabled) const;
     void invalidateNodeControlCaches() const;
     void setLimitAdTrackingControl(HttpExchange &exchange, const Json &value) const;

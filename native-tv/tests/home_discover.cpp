@@ -100,13 +100,13 @@ int main() {
         std::lock_guard<std::mutex> lock(askedMutex);
         asked.push_back(url);
         askedChanged.notify_all();
-        if (failAll || (failTrending && url.find("trending/all/day") != std::string::npos)) {
+        if (failAll || (failTrending && url.find("trending/all/week") != std::string::npos)) {
             error = "offline";
             return false;
         }
         if (url.find("googleapis.com") != std::string::npos) {
             document = youtubeReply();
-        } else if (url.find("trending/all/day") != std::string::npos) {
+        } else if (url.find("trending/all/week") != std::string::npos) {
             document = titleReply(1);
         } else if (url.find("trending/movie/week") != std::string::npos) {
             document = titleReply(11);
@@ -134,16 +134,15 @@ int main() {
         assert(first["enabled"].boolean() && first["titlesEnabled"].boolean());
         assert(first["rows"].size() == 0); // A cache miss never waits for network.
         (void)discover.feed("private-tmdb-key", "youtube-key");
-        assert(waitForAsked(5));
+        assert(waitForAsked(4));
     } // Joining the worker makes the completed refresh observable below.
-    assert(asked.size() == 5);
+    assert(asked.size() == 4);
     for (const std::string &url : asked)
         assert(url.find("private-tmdb-key") == std::string::npos ||
                url.find("https://api.themoviedb.org/3/") == 0);
     assert(asked[0].find("api_key=private-tmdb-key") != std::string::npos);
-    assert(asked[3].find("air_date.gte=") != std::string::npos &&
-           asked[3].find("air_date.lte=") != std::string::npos);
-    assert(asked[4].find("key=youtube-key") != std::string::npos);
+    assert(asked[0].find("trending/all/week") != std::string::npos);
+    assert(asked[3].find("key=youtube-key") != std::string::npos);
 
     struct stat cacheInfo = {};
     assert(stat((directory.path() + "/home-discover.json").c_str(), &cacheInfo) == 0);
@@ -156,23 +155,21 @@ int main() {
         assert(saved.find("youtube-key") == std::string::npos);
         const Json cache = Json::parse(saved);
         assert(!cache["partial"].boolean());
-        assert(cache["rows"].size() == 5);
+        assert(cache["rows"].size() == 4);
     }
 
     {
         HomeDiscover cached(directory.path(), fetcher, [&clock] { return clock; });
         const Json feed = cached.feed("private-tmdb-key", "youtube-key");
-        assert(feed["rows"].size() == 7); // Four source rows, YouTube, and two derived rows.
+        assert(feed["rows"].size() == 4); // Three trending rows and YouTube.
         assert(feed["rows"][0]["key"].string() == "trending");
         assert(feed["rows"][0]["items"].size() == 3);
         assert(feed["rows"][0]["items"][0]["rating"].number() == 8.3);
-        assert(feed["rows"][4]["key"].string() == "youtube");
-        assert(feed["rows"][4]["items"][0]["image"].string() ==
+        assert(feed["rows"][3]["key"].string() == "youtube");
+        assert(feed["rows"][3]["items"][0]["image"].string() ==
                "https://i.ytimg.com/vi/dQw4w9WgXcQ/mqdefault.jpg");
-        assert(feed["rows"][5]["key"].string() == "toprated");
-        assert(feed["rows"][6]["key"].string() == "recent");
     }
-    assert(asked.size() == 5); // A fresh cache does not refetch.
+    assert(asked.size() == 4); // A fresh cache does not refetch.
 
     failTrending = true;
     const std::string partialDir = directory.path() + "/partial";
@@ -181,7 +178,7 @@ int main() {
     {
         HomeDiscover partial(partialDir, fetcher, [&clock] { return clock; });
         assert(partial.feed("tmdb", "")["rows"].size() == 0);
-        assert(waitForAsked(beforePartial + 4));
+        assert(waitForAsked(beforePartial + 3));
     }
     Json partialCache;
     {
@@ -191,21 +188,21 @@ int main() {
         partialCache = Json::parse(saved);
     }
     assert(partialCache["partial"].boolean());
-    assert(partialCache["rows"].size() == 3);
+    assert(partialCache["rows"].size() == 2);
     failTrending = false;
     clock += 11 * 60 * 1000;
     const size_t beforeRetry = asked.size();
     {
         HomeDiscover retry(partialDir, fetcher, [&clock] { return clock; });
         const Json stale = retry.feed("tmdb", "");
-        assert(stale["rows"].size() >= 3); // Existing rows are returned during refresh.
-        assert(waitForAsked(beforeRetry + 4));
+        assert(stale["rows"].size() >= 2); // Existing rows are returned during refresh.
+        assert(waitForAsked(beforeRetry + 3));
     }
     {
         HomeDiscover recovered(partialDir, fetcher, [&clock] { return clock; });
         const Json feed = recovered.feed("tmdb", "");
         assert(feed["rows"][0]["key"].string() == "trending");
-        assert(feed["rows"].size() == 6); // Four TMDB rows plus derived rows.
+        assert(feed["rows"].size() == 3); // The three TMDB rows.
     }
 
     failAll = true;
@@ -214,15 +211,15 @@ int main() {
     {
         HomeDiscover staleService(directory.path(), fetcher, [&clock] { return clock; });
         const Json stale = staleService.feed("private-tmdb-key", "youtube-key");
-        assert(stale["rows"].size() == 7);
-        assert(waitForAsked(beforeStaleRefresh + 5));
+        assert(stale["rows"].size() == 4);
+        assert(waitForAsked(beforeStaleRefresh + 4));
     }
     const size_t beforeStaleRetry = asked.size();
     {
         HomeDiscover staleCache(directory.path(), fetcher, [&clock] { return clock; });
         const Json stale = staleCache.feed("private-tmdb-key", "youtube-key");
-        assert(stale["rows"].size() == 7);
-        assert(waitForAsked(beforeStaleRetry + 5));
+        assert(stale["rows"].size() == 4);
+        assert(waitForAsked(beforeStaleRetry + 4));
     }
 
     const std::string youtubeDir = directory.path() + "/youtube";
@@ -248,6 +245,62 @@ int main() {
         assert(feed["rows"][0]["items"].size() == 1);
     }
     assert(asked.size() == 1);
+
+    // Only titles that open somewhere (a YouTube trailer or a Netflix title) are listed, and a title in
+    // two rows is asked about once.
+    const std::string linkedDir = directory.path() + "/linked";
+    assert(mkdir(linkedDir.c_str(), 0700) == 0);
+    asked.clear();
+    std::vector<std::string> checked;
+    {
+        HomeDiscover linked(linkedDir, fetcher, [&clock] { return clock; });
+        linked.setLinkCheck([&checked](const std::string &type, const std::string &id) {
+            checked.push_back(type + ":" + id);
+            return id == "1" || id == "3" || id == "11";
+        });
+        (void)linked.feed("tmdb", "");
+        assert(waitForAsked(3));
+    }
+    {
+        HomeDiscover linkedCache(linkedDir, fetcher, [&clock] { return clock; });
+        const Json feed = linkedCache.feed("tmdb", "");
+        assert(feed["rows"][0]["key"].string() == "trending");
+        assert(feed["rows"][0]["items"].size() == 2);
+        assert(feed["rows"][0]["items"][0]["id"].number() == 1 &&
+               feed["rows"][0]["items"][1]["id"].number() == 3);
+        assert(feed["rows"][1]["items"].size() == 1 && feed["rows"][1]["items"][0]["id"].number() == 11);
+    }
+    {
+        size_t askedAboutOne = 0;
+        for (const std::string &entry : checked)
+            if (entry == "movie:1") ++askedAboutOne;
+        assert(askedAboutOne == 1);
+    }
+    // The Available on Netflix row lists the titles of the trending rows that have a Netflix link, once each.
+    const std::string netflixDir = directory.path() + "/netflix";
+    assert(mkdir(netflixDir.c_str(), 0700) == 0);
+    asked.clear();
+    {
+        HomeDiscover onNetflix(netflixDir, fetcher, [&clock] { return clock; });
+        onNetflix.setNetflixCheck([](const std::string &, const std::string &id) {
+            return id == "2" || id == "12" || id == "22";
+        });
+        (void)onNetflix.feed("tmdb", "");
+        assert(waitForAsked(3));
+    }
+    {
+        HomeDiscover netflixCache(netflixDir, fetcher, [&clock] { return clock; });
+        const Json feed = netflixCache.feed("tmdb", "");
+        assert(feed["rows"].size() == 4 && feed["rows"][3]["key"].string() == "netflix");
+        assert(feed["rows"][3]["items"].size() == 3 && feed["rows"][3]["items"][0]["id"].number() == 2 &&
+               feed["rows"][3]["items"][1]["id"].number() == 12 && feed["rows"][3]["items"][2]["id"].number() == 22);
+    }
+    (void)unlink((netflixDir + "/home-discover.json").c_str());
+    (void)unlink((netflixDir + "/home-discover.json.tmp").c_str());
+    (void)rmdir(netflixDir.c_str());
+    (void)unlink((linkedDir + "/home-discover.json").c_str());
+    (void)unlink((linkedDir + "/home-discover.json.tmp").c_str());
+    (void)rmdir(linkedDir.c_str());
 
     (void)unlink((partialDir + "/home-discover.json").c_str());
     (void)unlink((partialDir + "/home-discover.json.tmp").c_str());

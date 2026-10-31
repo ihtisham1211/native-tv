@@ -18,7 +18,7 @@ namespace nativetv {
 namespace daemon {
 namespace {
 const char *const kModes[] = {
-    "clock", "starfield", "fireworks", "bokeh", "harmonograph", "vitals"
+    "clock", "black", "starfield", "fireworks", "bokeh", "harmonograph", "vitals"
 };
 
 std::string rooted(const std::string &root, const std::string &path) {

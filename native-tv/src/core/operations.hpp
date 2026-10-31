@@ -41,6 +41,7 @@ enum class Operation {
     SetLgHomeLayout,
     SetPreload,
     SetBackgroundService,
+    SetScreenTime, // /api/screentime: the screen-time limits and the idle power-off
     FetchPackage,
     ConfirmPackage,
     CancelPackage,

@@ -126,6 +126,13 @@ const Choice kDigitalOutputChoices[] = {
     {"pcm", "srv.lgs.soundOutputDigital.pcm", "PCM"},
     {"passThrough", "srv.lgs.soundOutputDigital.passThrough", "Pass Through"},
 };
+// The only times LG's menu offers; any other value stored switches the screen saver off.
+const Choice kScreenSaverTimerChoices[] = {
+    {"3", "srv.lgs.screenSaverTimer.3", "3 minutes"},
+    {"10", "srv.lgs.screenSaverTimer.10", "10 minutes"},
+    {"20", "srv.lgs.screenSaverTimer.20", "20 minutes"},
+    {"30", "srv.lgs.screenSaverTimer.30", "30 minutes"},
+};
 const Choice kDeepColorChoices[] = {
     {"off", "srv.lgs.deepColor.off", "Off"},
     {"on", "srv.lgs.deepColor.on", "On"},
@@ -159,6 +166,11 @@ const DashboardRow kDashboardRows[] = {
      "srv.lgs.aiSettingsNudge", "Smart tips in Settings",
      "srv.lgs.aiSettingsNudge.desc",
      "Suggested settings shown in LG's Settings menu. LG calls this Smart Tips in Settings."},
+
+    {"screenSaverTimer", "screensaver", "option", "screenSaverTimer", Kind::Choice, 0, 0,
+     "srv.lgs.screenSaverTimer", "Start after", "srv.lgs.screenSaverTimer.desc",
+     "How long the TV sits idle before its screen saver starts. Only the four times LG's own menu offers work.",
+     kScreenSaverTimerChoices, sizeof(kScreenSaverTimerChoices) / sizeof(kScreenSaverTimerChoices[0])},
 
     {"soundOutput", "sound", "sound", "soundOutput", Kind::Choice, 0, 0,
      "srv.lgs.soundOutput", "Sound output", "srv.lgs.soundOutput.desc",

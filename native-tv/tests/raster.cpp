@@ -204,15 +204,15 @@ void rendererChecks() {
         imageBatcher.add(node, node.texture);
     check(imageBatcher.batchCount() == 2, "Disjoint fills share a draw across an image");
 
-    // One draw samples up to four textures; a fifth starts another.
+    // One draw samples up to kTextureSlots textures (eight: a row of picture cards is one draw); the next starts another.
     scene.reset();
-    for (int i = 0; i < 5; ++i)
-        scene.picture({i * 50.f, 0, 40, 40}, i == 0 ? square : store.create(8, 8, TextureFormat::Rgba8));
+    for (int i = 0; i < kTextureSlots + 1; ++i)
+        scene.picture({i * 28.f, 0, 24, 24}, i == 0 ? square : store.create(8, 8, TextureFormat::Rgba8));
     imageBatcher.begin(256, 128, 1);
     for (const auto &node : scene.nodes)
         imageBatcher.add(node, node.texture);
     check(imageBatcher.batchCount() == 2 && imageBatcher.batch(0).textureCount == kTextureSlots,
-          "A draw holds four textures, the fifth opens a second draw");
+          "A draw holds eight textures, the ninth opens a second draw");
 
     // A Home-shaped frame: counts, and the same picture as painting node by node.
     scenes::RecordingStore homeStore;

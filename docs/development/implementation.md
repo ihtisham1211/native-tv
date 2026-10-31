@@ -1199,6 +1199,15 @@ showing, Back dismisses it first and the screen goes off 1.5 seconds later.
 Either way, a screen back on 3 seconds after is turned off once more. Checks
 wait meanwhile, as the screen saver closing reports the screen on.
 
+The idle power-off (`screenTime.idleMinutes`) runs in the same enforcer but needs neither the limits switched on nor watch time. The
+enforcer keeps the time of the last sign of activity on the steady clock: a key press that the remote reader
+(`remote_buttons`) reports, a change of the `application` or `audio` group, the TV reporting `Active`, and every
+check at which an HDMI input is in front or the `media` group says `playing`. When the time since it passes the
+chosen one it shows a toast and switches the TV off a minute later if nothing has reset it; the power-off is the
+screen-time limits' own, so it needs `allowControl` and `allowPower`. The raw presses of some remotes do not reach
+`/dev/input` (see "Native key filters" in [tv-research.md](tv-research.md)), which is why app, input and volume
+changes count too.
+
 ## Reading the Magic Remote's battery
 
 LG's pairing file has only the remote model's battery thresholds, so
@@ -1703,9 +1712,11 @@ share the same editor state. Profile names use the existing
 `POST /api/home/profile` rename action.
 
 `GET /api/home/discover` adds `titlesEnabled`, independent of a YouTube-only
-feed. `toprated` and `recent` rows deduplicate existing movie/series titles
-by type and ID; the first requires ratings of at least 7, the second this
-or the previous year. Each appears with three matches and keeps at most 16.
+feed. Its rows are the three TMDB trending lists of the week (`trending/all/week`,
+`trending/movie/week`, `trending/tv/week`) and, with Netflix links on, a
+`netflix` row: the titles of those lists that have a Netflix link, in their
+order, at most 16, asked once each (the lookup is the one details uses, and is
+kept for then).
 
 `GET /api/home/details?type=movie|tv&id=…` and
 `GET /api/home/search?q=…` delegate through `home.js` to `home-content.js`.

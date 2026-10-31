@@ -232,6 +232,17 @@ void timeout() {
     check(world.layer.number("volume", 24) == 24 && world.toasts.size() == 1 &&
               world.toasts[0] == "That did not work: the TV did not answer",
           "Without an answer the value goes back after eight seconds and says so");
+    // A write that says it may take longer is given that long: a service of the TV takes 12 s to stop.
+    World slow;
+    Write patient = absolute("volume");
+    patient.timeoutMs = 30000;
+    slow.layer.set("volume", Json::numeric(30), Json::numeric(24), patient);
+    slow.advance(12500);
+    check(slow.layer.number("volume", 24) == 30 && slow.toasts.empty(),
+          "A write with its own, longer time is still waited for after twelve seconds");
+    slow.advance(18000);
+    check(slow.layer.number("volume", 24) == 24 && slow.toasts.size() == 1,
+          "and it too fails when that time has passed");
     // The transport that never takes a write is the same.
     World refused;
     refused.fake.refuse = true;

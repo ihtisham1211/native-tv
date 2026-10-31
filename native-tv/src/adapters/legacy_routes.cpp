@@ -8,9 +8,11 @@ std::string legacyAssetRoute(const std::string &asset) {
     // The app's own art, not the themed icon: the Apps tab composes it on the app's colour.
     if (asset.compare(0, 4, "own:") == 0)
         return "/api/home/icon?id=" + encode(asset.substr(4)) + "&own=1";
+    // The size the server serves and warms (HomeImageProxy::allowedUrl): any other is refused, and the
+    // picture never loads.
     if (asset.compare(0, 8, "youtube:") == 0)
         return "/api/home/image?u=" +
-               encode("https://i.ytimg.com/vi/" + asset.substr(8) + "/hqdefault.jpg");
+               encode("https://i.ytimg.com/vi/" + asset.substr(8) + "/mqdefault.jpg");
     if (asset.compare(0, 5, "tmdb:") == 0) {
         size_t split = asset.find(':', 5);
         if (split == std::string::npos)
@@ -134,6 +136,8 @@ std::string legacyRoute(Operation operation, const Json &arguments) {
         return "/api/preload/toggle";
     case Operation::SetBackgroundService:
         return "/api/services/toggle";
+    case Operation::SetScreenTime:
+        return "/api/screentime";
     case Operation::FetchPackage:
         return "/api/apps/install/fetch";
     case Operation::ConfirmPackage:

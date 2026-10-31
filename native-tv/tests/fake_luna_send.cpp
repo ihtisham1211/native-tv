@@ -547,10 +547,6 @@ int main(int argc, char **argv) {
             youtubeNative.set("id", Json::text("youtube.leanback.v4"));
             youtubeNative.set("title", Json::text("YouTube"));
             points.add(youtubeNative);
-            Json titleApp = Json::object();
-            titleApp.set("id", Json::text("com.animemania.app"));
-            titleApp.set("title", Json::text("AnimeMania"));
-            points.add(titleApp);
         }
         Json bookmark = Json::object();
         bookmark.set("id", Json::text("com.example.bookmark"));
@@ -948,8 +944,23 @@ int main(int argc, char **argv) {
     } else if (mode == "oled-care" &&
                uri == "com.webos.service.oledepl/getGlobalStressReduction") {
         reply.set("returnValue", Json::flag(true));
-        reply.set("enable", Json::flag(true));
-        reply.set("stressCount", Json::numeric(17));
+        // A TV that is busy answers without the value.
+        if (environment("NATIVETV_FAKE_LUNA_BLANK_PROTECTIONS").empty()) {
+            // A TV whose service says "off" once, as LG's does for a moment when an app starts: the
+            // file counts the questions, and the second is the one answered off.
+            bool enable = true;
+            const std::string blip = environment("NATIVETV_FAKE_LUNA_GSR_BLIP");
+            if (!blip.empty()) {
+                int asked = 0;
+                std::ifstream counted(blip.c_str());
+                counted >> asked;
+                std::ofstream counting(blip.c_str());
+                counting << ++asked;
+                enable = asked != 2;
+            }
+            reply.set("enable", Json::flag(enable));
+            reply.set("stressCount", Json::numeric(17));
+        }
     } else if (mode == "oled-care" &&
                uri == "com.webos.service.oledepl/getTemporalPeakControl") {
         reply.set("returnValue", Json::flag(true));
@@ -1630,6 +1641,12 @@ int main(int argc, char **argv) {
                     settings.set("onTimerChannel", Json::text("noChannel"));
                 }
             }
+            // The ad and promotion switches, on. Live Promotion is one this TV does not report.
+            for (const Json &key : callPayload["keys"].items())
+                if (key.string() == "screenSaverAd" || key.string() == "homePromotion" ||
+                    key.string() == "contentRecommendation" || key.string() == "aiNudge" ||
+                    key.string() == "aiSettingsNudge")
+                    settings.set(key.string(), Json::text("on"));
             reply.set("settings", settings);
             if (callPayload["category"].string() == "picture") {
                 Json dimension = Json::object();

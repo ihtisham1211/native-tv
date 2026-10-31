@@ -657,7 +657,7 @@ the texture memory, the checkpoints the script took and the size of the capture.
 | E2E-108, 109 | The Advanced power switches (Quick Boot, Stay connected, Wake-on-LAN, LG logo, standby light, device detection) and the On and Off timers round-trip through `/api/stats` (`api`, `control`) | |
 
 The timing criteria are the target of the client's spec: p50 and p95 of the frame intervals at 60 fps
-(17.0 and 16.8 ms), none over 33 ms, at most 40 draws and 8192 vertices a frame and 64 MB of textures.
+(17.0 and 16.8 ms), none over 33 ms, at most 40 draws (48 on Home, where every app icon and poster is a picture of its own and so a draw of its own) and 8192 vertices a frame and 64 MB of textures.
 On the B3 the splash itself has a p95 near 17 ms, so the floor is 20 ms with a few intervals over 33 ms
 (`glClear` blocks for about 21 ms roughly every seven seconds).
 

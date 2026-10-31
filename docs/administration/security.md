@@ -278,7 +278,8 @@ single biggest improvement you can make.
 
 ## Home title details, search and Netflix links
 
-A configured TMDB key enables on-demand title details and search. The server
+A configured TMDB key (set in the dashboard's Native Tv Home tab or as `tmdbKey` in `config.json`;
+the dashboard never shows it again) enables on-demand title details and search. The server
 sends the selected movie/series ID or the entered search query to
 `api.themoviedb.org`, with the owner's API key and `en-US` language. The TV
 page uses only same-origin endpoints. Search requires two characters and a
@@ -287,6 +288,10 @@ logged or stored as a cache key; cached results still reveal the titles
 returned. `home-content.json` has mode 0600 and holds at most 40 replies.
 Removing the key hides the features and prevents reads from serving saved
 metadata.
+
+The daily Home feed refresh asks TMDB for the details of each title it would list, the
+same request a title opens with, and keeps only titles with a YouTube trailer or, when
+`netflixDeepLinks` is on, a Netflix link.
 
 `netflixDeepLinks: true` separately enables requests to `www.wikidata.org`
 for the selected title's exact Wikidata QID, obtained from TMDB. Wikidata

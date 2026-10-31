@@ -15,7 +15,7 @@ Most data agreements can be switched off from here (persisting across reboots), 
 
 On TVs with a microphone switch on the set itself, such as a C5, **What's running now** shows whether that switch is on. It is read from the TV and can only be changed at the switch.
 
-LG's on-screen ads and promotions have their own switches: ads in the screen saver, Sponsored tiles and recommendations on the Home screen, ads while watching, and Smart Tips. Each shows only on TVs that have it.
+LG's on-screen ads and promotions have their own switches: ads in the screen saver, Sponsored tiles and recommendations on the Home screen, ads while watching, and Smart Tips. Each shows only on TVs that have it. **All LG ads and promotions**, above them (on the TV, on the LG ads page of Privacy), switches all of them at once: it reads on when any of them is on, and pressing it then turns every one off; pressing it with all off turns every one on. A TV that does not report one of them leaves it out of that write.
 
 The ad & telemetry blocker blackholes LG's tracking, ad and ACR endpoints, plus common advertising and tracking hosts used by apps and websites, on the TV itself. It bind-mounts a hosts table over `/etc/hosts`, and is restored on boot.
 
@@ -30,7 +30,7 @@ If an app or one of LG's services stops working while the blocker is on, switch 
 
 The common-host list is a compact selection checked against [StevenBlack/hosts](https://github.com/StevenBlack/hosts/blob/0ced9c8a871b668a31fe194f2801d80ee046bf31/hosts), updated with Native Tv releases. The TV does not download lists in the background. Hosts files match exact names, so unlisted subdomains, apps using their own DNS resolver and ads served from the same hosts as the video can get through. This does not promise ad-free YouTube or other streaming services.
 
-**Custom ad blocking**, the last row of the Privacy tab's Advanced section, takes a hosts file or a plain list of names from the computer the dashboard is open on. It is a power-user feature: depending on what a list blocks, it can stop apps, LG's services or software updates working.
+**Custom ad blocking**, under the blocking level on the Privacy tab (and as a row of Blocking on the TV app, which says there is no list when there is none), takes a hosts file or a plain list of names from the computer the dashboard is open on. It is a power-user feature: depending on what a list blocks, it can stop apps, LG's services or software updates working.
 
 * **Hosts file**: **Upload a file** sends it; names pointed at `0.0.0.0`, `127.0.0.1`, `::` or `::1`, and lines of one bare name, are taken, and a line pointing a name at any other address is a redirect and is left out, with the count shown. A name needs a dot, so an ordinary text file is refused. Up to 10,000 names and 1 MB. Uploading switches blocking on. **Upload a new file** replaces it, and **Delete** removes it.
 * **Block its names** switches the file off without deleting it, to check whether it is what stopped something working.

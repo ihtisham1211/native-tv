@@ -245,10 +245,8 @@ std::vector<CardRow> homeRows(const std::string &tab, const Json &catalogue, con
     const std::map<std::string, std::string> names = {{"trending", "Top picks for you"},
                                                       {"movies", "Trending films this week"},
                                                       {"series", "Trending series this week"},
-                                                      {"anime", "Anime airing this week"},
-                                                      {"youtube", "Popular on YouTube"},
-                                                      {"toprated", "Top rated in this feed"},
-                                                      {"recent", "Recent releases in this feed"}};
+                                                      {"netflix", "Available on Netflix"},
+                                                      {"youtube", "Trending on YouTube"}};
     std::map<std::string, Json> feedRows;
     for (const auto &source : discover["rows"].items())
         feedRows[source["key"].string()] = source;
@@ -257,8 +255,7 @@ std::vector<CardRow> homeRows(const std::string &tab, const Json &catalogue, con
     CardRow apps = appsRow(catalogue, guide, false);
     if (!apps.cards.empty())
         result.push_back(apps);
-    for (const auto &key :
-         {"trending", "youtube", "movies", "series", "anime", "toprated", "recent"}) {
+    for (const auto &key : {"trending", "movies", "series", "netflix", "youtube"}) {
         if (!feedRows.count(key))
             continue;
         Json source = feedRows[key];
@@ -270,14 +267,19 @@ std::vector<CardRow> homeRows(const std::string &tab, const Json &catalogue, con
         for (const auto &item : source["items"].items()) {
             Card card;
             card.id = item["id"].string();
-            card.kind = row.key == "youtube" ? "youtube" : "title";
+            card.kind = row.key == "youtube" ? "youtube" : row.key == "netflix" ? "netflix" : "title";
             card.data = item;
             card.title = item["title"].string();
             card.subtitle = titleFacts(item);
             // Every card is landscape, so the backdrop is preferred over the portrait poster.
             card.image = artwork(item);
             card.backdrop = artwork(item, true);
-            if (card.kind == "youtube") {
+            if (card.kind == "netflix") {
+                // OK opens the title in Netflix itself, as a YouTube card opens YouTube.
+                card.command = post(Operation::OpenHomeItem,
+                                    fields({{"kind", Json::text("netflix")}, {"id", item["id"]},
+                                            {"type", item["type"]}}));
+            } else if (card.kind == "youtube") {
                 card.image = "youtube:" + card.id;
                 card.command = post(Operation::OpenHomeItem,
                                     fields({{"kind", Json::text("youtube")}, {"id", item["id"]}}));

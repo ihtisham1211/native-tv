@@ -110,10 +110,13 @@ int main() {
         moved = orderAfterMove(movedOrder, {"a", "b", "c", "n"});
         check(moved.size() == 5 && moved[4] == "n", "An app the order did not list follows it");
         Json feed = Json::parse(
-            R"({"rows":[{"key":"toprated","items":[{"id":42,"type":"tv","title":"A title","year":"2026","rating":8.5,"backdrop":"/abc.jpg"}]}]})");
+            R"({"rows":[{"key":"netflix","items":[{"id":42,"type":"tv","title":"A title","year":"2026","rating":8.5,"backdrop":"/abc.jpg"}]}]})");
         rows = homeRows("home", catalogue, feed, Json());
-        check(rows.size() == 2 && rows[1].key == "toprated",
-              "Derived feed rows are consumed without a new data source");
+        check(rows.size() == 2 && rows[1].key == "netflix" && rows[1].title == "Available on Netflix",
+              "The Netflix row is consumed without a new data source");
+        check(rows[1].cards[0].kind == "netflix" && rows[1].cards[0].command.body["kind"].string() == "netflix" &&
+                  rows[1].cards[0].command.body["type"].string() == "tv",
+              "OK on a Netflix card opens it in Netflix");
         check(rows[1].cards[0].image == "tmdb:w500:/abc.jpg",
               "Artwork remains proxied through the server");
         check(rows[1].cards[0].subtitle == "Series  ·  2026  ·  ★ 8.5",

@@ -63,15 +63,19 @@ async function loadScreensavers() {
       <div class="ss-desc">${esc(m.description)}</div>
     </button>`).join('');
 
-  /* LG's own screen saver is not ours to draw, so brightness is offered only
-     for the ones that are. */
-  const ours = d.current !== 'stock';
+  /* LG's own screen saver is not ours to draw, and the black one has nothing
+     to dim, so brightness is offered only for the others. */
+  const ours = d.current !== 'stock' && d.current !== 'black';
   q('ss-level-row').hidden = !ours;
   if (ours) {
     q('ss-level').innerHTML = [['dim', t('ss.dim', 'Dim')], ['bright', t('ss.bright', 'Bright')]].map(([id, label]) =>
       `<button class="ss-lvl${d.level === id ? ' on' : ''}" data-level="${id}"
                ${locked ? 'disabled' : ''}>${label}</button>`).join('');
   }
+
+  // What LG's own menu sets for the screen saver (when it starts), where the TV reports it.
+  q('ss-start').innerHTML = (d.lgSettings || []).filter(r => r.section === 'screensaver').map(r =>
+    `<div class="ss-level-row" title="${esc(r.desc)}"><div class="ss-level-lbl">${esc(r.title)}</div>${lgsControl(r)}</div>`).join('');
 
   /* Where LG's screen saver is built differently from ours, the TV has to
      restart its app manager to move between them, and nothing answers until it

@@ -303,10 +303,11 @@ bool Optimistic::tick() {
         Entry &held = found->second;
         if (held.writing) {
             const std::string silence = say::msg("tv.write.timeout", "the TV did not answer");
-            if (held.inFlight && now - held.waitingSince >= settings_.timeoutMs) {
+            const double limit = held.write.timeoutMs > 0 ? held.write.timeoutMs : settings_.timeoutMs;
+            if (held.inFlight && now - held.waitingSince >= limit) {
                 fail(held, silence, Json(), now);
                 changed = true;
-            } else if (held.dirty && !held.inFlight && now - held.dirtySince >= settings_.timeoutMs) {
+            } else if (held.dirty && !held.inFlight && now - held.dirtySince >= limit) {
                 fail(held, silence, Json(), now);
                 changed = true;
             } else if (held.dirty && now >= held.sentAt + settings_.gapMs &&

@@ -1044,6 +1044,15 @@ bool setNetworkAccess(HttpExchange &exchange, const ServerConfig &config,
     return true;
 }
 
+// A number from the environment, for the tests to shorten a wait that is seconds on a TV.
+long environmentNumber(const char *name, long fallback) {
+    const char *text = std::getenv(name);
+    if (!text || !*text) return fallback;
+    char *end = nullptr;
+    const long value = std::strtol(text, &end, 10);
+    return end && !*end && value >= 0 ? value : fallback;
+}
+
 bool waitForLuna(LunaClient &luna, const std::string &uri, const Json &payload,
                  LunaReply &reply) {
     struct Result {
@@ -1774,6 +1783,26 @@ HttpFrontDoor::HttpFrontDoor(ServerConfig config, std::string version, std::stri
       systemRoot_(std::move(systemRoot)), cpuWindowMs_(cpuWindowMs) {
     if (!appPackageFetcher_)
         appPackageFetcher_ = service::AppPackageFetcher::download;
+    // The feed lists only titles that open somewhere: as a YouTube trailer, or on Netflix. Asking is
+    // the details lookup the screen uses later, so it is kept for then.
+    homeDiscover_.setLinkCheck([this](const std::string &type, const std::string &id) {
+        const Json document = currentConfigDocument();
+        const std::string key = document["tmdbKey"].string();
+        const bool netflixOn = document["netflixDeepLinks"].boolean();
+        const Json details = homeContent_.details(key, netflixOn, type, id);
+        if (!details["ok"].boolean(true)) return false;
+        if (!details["item"]["trailer"].string().empty()) return true;
+        if (!details["netflixEnabled"].boolean()) return false;
+        const Json lookup = homeContent_.netflix(key, netflixOn, type, id);
+        return lookup["ok"].boolean(true) && !lookup["netflixId"].string().empty();
+    });
+    // The Available on Netflix row is the feed's titles that have a Netflix link (the lookup is kept for then, too).
+    homeDiscover_.setNetflixCheck([this](const std::string &type, const std::string &id) {
+        const Json document = currentConfigDocument();
+        if (!document["netflixDeepLinks"].boolean()) return false;
+        const Json lookup = homeContent_.netflix(document["tmdbKey"].string(), true, type, id);
+        return lookup["ok"].boolean(true) && !lookup["netflixId"].string().empty();
+    });
     lgSettingsCacheSettings_ = Json::object();
     lgSettingsCacheDescriptions_ = Json::object();
     lgSettingsCacheDescriptionCoverage_ = Json::object();
@@ -2082,6 +2111,10 @@ bool HttpFrontDoor::collectNativeScreenTimeStatus(Json &response,
                                       ? Json::numeric(roundedSeconds(watchedToday))
                                       : Json());
     response.set("choices", choices);
+    Json idleChoices = Json::array();
+    for (int minutes : service::screenTimeIdleChoices())
+        idleChoices.add(Json::numeric(minutes));
+    response.set("idleChoices", idleChoices);
     return true;
 }
 
@@ -2308,8 +2341,14 @@ void HttpFrontDoor::sendScreensaverList(HttpExchange &exchange) const {
         sendSetupError(exchange, 503, "screen saver manager unavailable");
         return;
     }
-    sendMetricsJson(exchange, service::screensaverList(
-        screensaverManager_->state(config_.allowControl, allowedAnyway)).dump());
+    Json response = service::screensaverList(
+        screensaverManager_->state(config_.allowControl, allowedAnyway));
+    // What LG's own menu sets for the screen saver, such as when it starts; a TV that reports none leaves it empty.
+    const Json settingsData = collectLgSettingsData({"screensaver"});
+    response.set("lgSettings", service::lgSettingsResponse(
+        {"screensaver"}, settingsData["settings"], settingsData["descriptions"],
+        settingsData["dimensions"], Json::object())["rows"]);
+    sendMetricsJson(exchange, response.dump());
 }
 
 void HttpFrontDoor::setStatusProviders(std::function<Json()> ntp,
@@ -2407,6 +2446,8 @@ Json HttpFrontDoor::serverStatus() const {
     status.set("homeLayout", homeLayout);
     status.set("prometheusEnabled", Json::flag(document["prometheus"]["enabled"].isBoolean() &&
                                                document["prometheus"]["enabled"].boolean()));
+    // Whether films and series are on: the key itself is never sent back.
+    status.set("tmdbKeySet", Json::flag(!trimmedText(document["tmdbKey"].string()).empty()));
     status.set("watchHistory", historyRecorder_ ? historyRecorder_->status() : Json());
 
     Json backupDaily = Json::object();
@@ -2510,6 +2551,26 @@ bool HttpFrontDoor::serverSettingControl(const std::string &action, const Json &
     if (action == "setPrometheusEnabled") {
         patch.set("enabled", Json::flag(on));
         return saveSection("prometheus", patch) ? answer() : true;
+    }
+    if (action == "setTmdbKey") {
+        // An empty string removes the key; anything that is not a string is a mistake, not a removal.
+        if (!value.isString())
+            return fail(say::msg("srv.tmdb.badKey",
+                                 "A TMDB API key is 32 letters and digits, 0 to 9 and a to f"));
+        const std::string key = trimmedText(value.string());
+        bool hex = key.size() == 32;
+        for (char character : key)
+            hex = hex && std::isxdigit(static_cast<unsigned char>(character));
+        if (!key.empty() && !hex)
+            return fail(say::msg("srv.tmdb.badKey",
+                                 "A TMDB API key is 32 letters and digits, 0 to 9 and a to f"));
+        Json change = Json::object();
+        change.set("tmdbKey", Json::text(key));
+        std::string error;
+        if (!ConfigStore(configPath_).setTopLevel(change, &error))
+            return fail("could not save setting: " + error);
+        reloadNode();
+        return answer();
     }
     if (action == "setNtpEnabled" || action == "setNtpServer") {
         if (action == "setNtpServer") {
@@ -3034,19 +3095,27 @@ StatsCollector *HttpFrontDoor::statsCollector() const {
                               Json::object(), displayReply);
             sources.displayStatus = displayReply.response;
             LunaReply gsrReply;
-            if (waitForLuna(luna_, "com.webos.service.oledepl/getGlobalStressReduction",
-                            Json::object(), gsrReply) &&
-                gsrReply.response["returnValue"].boolean()) {
+            const bool gsrAnswered = waitForLuna(luna_, "com.webos.service.oledepl/getGlobalStressReduction",
+                                                 Json::object(), gsrReply);
+            if (gsrAnswered && gsrReply.response["returnValue"].boolean() &&
+                gsrReply.response["enable"].isBoolean()) {
                 Json protections = Json::object();
                 protections.set("gsr", Json::flag(gsrReply.response["enable"].boolean()));
                 protections.set("gsrStressCount", gsrReply.response["stressCount"].isNumber()
                     ? gsrReply.response["stressCount"] : Json());
                 LunaReply tpcReply;
+                // A reply that does not say enable is no answer: it must not read as off.
                 protections.set("tpc", waitForLuna(luna_, "com.webos.service.oledepl/getTemporalPeakControl",
                                                    Json::object(), tpcReply) &&
-                                       tpcReply.response["returnValue"].boolean()
+                                       tpcReply.response["returnValue"].boolean() &&
+                                       tpcReply.response["enable"].isBoolean()
                     ? Json::flag(tpcReply.response["enable"].boolean()) : Json());
                 sources.liveProtections = protections;
+            } else if (!gsrAnswered || gsrReply.response["returnValue"].boolean()) {
+                // The TV was slow, or answered without a value (seen while a client starts): keep the last
+                // reading, and say nothing is known when there is none, instead of reading it as off and
+                // holding that for the 30 s of the cache.
+                sources.liveProtections = oledState->cachedSources.liveProtections;
             } else {
                 Json request = Json::object();
                 Json keys = Json::array();
@@ -4403,7 +4472,8 @@ void HttpFrontDoor::sendOledCare(HttpExchange &exchange) const {
     {
         std::lock_guard<std::mutex> cacheLock(oledCareCacheMutex_);
         if (oledCareCacheValid_ &&
-            now - oledCareCachedAt_ < std::chrono::seconds(30)) {
+            now - oledCareCachedAt_ <
+                std::chrono::seconds(environmentNumber("TVWEB_OLED_CACHE_SECONDS", 30))) {
             sendMetricsJson(exchange, oledCareCache_.dump());
             return;
         }
@@ -4486,9 +4556,10 @@ void HttpFrontDoor::sendOledCare(HttpExchange &exchange) const {
         sources.displayStatus = displayReply.response;
 
         LunaReply gsrReply;
-        if (waitForLuna(luna_, "com.webos.service.oledepl/getGlobalStressReduction",
-                        Json::object(), gsrReply) &&
-            gsrReply.response["returnValue"].boolean()) {
+        const bool gsrAnswered = waitForLuna(luna_, "com.webos.service.oledepl/getGlobalStressReduction",
+                                             Json::object(), gsrReply);
+        if (gsrAnswered && gsrReply.response["returnValue"].boolean() &&
+            gsrReply.response["enable"].isBoolean()) {
             sources.serviceControls = true;
             Json protections = Json::object();
             protections.set("gsr", Json::flag(gsrReply.response["enable"].boolean()));
@@ -4496,14 +4567,76 @@ void HttpFrontDoor::sendOledCare(HttpExchange &exchange) const {
                 gsrReply.response["stressCount"].isNumber()
                     ? gsrReply.response["stressCount"] : Json());
             LunaReply tpcReply;
+            // A reply that does not say enable is no answer: it must not read as off.
             if (waitForLuna(
                     luna_, "com.webos.service.oledepl/getTemporalPeakControl",
                     Json::object(), tpcReply) &&
-                tpcReply.response["returnValue"].boolean())
+                tpcReply.response["returnValue"].boolean() &&
+                tpcReply.response["enable"].isBoolean())
                 protections.set("tpc", Json::flag(tpcReply.response["enable"].boolean()));
             else
                 protections.set("tpc", Json());
+            // LG's service answers "off" for a moment when an app starts (one 2 s sample in a poll of
+            // the B3, then "on" again) and the reading was held for the 30 s of the cache, so a change
+            // from the last reading is asked again, up to three times 1.5 s apart, and kept only if it
+            // lasts. A change the owner made here has no last reading to differ from: a write clears it.
+            Json lastReading;
+            {
+                std::lock_guard<std::mutex> cacheLock(oledCareCacheMutex_);
+                lastReading = oledCareCache_;
+            }
+            const auto differs = [&lastReading](const Json &reading) {
+                for (const char *key : {"gsr", "tpc"})
+                    if (lastReading[key].isBoolean() && reading[key].isBoolean() &&
+                        lastReading[key].boolean() != reading[key].boolean())
+                        return true;
+                return false;
+            };
+            for (int again = 0; again < 3 && lastReading.isObject() && differs(protections); ++again) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(
+                    environmentNumber("TVWEB_OLED_CONFIRM_MS", 1500)));
+                LunaReply confirmGsr, confirmTpc;
+                if (!(waitForLuna(luna_, "com.webos.service.oledepl/getGlobalStressReduction",
+                                  Json::object(), confirmGsr) &&
+                      confirmGsr.response["returnValue"].boolean() &&
+                      confirmGsr.response["enable"].isBoolean()))
+                    break;
+                Json next = Json::object();
+                next.set("gsr", Json::flag(confirmGsr.response["enable"].boolean()));
+                next.set("gsrStressCount", confirmGsr.response["stressCount"].isNumber()
+                    ? confirmGsr.response["stressCount"] : Json());
+                next.set("tpc", waitForLuna(luna_, "com.webos.service.oledepl/getTemporalPeakControl",
+                                            Json::object(), confirmTpc) &&
+                                    confirmTpc.response["returnValue"].boolean() &&
+                                    confirmTpc.response["enable"].isBoolean()
+                    ? Json::flag(confirmTpc.response["enable"].boolean()) : Json());
+                protections = next;
+            }
             sources.liveProtections = protections;
+        } else if (!gsrAnswered || gsrReply.response["returnValue"].boolean()) {
+            // The TV was slow, or answered without a value (seen while a client starts, and the
+            // wrong reading was then held for the 30 s of the cache, long enough for a sweep of
+            // the TV's own screen to turn the real protection off): keep the last reading, and
+            // say nothing is known when there is none.
+            Json previous;
+            {
+                std::lock_guard<std::mutex> cacheLock(oledCareCacheMutex_);
+                previous = oledCareCache_;
+            }
+            sources.serviceControls = gsrAnswered || previous["serviceControls"].boolean();
+            if (previous.isObject()) {
+                Json protections = Json::object();
+                protections.set("gsr", previous["gsr"].isBoolean() ? previous["gsr"] : Json());
+                protections.set("tpc", previous["tpc"].isBoolean() ? previous["tpc"] : Json());
+                protections.set("gsrStressCount", previous["gsrStressCount"]);
+                sources.liveProtections = protections;
+            } else {
+                Json protections = Json::object();
+                protections.set("gsr", Json());
+                protections.set("tpc", Json());
+                protections.set("gsrStressCount", Json());
+                sources.liveProtections = protections;
+            }
         } else {
             Json syspropRequest = Json::object();
             Json syspropKeys = Json::array();
@@ -11151,7 +11284,7 @@ bool HttpFrontDoor::createBackup(Json &backup, const Json *settingsContext) cons
         fill("ntp", "{\"port\":123,\"server\":\"\"}");
         fill("screenTime", "{\"action\":\"off\",\"appAction\":\"home\",\"apps\":{},"
                            "\"bedtimeEnd\":\"\",\"bedtimeStart\":\"\",\"dailyMinutes\":0,"
-                           "\"enabled\":false}");
+                           "\"enabled\":false,\"idleMinutes\":0}");
         fill("syslog", "{\"port\":514,\"redact\":true,\"server\":\"\","
                        "\"sources\":[\"system\",\"nativetv\"]}");
     }
@@ -11429,6 +11562,7 @@ void HttpFrontDoor::setControl(HttpExchange &exchange) const {
     }
     const bool consentAction = action == "consent";
     const bool acrAction = action == "acr";
+    const bool lgAdsAction = action == "lgAds";
     const bool limitAdTrackingAction = action == "limitAdTracking";
     const bool clearAdCookiesAction = action == "clearAdCookies";
     const bool resetAdIdAction = action == "resetAdId";
@@ -11506,7 +11640,7 @@ void HttpFrontDoor::setControl(HttpExchange &exchange) const {
         !piccapAction && !remoteKeyAction && !homeKeyAction && !playbackAction &&
         !toastAction && !oledProtectionAction && !refresherAction &&
         !serviceMenuOpenAction &&
-        !serviceMenuLockAction && !consentAction && !acrAction &&
+        !serviceMenuLockAction && !consentAction && !acrAction && !lgAdsAction &&
         !limitAdTrackingAction &&
         !clearAdCookiesAction && !resetAdIdAction && !adBlockAction &&
         !blockTvUpdatesAction) {
@@ -11540,6 +11674,10 @@ void HttpFrontDoor::setControl(HttpExchange &exchange) const {
     }
     if (acrAction) {
         setAcrControl(exchange, payload["value"]);
+        return;
+    }
+    if (lgAdsAction) {
+        setLgAdsControl(exchange, payload["value"]);
         return;
     }
     if (limitAdTrackingAction) {
@@ -13165,6 +13303,63 @@ void HttpFrontDoor::setAcrControl(HttpExchange &exchange, const Json &value) con
     if (logger_)
         logger_->info(std::string("control: ACR ") + (enabled ? "on" : "off") +
                       (response["ok"].boolean() ? " applied" : " refused or unavailable"));
+    (void)exchange.respond(200,
+                           {{"Content-Type", "application/json; charset=utf-8"},
+                            {"Cache-Control", "no-store"},
+                            {"X-Content-Type-Options", "nosniff"}},
+                           response.dump());
+}
+
+// Every ad and promotion switch the TV reports, written together: the dashboards' master switch.
+// One write per LG category, since the switches sit in three of them.
+void HttpFrontDoor::setLgAdsControl(HttpExchange &exchange, const Json &value) const {
+    const bool enabled = value.isBoolean() ? value.boolean() : value["on"].boolean();
+    const std::vector<std::string> sections = {"promotions"};
+    std::unique_lock<std::mutex> settingsLock(systemSettingsControlMutex_);
+    unsigned written = 0;
+    bool failed = false;
+    for (const std::string &category : service::lgSettingsCategories(sections)) {
+        Json readRequest = Json::object();
+        readRequest.set("category", Json::text(category));
+        Json keys = Json::array();
+        for (const std::string &key : service::lgSettingsKeys(category, sections))
+            keys.add(Json::text(key));
+        readRequest.set("keys", keys);
+        LunaReply readReply;
+        if (!waitForLuna(luna_, "com.webos.service.settings/getSystemSettings", readRequest, readReply)) {
+            failed = true;
+            continue;
+        }
+        Json settings = Json::object();
+        unsigned reported = 0;
+        for (const Json &key : keys.items())
+            if (readReply.response["settings"].has(key.string())) {
+                settings.set(key.string(), Json::text(enabled ? "on" : "off"));
+                ++reported;
+            }
+        if (!reported)
+            continue; // this TV has none of this category's switches
+        Json writeRequest = Json::object();
+        writeRequest.set("category", Json::text(category));
+        writeRequest.set("settings", settings);
+        LunaReply writeReply;
+        const CommandPolicyContext context = controlPolicyContext(config_);
+        if (waitForCommandPolicyLuna(luna_, commandPolicy_, context, "control.lg-ads",
+                                     "com.webos.service.settings/setSystemSettings", writeRequest,
+                                     "system-settings", false, writeReply) &&
+            service::javascriptTruthy(writeReply.response["returnValue"]))
+            written += reported;
+        else
+            failed = true;
+    }
+    settingsLock.unlock();
+    invalidateLgSettingsCache();
+    Json response = Json::object();
+    response.set("ok", Json::flag(!failed && written > 0));
+    response.set("written", Json::numeric(written));
+    if (logger_)
+        logger_->info(std::string("control: LG ads ") + (enabled ? "on" : "off") + ", " +
+                      std::to_string(written) + " settings written");
     (void)exchange.respond(200,
                            {{"Content-Type", "application/json; charset=utf-8"},
                             {"Cache-Control", "no-store"},
@@ -16113,7 +16308,7 @@ void HttpFrontDoor::sendHomeContent(HttpExchange &exchange,
     const bool hasType = uniqueQueryParameter(request.query, "type", tmdbType);
     const bool hasId = uniqueQueryParameter(request.query, "id", id);
     Json result;
-    const std::string key = config_.document["tmdbKey"].string();
+    const std::string key = currentConfigDocument()["tmdbKey"].string();
     const bool netflixEnabled =
         config_.document["netflixDeepLinks"].boolean();
     if (kind == "search") {
@@ -16137,7 +16332,7 @@ void HttpFrontDoor::sendHomeContent(HttpExchange &exchange,
 
 void HttpFrontDoor::sendHomeDiscover(HttpExchange &exchange) const {
     const Json result = homeDiscover_.feed(
-        config_.document["tmdbKey"].string(),
+        currentConfigDocument()["tmdbKey"].string(),
         config_.document["youtubeKey"].string());
     if (result["enabled"].boolean() && result["rows"].isArray() &&
         result["rows"].size())
@@ -17063,7 +17258,7 @@ void HttpFrontDoor::handleHomeOpenPost(HttpExchange &exchange) const {
     service::HomeOpenPlan resolved = plan;
     if (resolved.ok && resolved.action == "netflix") {
         const Json lookup = homeContent_.netflix(
-            config_.document["tmdbKey"].string(),
+            currentConfigDocument()["tmdbKey"].string(),
             config_.document["netflixDeepLinks"].boolean(), type, id);
         service::resolveHomeNetflixOpen(resolved, lookup);
     }
@@ -18070,6 +18265,27 @@ void HttpFrontDoor::dispatch(HttpExchange &exchange) const {
                 Json copy = Json::object();
                 for (const std::string &key : stats.keys()) copy.set(key, stats[key]);
                 copy.set("piccapCapture", piccapCapture);
+                stats = copy;
+            }
+            // The idle power-off, for the TV's Timers page: the time chosen (0 is off) and the times offered.
+            if (stats["ok"].boolean()) {
+                Json configured;
+                {
+                    std::lock_guard<std::mutex> lock(screenTimeSettingsMutex_);
+                    configured = screenTimeSettings_;
+                }
+                Json document = Json::object();
+                document.set("screenTime", configured);
+                Json idle = Json::object();
+                idle.set("minutes", service::screenTimeSettings(document, config_.allowPower, true)["idleMinutes"]);
+                Json offered = Json::array();
+                for (int minutes : service::screenTimeIdleChoices())
+                    offered.add(Json::numeric(minutes));
+                idle.set("choices", offered);
+                idle.set("writable", Json::flag(config_.allowControl && config_.allowPower));
+                Json copy = Json::object();
+                for (const std::string &key : stats.keys()) copy.set(key, stats[key]);
+                copy.set("idlePowerOff", idle);
                 stats = copy;
             }
             if (withSettings && stats["ok"].boolean()) {

@@ -248,7 +248,7 @@
         "p95Max": 16.8,
         "over33Max": 0,
         "capture": true,
-        "drawsMax": 40,
+        "drawsMax": 48,
         "verticesMax": 8192,
         "textureMbMax": 64,
         "intervalsMin": 250
@@ -282,7 +282,7 @@
         "p95Max": 16.8,
         "over33Max": 0,
         "capture": true,
-        "drawsMax": 40,
+        "drawsMax": 48,
         "verticesMax": 8192,
         "textureMbMax": 64,
         "intervalsMin": 1500

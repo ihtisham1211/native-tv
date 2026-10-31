@@ -17,6 +17,15 @@ bool isMinutes(const Json &value, int minimum) {
            number >= minimum && number <= 1440;
 }
 
+bool isIdleMinutes(const Json &value) {
+    if (!value.isNumber())
+        return false;
+    for (int choice : screenTimeIdleChoices())
+        if (value.number() == choice)
+            return true;
+    return false;
+}
+
 size_t utf16Length(const std::string &text) {
     size_t units = 0;
     for (size_t index = 0; index < text.size();) {
@@ -81,6 +90,8 @@ bool validField(const std::string &key, const Json &value) {
         return value.isBoolean();
     if (key == "dailyMinutes")
         return isMinutes(value, 0);
+    if (key == "idleMinutes")
+        return isIdleMinutes(value);
     if (key == "bedtimeStart" || key == "bedtimeEnd")
         return validClock(value);
     if (key == "action")
@@ -97,7 +108,7 @@ bool validField(const std::string &key, const Json &value) {
 }
 
 bool knownField(const std::string &key) {
-    return key == "enabled" || key == "dailyMinutes" || key == "bedtimeStart" ||
+    return key == "enabled" || key == "dailyMinutes" || key == "idleMinutes" || key == "bedtimeStart" ||
            key == "bedtimeEnd" || key == "action" || key == "appAction" || key == "apps";
 }
 
@@ -127,6 +138,11 @@ double watchedSeconds(const Json &today) {
 }
 } // namespace
 
+const std::vector<int> &screenTimeIdleChoices() {
+    static const std::vector<int> choices = {0, 15, 30, 60, 120, 180, 240, 300, 360, 420, 480};
+    return choices;
+}
+
 bool validateScreenTimePatch(const Json &patch, Json &value, std::string &error) {
     value = Json::object();
     error.clear();
@@ -149,6 +165,7 @@ Json screenTimeSettings(const Json &configDocument, bool allowPower, bool hasHom
     Json settings = Json::object();
     settings.set("enabled", Json::flag(false));
     settings.set("dailyMinutes", Json::numeric(0));
+    settings.set("idleMinutes", Json::numeric(0));
     settings.set("bedtimeStart", Json::text(""));
     settings.set("bedtimeEnd", Json::text(""));
     settings.set("action", Json::text("off"));

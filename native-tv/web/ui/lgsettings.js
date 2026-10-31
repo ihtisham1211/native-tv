@@ -12,7 +12,17 @@ function renderLgSettings(rows) {
     cur.textContent = promo.length
       ? t('pv.groupOn', '{on} of {total} on', { on: onCount, total: promo.length }) : '';
   }
-  q('pv-promo').innerHTML = promo.map(r =>
+  const anyOn = promo.some(r => r.on);
+  const master = `<div class="prot-row"><div class="prot-main"><div class="prot-title">${esc(t('pv.promotions.all', 'All LG ads and promotions'))}</div>` +
+    `<div class="prot-desc">${esc(t('pv.promotions.all.desc', 'Switches every ad and promotion below on or off together. Each can still be set by itself.'))}</div></div>` +
+    `<div class="prot-status">${renderToggle({
+      cls: anyOn ? 'warn' : 'good',
+      sw: anyOn,
+      label: anyOn ? t('common.on', 'On') : t('common.off', 'Off'),
+      next: anyOn ? '0' : '1',
+      attrs: 'data-ads="all"'
+    })}</div></div>`;
+  q('pv-promo').innerHTML = master + promo.map(r =>
     `<div class="prot-row"><div class="prot-main"><div class="prot-title">${esc(r.title)}</div>` +
     `<div class="prot-desc">${esc(r.desc)}</div></div>` +
     `<div class="prot-status">${renderToggle({
@@ -24,10 +34,11 @@ function renderLgSettings(rows) {
     })}</div></div>`).join('');
 }
 document.addEventListener('click', async e => {
-  const b = e.target.closest('#pv-promo button[data-id]');
+  const b = e.target.closest('#pv-promo button[data-id], #pv-promo button[data-ads]');
   if (!b) return;
   b.disabled = true;
-  await sendCommand('lgSetting', { id: b.dataset.id, on: b.dataset.next === '1' });
+  if (b.dataset.ads) await sendCommand('lgAds', b.dataset.next === '1');
+  else await sendCommand('lgSetting', { id: b.dataset.id, on: b.dataset.next === '1' });
   loadPrivacy();
 });
 

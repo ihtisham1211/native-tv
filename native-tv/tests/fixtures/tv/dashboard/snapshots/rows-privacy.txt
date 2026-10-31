@@ -6,10 +6,12 @@ info    Tracking = 2 still on <shield>
 ## Blocking
 == Ad and tracker blocking
 choice  Blocking = Ads & telemetry -> Change (confirms) {3 values} <shield>
+info    Custom ad blocking = No list <shield>
 == System updates
 toggle  Block TV software updates = Allowed [off] -> Turn on <shield>
 ## LG ads
 == LG ads and promotions
+toggle  All LG ads and promotions = Off [off] -> Turn on <shield>
 toggle  Screen saver ads = Off [off] -> Turn on <shield>
 toggle  Sponsored tiles on Home = Off [off] -> Turn on <apps>
 toggle  Recommendations on Home = Off [off] -> Turn on <shield>

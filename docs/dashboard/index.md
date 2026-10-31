@@ -9,7 +9,7 @@ The dashboard has five sections, and tabs inside three of them. Each tab has a d
 The sections are a bar along the bottom on a phone, a rail down the left on a tablet and a drawer down the left on a computer. The keys **1** to **5** open them. The **Remote** button, bottom right on every screen, opens the D-pad and the remote's keys.
 
 * **Overview**: [Control](control.md) and [Metrics](metrics.md) together, as one screen: what the TV is showing, the volume and power, then the readings
-* **Apps**: [Installed](apps.md) (`apps`), [Catalogue](apps.md#install-homebrew-apps) (`catalogue`), [Home screen](apps.md#home-screen-and-remote) (`homescreen`) and [Native Tv Home](home.md) (`home`)
+* **Apps**: [Installed](apps.md) (`apps`), [Catalogue](apps.md#install-homebrew-apps) (`catalogue`), [LG launcher](apps.md#lg-launcher-and-remote) (`homescreen`) and [Native Tv Home](home.md) (`home`)
 * **Display**: [OLED care](oled-care.md) (`oledcare`), [Screen savers](screen-savers.md) (`screensaver`) and [Game mode](game.md) (`game`)
 * **Privacy**: [Privacy](privacy.md), screen recognition, ad tracking, data agreements and the blocker
 * **Settings**: [Home Assistant](../integrations/home-assistant.md) (`mqtt`), [Server and backup](server.md) (`server`), [Tools and logs](tools.md) (`tools`), [Advanced](advanced.md) and the [Service menu](service-menu.md) (`servicemenu`)

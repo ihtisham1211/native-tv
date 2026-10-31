@@ -60,6 +60,35 @@ async function loadHome(afterSave) {
   setHomeAvailable(homeStatus);
   if (!homeAvailable && activeTab === 'home') return showTab('control');
   renderHome();
+  loadTmdb();
+}
+
+/* ---- Films and series (TMDB) ----
+   The key is saved on the TV through the server and never read back: the page only learns whether one is set. */
+let tmdbKeySet = false;
+async function loadTmdb() {
+  try { tmdbKeySet = (await (await fetch(api('/api/update'), { cache: 'no-store' })).json()).tmdbKeySet === true; } catch (e) { return; }
+  renderTmdb();
+}
+function renderTmdb() {
+  const row = q('home-tmdb-row');
+  if (!row) return;
+  row.hidden = false;
+  q('home-tmdb-state').textContent = tmdbKeySet
+    ? t('home.tmdbOn', 'A TMDB key is saved. Films and series are on.')
+    : t('home.tmdbOff', 'No TMDB key is saved, so Native Tv Home shows no films or series.');
+  q('home-tmdb-remove').hidden = !tmdbKeySet;
+}
+async function homeTmdbSave() {
+  const input = q('home-tmdb-key');
+  const key = input.value.trim();
+  if (!key) return;
+  const r = await sendCommand('setTmdbKey', key);
+  if (r && r.ok) { input.value = ''; tmdbKeySet = r.tmdbKeySet === true; renderTmdb(); }
+}
+async function homeTmdbRemove() {
+  const r = await sendCommand('setTmdbKey', '');
+  if (r && r.ok) { tmdbKeySet = r.tmdbKeySet === true; renderTmdb(); }
 }
 
 function homeWritable() { return !!(!homeSaving && homeStatus && (homeStatus.supported.ok || homeStatus.enabled || homeStatus.restorePending) && homeStatus.writable !== false); }
@@ -158,7 +187,6 @@ function renderHome() {
   renderHomeRows();
   renderHomeChannels();
   renderHomeWalls();
-  renderHomeColours();
   q('home-reset').disabled = !homeWritable();
 }
 
@@ -204,51 +232,6 @@ function renderHomeProfiles() {
       <button type="button" class="${armed ? 'warn' : ''}" ${can && list.length > 1 ? '' : 'disabled'} onclick="homeProfileRemove('${esc(p.id)}')">${esc(armed ? t('home.profiles.removeAgain', 'Press again to remove') : t('home.profiles.remove', 'Remove'))}</button>
     </div>`;
   }).join('') + `<button type="button" class="home-pf-add" ${can && list.length < 5 ? '' : 'disabled'} onclick="homeProfile({ action: 'add' })">${esc(t('home.profiles.add', 'Add a profile'))}</button>`;
-}
-
-const HOME_LOOK_NAMES = () => ({
-  warm: t('home.colours.warm', 'Warm'),
-  nativetv: t('home.colours.nativetv', 'Native Tv'),
-  white: t('home.colours.white', 'White'),
-  ice: t('home.colours.ice', 'Ice'),
-  rose: t('home.colours.rose', 'Rose'),
-  lilac: t('home.colours.lilac', 'Lilac')
-});
-
-// The preset matching the chosen colours, the first (the view's own) when none are chosen, or null for custom ones.
-function homeLookNow() {
-  const presets = (homeStatus && homeStatus.colourPresets) || [];
-  const c = homeLayout && homeLayout.colours;
-  if (!c) return presets[0] || null;
-  return presets.find(p => p.text === c.text && p.accent === c.accent) || null;
-}
-
-// Each preset as a small Native Tv Home: the clock in its text, a row's name in the quieter shade, the accent's mark.
-function renderHomeColours() {
-  const box = q('home-looks');
-  if (!box || !homeStatus) return;
-  const presets = homeStatus.colourPresets || [];
-  const names = HOME_LOOK_NAMES();
-  const now = homeLookNow();
-  const can = homeWritable() && !homeSaving;
-  // The first preset is the view's own colours, saved as none chosen.
-  box.innerHTML = presets.map((p, i) => `<button type="button" class="home-look${now && now.id === p.id ? ' picked' : ''}"
-      onclick="homeSaveLayout({ colours: ${i === 0 ? 'null' : `{ text: '${p.text}', accent: '${p.accent}' }`} })" ${can ? '' : 'disabled'}
-      aria-pressed="${now && now.id === p.id}" style="--look-text:${p.text};--look-accent:${p.accent}">
-      <span class="home-look-screen"><span class="home-look-clock">21:40</span><span class="home-look-row">${esc(t('home.row.apps', 'Apps'))}</span><i></i></span>
-      <span class="home-look-name">${esc(names[p.id] || p.id)}</span>
-    </button>`).join('');
-  const c = (homeLayout && homeLayout.colours) || presets[0] || { text: '#ece7df', accent: '#e9ad55' };
-  const text = q('home-col-text'), accent = q('home-col-accent');
-  if (text && document.activeElement !== text) text.value = c.text;
-  if (accent && document.activeElement !== accent) accent.value = c.accent;
-  [text, accent].forEach(el => { if (el) el.disabled = !can; });
-  const reset = q('home-col-reset');
-  if (reset) reset.disabled = !can || !(homeLayout && homeLayout.colours);
-}
-
-function homeCustomColours() {
-  homeSaveLayout({ colours: { text: q('home-col-text').value, accent: q('home-col-accent').value } });
 }
 
 function homeItem(kind, id) {

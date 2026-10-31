@@ -315,6 +315,28 @@ void choiceChecks() {
     check(sound.app.shows("HDMI ARC") && sound.on("w:quick.sound")[0].body["action"].string() == "soundOutput" &&
               sound.on("w:quick.sound")[0].body["value"].string() == "arc",
           "A sound output shows at once and is posted");
+    // Left and Right on those rows step through the values without opening the list.
+    Quick stepping;
+    stepping.press(Key::Down);
+    stepping.press(Key::Right);
+    check(stepping.screen() == "quick" && stepping.snapshot()["picture"].string() == "game" &&
+              stepping.snapshot()["focus"].string() == "Picture mode",
+          "Right on Picture mode shows the next mode and leaves the list closed");
+    stepping.press({Key::Left, Key::Left});
+    check(stepping.snapshot()["picture"].string() == "vivid", "Left goes back through the modes");
+    stepping.settle(300);
+    check(stepping.on("w:quick.picture").back().body["value"].string() == "vivid", "and the newest one is posted");
+    Quick sleeping;
+    sleeping.focusRow(5);
+    sleeping.press(Key::Right);
+    check(sleeping.snapshot()["sleep"].string() == "10" && sleeping.screen() == "quick", "Right on Sleep timer picks the next time");
+    sleeping.press({Key::Left, Key::Left});
+    check(sleeping.snapshot()["sleep"].string() == "120", "Left from Off wraps to the longest");
+    Quick sounding;
+    sounding.focusRow(3);
+    sounding.press(Key::Right);
+    sounding.settle(300);
+    check(sounding.on("w:quick.sound").back().body["value"].string() == "arc", "Right on Sound output posts the next output");
     // Back and Left go up a level.
     Quick levels;
     levels.press(Key::Down);

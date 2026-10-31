@@ -235,8 +235,11 @@ std::vector<SettingPage> settingPages(const std::string &group, const std::vecto
         item.value = row.value;
         item.body = row.hint;
         item.command = row.command;
-        item.id =
-            row.label + "#" + std::to_string(seen[(row.heading ? "head:" : "") + row.label]++);
+        // A heading and a row can carry the same words ("Screen content recognition" over its own
+        // switch), so a heading's id has its own prefix: with one id for both, pressing the switch
+        // found the heading and its empty command.
+        const std::string prefix = row.heading ? "head:" : "";
+        item.id = prefix + row.label + "#" + std::to_string(seen[prefix + row.label]++);
         if (row.heading) {
             // The page's own title already says it.
             if (pages.back().items.empty() && row.label == pages.back().title)

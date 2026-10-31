@@ -728,7 +728,7 @@ function renderHomeScreen(d) {
   const restore = q('btn-home-restore');
   if (restore) {
     restore.disabled = !usable;
-    restore.textContent = t('apps.home.restore', 'Put back LG’s Home screen');
+    restore.textContent = t('apps.home.restore', 'Put back LG’s launcher');
   }
 }
 
@@ -775,7 +775,7 @@ async function postHomeScreen(btnId, body) {
   } finally {
     if (btn) btn.classList.remove('busy');
   }
-  if (error) alert(t('apps.home.failed', 'Could not change the Home screen: {error}', { error }));
+  if (error) alert(t('apps.home.failed', 'Could not change LG’s launcher: {error}', { error }));
   loadApps();
 }
 
@@ -787,7 +787,7 @@ function restoreHome() { return postHomeScreen('btn-home-restore', { restore: tr
 async function toggleHomeLayoutAllowed(btnId) {
   const b = q(btnId);
   const turnOn = !(b && b.dataset.on);
-  if (turnOn && !confirm(t('apps.home.exp.confirm', 'Switch on Home screen layout?\n\nOn webOS 10 Native Tv lays its own Home screen layout over LG\u2019s each time the TV starts, so LG\u2019s can show for a moment first, and it has been tried on only a few TVs. Put back LG\u2019s Home screen, or switching this off, undoes it.'))) return;
+  if (turnOn && !confirm(t('apps.home.exp.confirm', 'Switch on the LG launcher layout?\n\nOn webOS 10 Native Tv lays its own launcher layout over LG\u2019s each time the TV starts, so LG\u2019s can show for a moment first, and it has been tried on only a few TVs. Put back LG\u2019s Home screen, or switching this off, undoes it.'))) return;
   await postHomeScreen(btnId, { allow: turnOn });
   if (typeof loadServerStatus === 'function') loadServerStatus();
 }

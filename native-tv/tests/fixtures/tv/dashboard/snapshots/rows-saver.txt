@@ -2,8 +2,8 @@
 action  LG's screen saver -> Use this one <display>
 action  Starfield = In use -> Use this one <eye>
 action  Drift -> Use this one <eye>
+== Show it now
+action  Start screen saver -> Start it <display>
 ## Options
 == How it looks
 choice  Brightness = Dim -> Change {2 values} <display>
-== Show it now
-action  Start screen saver -> Start it <display>

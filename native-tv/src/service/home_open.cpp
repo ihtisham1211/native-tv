@@ -1,13 +1,7 @@
 #include "service/home_open.hpp"
 #include "domain/names.hpp"
 #include "domain/say.hpp"
-#include <cerrno>
 #include <cctype>
-#include <cmath>
-#include <cstdlib>
-#include <iomanip>
-#include <limits>
-#include <sstream>
 
 namespace nativetv {
 namespace service {

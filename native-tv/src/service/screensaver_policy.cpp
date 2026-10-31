@@ -19,6 +19,8 @@ const Saver kSavers[] = {
      "The screen saver the TV shipped with."},
     {"clock", "srv.saver.clock", "Clock", "srv.saver.clock.desc",
      "A digital clock on black, moving to a new position every minute."},
+    {"black", "srv.saver.black", "Black screen", "srv.saver.black.desc",
+     "Nothing on screen. On an OLED the pixels are off."},
     {"starfield", "srv.saver.starfield", "Starfield", "srv.saver.starfield.desc",
      "A drifting cosmic starscape with occasional shooting stars."},
     {"fireworks", "srv.saver.fireworks", "Fireworks", "srv.saver.fireworks.desc",

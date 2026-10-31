@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iomanip>
 #include <limits>
+#include <map>
 #include <set>
 #include <sstream>
 #include <sys/stat.h>
@@ -21,7 +22,6 @@
 namespace nativetv {
 namespace service {
 namespace {
-const int64_t kDayMs = 24LL * 60 * 60 * 1000;
 const int64_t kRetryMs = 10LL * 60 * 1000;
 const int kMorningHour = 5;
 const size_t kPerRow = 16;
@@ -33,11 +33,11 @@ struct RowSpec {
     const char *type;
 };
 
+// Only what is trending this week.
 const RowSpec kRows[] = {
-    {"trending", "trending/all/day", ""},
+    {"trending", "trending/all/week", ""},
     {"movies", "trending/movie/week", "movie"},
-    {"series", "trending/tv/week", "tv"},
-    {"anime", "discover/tv", "tv"}
+    {"series", "trending/tv/week", "tv"}
 };
 
 bool initializeCurl() {
@@ -72,14 +72,6 @@ int dayOf(int64_t milliseconds) {
     std::tm value = {};
     if (!localTime(milliseconds, value)) return 0;
     return (value.tm_year + 1900) * 400 + value.tm_mon * 31 + value.tm_mday;
-}
-
-std::string isoDay(int64_t milliseconds) {
-    std::tm value = {};
-    if (!localTime(milliseconds, value)) return "1970-01-01";
-    char output[16] = {};
-    std::strftime(output, sizeof(output), "%Y-%m-%d", &value);
-    return output;
 }
 
 bool truthy(const Json &value) {
@@ -144,17 +136,9 @@ std::string urlEncode(const std::string &text) {
 
 std::string idString(const Json &value) {
     if (value.isString()) return value.string();
-    if (value.isNumber()) return value.dump();
+    // 42, whether the reply wrote it as 42 or 42.0
+    if (value.isNumber()) return compactNumber(value.number());
     return "";
-}
-
-double numericValue(const Json &value) {
-    if (value.isNumber()) return value.number();
-    const std::string text = jsString(value);
-    if (text.empty()) return 0;
-    char *end = nullptr;
-    const double result = std::strtod(text.c_str(), &end);
-    return end == text.c_str() ? 0 : result;
 }
 
 Json trimmedTitle(const Json &raw, const std::string &rowType) {
@@ -232,59 +216,8 @@ Json youtubeRow(const Json &document) {
     return items.empty() ? Json() : makeRow("youtube", items);
 }
 
-Json extraRows(const Json &source, int64_t nowMs) {
-    Json output = Json::array();
-    std::vector<Json> pool;
-    std::set<std::string> seen;
-    for (const Json &row : source.items()) {
-        output.add(row);
-        for (const Json &item : row["items"].items()) {
-            const std::string type = item["type"].string();
-            if (type != "movie" && type != "tv") continue;
-            const std::string key = type + idString(item["id"]);
-            if (seen.insert(key).second) pool.push_back(item);
-        }
-    }
-
-    std::tm current = {};
-    const int year = localTime(nowMs, current) ? current.tm_year + 1900 : 1970;
-    std::vector<Json> rated;
-    std::vector<Json> recent;
-    for (const Json &item : pool) {
-        const Json rating = item["rating"];
-        if (rating.isNumber() && rating.number() >= 7) rated.push_back(item);
-        const std::string itemYearText = item["year"].string();
-        const int itemYear = itemYearText.size() >= 4
-            ? std::atoi(itemYearText.substr(0, 4).c_str()) : 0;
-        if (itemYear >= year - 1 && itemYear <= year) recent.push_back(item);
-    }
-    std::sort(rated.begin(), rated.end(), [](const Json &left, const Json &right) {
-        if (left["rating"].number() != right["rating"].number())
-            return left["rating"].number() > right["rating"].number();
-        if (left["year"].string() != right["year"].string())
-            return numericValue(left["year"]) > numericValue(right["year"]);
-        return numericValue(left["id"]) < numericValue(right["id"]);
-    });
-    std::sort(recent.begin(), recent.end(), [](const Json &left, const Json &right) {
-        if (left["year"].string() != right["year"].string())
-            return numericValue(left["year"]) > numericValue(right["year"]);
-        if (left["rating"].number() != right["rating"].number())
-            return left["rating"].number() > right["rating"].number();
-        return numericValue(left["id"]) < numericValue(right["id"]);
-    });
-    const auto appendExtra = [&output](const char *key,
-                                       const std::vector<Json> &items) {
-        std::vector<Json> limited(items.begin(),
-                                  items.begin() + std::min(items.size(), kPerRow));
-        output.add(makeRow(key, limited));
-    };
-    if (rated.size() >= 3) appendExtra("toprated", rated);
-    if (recent.size() >= 3) appendExtra("recent", recent);
-    return output;
-}
-
 Json responseRows(const Json &rows, const std::string &tmdbKey,
-                  const std::string &youtubeKey, int64_t nowMs) {
+                  const std::string &youtubeKey) {
     Json visible = Json::array();
     for (const Json &row : rows.items()) {
         const std::string key = row["key"].string();
@@ -292,7 +225,7 @@ Json responseRows(const Json &rows, const std::string &tmdbKey,
             (key != "youtube" && !tmdbKey.empty()))
             visible.add(row);
     }
-    return extraRows(visible, nowMs);
+    return visible;
 }
 
 int64_t systemNow() {
@@ -313,6 +246,16 @@ HomeDiscover::~HomeDiscover() {
     stopping_.store(true);
     changed_.notify_all();
     if (worker_.joinable()) worker_.join();
+}
+
+void HomeDiscover::setLinkCheck(LinkCheck check) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    linkCheck_ = std::move(check);
+}
+
+void HomeDiscover::setNetflixCheck(LinkCheck check) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    netflixCheck_ = std::move(check);
 }
 
 Json HomeDiscover::feed(const std::string &tmdbKey, const std::string &youtubeKey) {
@@ -342,7 +285,7 @@ Json HomeDiscover::feed(const std::string &tmdbKey, const std::string &youtubeKe
 
     response.set("enabled", Json::flag(true));
     response.set("titlesEnabled", Json::flag(!tmdbKey.empty()));
-    response.set("rows", responseRows(rows, tmdbKey, youtubeKey, clock_()));
+    response.set("rows", responseRows(rows, tmdbKey, youtubeKey));
     return response;
 }
 
@@ -370,19 +313,30 @@ void HomeDiscover::refresh(const std::string &tmdbKey,
         previous = cache_;
     }
 
+    LinkCheck linkCheck, netflixCheck;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        linkCheck = linkCheck_;
+        netflixCheck = netflixCheck_;
+    }
+    std::map<std::string, bool> linked; // a title is asked about once, whichever rows it is in
+    const auto hasLink = [&](const Json &item) {
+        if (!linkCheck) return true;
+        const std::string key = item["type"].string() + ":" + idString(item["id"]);
+        const auto known = linked.find(key);
+        if (known != linked.end()) return known->second;
+        bool answer = false;
+        try { answer = linkCheck(item["type"].string(), idString(item["id"])); } catch (...) { answer = false; }
+        linked[key] = answer;
+        return answer;
+    };
     std::vector<Json> rows;
-    const size_t asked = (tmdbKey.empty() ? 0 : 4) + (youtubeKey.empty() ? 0 : 1);
+    const size_t asked = (tmdbKey.empty() ? 0 : 3) + (youtubeKey.empty() ? 0 : 1);
     size_t missed = asked;
-    const int64_t requestNow = clock_();
     for (const RowSpec &row : kRows) {
         if (tmdbKey.empty()) break;
         std::string url = "https://api.themoviedb.org/3/" + std::string(row.path) +
             "?api_key=" + urlEncode(tmdbKey) + "&language=en-US";
-        if (std::string(row.key) == "anime") {
-            url += "&with_genres=16&with_original_language=ja&sort_by=popularity.desc";
-            url += "&air_date.gte=" + isoDay(requestNow - 7 * kDayMs);
-            url += "&air_date.lte=" + isoDay(requestNow);
-        }
         Json document;
         std::string error;
         bool fetched = false;
@@ -395,6 +349,7 @@ void HomeDiscover::refresh(const std::string &tmdbKey,
                 if (!item.valid()) continue;
                 const std::string key = item["type"].string() + idString(item["id"]);
                 if (!seen.insert(key).second) continue;
+                if (!hasLink(item)) continue;
                 items.push_back(item);
                 if (items.size() == kPerRow) break;
             }
@@ -403,6 +358,21 @@ void HomeDiscover::refresh(const std::string &tmdbKey,
             rows.push_back(makeRow(row.key, items));
             --missed;
         }
+    }
+
+    // The titles above that open on Netflix, in the order of the rows they came from.
+    if (netflixCheck) {
+        std::vector<Json> onNetflix;
+        std::set<std::string> seenOnNetflix;
+        for (const Json &row : rows)
+            for (const Json &item : row["items"].items()) {
+                const std::string key = item["type"].string() + ":" + idString(item["id"]);
+                if (onNetflix.size() == kPerRow || !seenOnNetflix.insert(key).second) continue;
+                bool answer = false;
+                try { answer = netflixCheck(item["type"].string(), idString(item["id"])); } catch (...) { answer = false; }
+                if (answer) onNetflix.push_back(item);
+            }
+        if (!onNetflix.empty()) rows.push_back(makeRow("netflix", onNetflix));
     }
 
     if (!youtubeKey.empty()) {

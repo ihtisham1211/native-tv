@@ -138,8 +138,7 @@ void Application::input(const std::string &text) {
         dirty_ = true;
 }
 namespace {
-// The kit's top bar names its hits itself; the controllers know them by tab and tool. The avatar
-// is a decoration, not a target, while there is only one profile.
+// The kit's top bar names its hits itself; the controllers know them by tab and tool.
 std::string controllerHit(const ViewState &state, const std::string &id) {
     if (id == "nav:avatar")
         return state.catalogue["profiles"].size() ? "tool:0" : "";

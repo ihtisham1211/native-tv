@@ -10,6 +10,7 @@ toggle  Show the LG Home tile = On [on] -> Turn off <apps>
 toggle  Picture details = Off [off] -> Turn on <home>
 choice  Clock format = 12-hour -> Change {2 values} <clock>
 link    Profile -> Open <access>
+action  Reset the layout -> Reset (confirms) <refresh>
 ## Apps
 choice  Order = Your order -> Change {3 values} <home>
 == On Native Tv Home
@@ -27,8 +28,3 @@ choice  Order = Your order -> Change {2 values} <home>
 toggle  Game Console = Shown [on] -> Turn off <game>
 ## Channels
 link    Add channels = Browse -> Open <home>
-## More
-== Wallpaper
-info    Wallpaper = Black <home>
-== More
-action  Reset the layout -> Reset (confirms) <refresh>

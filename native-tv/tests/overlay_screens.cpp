@@ -116,6 +116,7 @@ void detailsChecks() {
               world.app.shows("A journey across the water.") && world.app.shows("Cast: Ada, Ben") &&
               world.app.shows("More like this"),
           "A reply fills the page, with Trailer focused (the only deep links are Netflix and YouTube) and the similar titles below");
+    check(!world.app.shows("Open"), "There is no Open button: a title opens on Netflix or as a trailer");
     world.reply("title:netflix", R"({"ok":true,"netflixId":"80057281"})");
     check(world.snapshot()["focus"].string() == "Open on Netflix",
           "A late Netflix link is the first action, and has the focus while nothing has moved it");
@@ -506,8 +507,31 @@ void profilesFailureChecks() {
     back.openProfiles();
     back.press(Key::Back);
     check(back.screen() == "home", "Back returns Home");
+    // The colour of the profile in use: Down from the avatars, Left and Right between the swatches, OK picks.
+    World colour;
+    colour.openProfiles();
+    colour.press(Key::Down);
+    check(colour.snapshot()["onColours"].boolean() && colour.snapshot()["colour"].string() == "#a8c7fa",
+          "Down from the avatars goes to the colours, on the first swatch");
+    colour.press(Key::Right);
+    check(colour.snapshot()["colour"].string() == "#f2b8b5", "Right moves to the next swatch");
+    colour.press(Key::Ok);
+    check(colour.on("w:profile.colour.main").size() == 1 &&
+              colour.on("w:profile.colour.main")[0].operation == Operation::SetProfile &&
+              colour.on("w:profile.colour.main")[0].body["action"].string() == "rename" &&
+              colour.on("w:profile.colour.main")[0].body["id"].string() == "main" &&
+              colour.on("w:profile.colour.main")[0].body["color"].string() == "#f2b8b5" &&
+              colour.screen() == "profiles",
+          "OK saves it on the profile route and stays on the page");
+    colour.answer(colour.on("w:profile.colour.main")[0], false, "Busy");
+    check(colour.toasted("The colour could not be saved: Busy"), "A refusal says why");
+    colour.press(Key::Up);
+    check(!colour.snapshot()["onColours"].boolean(), "Up goes back to the avatars");
+    colour.press({Key::Down, Key::Down});
+    check(colour.snapshot()["onButton"].boolean(), "Down twice reaches Rename profile");
     World rename;
     rename.openProfiles();
+    rename.press(Key::Down);
     rename.press(Key::Down);
     rename.press(Key::Ok);
     check(rename.screen() == "rename", "Rename profile opens the editor");
@@ -518,6 +542,7 @@ void profilesFailureChecks() {
 void renameChecks() {
     World world;
     world.openProfiles();
+    world.press(Key::Down);
     world.press(Key::Down);
     world.press(Key::Ok);
     check(world.screen() == "rename" && world.snapshot()["query"].string() == "LGTV",
@@ -547,6 +572,7 @@ void renameChecks() {
     World ok;
     ok.openProfiles();
     ok.press(Key::Down);
+    ok.press(Key::Down);
     ok.press(Key::Ok);
     ok.app.activate("editor:clear");
     ok.app.input("Ana");
@@ -562,6 +588,7 @@ void renameChecks() {
     check(ok.app.shows("Ana"), "and the server's name is the one that shows");
     World limit;
     limit.openProfiles();
+    limit.press(Key::Down);
     limit.press(Key::Down);
     limit.press(Key::Ok);
     limit.app.input("aaaaaaaaaaaaaaaaaaaaaaaaa");
