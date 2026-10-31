@@ -1,3 +1,7 @@
+---
+description: "Which Native Tv features are experimental and off by default, and how to turn them on: hiding LG's home screen system apps, custom screen savers on webOS 12 and later, and Native Tv Home."
+---
+
 # Experimental features
 
 Four features are experimental and off by default. Three are turned on under **Server** → **Advanced** → **Experimental features**, and Native Tv Home on its own **Home** tab.

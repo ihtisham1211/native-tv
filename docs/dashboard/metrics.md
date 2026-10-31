@@ -1,3 +1,7 @@
+---
+description: "Live telemetry from an LG webOS TV: SoC temperature, per-core CPU load, memory and swap, Wi-Fi signal, network throughput and the HDMI mode a device negotiated."
+---
+
 # Telemetry and diagnostics
 
 The **Metrics** readings, `/?tab=metrics`, sit under the controls on the **Overview** section, and expose information about what the TV is doing and what hardware it contains — most of which is absent from its own settings menu.

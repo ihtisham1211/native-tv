@@ -1,3 +1,7 @@
+---
+description: "Read an LG webOS TV's system, Native Tv and kernel logs from a browser, without SSH."
+---
+
 # System tools & logs
 
 The **Tools and logs** tab of the **Settings** section, `/?tab=tools`, provides a live system log inspection terminal for power users and developers to inspect system activity, service telemetry, and hardware diagnostics directly from the browser without requiring SSH.

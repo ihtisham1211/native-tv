@@ -9,7 +9,7 @@ Reports from 48 TVs across 33 series, on webOS 2.2 through 11 (LG's webOS 26), c
 
 On webOS 2 (tested on a 55UH600V and a 49LF632V), PicCap is withheld because its native service stalls webOS 2 and triggers a watchdog reboot (`cpuAbnormal`). Both TVs run Native Tv without trouble.
 
-The reports from webOS 2.2 and 3.x are of the earlier Node release. The native server, which is the only one now, supports webOS 4 and later and has been run on one TV: an OLED65B3PUA on webOS 10.3.2 (firmware 33.31.75), where the dashboard, stats, Home Assistant publication, installs, backup restore and a reboot were checked. Other models and webOS versions are untried with the native server.
+The reports from webOS 2.2 and 3.x are of the earlier Node release. The native server, which is the only one now, supports webOS 4 and later and has been run on one TV: an OLED65B3PUA on webOS 10.3.2 (firmware 33.31.75), where the dashboard, stats, Home Assistant publication, installs, backup restore and a reboot were checked. Other models and webOS versions are untried with the native server. A [TV report](https://github.com/ihtisham1211/native-tv/issues/new?template=tv_report.md) with the model and webOS version adds a TV to the table.
 
 Versions here are the ones the TV reports itself, as the dashboard shows them; [webOS version numbers](#webos-version-numbers) below gives LG's names for them.
 

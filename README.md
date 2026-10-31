@@ -24,6 +24,8 @@
 
 Use it to control an LG OLED or LCD TV without the cloud, see and switch off what LG's ACR (Live Plus), ad tracking and data agreements collect, block LG's ad and telemetry servers, debloat apps and background services, remap the remote's buttons, protect an OLED panel from burn-in, and read the TV's hardware telemetry.
 
+Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by Rory Gallagher and is now its own project: the server is a C++ daemon with no Node on the TV, and the TV has a native app in Google TV's design. It supports webOS 4 and later; Glasshouse covers webOS 2 and 3.
+
 <p align="center">
   <img src="docs/screenshots/dashboard.png" alt="Native Tv dashboard in the dark theme: what the TV is showing, quick controls, processor, temperature, memory and network readings" width="49%">
   <img src="docs/screenshots/privacy.png" alt="Native Tv Privacy tab: what LG can collect, the ad and telemetry blocker and the advertising identifier" width="49%">
@@ -85,6 +87,8 @@ Use it to control an LG OLED or LCD TV without the cloud, see and switch off wha
 | **Access** | Rooted, with the Homebrew Channel; SSH or telnet |
 
 LG names its versions two ways; [webOS version numbers](https://ihtisham1211.github.io/native-tv/getting-started/tested-tvs/#webos-version-numbers) gives both.
+
+Native Tv running on a model that is not listed? A [TV report](https://github.com/ihtisham1211/native-tv/issues/new?template=tv_report.md) with the model and webOS version adds it to the table.
 
 ## Install
 

@@ -1,3 +1,7 @@
+---
+description: "Forward an LG webOS TV's logs to a syslog server on the local network, such as Grafana Loki, rsyslog, syslog-ng or Vector."
+---
+
 # Log forwarding (syslog)
 
 Native Tv can send the logs shown on the [Tools tab](../dashboard/tools.md) to a log server on the local network, so they can be kept and searched alongside the logs of other devices.

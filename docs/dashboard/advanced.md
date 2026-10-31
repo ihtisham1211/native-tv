@@ -1,3 +1,7 @@
+---
+description: "Advanced controls for an LG webOS TV: stay connected while the TV is off, power and standby settings, switch off when idle, and system settings LG places several menus deep."
+---
+
 # Advanced Controls
 
 The **Advanced** tab of the **Settings** section, `/?tab=advanced`, surfaces system settings that LG places several menus deep. Settings are grouped by category and appear only on TV models that support them. On the TV itself, they are located under **System**.
