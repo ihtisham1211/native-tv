@@ -1597,7 +1597,7 @@
 "theme": {"text": "Tema", "from": "Theme"},
 "theme.auto": {"text": "Auto", "from": "Auto"},
 "theme.dark": {"text": "Oscuro", "from": "Dark"},
-"theme.light": {"text": "Suave", "from": "Light"},
+"theme.light": {"text": "Claro", "from": "Light"},
 "theme.toggle": {"text": "Tema: {setting} (pulsa para {next})", "from": "Theme: {setting} (click for {next})"},
 "tools.autoScroll": {"text": "Auto-scroll", "from": "Auto-scroll"},
 "tools.clearFilter": {"text": "Borrar filtro", "from": "Clear filter"},
