@@ -96,6 +96,9 @@ def main():
     import sys
     if len(sys.argv) != 3:
         raise SystemExit("usage: mqtt_tls_fixture.py MQTT_TLS_PROBE OPENSSL")
+    if not sys.argv[2]:  # CMake passes an empty path when openssl is not installed
+        print("skipped: openssl is not installed")
+        raise SystemExit(77)
     probe = os.path.abspath(sys.argv[1])
     openssl = os.path.abspath(sys.argv[2])
     with tempfile.TemporaryDirectory(prefix="nativetv-mqtt-tls-") as temporary:
