@@ -1085,9 +1085,7 @@ void privacy(Rows &rows, const Json &data, const std::string &sub) {
                 area["detail"].string() + (names.empty()
                                                ? ""
                                                : " " + say::msg("tv.privacy.area.stillOnNames",
-                                                                "Still on: {names}.", listed)),
-                cmd.valid() ? pressAction(say::msg("tv.privacy.adsOff.press", "Press OK to turn ad tracking off"))
-                            : ActionDescription());
+                                                                "Still on: {names}.", listed)));
         }
         if (simple["kept"].size()) {
             std::string names;
