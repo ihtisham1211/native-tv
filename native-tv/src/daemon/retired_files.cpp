@@ -28,6 +28,13 @@ const char *const kFiles[] = {
     "assets/google-tv/pages/home.html", "assets/google-tv/pages/setup.html",
     "assets/google-tv/pages/setup-phone.html", "assets/google-tv/pages/kit/index.html",
     "assets/google-tv/pages/kit/kit.css", "assets/google-tv/pages/kit/kit.js",
+    // The Home page and the keyboard it loaded: Native Tv Home is the native client's.
+    "assets/google-tv/pages/home/index.html", "assets/google-tv/pages/home/home.css",
+    "assets/google-tv/pages/home/home.js", "assets/google-tv/pages/home/quick.js",
+    "assets/google-tv/pages/home/content.js", "assets/google-tv/shared/keyboard.js",
+    "assets/google-tv/shared/key-delete.svg", "assets/google-tv/shared/key-done.svg",
+    "assets/google-tv/shared/key-left.svg", "assets/google-tv/shared/key-right.svg",
+    "assets/google-tv/shared/key-shift.svg", "assets/google-tv/shared/key-space.svg",
     "assets/ui/update.js", "lib/updater.js",
     // The dashboard tile was a web page before it became the native client.
     "assets/dashboard-app/index.html",
@@ -50,7 +57,8 @@ const char *const kFiles[] = {
     "lib/util.js", "lib/version.js"};
 // Emptied by the removals above; removed only if nothing else is in them.
 const char *const kFolders[] = {"assets/i18n", "assets/google-tv/components",
-                                "assets/google-tv/pages/kit", "lib"};
+                                "assets/google-tv/pages/kit", "assets/google-tv/pages/home",
+                                "lib"};
 
 // The developer client, com.tvweb.native, which only deploy.py ever put on the
 // TV and which sam was never told of. The Home stub opens the Native Tv tile's

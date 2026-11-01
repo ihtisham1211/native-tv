@@ -717,18 +717,6 @@ config shows there first.
 
 ## The dashboards in a browser
 
-`visitHomeContent` exercises details, direct Open, trailers, Netflix actions,
-related-title Back navigation, full overviews, failed and delayed replies,
-search minimum length/debounce/stale responses and result paging. It also
-checks profile rename cancellation, failed-save retry and hiding Search when
-the TMDB key is removed.
-
-`visitKitStages` opens the host-only design reference and checks that shared carousel and boot frames fit at
-1920 and 1280 pixels wide and respect reduced motion. With
-`NATIVETV_REVIEW_DIR` set, it captures both examples in both gallery themes.
-`visitHomeColours` also checks that carousel text and the boot mark retain
-Home's colour overrides after extraction into shared sections.
-
 [`dashboards.yml`](https://github.com/ihtisham1211/native-tv/blob/main/.github/workflows/dashboards.yml) starts the daemon against a stand-in `luna-send`, opens every tab of
 the web dashboard and the TV app in a headless browser, and fails on any
 script error or failed request, naming the tab. A 404 for an app's icon is
@@ -737,48 +725,21 @@ installed apps have no icon files. A function a page calls that has gone, or an
 element it reaches for that has moved, breaks only when that tab opens, which
 no unit test does. It runs when the daemon, the pages or the stand-in TV change.
 
-For the Home view, picture checks cover a layout with picture details left at their default (off), the plate's signal and mode, an input with no signal showing none, a delayed reply after changing source, and a delayed reply after switching picture details off. Its service replies are simulated; the page and its timers run in Chromium.
-
-Home colour checks cover custom accents matching the stylesheet's original colours, changes and reset arriving through the heartbeat, and malformed colour values being discarded without stopping the server.
-
 For the TV app dashboard, checks verify the two-column layout geometry (the row list on the left and the hint pane on the right with non-zero dimensions and horizontal adjacency), remote D-pad navigation (`ArrowDown`, `ArrowUp`, `PageDown`), list translateY scrolling with the scroll arrow indicator, tab switching (`ArrowRight`, `ArrowLeft`), and that the OLED Care tab is dropped when running on a non-OLED (LCD) TV profile.
-
-Home preference checks operate both dashboards' controls and verify icons-only
-tiles, their accessible names, remote app selection, label restoration and
-unchanged input and channel labels. `NATIVETV_REVIEW_DIR` saves Home images
-with app names shown and hidden for visual review.
-
-Clock checks operate the choice on both dashboards and cover midnight, noon,
-afternoon, late-night and leading-zero formatting, the smaller AM/PM marker
-fitting its column, programme times, and a format change arriving through the
-heartbeat without waiting for the clock's next periodic refresh.
-
-Home visibility checks switch the Inputs row and the LG Home tile off from both
-dashboards, then check that the view leaves out only the one switched off and
-that Down skips a row that is off.
-
-Home view checks drive `google-tv/pages/home/index.html` against mocked server data: its tabs,
-the hero starting on what was last on, keys moving focus, OK opening the focused
-app, Back's levels (a lower row, the bar, recent apps), the top picks row and
-OK on a title from the feed, the carousel's page dots, the boot screen leaving with the first render and not showing over a kept catalogue, and the quick settings: the gear opening the drawer, volume steps sent together, a choice from a list, an input opened from it, a Home setting saved, Back's levels and the pointer. Like the other TV pages it is held to Chromium 38 by `check-es5.py`.
 
 Moved pages checks open the TV pages' old addresses and check that each lands
 on its page in `native-tv/assets/google-tv/pages/`.
 
-TV asset assembly checks visit the four production page folders, including
-setup and its one-time phone form. The component kit runs on a separate static
-reference server under `native-tv/tools/`. They assert that CSS and JavaScript arrive
-inline without resource requests, Home retains its editable theme stylesheet,
-and legacy flat URLs return the pages without another redirect. Route tests
+TV asset assembly checks visit the three production page folders, including
+setup and its one-time phone form. They assert that CSS and JavaScript arrive
+inline without resource requests, and legacy flat URLs return the pages without another redirect. Route tests
 also reject inline CSS/JS in source HTML, validate shared section names and
 script ordering, and diagnose missing page files. The phone form keeps its
 modern browser styles.
 
 TV polling checks use a virtual clock and delayed responses to verify ten-second
 refreshes, no overlaps, one fresh post-control read, cancellation while hidden and
-immediate resume. Home background checks verify that hidden nonessential reads
-and wallpaper animation pause while the recovery heartbeat continues, without
-reloading a hidden page on a version change. Visibility events are
+immediate resume. Visibility events are
 simulated here; actual webOS visibility behavior needs a real-TV check.
 
 ## Documentation
@@ -825,7 +786,7 @@ npm install --no-save playwright && npx playwright install chromium
 node scripts/check-dashboards.js
 ```
 
-Scripts that talk to a TV or to GitHub rather than to the tree, and need no change when a release changes: `soak.js` (a soak test against a real TV, with an optional MQTT broker; it carries its own small MQTT client), `footprint.sh` (the daemon's CPU and memory on the TV), `tv-wakeups.sh` (context switches a second for each thread of the daemon, over SSH), `tv-client-run.sh` (a client build that is not installed, run once on the TV with its report and perf summary printed), `tv-memory-soak.sh` (the server's memory, threads and open files over hours, over SSH), `tvmon.py` with `probe_defs.py` and `tvstats.sh` (live SoC and load readings over telnet), `run-prometheus.sh` and `profile-home.js` (pasted into the Home page's inspector, and loaded by `check-dashboards.js`). Retired with Node: `check-es5.py` for the server, `check-module-calls.py`, `check-upgrade.js`, `discovery-configs.js` and the two `check-native-ha-*.py` comparisons, which the `native-ha-golden` test replaced.
+Scripts that talk to a TV or to GitHub rather than to the tree, and need no change when a release changes: `soak.js` (a soak test against a real TV, with an optional MQTT broker; it carries its own small MQTT client), `footprint.sh` (the daemon's CPU and memory on the TV), `tv-wakeups.sh` (context switches a second for each thread of the daemon, over SSH), `tv-client-run.sh` (a client build that is not installed, run once on the TV with its report and perf summary printed), `tv-memory-soak.sh` (the server's memory, threads and open files over hours, over SSH), `tvmon.py` with `probe_defs.py` and `tvstats.sh` (live SoC and load readings over telnet), and `run-prometheus.sh`. Retired with Node: `check-es5.py` for the server, `check-module-calls.py`, `check-upgrade.js`, `discovery-configs.js` and the two `check-native-ha-*.py` comparisons, which the `native-ha-golden` test replaced.
 
 The Home Assistant check needs Python 3.13 and the `homeassistant` package:
 
@@ -842,26 +803,7 @@ pip install homeassistant
 node scripts/emulate-tv.js [--port 8080] [--model c2|b8|c3] [--open]
 ```
 
-## Home content on a TV
-
-On 2026-10-25, the deployed content views were checked on an OLED65B3PUA,
-webOS 10.3.2, firmware 33.31.75, through the developer-installed Native Tv
-app navigated to the Home page. Its on-device Chromium 120 rendered at
-1920 × 1080. CDP dispatched remote key codes and keyboard input; captures
-covered Home, Lupin details, search results, Stranger Things details and
-profile naming. No runtime exception was recorded.
-
-The live feed returned both derived rows. Details showed runtime, genres and
-cast; Back restored the original row and tile. Search for Stranger Things
-returned fifteen results. Wikidata resolved TMDB TV ID 66732 to Netflix ID
-80057281, and the native Netflix app became foreground after Open on Netflix.
-Profile renaming saved successfully. Original profile and config files were
-restored after the checks; the TV's Home takeover and Netflix option retain
-their original off settings. The updated server remains installed.
-
-Native Netflix account selection and playback, cold boot/Home takeover,
-C2 hardware and Chromium 38 rendering remain unverified. Screenshots and the local TV report
-are in `/private/tmp/nativetv-phase4-tv/` for this session.
+## Route and Home controller tests
 
 Production route tests require the retired gallery URLs to return 404, and retirement
 tests exercise installed-file cleanup.

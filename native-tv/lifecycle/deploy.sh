@@ -89,10 +89,8 @@ assets/early-service/install.sh assets/early-service/early-start.sh \
 assets/fonts/Roboto-Regular.woff assets/fonts/Roboto-Medium.woff assets/fonts/LICENSE-Roboto.txt \
 assets/fonts/GoogleSansFlex-Display.ttf assets/fonts/GoogleSansFlex-Regular.ttf assets/fonts/GoogleSansFlex-Medium.ttf assets/fonts/LICENSE-GoogleSansFlex-OFL.txt \
 assets/app-icons/app-icons.pack assets/app-icons/LICENSE-DashboardIcons.txt \
-assets/google-tv/shared/common.css assets/google-tv/shared/common.js assets/google-tv/shared/qr.js assets/google-tv/shared/keyboard.js \
-assets/google-tv/shared/key-done.svg assets/google-tv/shared/key-space.svg assets/google-tv/shared/key-left.svg assets/google-tv/shared/key-right.svg assets/google-tv/shared/key-delete.svg assets/google-tv/shared/key-shift.svg \
+assets/google-tv/shared/common.css assets/google-tv/shared/common.js assets/google-tv/shared/qr.js \
 assets/google-tv/pages/dashboard/index.html assets/google-tv/pages/dashboard/dashboard.css assets/google-tv/pages/dashboard/dashboard.js \
-assets/google-tv/pages/home/index.html assets/google-tv/pages/home/home.css assets/google-tv/pages/home/home.js assets/google-tv/pages/home/quick.js assets/google-tv/pages/home/content.js \
 assets/google-tv/pages/setup/index.html assets/google-tv/pages/setup/setup.css assets/google-tv/pages/setup/setup.js \
 assets/google-tv/pages/setup-phone/index.html assets/google-tv/pages/setup-phone/setup-phone.css assets/google-tv/pages/setup-phone/setup-phone.js \
 assets/screensavers/clock.qml assets/screensavers/fireworks.qml \
