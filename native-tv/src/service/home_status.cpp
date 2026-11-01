@@ -5,16 +5,6 @@
 namespace nativetv {
 namespace service {
 namespace {
-Json colourPresets() {
-    return Json::parse(R"([
-      {"id":"warm","text":"#ece7df","accent":"#e9ad55"},
-      {"id":"nativetv","text":"#ece7df","accent":"#30de61"},
-      {"id":"white","text":"#f4f4f4","accent":"#8fb8ff"},
-      {"id":"ice","text":"#d4e6f4","accent":"#5fc4ee"},
-      {"id":"rose","text":"#f4dcdc","accent":"#ec7f8c"},
-      {"id":"lilac","text":"#e0d9f6","accent":"#a98ff0"}
-    ])");
-}
 
 Json profileColours() {
     return Json::parse(R"(["#a8c7fa","#f2b8b5","#6dd58c","#ffb74d","#7fcfff","#d0bcff"])");
@@ -72,7 +62,6 @@ Json homeStatusProjection(const Json &rawDocument,
                Json::flag(webosVersion.compare(0, 2, "9.") == 0));
     result.set("history", Json::flag(historyEnabled));
     result.set("wallpapers", wallpapers);
-    result.set("colourPresets", colourPresets());
     result.set("profiles", homeProfileList(document, mainProfileName));
     result.set("profile", document["profile"]);
     result.set("profileColours", profileColours());
