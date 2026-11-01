@@ -26,6 +26,7 @@ toggle  SIMPLINK (HDMI-CEC) = On [on] -> Turn off <hdmi>
 toggle  Auto power sync = On [on] -> Turn off <power>
 toggle  IP control = Off [off] -> Turn on <settings>
 toggle  Auto device detection = On [on] -> Turn off <settings>
+toggle  Answer device scans on the TV = Off [off] -> Turn on <settings>
 == Front lights
 toggle  Standby light = On [on] -> Turn off <bulb>
 ## Power

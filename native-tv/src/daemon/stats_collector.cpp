@@ -1168,6 +1168,8 @@ Json StatsCollector::collect(const Json &system) {
         out.set("apps", refreshInstalledApps());
         Json privacy = Json::object();
         privacy.set("adblock", deps_.adBlock ? deps_.adBlock() : Json::parse("{\"enabled\":false,\"count\":0}"));
+        if (deps_.localLookups)
+            privacy.set("localLookups", Json::flag(deps_.localLookups()));
         out.set("privacy", privacy);
         const bool thermal = system["thermalPresent"].boolean();
         const bool emmcWear = system["emmcWearPresent"].boolean();

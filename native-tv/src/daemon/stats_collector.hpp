@@ -35,6 +35,7 @@ struct StatsDeps {
     // Json when it does not (the collector then asks the TV).
     std::function<Json()> liveMedia;
     std::function<Json()> adBlock;      // {enabled, count}
+    std::function<bool()> localLookups; // LG's device scans answered on the TV
     std::function<Json()> powerOn;      // {onReason, onTime}
     std::function<std::string()> screensaverMode;
     std::function<std::string()> screensaverLevel;

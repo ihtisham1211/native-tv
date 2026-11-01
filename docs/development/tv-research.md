@@ -816,6 +816,23 @@ and others' work on webOS 10
   list was empty on HDMI 2. `com.webos.media/pause` with that `mediaId`
   answered `returnValue: false` and did not pause.
 
+## LG's device scans (webOS 9.2.2, C2)
+
+These measurements are from [Glasshouse](https://github.com/rorygallagher2024/glasshouse)'s testing; they have not been repeated with Native Tv.
+
+`iconnectivity` (UEI QuickSet) reverse-looks-up every address on the TV's
+/24. On a C2 with `other.ueiEnable` off, opening the Home Hub's page for
+connecting other devices sent 759 PTR queries in two minutes (three passes),
+and nothing periodic followed. A reporter's TV sent all 253 every 5 minutes
+(1.6 s each pass) alongside `www.ueiwsp.com`, and `discovery.meethue.com`
+every 1.5 to 3.5 minutes; the C2 asks for the latter too. Other C1 (webOS
+6.5.3) and C3 owners report the same with Auto device detection off.
+`iconnectivity` resolves through glibc (`getnameinfo`, from `libqse` and
+`librim_qsp`) and c-ares; `/etc/nsswitch.conf` reads `hosts: files mdns
+myhostname dns`, so `/etc/hosts` is consulted first. Its state is in
+`/mnt/lg/cmn_data/iconnectivity` (`environ.conf` holds `ueiEnable`;
+`qs_data/discovered_devices.db` was written that day with it off).
+
 ## Boot and app state (webOS 9.2.2, C2)
 
 - The kernel command line has `snapshot resume=/dev/mmcblk0p51 criu_enabled`.

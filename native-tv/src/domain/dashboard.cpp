@@ -683,7 +683,9 @@ void options(Rows &rows, const Json &data, const Json &caps) {
             "", say::msg("tv.options.lgLogo.shown", "Shown"),
             say::msg("apps.tile.hidden", "Hidden"));
     }
-    if (data.has("deviceDetection") || anyLg(lg, "devices")) {
+    const Json privacy = data["privacy"];
+    const bool hasLocalLookups = privacy.has("localLookups");
+    if (data.has("deviceDetection") || hasLocalLookups || anyLg(lg, "devices")) {
         if (!data.has("lgLogo"))
             page(rows, say::msg("tv.settings.page.devices", "Display and devices"));
         head(rows, say::msg("adv.devices", "Devices"));
@@ -695,9 +697,16 @@ void options(Rows &rows, const Json &data, const Json &caps) {
                      "smart lights, plugs and switches. Newer TVs look up every address on your "
                      "home network each time they switch on to do it. Switched off, the scans stop "
                      "and the TV no longer finds devices by itself."));
+        switchRow(rows, privacy, "localLookups",
+                  say::msg("adv.localLookups", "Answer device scans on the TV"),
+                  say::msg("tv.options.localLookups.hint",
+                     "LG's device detection asks your router for the name of every address on "
+                     "your home network, on some TVs every 5 minutes. Switched on, the TV answers "
+                     "them itself, so they stay off your network."));
     }
     if (lights.has("standby") || lights["hasLogo"].boolean()) {
-        if (!data.has("lgLogo") && !data.has("deviceDetection") && !anyLg(lg, "devices"))
+        if (!data.has("lgLogo") && !data.has("deviceDetection") && !hasLocalLookups &&
+            !anyLg(lg, "devices"))
             page(rows, say::msg("tv.settings.page.devices", "Display and devices"));
         head(rows, say::msg("adv.frontLights", "Front lights"));
         switchRow(

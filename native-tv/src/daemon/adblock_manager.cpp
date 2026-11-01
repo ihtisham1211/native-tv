@@ -85,7 +85,28 @@ bool AdBlockManager::start(std::string *error) {
             return false;
         }
     }
+    if (loop_.isLoopThread()) {
+        watchNetworkOnLoop();
+    } else {
+        (void)loop_.post([this]() { watchNetworkOnLoop(); });
+    }
     return true;
+}
+
+// The TV can move to another network, or be given another address on its own,
+// and the table's local lookups name the addresses of the network it was
+// written on: checked every 10 minutes, and the table rewritten on a change.
+void AdBlockManager::watchNetworkOnLoop() {
+    if (stopped_.load() || networkTimer_)
+        return;
+    networkTimer_ = loop_.scheduleEvery(std::chrono::minutes(10), [this]() {
+        if (stopped_.load())
+            return;
+        std::string error;
+        if (!store_.refreshForNetworkChange(sdpGraceActive_.load(), &error) && logger_)
+            logger_->warning("adblock: could not refresh the hosts table for the new network" +
+                             (error.empty() ? std::string() : ": " + error));
+    });
 }
 
 void AdBlockManager::stop() {
@@ -95,6 +116,9 @@ void AdBlockManager::stop() {
         return;
     }
     cancelSdpTimers();
+    if (networkTimer_)
+        (void)loop_.cancelTimer(networkTimer_);
+    networkTimer_ = 0;
     sdpMonitoring_ = false;
     sdpCheckPending_ = false;
 }
@@ -111,6 +135,12 @@ Json AdBlockManager::setMode(const std::string &mode) {
 
 Json AdBlockManager::setTvUpdatesBlocked(bool blocked) {
     Json result = store_.setTvUpdatesBlocked(blocked, sdpGraceActive_.load());
+    reconcileSdpGrace();
+    return result;
+}
+
+Json AdBlockManager::setLocalLookups(bool on) {
+    Json result = store_.setLocalLookups(on, sdpGraceActive_.load());
     reconcileSdpGrace();
     return result;
 }

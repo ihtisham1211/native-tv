@@ -200,5 +200,12 @@
    420,
    480
   ]
+ },
+ "privacy": {
+  "adblock": {
+   "enabled": true,
+   "count": 75
+  },
+  "localLookups": false
  }
 }

@@ -9,6 +9,9 @@
 #include <ctime>
 #include <fstream>
 #include <fcntl.h>
+#include <ifaddrs.h>
+#include <net/if.h>
+#include <netinet/in.h>
 #include <sstream>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -28,6 +31,7 @@ const char *const kLegacyTableMarker =
 const char *const kCustomFilename = "adblock_custom.json";
 const char *const kEnabledFilename = "adblock_enabled";
 const char *const kTableFilename = "adblock_hosts";
+const char *const kLocalLookupsFilename = "local_lookups";
 const char *const kUpdatesFlagPath = "/var/luna/preferences/webosbrew_block_updates";
 const char *const kHostsPath = "/etc/hosts";
 
@@ -170,6 +174,27 @@ bool defaultUnmount(const std::string &target) {
 #endif
 }
 
+std::vector<LocalInterface> defaultInterfaces() {
+    std::vector<LocalInterface> result;
+    struct ifaddrs *list = nullptr;
+    if (::getifaddrs(&list) != 0)
+        return result;
+    for (const struct ifaddrs *entry = list; entry; entry = entry->ifa_next) {
+        if (!entry->ifa_addr || !entry->ifa_netmask ||
+            entry->ifa_addr->sa_family != AF_INET ||
+            (entry->ifa_flags & (IFF_UP | IFF_LOOPBACK)) != IFF_UP)
+            continue;
+        LocalInterface found;
+        found.address = ntohl(reinterpret_cast<const struct sockaddr_in *>(
+            entry->ifa_addr)->sin_addr.s_addr);
+        found.netmask = ntohl(reinterpret_cast<const struct sockaddr_in *>(
+            entry->ifa_netmask)->sin_addr.s_addr);
+        result.push_back(found);
+    }
+    ::freeifaddrs(list);
+    return result;
+}
+
 std::string cleanFilename(const Json &value) {
     const std::string input = javascriptTruthy(value) ? javascriptString(value) : "";
     std::string output;
@@ -245,6 +270,8 @@ AdBlockStore::AdBlockStore(std::string dataRoot, std::string systemRoot,
         mountOperations_.bind = defaultBindMount;
     if (!mountOperations_.unmount)
         mountOperations_.unmount = defaultUnmount;
+    if (!mountOperations_.interfaces)
+        mountOperations_.interfaces = defaultInterfaces;
 }
 
 std::string AdBlockStore::rootedSystemPath(const std::string &absolutePath) const {
@@ -266,6 +293,15 @@ std::string AdBlockStore::mode() const {
 
 bool AdBlockStore::tvUpdatesBlocked() const {
     return ::access(rootedSystemPath(kUpdatesFlagPath).c_str(), F_OK) == 0;
+}
+
+bool AdBlockStore::localLookups() const {
+    return ::access(dataPath(kLocalLookupsFilename).c_str(), F_OK) == 0;
+}
+
+std::vector<std::string> AdBlockStore::localLookupAddresses() const {
+    return localLookups() ? adBlockLocalLookupAddresses(mountOperations_.interfaces())
+                          : std::vector<std::string>();
 }
 
 bool AdBlockStore::tableMounted() const {
@@ -421,9 +457,13 @@ bool AdBlockStore::writeHostsTable(const std::string &currentMode,
                                    std::string *error) const {
     const AdBlockCustomList loadedCustom = customHosts();
     const AdBlockCustomList *custom = loadedCustom.names.empty() ? nullptr : &loadedCustom;
+    const std::vector<std::string> local = localLookupAddresses();
+    localNetworkKey_.clear();
+    for (const std::string &address : local)
+        localNetworkKey_ += address + ",";
     const std::string contents = adBlockHostsTable(
         currentMode, country(), serverHost(), sdpGraceActive,
-        tvUpdatesBlocked(), custom, foreign);
+        tvUpdatesBlocked(), custom, foreign, local);
     return writeInPlace(dataPath(kTableFilename), contents, error);
 }
 
@@ -432,7 +472,7 @@ bool AdBlockStore::applyHostsTable(bool sdpGraceActive, std::string *error) cons
     const bool mounted = tableMounted();
     const std::string hostsPath = rootedSystemPath(kHostsPath);
     const std::string tablePath = dataPath(kTableFilename);
-    if (currentMode != "off" || tvUpdatesBlocked()) {
+    if (currentMode != "off" || tvUpdatesBlocked() || localLookups()) {
         if (!writeHostsTable(currentMode, sdpGraceActive,
                              currentForeignHostsLines(), error)) {
             if (error)
@@ -487,7 +527,7 @@ bool AdBlockStore::applyHostsTable(bool sdpGraceActive, std::string *error) cons
 
 bool AdBlockStore::restoreAtBoot(bool sdpGraceActive, std::string *error) const {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (mode() == "off" && !tvUpdatesBlocked())
+    if (mode() == "off" && !tvUpdatesBlocked() && !localLookups())
         return true;
     if (!writeHostsTable(mode(), sdpGraceActive, currentForeignHostsLines(), error)) {
         if (error)
@@ -551,6 +591,48 @@ Json AdBlockStore::setTvUpdatesBlocked(bool blocked, bool sdpGraceActive) const 
     result.set("ok", Json::flag(true));
     result.set("tvUpdatesBlocked", Json::flag(tvUpdatesBlocked()));
     return result;
+}
+
+Json AdBlockStore::setLocalLookups(bool on, bool sdpGraceActive) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    const std::string flagPath = dataPath(kLocalLookupsFilename);
+    const bool before = localLookups();
+    std::string error;
+    const auto saveFlag = [&](bool wanted) {
+        if (wanted)
+            return writeInPlace(flagPath, std::string(), &error);
+        if (::unlink(flagPath.c_str()) != 0 && errno != ENOENT) {
+            error = std::strerror(errno);
+            return false;
+        }
+        return true;
+    };
+    if (!saveFlag(on))
+        return failure("could not save the setting: " + error);
+    if (!applyHostsTable(sdpGraceActive, &error)) {
+        // Put the flag back, or the dashboards would show a switch that did nothing.
+        std::string ignored;
+        (void)(before ? writeInPlace(flagPath, std::string(), &ignored)
+                      : (::unlink(flagPath.c_str()) == 0 || errno == ENOENT));
+        return failure(error);
+    }
+    Json result = Json::object();
+    result.set("ok", Json::flag(true));
+    result.set("localLookups", Json::flag(localLookups()));
+    return result;
+}
+
+bool AdBlockStore::refreshForNetworkChange(bool sdpGraceActive,
+                                           std::string *error) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!localLookups() || !tableMounted())
+        return true;
+    std::string key;
+    for (const std::string &address : localLookupAddresses())
+        key += address + ",";
+    if (key == localNetworkKey_)
+        return true;
+    return writeHostsTable(mode(), sdpGraceActive, currentForeignHostsLines(), error);
 }
 
 bool AdBlockStore::applyCustomHosts(bool sdpGraceActive, std::string *error) const {
