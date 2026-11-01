@@ -11,8 +11,10 @@ const char *const kSaverAppId = "com.webos.app.screensaver";
 const char *const kPowerUri = "com.webos.service.tvpower/power/getPowerState";
 const char *const kAppInfoUri = "com.webos.applicationManager/getAppInfo";
 const char *const kForegroundUri = "com.webos.applicationManager/getForegroundAppInfo";
-const char *const kSavers[] = {"stock", "clock", "black", "starfield", "fireworks",
-                               "bokeh", "harmonograph", "vitals"};
+const char *const kSavers[] = {"stock", "clock", "clock-date", "black", "starfield",
+                               "fireworks", "bokeh", "harmonograph", "filament",
+                               "currents", "veils", "incense", "murmuration", "vortex",
+                               "neo", "tesseract", "vitals"};
 
 Json failure(const std::string &error) {
     Json result = Json::object();
