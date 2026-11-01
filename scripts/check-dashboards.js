@@ -26,7 +26,13 @@ const net = require('net');
 const os = require('os');
 const path = require('path');
 let chromium;
-try { chromium = require('playwright').chromium; } catch (e) { chromium = require('playwright-core').chromium; }
+try { chromium = require('playwright').chromium; } catch (e) {
+  try { chromium = require('playwright-core').chromium; } catch (e2) {
+    console.error('Playwright is not installed: npm install --no-save playwright && npx playwright install chromium\n' +
+      '(or, with Chrome installed: npm install --no-save playwright-core, and BROWSER_CHANNEL=chrome)');
+    process.exit(2);
+  }
+}
 
 const ROOT = path.join(__dirname, '..');
 const ASSETS = path.join(ROOT, 'native-tv', 'assets');
