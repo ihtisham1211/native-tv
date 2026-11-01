@@ -2755,7 +2755,7 @@ bool HttpFrontDoor::serverSettingControl(const std::string &action, const Json &
             logger_->error("port: " + error);
         return true;
     }
-    if (action == "privacyAllOff") {
+if (action == "privacyAllOff" || action == "privacyAdTrackingOff") {
         {
             std::lock_guard<std::mutex> lock(privacyCacheMutex_);
             privacyCacheValid_ = false;
@@ -2769,8 +2769,11 @@ bool HttpFrontDoor::serverSettingControl(const std::string &action, const Json &
         sendPrivacyProjection(readExchange);
         const Json projection = Json::parse(readExchange.responseBody());
         std::vector<Json> todo;
-        for (const Json &area : projection["simple"]["areas"].items())
+        for (const Json &area : projection["simple"]["areas"].items()) {
+            if (action == "privacyAdTrackingOff" && area["id"].string() != "ads")
+                continue;
             for (const Json &item : area["items"].items()) todo.push_back(item);
+        }
         // The ad block goes first: it is the slow one, and others may depend on its state.
         std::stable_sort(todo.begin(), todo.end(), [](const Json &a, const Json &b) {
             return (a["action"].string() == "setAdBlock" ? 1 : 0) >

@@ -1074,18 +1074,24 @@ void privacy(Rows &rows, const Json &data, const std::string &sub) {
                 names += (names.empty() ? "" : ", ") + item["label"].string();
             Json n = vars({{"n", std::to_string(area["items"].size())}});
             Json listed = vars({{"names", names}});
+            const bool isAds = area["id"].string() == "ads";
+            Command cmd = (isAds && area["items"].size() && consentWritable)
+                              ? control("privacyAdTrackingOff")
+                              : Command();
             row(rows, area["name"].string(),
                 area["items"].size() ? say::msg("tv.privacy.area.stillOn", "{n} still on", n)
                                      : say::msg("tv.privacy.area.nothingOn", "Nothing on"),
-                Command(),
+                cmd,
                 area["detail"].string() + (names.empty()
                                                ? ""
                                                : " " + say::msg("tv.privacy.area.stillOnNames",
-                                                                "Still on: {names}.", listed)));
+                                                                "Still on: {names}.", listed)),
+                cmd.valid() ? pressAction(say::msg("tv.privacy.adsOff.press", "Press OK to turn ad tracking off"))
+                            : ActionDescription());
         }
         if (simple["kept"].size()) {
             std::string names;
-            for (const auto &name : simple["kept"].items())
+            for (const auto &name : simple["kept"].items()) 
                 names += (names.empty() ? "" : ", ") + name.string();
             Json n = vars({{"n", std::to_string(simple["kept"].size())}});
             Json listed = vars({{"names", names}});
