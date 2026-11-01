@@ -1,4 +1,5 @@
 #include "service/home_wallpapers.hpp"
+#include "domain/say.hpp"
 #include "core/json.hpp"
 #include <cerrno>
 #include <cstdint>
@@ -41,7 +42,7 @@ bool writeAll(int descriptor, const std::string &bytes) {
     return true;
 }
 
-void setError(std::string *error, const char *message) {
+void setError(std::string *error, const std::string &message) {
     if (error) *error = message;
 }
 
@@ -288,7 +289,7 @@ HomeWallpaperSaveResult saveHomeWallpaper(const std::string &slot,
                                           const std::string &bytes,
                                           std::string *error) {
     if (!validSlot(slot)) {
-        setError(error, "unknown wallpaper slot");
+        setError(error, say::msg("srv.home.wallSlot", "unknown wallpaper slot"));
         return HomeWallpaperSaveResult::invalidSlot;
     }
     if (!validHomeWallpaperJpeg(bytes)) {

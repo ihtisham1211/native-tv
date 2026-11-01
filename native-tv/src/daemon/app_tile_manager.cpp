@@ -1,4 +1,5 @@
 #include "daemon/app_tile_manager.hpp"
+#include "domain/say.hpp"
 #include "daemon/child_process.hpp"
 #include "daemon/sam_rescan_manager.hpp"
 #include "service/app_ids.hpp"
@@ -388,7 +389,7 @@ Json AppTileManager::apply(const std::string &action, const std::string &appId) 
     if (!appTileIdIsValid(appId)) return failure("Invalid app ID format");
     if (action == "hide") {
         if (appTileIdIsProtected(appId))
-            return failure("Protected core system app cannot be hidden");
+            return failure(say::msg("srv.apps.protectedHide", "Protected core system app cannot be hidden"));
         return hide(appId);
     }
     if (action == "unhide") return unhide(appId);

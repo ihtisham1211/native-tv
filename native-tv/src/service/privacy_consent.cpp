@@ -16,43 +16,47 @@ const char *const kNamedSettable[] = {
 
 std::vector<std::string> stringItems(const Json &value);
 
+// Each text sits beside its say::msg() key, for scripts/check-strings.py.
 struct ConsentLabel {
     const char *key;
+    const char *labelKey;
     const char *label;
+    const char *detailKey;
     const char *detail;
 };
 
 const ConsentLabel kConsentLabels[] = {
-    {"acrAllowed", "Screen content recognition",
-     "Lets LG identify what is on your screen to profile your viewing"},
-    {"acrGdprAllowed", "Screen recognition (GDPR consent)",
-     "The EU consent record for screen content recognition"},
-    {"acrAdAllowed", "Ads based on what you watch",
-     "Uses recognised screen content to target advertising"},
-    {"customAdAllowed", "Personalised advertising",
-     "Tailors the ads shown on your TV to you"},
-    {"customadsAllowed", "Personalised advertising (secondary flag)",
-     "A second personalised-advertising consent record"},
-    {"cookiesAllowed", "Advertising cookies", "Stores cookies used for ad tracking"},
-    {"thirdPartySharingAllowed", "Sharing your data with other companies",
-     "Passes your usage data to third parties"},
-    {"additionalDataAllowed", "Additional usage data",
-     "Extra analytics beyond what the TV needs to work"},
-    {"remoteDiagAllowed", "Remote diagnostics upload",
-     "Lets LG collect and upload diagnostic reports from your TV"},
-    {"voiceAllowed", "Voice recordings",
-     "Allows voice data to be collected and processed"},
-    {"voice2Allowed", "Voice recordings (secondary flag)",
-     "A second voice-data consent record"}
+    {"acrAllowed", "srv.consent.acrAllowed", "Screen content recognition",
+     "srv.consent.acrAllowed.detail", "Lets LG identify what is on your screen to profile your viewing"},
+    {"acrGdprAllowed", "srv.consent.acrGdprAllowed", "Screen recognition (GDPR consent)",
+     "srv.consent.acrGdprAllowed.detail", "The EU consent record for screen content recognition"},
+    {"acrAdAllowed", "srv.consent.acrAdAllowed", "Ads based on what you watch",
+     "srv.consent.acrAdAllowed.detail", "Uses recognised screen content to target advertising"},
+    {"customAdAllowed", "srv.consent.customAdAllowed", "Personalised advertising",
+     "srv.consent.customAdAllowed.detail", "Tailors the ads shown on your TV to you"},
+    {"customadsAllowed", "srv.consent.customadsAllowed", "Personalised advertising (secondary flag)",
+     "srv.consent.customadsAllowed.detail", "A second personalised-advertising consent record"},
+    {"cookiesAllowed", "srv.consent.cookiesAllowed", "Advertising cookies",
+     "srv.consent.cookiesAllowed.detail", "Stores cookies used for ad tracking"},
+    {"thirdPartySharingAllowed", "srv.consent.thirdPartySharingAllowed", "Sharing your data with other companies",
+     "srv.consent.thirdPartySharingAllowed.detail", "Passes your usage data to third parties"},
+    {"additionalDataAllowed", "srv.consent.additionalDataAllowed", "Additional usage data",
+     "srv.consent.additionalDataAllowed.detail", "Extra analytics beyond what the TV needs to work"},
+    {"remoteDiagAllowed", "srv.consent.remoteDiagAllowed", "Remote diagnostics upload",
+     "srv.consent.remoteDiagAllowed.detail", "Lets LG collect and upload diagnostic reports from your TV"},
+    {"voiceAllowed", "srv.consent.voiceAllowed", "Voice recordings",
+     "srv.consent.voiceAllowed.detail", "Allows voice data to be collected and processed"},
+    {"voice2Allowed", "srv.consent.voice2Allowed", "Voice recordings (secondary flag)",
+     "srv.consent.voice2Allowed.detail", "A second voice-data consent record"}
 };
 
 const ConsentLabel kDocumentLabels[] = {
-    {"S_DPA", "Sharing viewing data with data partners",
-     "Lets LG and Alphonso, its screen recognition partner, pass viewing and device information to other companies for ad measurement and analytics"},
-    {"S_TAK", "Who.Where.What?",
-     "LG's content discovery, run with TheTake: identifies people, places and products in what is on screen, using viewing information that can include captured images of it"},
-    {"S_MKT", "Marketing messages",
-     "Lets LG show marketing pop-ups and notifications on the TV: special offers and news about its content and services"}
+    {"S_DPA", "srv.consent.dpa", "Sharing viewing data with data partners",
+     "srv.consent.dpa.detail", "Lets LG and Alphonso, its screen recognition partner, pass viewing and device information to other companies for ad measurement and analytics"},
+    {"S_TAK", "srv.consent.tak", "Who.Where.What?",
+     "srv.consent.tak.detail", "LG's content discovery, run with TheTake: identifies people, places and products in what is on screen, using viewing information that can include captured images of it"},
+    {"S_MKT", "srv.consent.mkt", "Marketing messages",
+     "srv.consent.mkt.detail", "Lets LG show marketing pop-ups and notifications on the TV: special offers and news about its content and services"}
 };
 
 bool locked(const std::string &key) {
@@ -98,21 +102,21 @@ std::string consentGroup(const std::string &key) {
 }
 
 std::string consentName(const std::string &key) {
-    if (key == "networkAllowed") return "Network use";
-    if (key == "marketingOnAllowed") return "Marketing";
-    if (key == "shoppingOnAllowed") return "Shopping on live TV";
-    if (key == "generalTermsAllowed") return "Terms of Use and Privacy Policy";
-    if (key == "acrOnAllowed") return "Screen recognition (master consent)";
-    if (key == "allAllowed") return "Select All";
+    if (key == "networkAllowed") return say::msg("srv.consent.name.networkAllowed", "Network use");
+    if (key == "marketingOnAllowed") return say::msg("srv.consent.name.marketingOnAllowed", "Marketing");
+    if (key == "shoppingOnAllowed") return say::msg("srv.consent.name.shoppingOnAllowed", "Shopping on live TV");
+    if (key == "generalTermsAllowed") return say::msg("srv.consent.name.generalTermsAllowed", "Terms of Use and Privacy Policy");
+    if (key == "acrOnAllowed") return say::msg("srv.consent.name.acrOnAllowed", "Screen recognition (master consent)");
+    if (key == "allAllowed") return say::msg("srv.consent.name.allAllowed", "Select All");
     return "";
 }
 
 std::string lockedDetail(const std::string &key) {
-    if (key == "generalTermsAllowed") return "Acceptance of the terms themselves.";
-    if (key == "networkAllowed") return "Acceptance of network use.";
-    if (key == "firstUseAllowed") return "Part of first-boot setup.";
+    if (key == "generalTermsAllowed") return say::msg("srv.consent.locked.generalTerms", "Acceptance of the terms themselves.");
+    if (key == "networkAllowed") return say::msg("srv.consent.locked.network", "Acceptance of network use.");
+    if (key == "firstUseAllowed") return say::msg("srv.consent.locked.firstUse", "Part of first-boot setup.");
     if (key == "allAllowed")
-        return "The Select-All. Read-only because whether writing it cascades to the other flags is untested.";
+        return say::msg("srv.consent.locked.all", "The Select-All. Read-only because whether writing it cascades to the other flags is untested.");
     return "";
 }
 
@@ -144,21 +148,23 @@ Json readAgreementGroups(const Json &licenseMapping, bool &foundAny) {
 
 Json groupRows() {
     Json groups = Json::array();
-    const char *rows[][3] = {
-        {"advertising", "Advertising", ""},
-        {"watching", "What the TV watches and hears", ""},
-        {"analytics", "Analytics and sharing", ""},
-        {"services", "LG services", ""},
-        {"unknown", "No published description",
-         "The TV records these, but LG publishes nothing about them."},
-        {"platform", "Set on the TV itself",
+    // id, name key, name, note key, note ("" for none).
+    const char *rows[][5] = {
+        {"advertising", "srv.consent.group.advertising", "Advertising", "", ""},
+        {"watching", "srv.consent.group.watching", "What the TV watches and hears", "", ""},
+        {"analytics", "srv.consent.group.analytics", "Analytics and sharing", "", ""},
+        {"services", "srv.consent.group.services", "LG services", "", ""},
+        {"unknown", "srv.consent.group.unknown", "No published description",
+         "srv.consent.group.unknown.note", "The TV records these, but LG publishes nothing about them."},
+        {"platform", "srv.consent.group.platform", "Set on the TV itself",
+         "srv.consent.group.platform.note",
          "Acceptance records rather than collection choices. Changed in the TV's own menus, under Settings › General › About This TV › User Agreements."}
     };
     for (const auto &row : rows) {
         Json item = Json::array();
         item.add(Json::text(row[0]));
-        item.add(Json::text(row[1]));
-        if (*row[2]) item.add(Json::text(row[2]));
+        item.add(Json::text(say::msg(row[1], row[2])));
+        if (*row[4]) item.add(Json::text(say::msg(row[3], row[4])));
         groups.add(item);
     }
     return groups;
@@ -184,7 +190,7 @@ Json describeUnlabelled(const std::string &key, bool enabled, const Json &groups
     const Json docs = groups[key];
     if (docs.valid()) row.set("documents", docs);
     if (key == "shoppingOnAllowed") {
-        row.set("detail", Json::text("Read by the service that places ads and offers over live TV, alongside personalised advertising"));
+        row.set("detail", Json::text(say::msg("srv.consent.shoppingOn.detail", "Read by the service that places ads and offers over live TV, alongside personalised advertising")));
         row.set("described", Json::flag(true));
         return row;
     }
@@ -207,10 +213,10 @@ Json describeUnlabelled(const std::string &key, bool enabled, const Json &groups
         if (!candidate) continue;
         const std::vector<std::string> peerDocs = readStrings(groups[candidateKey]);
         if (!peerDocs.empty() && peerDocs == myDocs)
-            peers.push_back(std::string("\"") + candidate->label + "\"");
+            peers.push_back(std::string("\"") + say::msg(candidate->labelKey, candidate->label) + "\"");
     }
     if (peers.empty()) {
-        row.set("detail", Json::text("Filed under an agreement the TV does not name."));
+        row.set("detail", Json::text(say::msg("srv.consent.unnamedAgreement", "Filed under an agreement the TV does not name.")));
     } else {
         Json variables = Json::object();
         variables.set("names", Json::text(listText(peers)));
@@ -286,7 +292,8 @@ Json privacyConsentReadProjection(const Json &flags, const Json &licenseMapping,
     for (const ConsentLabel &definition : kConsentLabels) {
         const std::string key = definition.key;
         if (!flags[key].isBoolean()) continue;
-        Json row = makeLabelled(key, definition.label, definition.detail, false);
+        Json row = makeLabelled(key, say::msg(definition.labelKey, definition.label),
+                                 say::msg(definition.detailKey, definition.detail), false);
         known.add(row);
         byKey[key] = row;
     }
@@ -329,7 +336,8 @@ Json privacyConsentReadProjection(const Json &flags, const Json &licenseMapping,
         }
         if (document) {
             // A flag an agreement describes is a known one, as in the server.
-            Json row = makeLabelled(key, document->label, document->detail, true);
+            Json row = makeLabelled(key, say::msg(document->labelKey, document->label),
+                                 say::msg(document->detailKey, document->detail), true);
             row.set("group", Json::text(documentGroup(documentId)));
             byKey[key] = row;
             describedKeys.push_back(key);
@@ -473,7 +481,7 @@ Json privacySimpleSummary(const Json &projection) {
     if ((ad["available"].boolean() || ad["lmtKnown"].boolean()) &&
         !ad["limitTracking"].boolean() && writable) {
         Json item = Json::object();
-        item.set("label", Json::text("Limit ad tracking is off"));
+        item.set("label", Json::text(say::msg("srv.privacy.item.lmt", "Limit ad tracking is off")));
         item.set("action", Json::text("limitAdTracking"));
         item.set("value", Json::flag(true));
         ads.add(item);
@@ -481,7 +489,7 @@ Json privacySimpleSummary(const Json &projection) {
     const std::string mode = projection["adblock"]["mode"].string("off");
     if (mode == "off") {
         Json item = Json::object();
-        item.set("label", Json::text("LG’s ad and tracking servers can be reached"));
+        item.set("label", Json::text(say::msg("srv.privacy.item.adblock", "LG’s ad and tracking servers can be reached")));
         item.set("action", Json::text("setAdBlock"));
         item.set("value", Json::text("ads"));
         ads.add(item);
@@ -517,19 +525,24 @@ Json privacySimpleSummary(const Json &projection) {
     }
 
     Json areas = Json::array();
-    const char *definitions[][3] = {
-        {"watching", "Screen recognition", "LG identifying what you watch, to target ads at you."},
-        {"ads", "Ad tracking", "Advertisers tracking the TV across apps, to target ads at you."},
-        {"reports", "Usage reports", "Usage and diagnostic reports sent to LG, and data passed to other companies."},
-        {"onScreen", "LG ads on screen", "Adverts, sponsored tiles and tips that LG shows on the TV."}
+    // id, then each text beside its say::msg() key.
+    const char *definitions[][5] = {
+        {"watching", "srv.privacy.area.watching", "Screen recognition",
+         "srv.privacy.area.watching.detail", "LG identifying what you watch, to target ads at you."},
+        {"ads", "srv.privacy.area.ads", "Ad tracking",
+         "srv.privacy.area.ads.detail", "Advertisers tracking the TV across apps, to target ads at you."},
+        {"reports", "srv.privacy.area.reports", "Usage reports",
+         "srv.privacy.area.reports.detail", "Usage and diagnostic reports sent to LG, and data passed to other companies."},
+        {"onScreen", "srv.privacy.area.onScreen", "LG ads on screen",
+         "srv.privacy.area.onScreen.detail", "Adverts, sponsored tiles and tips that LG shows on the TV."}
     };
     const Json areaItems[] = {watching, ads, reports, onScreen};
     size_t total = 0;
     for (size_t index = 0; index < 4; ++index) {
         Json area = Json::object();
         area.set("id", Json::text(definitions[index][0]));
-        area.set("name", Json::text(definitions[index][1]));
-        area.set("detail", Json::text(definitions[index][2]));
+        area.set("name", Json::text(say::msg(definitions[index][1], definitions[index][2])));
+        area.set("detail", Json::text(say::msg(definitions[index][3], definitions[index][4])));
         area.set("items", areaItems[index]);
         total += areaItems[index].size();
         areas.add(area);

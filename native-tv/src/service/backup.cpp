@@ -1,4 +1,5 @@
 #include "service/backup.hpp"
+#include "domain/say.hpp"
 #include "domain/names.hpp"
 #include "service/screen_time.hpp"
 
@@ -422,7 +423,7 @@ Json planBackupRestoreApps(const Json &apps, const Json &installedIds,
     if (missing.size()) {
         if (!catalogAvailable) {
             toInstall = missing;
-            resultCatalogError = catalogError.empty() ? "catalog unavailable" : catalogError;
+            resultCatalogError = catalogError.empty() ? say::msg("srv.repo.unavailable", "catalog unavailable") : catalogError;
         } else {
             for (const Json &app : missing.items()) {
                 if (catalog.find(app["id"].string()) != catalog.end())

@@ -1,4 +1,5 @@
 #include "daemon/home_screen_manager.hpp"
+#include "domain/say.hpp"
 #include "daemon/child_process.hpp"
 #include <algorithm>
 #include <cerrno>
@@ -622,18 +623,18 @@ class HomeScreenState {
             return failure("Native Tv Home is in LG's Home's place. Switch it off on the Home tab to change LG's Home screen.");
         size_t index = 0;
         while (index < 4 && id != kWebos9Ids[index]) ++index;
-        if (index == 4) return failure("There is no such part of the Home screen");
+        if (index == 4) return failure(say::msg("srv.home.unknownPart", "There is no such part of the Home screen"));
         std::vector<bool> next = readParts9();
         next[index] = shown;
         if (std::find(next.begin(), next.end(), true) == next.end())
-            return failure("At least one part of the Home screen has to stay");
+            return failure(say::msg("srv.home.keepOne", "At least one part of the Home screen has to stay"));
         if (std::find(next.begin(), next.end(), false) == next.end()) {
             bool ignored = false;
             if (!removeOwnedLayout9(ignored)) return failure("could not restore LG's Home layout");
         } else {
             std::string original;
             if (!readFile(builtIn9(), original))
-                return failure("Could not read LG's Home screen layout");
+                return failure(say::msg("srv.home.noLayout", "Could not read LG's Home screen layout"));
             std::vector<std::string> hiddenTypes;
             for (size_t i = 0; i < 4; ++i)
                 if (!next[i]) hiddenTypes.push_back(kWebos9Types[i]);
@@ -759,7 +760,7 @@ class HomeScreenState {
         }
         const std::string original = lgLayout10();
         if (!recognised10(original)) {
-            error = "Could not read LG's Home screen layout";
+            error = say::msg("srv.home.noLayout", "Could not read LG's Home screen layout");
             return false;
         }
         if (!ensureDirectory(dataRoot) || !writeAtomic(lgCopy10(), original)) {
@@ -809,7 +810,7 @@ class HomeScreenState {
             return failure("Switch on Home screen layout first. It is experimental on this TV.");
         if (std::find(std::begin(kWebos10Parts), std::end(kWebos10Parts), id) ==
             std::end(kWebos10Parts))
-            return failure("There is no such part of the Home screen");
+            return failure(say::msg("srv.home.unknownPart", "There is no such part of the Home screen"));
         std::vector<std::string> hidden = readHidden10();
         hidden.erase(std::remove(hidden.begin(), hidden.end(), id), hidden.end());
         if (!shown) hidden.push_back(id);

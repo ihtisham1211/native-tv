@@ -1030,7 +1030,7 @@ bool setNetworkAccess(HttpExchange &exchange, const ServerConfig &config,
 
     std::string saveError;
     if (!ConfigStore(configPath).setNetworkOpen(open, &saveError)) {
-        sendSetupError(exchange, 500, "could not save the setting");
+        sendSetupError(exchange, 500, say::msg("srv.saveSettingFailed.plain", "could not save the setting"));
         return true;
     }
     if (!proxy.requestNodeRestart(false, status, body, error)) {
@@ -1516,7 +1516,7 @@ bool savePhoneMqttSettings(HttpExchange &exchange, const std::string &configPath
     }
 
     if (!ConfigStore(configPath).setMqttSetup(mqtt, device, &error)) {
-        sendSetupError(exchange, 500, "could not save the settings");
+        sendSetupError(exchange, 500, say::msg("srv.saveSettingsFailed", "could not save the settings"));
         return true;
     }
     consumeCode = true;
@@ -4808,23 +4808,29 @@ void HttpFrontDoor::sendPrivacyProjection(HttpExchange &exchange) const {
     };
     struct PrivacyDaemon {
         const char *name;
+        const char *labelKey; // each text beside its say::msg() key, for scripts/check-strings.py
         const char *label;
+        const char *detailKey;
         const char *detail;
         bool onDemand;
     };
     const PrivacyDaemon privacyDaemons[] = {
-        {"acr2", "Content recognition service", "Identifies what is on screen", true},
-        {"admanager", "Advertising service", "Fetches and displays ads on the TV", true},
-        {"uploadd", "Diagnostics uploader", "Sends diagnostic data to LG", false},
-        {"rdxd", "Diagnostics collector", "Gathers crash and diagnostic reports", false}
+        {"acr2", "srv.daemon.acr2", "Content recognition service",
+         "srv.daemon.acr2.detail", "Identifies what is on screen", true},
+        {"admanager", "srv.daemon.admanager", "Advertising service",
+         "srv.daemon.admanager.detail", "Fetches and displays ads on the TV", true},
+        {"uploadd", "srv.daemon.uploadd", "Diagnostics uploader",
+         "srv.daemon.uploadd.detail", "Sends diagnostic data to LG", false},
+        {"rdxd", "srv.daemon.rdxd", "Diagnostics collector",
+         "srv.daemon.rdxd.detail", "Gathers crash and diagnostic reports", false}
     };
     Json daemonRows = Json::array();
     for (const PrivacyDaemon &definition : privacyDaemons) {
         const std::string name = definition.name;
         Json row = Json::object();
         row.set("name", Json::text(name));
-        row.set("label", Json::text(definition.label));
-        row.set("detail", Json::text(definition.detail));
+        row.set("label", Json::text(say::msg(definition.labelKey, definition.label)));
+        row.set("detail", Json::text(say::msg(definition.detailKey, definition.detail)));
         row.set("running", Json::flag(commandRunning(name)));
         row.set("onDemand", Json::flag(definition.onDemand));
         // A service the bus starts on demand is not offered a stop: asked about
@@ -4886,8 +4892,8 @@ void HttpFrontDoor::sendPrivacyProjection(HttpExchange &exchange) const {
     const Json captureStatus = askIfRunning(acrIdle,
         "com.webos.service.acr/getVideoCaptureStatus");
     Json acr = Json::object();
-    acr.set("label", Json::text("Screen content recognition"));
-    acr.set("detail", Json::text("LG’s ACR captures what is on screen, from apps and HDMI alike, to work out what you watch and target ads at you."));
+    acr.set("label", Json::text(say::msg("srv.consent.acrAllowed", "Screen content recognition")));
+    acr.set("detail", Json::text(say::msg("srv.privacy.acr.detail", "LG’s ACR captures what is on screen, from apps and HDMI alike, to work out what you watch and target ads at you.")));
     acr.set("active", Json::flag(service::javascriptTruthy(
         acrStatus["ACRSolutionStatus"])));
     bool acrRunning = false;
@@ -4958,13 +4964,13 @@ void HttpFrontDoor::sendPrivacyProjection(HttpExchange &exchange) const {
                    });
     Json advertisingId = Json::object();
     advertisingId.set("available", Json::flag(adAvailable));
-    advertisingId.set("label", Json::text("Advertising identifier"));
-    advertisingId.set("detail", Json::text("A unique ID your TV hands to advertisers so they can target ads at you. Resetting it breaks the link to your past activity."));
+    advertisingId.set("label", Json::text(say::msg("srv.privacy.adid", "Advertising identifier")));
+    advertisingId.set("detail", Json::text(say::msg("srv.privacy.adid.detail", "A unique ID your TV hands to advertisers so they can target ads at you. Resetting it breaks the link to your past activity.")));
     advertisingId.set("present", Json::flag(service::javascriptTruthy(adId)));
     advertisingId.set("limitTracking", Json::flag(adLmtText == "on"));
     advertisingId.set("lmtKnown", Json::flag(adAvailable));
-    advertisingId.set("limitTrackingLabel", Json::text("Limit ad tracking"));
-    advertisingId.set("limitTrackingDetail", Json::text("When on, apps are asked not to use this ID to profile you."));
+    advertisingId.set("limitTrackingLabel", Json::text(say::msg("srv.privacy.lmt", "Limit ad tracking")));
+    advertisingId.set("limitTrackingDetail", Json::text(say::msg("srv.privacy.lmt.detail", "When on, apps are asked not to use this ID to profile you.")));
     if (adIdle) {
         advertisingId.set("stopped", Json::flag(true));
         Json lmtRequest = Json::object();
@@ -5004,8 +5010,8 @@ void HttpFrontDoor::sendPrivacyProjection(HttpExchange &exchange) const {
         const std::string status = micStatus["micSwitchStatus"].string();
         if (status == "high" || status == "low") {
             Json microphone = Json::object();
-            microphone.set("label", Json::text("Microphone switch"));
-            microphone.set("detail", Json::text("The switch on the TV itself. With it off, the TV’s hands-free voice stops listening."));
+            microphone.set("label", Json::text(say::msg("srv.privacy.mic", "Microphone switch")));
+            microphone.set("detail", Json::text(say::msg("srv.privacy.mic.detail", "The switch on the TV itself. With it off, the TV’s hands-free voice stops listening.")));
             microphone.set("on", Json::flag(status == "high"));
             response.set("microphone", microphone);
         }
@@ -5052,7 +5058,7 @@ void HttpFrontDoor::setSshKeys(HttpExchange &exchange) const {
     }
     if (needsToken) {
         sendSetupError(exchange, 403,
-                       "Changing SSH keys needs a token in config.json.");
+                       say::msg("srv.ssh.needsToken", "Changing SSH keys needs a token in config.json."));
         return;
     }
     if (!setupJsonContentType(request)) {
@@ -5945,7 +5951,7 @@ void HttpFrontDoor::setNativeAppUninstall(HttpExchange &exchange) const {
     }
     const std::string id = payload["id"].string();
     if (appTileIdIsProtected(id)) {
-        sendSetupError(exchange, 400, "Protected core application cannot be uninstalled");
+        sendSetupError(exchange, 400, say::msg("srv.apps.protectedUninstall", "Protected core application cannot be uninstalled"));
         return;
     }
 
@@ -8732,7 +8738,7 @@ void HttpFrontDoor::setNativeHomeInput(HttpExchange &exchange, const Json &paylo
             };
             Json points;
             if (!listPoints(points)) {
-                failed("Could not read the TV's Home screen tiles. Try again in a moment.");
+                failed(say::msg("srv.home.noTiles", "Could not read the TV's Home screen tiles. Try again in a moment."));
                 return false;
             }
 
@@ -9663,7 +9669,7 @@ void HttpFrontDoor::setBackgroundService(HttpExchange &exchange) const {
     }
     if (!service::backgroundServicesSupported(systemRoot_)) {
         sendSetupError(exchange, 400,
-                       "Service management is not supported on this platform");
+                       say::msg("srv.service.unsupported", "Service management is not supported on this platform"));
         return;
     }
     if (!commandPolicy_) {
@@ -10053,7 +10059,7 @@ void HttpFrontDoor::setQuickAccess(HttpExchange &exchange) const {
         keyValue = static_cast<long>(payload["key"].number());
     }
     if (keyValue < 1 || keyValue > 9) {
-        sendSetupError(exchange, 400, "Quick Access keys are 1 to 9");
+        sendSetupError(exchange, 400, say::msg("srv.quickAccess.badKey", "Quick Access keys are 1 to 9"));
         return;
     }
 
@@ -10082,7 +10088,7 @@ void HttpFrontDoor::setQuickAccess(HttpExchange &exchange) const {
         !settingsReply.response["returnValue"].boolean(true) ||
         !service::quickAccessSettingsSupported(settingsReply.response["settings"])) {
         sendSetupError(exchange, 400,
-                       "This TV's Quick Access cannot be changed from here");
+                       say::msg("srv.quickAccess.unsupported", "This TV's Quick Access cannot be changed from here"));
         return;
     }
 
@@ -10095,13 +10101,13 @@ void HttpFrontDoor::setQuickAccess(HttpExchange &exchange) const {
             !appsReply.response["apps"].isArray() ||
             appsReply.response["apps"].size() == 0) {
             sendSetupError(exchange, 400,
-                           "Could not read the TV's apps. Try again in a moment.");
+                           say::msg("srv.quickAccess.noApps", "Could not read the TV's apps. Try again in a moment."));
             return;
         }
         const Json devices = hdmiInputDevices();
         if (!service::quickAccessTargetAllowed(id, devices,
                                               appsReply.response["apps"])) {
-            sendSetupError(exchange, 400, "That app is not on this TV");
+            sendSetupError(exchange, 400, say::msg("srv.quickAccess.unknownApp", "That app is not on this TV"));
             return;
         }
     }
@@ -10120,7 +10126,7 @@ void HttpFrontDoor::setQuickAccess(HttpExchange &exchange) const {
     };
     LunaReply writeReply;
     if (clearFirst && !write("", writeReply)) {
-        sendSetupError(exchange, 400, "The TV did not save the change");
+        sendSetupError(exchange, 400, say::msg("srv.preload.saveFailed", "The TV did not save the change"));
         return;
     }
     if (clearFirst) {
@@ -10130,7 +10136,7 @@ void HttpFrontDoor::setQuickAccess(HttpExchange &exchange) const {
         std::this_thread::sleep_for(std::chrono::milliseconds(500));
     }
     if (!write(id, writeReply)) {
-        sendSetupError(exchange, 400, "The TV did not save the change");
+        sendSetupError(exchange, 400, say::msg("srv.preload.saveFailed", "The TV did not save the change"));
         return;
     }
     if (logger_)
@@ -10306,7 +10312,7 @@ void HttpFrontDoor::setRemoteKey(HttpExchange &exchange) const {
             for (const Json &choice : availableKeys["choices"].items())
                 if (choice["id"].string() == id) validTarget = true;
             if (!validTarget) {
-                sendSetupError(exchange, 400, "That app is not on this TV");
+                sendSetupError(exchange, 400, say::msg("srv.quickAccess.unknownApp", "That app is not on this TV"));
                 return;
             }
         }
@@ -10559,7 +10565,7 @@ void HttpFrontDoor::setRemoteKey(HttpExchange &exchange) const {
                               !alreadyBlocked)) {
                 restoreMapFile();
                 restoreLgFile();
-                sendSetupError(exchange, 400, "The TV did not take the change");
+                sendSetupError(exchange, 400, say::msg("srv.remoteKeys.chainFailed", "The TV did not take the change"));
                 return;
             }
 
@@ -10588,7 +10594,7 @@ void HttpFrontDoor::setRemoteKey(HttpExchange &exchange) const {
             write.set("settings", settings);
             if (!writeNativeValue("remoteKeys.native-settings",
                     "com.webos.settingsservice/setSystemSettings", write)) {
-                sendSetupError(exchange, 400, "The TV did not take the change");
+                sendSetupError(exchange, 400, say::msg("srv.remoteKeys.chainFailed", "The TV did not take the change"));
                 return;
             }
         }
@@ -10597,7 +10603,7 @@ void HttpFrontDoor::setRemoteKey(HttpExchange &exchange) const {
             write.set("configs", writes.actionValues);
             if (!writeNativeValue("remoteKeys.native-actions",
                     "com.webos.service.config/setConfigs", write)) {
-                sendSetupError(exchange, 400, "The TV did not take the change");
+                sendSetupError(exchange, 400, say::msg("srv.remoteKeys.chainFailed", "The TV did not take the change"));
                 return;
             }
         }
@@ -10682,7 +10688,7 @@ void HttpFrontDoor::setRemoteKey(HttpExchange &exchange) const {
         for (const Json &choice : remoteKeys["choices"].items())
             if (choice["id"].string() == id) validTarget = true;
         if (!validTarget) {
-            sendSetupError(exchange, 400, "That app is not on this TV");
+            sendSetupError(exchange, 400, say::msg("srv.quickAccess.unknownApp", "That app is not on this TV"));
             return;
         }
     }
@@ -10762,7 +10768,7 @@ void HttpFrontDoor::setRemoteKey(HttpExchange &exchange) const {
                    false, reply) && reply.response["returnValue"].boolean();
     };
     if (!writeConfigs(mapConfigs, "remoteKeys.map")) {
-        sendSetupError(exchange, 400, "The TV did not take the change");
+        sendSetupError(exchange, 400, say::msg("srv.remoteKeys.chainFailed", "The TV did not take the change"));
         return;
     }
 
@@ -10776,20 +10782,20 @@ void HttpFrontDoor::setRemoteKey(HttpExchange &exchange) const {
         Json chainConfigs = Json::object();
         chainConfigs.set("com.webos.surfacemanager.keyFilters", full);
         if (!writeConfigs(chainConfigs, "remoteKeys.chain")) {
-            sendSetupError(exchange, 400, "The TV did not take the change");
+            sendSetupError(exchange, 400, say::msg("srv.remoteKeys.chainFailed", "The TV did not take the change"));
             return;
         }
     } else if (filterChanged) {
         Json removeConfigs = Json::object();
         removeConfigs.set("com.webos.surfacemanager.keyFilters", rest);
         if (!writeConfigs(removeConfigs, "remoteKeys.chain-remove")) {
-            sendSetupError(exchange, 400, "The TV did not take the change");
+            sendSetupError(exchange, 400, say::msg("srv.remoteKeys.chainFailed", "The TV did not take the change"));
             return;
         }
         Json addConfigs = Json::object();
         addConfigs.set("com.webos.surfacemanager.keyFilters", full);
         if (!writeConfigs(addConfigs, "remoteKeys.chain-add")) {
-            sendSetupError(exchange, 400, "The TV did not take the change");
+            sendSetupError(exchange, 400, say::msg("srv.remoteKeys.chainFailed", "The TV did not take the change"));
             return;
         }
     }
@@ -10860,7 +10866,7 @@ void HttpFrontDoor::setPreloadToggle(HttpExchange &exchange) const {
                                ? service::javascriptString(requestedId)
                                : std::string();
     if (id.empty()) {
-        fail(400, "This app is not offered here");
+        fail(400, say::msg("srv.preload.notOffered", "This app is not offered here"));
         return;
     }
     const bool off = service::javascriptTruthy(payload["off"]);
@@ -10874,7 +10880,7 @@ void HttpFrontDoor::setPreloadToggle(HttpExchange &exchange) const {
     if (!waitForLuna(luna_, "com.webos.service.config/getConfigs", getRequest,
                      listReply) ||
         !listReply.response["configs"][service::preloadConfigKey()].isArray()) {
-        fail(400, "This TV has no list of preloaded apps");
+        fail(400, say::msg("srv.preload.unsupported", "This TV has no list of preloaded apps"));
         return;
     }
     const Json currentList =
@@ -10890,7 +10896,7 @@ void HttpFrontDoor::setPreloadToggle(HttpExchange &exchange) const {
     if (!service::preloadChange(stateResult.found ? stateResult.value : Json::object(),
                                 currentList, id, off, updatedState, updatedList,
                                 enabled)) {
-        fail(400, "This app is not offered here");
+        fail(400, say::msg("srv.preload.notOffered", "This app is not offered here"));
         return;
     }
 
@@ -10902,7 +10908,7 @@ void HttpFrontDoor::setPreloadToggle(HttpExchange &exchange) const {
             "com.webos.service.config/setConfigs", writeRequest, "preload-manager",
             false, writeReply) ||
         !writeReply.response["returnValue"].boolean()) {
-        fail(400, "The TV did not save the change");
+        fail(400, say::msg("srv.preload.saveFailed", "The TV did not save the change"));
         return;
     }
     std::string saveError;
@@ -11919,7 +11925,7 @@ void HttpFrontDoor::setControl(HttpExchange &exchange) const {
         return;
     }
     if (alwaysReadyOffStartAction && !validAlwaysReadyOffStart) {
-        sendControlFailure("the start must be an hour from 0 to 23");
+        sendControlFailure(say::msg("srv.arOff.badHour", "the start must be an hour from 0 to 23"));
         return;
     }
     if (sleepTimerAction && !validSleepTimer) {
@@ -12241,7 +12247,7 @@ void HttpFrontDoor::setControl(HttpExchange &exchange) const {
             bool usingEpl = false;
             const Json initialState = readEplState(usingEpl);
             if (!usingEpl && !initialState.isObject()) {
-                actionError = "this TV does not offer the control";
+                actionError = say::msg("srv.oled.notOffered", "this TV does not offer the control");
             } else {
                 if (usingEpl) {
                     uri = oledProtectionKey == "gsr"
@@ -12270,7 +12276,7 @@ void HttpFrontDoor::setControl(HttpExchange &exchange) const {
                     succeeded = current.isBoolean() &&
                         current.boolean() == oledProtectionEnabled;
                     if (!succeeded)
-                        actionError = "the setting did not take";
+                        actionError = say::msg("srv.notTaken", "the setting did not take");
                 }
             }
         } else if (refresherAction) {
@@ -12307,7 +12313,7 @@ void HttpFrontDoor::setControl(HttpExchange &exchange) const {
                     (serviceMenuLockFlag.isBoolean() &&
                      serviceMenuLockFlag.boolean()) == serviceMenuLockTarget;
                 if (!succeeded)
-                    actionError = "the setting did not take";
+                    actionError = say::msg("srv.notTaken", "the setting did not take");
             } else {
                 actionError = "the TV would not change it";
             }
@@ -12894,7 +12900,7 @@ void HttpFrontDoor::clearAdCookiesControl(HttpExchange &exchange) const {
         Json response = Json::object();
         response.set("ok", Json::flag(false));
         response.set("error", Json::text(
-            "LG’s advertising service is not running, and this would start it."));
+            say::msg("srv.privacy.adStopped", "LG’s advertising service is not running, and this would start it.")));
         respond(response);
         return;
     }
@@ -12930,7 +12936,7 @@ void HttpFrontDoor::resetAdIdControl(HttpExchange &exchange) const {
         Json response = Json::object();
         response.set("ok", Json::flag(false));
         response.set("error", Json::text(
-            "LG’s advertising service is not running, and this would start it."));
+            say::msg("srv.privacy.adStopped", "LG’s advertising service is not running, and this would start it.")));
         respond(response);
         return;
     }
@@ -13016,7 +13022,7 @@ void HttpFrontDoor::setLimitAdTrackingControl(HttpExchange &exchange,
     std::unique_lock<std::mutex> settingsLock(systemSettingsControlMutex_);
     Json settings;
     if (!readLimitTracking(settings) || !settings["lmt"].valid()) {
-        fail("This TV has no Limit ad tracking setting.");
+        fail(say::msg("srv.privacy.lmt.none", "This TV has no Limit ad tracking setting."));
         return;
     }
 
@@ -13080,7 +13086,7 @@ void HttpFrontDoor::setLimitAdTrackingControl(HttpExchange &exchange,
     if (applied) {
         response.set("limitTracking", Json::flag(now));
     } else {
-        response.set("error", Json::text("the setting did not take"));
+        response.set("error", Json::text(say::msg("srv.notTaken", "the setting did not take")));
     }
     respond(response);
 }
@@ -13210,7 +13216,7 @@ Json HttpFrontDoor::applyConsentChange(const std::string &key,
     if (!waitForLuna(luna_, "com.webos.settingsservice/getSystemSettings",
                      readFlagsRequest, flagsReply) ||
         !flagsReply.response["settings"]["eulaStatus"].isObject())
-        return failure("could not read the consent flags");
+        return failure(say::msg("srv.consent.readFailed", "could not read the consent flags"));
     const Json flags = flagsReply.response["settings"]["eulaStatus"];
 
     Json readDocumentsRequest = Json::object();
@@ -13221,7 +13227,7 @@ Json HttpFrontDoor::applyConsentChange(const std::string &key,
     if (!waitForLuna(luna_, "com.webos.settingsservice/getSystemSettings",
                      readDocumentsRequest, documentsReply) ||
         !documentsReply.response["settings"]["eulaInfoNetwork"]["eulaList"].isArray())
-        return failure("could not read the agreement documents");
+        return failure(say::msg("srv.consent.docsFailed", "could not read the agreement documents"));
     const Json documents = documentsReply.response["settings"]["eulaInfoNetwork"];
 
     const service::PrivacyConsentPlan plan = service::planPrivacyConsent(
@@ -13268,7 +13274,7 @@ Json HttpFrontDoor::applyConsentChange(const std::string &key,
     Json response = Json::object();
     response.set("ok", Json::flag(applied));
     if (!applied) {
-        response.set("error", Json::text("the TV accepted the change without applying it"));
+        response.set("error", Json::text(say::msg("srv.notApplied", "the TV accepted the change without applying it")));
     } else {
         response.set("key", Json::text(key));
         response.set("enabled", Json::flag(enabled));
@@ -13441,7 +13447,7 @@ void HttpFrontDoor::setPiccapControl(HttpExchange &exchange,
 
     if (!service::piccapInstalled(systemRoot_) ||
         !service::piccapSupportedWebos(systemRoot_)) {
-        respond(false, "PicCap is not available");
+        respond(false, say::msg("srv.piccap.unavailable", "PicCap is not available"));
         return;
     }
 
@@ -13456,7 +13462,7 @@ void HttpFrontDoor::setPiccapControl(HttpExchange &exchange,
     if (!available) {
         if (logger_)
             logger_->info("control: PicCap capture unavailable");
-        respond(false, "PicCap is not available");
+        respond(false, say::msg("srv.piccap.unavailable", "PicCap is not available"));
         return;
     }
 
@@ -13487,7 +13493,7 @@ void HttpFrontDoor::setPiccapControl(HttpExchange &exchange,
         if (error.empty())
             error = commandReply.error;
         if (error.empty())
-            error = "PicCap refused the request";
+            error = say::msg("srv.piccap.refused", "PicCap refused the request");
     }
     if (logger_)
         logger_->info("control: PicCap capture " + verb +
@@ -15149,7 +15155,7 @@ void HttpFrontDoor::planNativeBackupApps(HttpExchange &exchange) const {
             const bool catalogAvailable = catalog["ok"].isBoolean() &&
                                           catalog["ok"].boolean();
             const std::string catalogError = catalog["error"].string().empty()
-                ? "catalog unavailable" : catalog["error"].string();
+                ? say::msg("srv.repo.unavailable", "catalog unavailable") : catalog["error"].string();
             plan = service::planBackupRestoreApps(
                 payload["apps"], installedIds, catalogIds,
                 catalogAvailable, catalogError);
@@ -15296,7 +15302,7 @@ void HttpFrontDoor::restoreNativeBackupLg(HttpExchange &exchange) const {
             Json issue = Json::object();
             issue.set("id", Json::text(id));
             issue.set("error", Json::text(setting.error.empty()
-                ? "That value is not one this setting takes" : setting.error));
+                ? say::msg("srv.lgsettings.badValue", "That value is not one this setting takes") : setting.error));
             failed.add(issue);
             continue;
         }
@@ -16521,7 +16527,7 @@ void HttpFrontDoor::handleHomeWallpaperUpload(HttpExchange &exchange) const {
     }();
     if (slot != "morning" && slot != "afternoon" && slot != "evening" &&
         slot != "night") {
-        respond(400, "unknown wallpaper slot", false);
+        respond(400, say::msg("srv.home.wallSlot", "unknown wallpaper slot"), false);
         return;
     }
 
@@ -16825,7 +16831,7 @@ void HttpFrontDoor::handleHomeRecentAppsPost(HttpExchange &exchange) const {
 
     service::HomeRecentApps recent = queryHomeRecentApps();
     if (!recent.available) {
-        fail("the TV did not list its recent apps");
+        fail(say::msg("srv.home.recentsUnavailable", "the TV did not list its recent apps"));
         return;
     }
     std::vector<std::string> ids;
@@ -16840,7 +16846,7 @@ void HttpFrontDoor::handleHomeRecentAppsPost(HttpExchange &exchange) const {
             return app["id"].string() == id;
         });
         if (!listed) {
-            fail("that app is not in recent apps");
+            fail(say::msg("srv.home.notRecent", "that app is not in recent apps"));
             return;
         }
         if (action == "open") {
@@ -16864,7 +16870,7 @@ void HttpFrontDoor::handleHomeRecentAppsPost(HttpExchange &exchange) const {
     if (ids.empty()) {
         recent = queryHomeRecentApps();
         if (!recent.available) {
-            fail("the TV did not list its recent apps");
+            fail(say::msg("srv.home.recentsUnavailable", "the TV did not list its recent apps"));
             return;
         }
         Json success = Json::object();
@@ -16887,7 +16893,7 @@ void HttpFrontDoor::handleHomeRecentAppsPost(HttpExchange &exchange) const {
     };
     Json running;
     if (!readRunning(running)) {
-        fail("the TV would not close it");
+        fail(say::msg("srv.home.closeRefused", "the TV would not close it"));
         return;
     }
     std::vector<std::pair<std::string, Json>> stopCalls;
@@ -16908,7 +16914,7 @@ void HttpFrontDoor::handleHomeRecentAppsPost(HttpExchange &exchange) const {
     bool stopped = false;
     for (unsigned attempt = 0; attempt <= 10; ++attempt) {
         if (!readRunning(running)) {
-            fail("the TV would not close it");
+            fail(say::msg("srv.home.closeRefused", "the TV would not close it"));
             return;
         }
         const std::vector<Json> runningItems = running.items();
@@ -16923,13 +16929,13 @@ void HttpFrontDoor::handleHomeRecentAppsPost(HttpExchange &exchange) const {
         if (attempt < 10) std::this_thread::sleep_for(std::chrono::milliseconds(200));
     }
     if (!stopped) {
-        fail("the TV would not close it");
+        fail(say::msg("srv.home.closeRefused", "the TV would not close it"));
         return;
     }
 
     recent = queryHomeRecentApps();
     if (!recent.available) {
-        fail("the TV did not list its recent apps");
+        fail(say::msg("srv.home.recentsUnavailable", "the TV did not list its recent apps"));
         return;
     }
     std::vector<std::string> removeIds;
@@ -16945,13 +16951,13 @@ void HttpFrontDoor::handleHomeRecentAppsPost(HttpExchange &exchange) const {
         if (!waitForLuna(luna_, "com.webos.service.recent/removeRecent",
                          remove, removed) ||
             !service::javascriptTruthy(removed.response["returnValue"])) {
-            fail("the TV would not close it");
+            fail(say::msg("srv.home.closeRefused", "the TV would not close it"));
             return;
         }
     }
     recent = queryHomeRecentApps();
     if (!recent.available) {
-        fail("the TV did not list its recent apps");
+        fail(say::msg("srv.home.recentsUnavailable", "the TV did not list its recent apps"));
         return;
     }
     Json success = Json::object();

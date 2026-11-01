@@ -1,4 +1,5 @@
 #include "service/app_package_fetcher.hpp"
+#include "domain/say.hpp"
 #include "service/curl_global.hpp"
 
 #include <curl/curl.h>
@@ -125,7 +126,7 @@ bool AppPackageFetcher::validUrl(const std::string &url, std::string &error) {
         return false;
     }
     if (hasControlCharacter) {
-        error = "the address contains spaces or control characters";
+        error = say::msg("srv.fetch.badChars", "the address contains spaces or control characters");
         return false;
     }
     return true;

@@ -332,18 +332,21 @@ std::vector<Choice> inputChoices(const Json &devices) {
 }
 
 std::vector<Choice> mediaChoices() {
-    static const std::pair<const char *, const char *> actions[] = {
-        {"play", "Play"}, {"pause", "Pause"}, {"stop", "Stop"},
-        {"rewind", "Rewind"}, {"fastForward", "Fast forward"},
-        {"volumeUp", "Volume up"}, {"volumeDown", "Volume down"}, {"mute", "Mute"}
+    // Each English beside its say::msg() key, for scripts/check-strings.py.
+    static const char *const actions[][3] = {
+        {"play", "srv.remoteKeys.play", "Play"},
+        {"pause", "srv.remoteKeys.pause", "Pause"},
+        {"stop", "srv.remoteKeys.stop", "Stop"},
+        {"rewind", "srv.remoteKeys.rewind", "Rewind"},
+        {"fastForward", "srv.remoteKeys.fastForward", "Fast forward"},
+        {"volumeUp", "srv.remoteKeys.volumeUp", "Volume up"},
+        {"volumeDown", "srv.remoteKeys.volumeDown", "Volume down"},
+        {"mute", "srv.remoteKeys.mute", "Mute"}
     };
     std::vector<Choice> result;
-    for (const auto &action : actions) {
-        const std::string key = action.first;
-        const std::string message = "srv.remoteKeys." + key;
-        result.push_back({std::string(kMediaPrefix) + key,
-                          say::msg(message, action.second), "media"});
-    }
+    for (const auto &action : actions)
+        result.push_back({std::string(kMediaPrefix) + action[0],
+                          say::msg(action[1], action[2]), "media"});
     return result;
 }
 
