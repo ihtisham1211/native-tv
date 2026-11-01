@@ -35,7 +35,7 @@ DEPLOY = root / 'native-tv' / 'lifecycle' / 'deploy.sh'
 ASSETS = root / 'native-tv' / 'assets'
 # What deploy.sh installs from native-tv/assets (the rest is the TV client's).
 SHIPPED = ['app-icons', 'dashboard-app', 'early-service', 'fonts', 'google-tv', 'home-app',
-           'screensavers', 'splash-app']
+           'i18n', 'screensavers', 'splash-app']
 
 
 def published():

@@ -1,15 +1,4 @@
-// The token, q(), t(), the activity pips, write leases and the fetch wrapper.
-
-/* t() is the string helper: a key, the English, and the values for its
-   {placeholders}. Native Tv is English only, so the English is what comes
-   back; the key names the string, so the same words are used wherever it
-   appears, and scripts/check-strings.py catches the ones that drift apart. */
-function t(key, english, vars) {
-  if (!vars) return english;
-  return english.replace(/\{(\w+)\}/g, function (whole, name) {
-    return vars[name] === undefined ? whole : String(vars[name]);
-  });
-}
+// The token, q(), the activity pips, write leases and the fetch wrapper. t() is in i18n.js.
 
 /* The token arrives once in the link (a bookmark, or the TV's QR codes) and
    is kept in the browser, so it can come out of the address bar and stay out
