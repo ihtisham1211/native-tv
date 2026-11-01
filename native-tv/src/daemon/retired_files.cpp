@@ -8,10 +8,12 @@ namespace nativetv {
 namespace daemon {
 namespace {
 
-// A file is listed here when it leaves the repository.
+// A file is listed here when it leaves the repository. assets/i18n/ is not
+// listed: it holds the dashboard's dictionaries now (the Node release's
+// assets/i18n.js loader is gone; this one's is assets/ui/i18n.js).
 const char *const kFiles[] = {
     "assets/dashboard.html", "assets/home.html", "assets/home-tv.html", "assets/setup.html",
-    "assets/setup-phone.html", "assets/qr.js", "assets/i18n.js", "assets/i18n/es.json",
+    "assets/setup-phone.html", "assets/qr.js", "assets/i18n.js",
     "assets/fonts/Manrope.ttf", "assets/fonts/Manrope-Regular.ttf",
     "assets/fonts/Manrope-SemiBold.ttf", "assets/fonts/Outfit.ttf",
     "assets/fonts/Outfit-Light.ttf", "assets/fonts/Outfit-Regular.ttf",
@@ -56,9 +58,8 @@ const char *const kFiles[] = {
     "lib/state.js", "lib/syslog.js", "lib/telemetry.js", "lib/timers.js", "lib/topics.js",
     "lib/util.js", "lib/version.js"};
 // Emptied by the removals above; removed only if nothing else is in them.
-const char *const kFolders[] = {"assets/i18n", "assets/google-tv/components",
-                                "assets/google-tv/pages/kit", "assets/google-tv/pages/home",
-                                "lib"};
+const char *const kFolders[] = {"assets/google-tv/components", "assets/google-tv/pages/kit",
+                                "assets/google-tv/pages/home", "lib"};
 
 // The developer client, com.tvweb.native, which only deploy.py ever put on the
 // TV and which sam was never told of. The Home stub opens the Native Tv tile's

@@ -46,6 +46,7 @@
 #include "daemon/state_subscriptions.hpp"
 #include "daemon/syslog_forwarder.hpp"
 #include "domain/names.hpp"
+#include "domain/say_translation.hpp"
 #include "platform/client_config.hpp"
 #include "service/piccap.hpp"
 #include "service/adblock_store.hpp"
@@ -886,6 +887,11 @@ int main(int argc, char **argv) {
         Logger logger(std::move(loggerOptions));
         for (const std::string &warning : loaded.warnings)
             logger.warning(warning);
+
+        // The dashboard's dictionaries, beside its scripts; with none, every
+        // message goes out in English.
+        if (const size_t languages = nativetv::say::loadTranslations(assetsRoot + "/i18n"))
+            logger.info("strings: " + std::to_string(languages) + " dashboard language(s) loaded");
 
         const bool nativeMqttShadowRequested =
             environmentEnabled("TVWEB_NATIVE_MQTT_SHADOW");

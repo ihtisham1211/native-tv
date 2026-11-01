@@ -9595,6 +9595,130 @@ class DaemonRuntimeTests(unittest.TestCase):
                         process.kill()
                         process.wait(timeout=3)
 
+    def test_native_dashboard_language_header_translates_json(self):
+        # A dashboard in Spanish says so in X-Native-Tv-Lang, and the messages in the
+        # JSON it gets back come from assets/i18n/es.json; without the header, English.
+        binary = Path(sys.argv[1]).resolve()
+        fakeLuna = binary.parent / "native-fake-luna-send"
+        publicPort = unused_port_pair()
+        nodePort = unused_port_pair((publicPort, publicPort + 1))
+        token = "dashboard-language-token"
+        dictionaryPath = Path(__file__).resolve().parents[1] / "assets/i18n/es.json"
+        dictionary = json.loads(dictionaryPath.read_text(encoding="utf-8"))
+        with tempfile.TemporaryDirectory(prefix="nativetv-native-language-") as folder:
+            root = Path(folder)
+            config = root / "config.json"
+            assets = root / "assets"
+            systemRoot = root / "system"
+            appDirectory = systemRoot / "usr/palm/applications/com.webos.app.screensaver"
+            procRoot = root / "proc"
+            (assets / "screensavers").mkdir(parents=True)
+            (assets / "i18n").mkdir(parents=True)
+            appDirectory.mkdir(parents=True)
+            (procRoot / "net").mkdir(parents=True)
+            (systemRoot / "etc").mkdir(parents=True)
+            (systemRoot / "etc/issue").write_text("webOS 12.0.0\n")
+            (systemRoot / "var/lib/webosbrew/init.d").mkdir(parents=True)
+            (systemRoot / "var/lib/webosbrew/init.d/60-screensaver-hook").write_text("")
+            (appDirectory / "appinfo.json").write_text(json.dumps({
+                "id": "com.webos.app.screensaver", "type": "flutter", "main": "main"
+            }))
+            (assets / "screensavers/clock.qml").write_text("Text {}\n")
+            shutil.copyfile(dictionaryPath, assets / "i18n/es.json")
+            config.write_text(json.dumps({
+                "host": "127.0.0.1", "port": publicPort, "token": token,
+                "allowControl": True
+            }))
+            environment = os.environ.copy()
+            environment["TVWEB_LUNA_SEND"] = str(fakeLuna)
+            environment["TVWEB_DATA_DIR"] = str(root / "data")
+            environment["TVWEB_PROXY_SECRET"] = "dashboard-language-secret-0123456789abcdef"
+            process = subprocess.Popen(
+                [str(binary), "--config", str(config), "--heartbeat", str(root / "tvweb.beat"),
+                 "--workers", "4", "--listen", "--node-port", str(nodePort),
+                 "--assets-root", str(assets), "--proc-root", str(procRoot),
+                 "--system-root", str(systemRoot)],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                env=environment)
+
+            def call(path, language=None, method="GET", body=None):
+                headers = {"Authorization": "Bearer " + token}
+                if language is not None:
+                    headers["X-Native-Tv-Lang"] = language
+                data = None
+                if body is not None:
+                    data = json.dumps(body).encode()
+                    headers["Content-Type"] = "application/json"
+                req = Request("http://127.0.0.1:%d%s" % (publicPort, path), data=data,
+                              method=method, headers=headers)
+                try:
+                    with urlopen(req, timeout=4) as response:
+                        return response.status, response.headers, response.read()
+                except HTTPError as error:
+                    return error.code, error.headers, error.read()
+
+            def clock(language):
+                status, _, body = call("/api/screensaver", language)
+                self.assertEqual(status, 200, body.decode("utf-8", "replace"))
+                document = json.loads(body)
+                return document, next(m for m in document["modes"] if m["id"] == "clock")
+
+            try:
+                deadline = time.monotonic() + 8
+                while time.monotonic() < deadline and process.poll() is None:
+                    try:
+                        if call("/api/caps")[0] == 200:
+                            break
+                    except (OSError, URLError):
+                        time.sleep(0.03)
+                self.assertIsNone(process.poll(), "daemon exited early")
+
+                english, mode = clock(None)
+                self.assertEqual(mode["label"], "Clock")
+                self.assertEqual(mode["description"],
+                                 dictionary["srv.saver.clock.desc"]["from"])
+
+                spanish, mode = clock("es")
+                self.assertEqual(mode["label"], "Reloj")
+                self.assertEqual(mode["description"], dictionary["srv.saver.clock.desc"]["text"])
+                self.assertNotEqual(mode["description"], dictionary["srv.saver.clock.desc"]["from"])
+                # Only the words change: ids, states and the shape of the answer do not.
+                self.assertEqual(spanish["current"], english["current"])
+                self.assertEqual([m["id"] for m in spanish["modes"]], [m["id"] for m in english["modes"]])
+                self.assertEqual(
+                    [m["available"] for m in spanish["modes"]], [m["available"] for m in english["modes"]])
+
+                # Another language, or one with no dictionary, is English.
+                for language in ("en", "de", "xx", "", "es-MX", "../"):
+                    self.assertEqual(clock(language)[1]["label"], "Clock", language)
+
+                # An error banner is translated in the same way.
+                held = dictionary["srv.saver.held"]
+                status, headers, body = call("/api/control", "es", "POST",
+                                             {"action": "screensaverMode", "value": "clock"})
+                self.assertEqual(status, 200, body.decode("utf-8", "replace"))
+                self.assertEqual(headers.get("Content-Length"), str(len(body)))
+                failed = json.loads(body)
+                self.assertFalse(failed["ok"])
+                self.assertEqual(failed["error"], held["text"])
+                status, _, body = call("/api/control", None, "POST",
+                                       {"action": "screensaverMode", "value": "clock"})
+                self.assertEqual(json.loads(body)["error"], held["from"])
+
+                # The dictionary itself is an asset, served as it is on disk.
+                status, headers, body = call("/assets/i18n/es.json", "es")
+                self.assertEqual(status, 200)
+                self.assertIn("application/json", headers.get("Content-Type"))
+                self.assertEqual(json.loads(body), dictionary)
+            finally:
+                if process.poll() is None:
+                    process.send_signal(signal.SIGTERM)
+                    try:
+                        process.communicate(timeout=6)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait(timeout=3)
+
     def test_native_node_free_start_serves_without_node(self):
         # TVWEB_NODE_FREE=1 (tvwebctl, from native.env): the daemon is the whole server.
         # Nothing listens on the Node port, no proxy secret is given, and the setup,

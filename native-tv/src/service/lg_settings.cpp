@@ -571,7 +571,7 @@ LgSettingWrite lgGameSettingWrite(const Json &value) {
     write.handled = true;
     write.category = definition->category;
     write.key = definition->key;
-    write.error = "That value is not one this setting takes";
+    write.error = say::msg("srv.lgsettings.badValue", "That value is not one this setting takes");
     if (definition->kind == Kind::Switch) {
         const Json flag = value.has("on") ? value["on"] : value["value"];
         write.storedValue = Json::text(flag.isBoolean() && flag.boolean() ? "on" : "off");
@@ -618,7 +618,7 @@ LgSettingWrite lgSettingWrite(const Json &value) {
     write.category = row->category;
     write.key = row->key;
     write.greyable = row->greyable;
-    write.error = "That value is not one this setting takes";
+    write.error = say::msg("srv.lgsettings.badValue", "That value is not one this setting takes");
     // A switch takes `on`; any other row takes `value`.
     const Json selected = value.has("on") ? Json::flag(value["on"].isBoolean() && value["on"].boolean())
                                           : value["value"];
@@ -659,7 +659,7 @@ LgSettingWrite lgSettingsRestoreWrite(const std::string &id,
     write.handled = true;
     write.category = dashboard ? dashboard->category : game->category;
     write.key = dashboard ? dashboard->key : game->key;
-    write.error = "That value is not one this setting takes";
+    write.error = say::msg("srv.lgsettings.badValue", "That value is not one this setting takes");
     if (!currentRow.isObject())
         return write;
 

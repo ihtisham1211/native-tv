@@ -23,15 +23,28 @@ Fails on:
     of a page already converted (CONVERTED below)
   * a local variable named t in a page that uses t(), which would hide it
   * a page that uses keys but loads no script that defines t()
+  * a dictionary (native-tv/assets/i18n/<lang>.json) that does not parse, holds a key
+    nothing uses, an entry without "text" and "from", a translation whose
+    {placeholders} or markup differ from the English it was made from, a language
+    the loader (web/ui/i18n.js) does not list, or a listed one without a file
+
+Reports, and never fails on: translations made from English that has changed
+since (the page shows the new English, so editing English is not blocked on a
+translation), and keys a language has no entry for.
 
     ./scripts/check-strings.py              check
+    ./scripts/check-strings.py --missing    also list the keys a language lacks
+    ./scripts/check-strings.py --template   print every key, for a new language's file
 """
-import html.parser, pathlib, re, sys
+import html.parser, json, pathlib, re, sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 ASSETS = ROOT / 'native-tv' / 'web'
 # The browser dashboard. The TV pages (google-tv/pages/) are English only.
 PAGES = ['ui.html']
+# The dictionaries the loader fetches, and the loader that lists them.
+LANG_DIR = ROOT / 'native-tv' / 'assets' / 'i18n'
+LOADER = ASSETS / 'ui' / 'i18n.js'
 
 # Parts of pages whose visible text must all be keyed, by element id or, for an
 # element without one, by its tag as '<header>'. A part is added here once
@@ -191,7 +204,9 @@ def js_string(src, i):
 
 def scan_script(name, src, offset_line):
     code = strip_code(src)
-    for m in re.finditer(r'(?<![\w$.])t\(', code):
+    # i18n.js is where t() is defined and calls it with the keys it is given.
+    calls = [] if name == 'ui/i18n.js' else re.finditer(r'(?<![\w$.])t\(', code)
+    for m in calls:
         if code[:m.start()].endswith('function '):
             continue   # the page's own definition of t()
         start = m.end()
@@ -216,6 +231,12 @@ def scan_script(name, src, offset_line):
         english = js_string(src, j)
         if not english:
             problems.append('%s: t(\'%s\', ...) needs literal English' % (where, key[0]))
+            continue
+        after = english[1]
+        while after < len(src) and src[after].isspace():
+            after += 1
+        if src[after:after + 1] == '+':
+            problems.append('%s: t(\'%s\', ...) needs its English as one literal, not pieces joined with +' % (where, key[0]))
             continue
         note(key[0], english[0], where)
     for m in re.finditer(r'(?:\b(?:const|let|var)\s+t\b|\(\s*t\s*[,)]|\bt\s*=>|function\s*\w*\s*\(\s*t\s*[,)])', code):
@@ -260,9 +281,16 @@ for page in PAGES:
 CPP_ESCAPES = {'n': '\n', 't': '\t', 'r': '\r', '0': '\0'}
 
 
+def flush_bytes(val, pending):
+    """Bytes written as \\xNN escapes, read as the UTF-8 they spell."""
+    if pending:
+        val.append(bytes(pending).decode('utf-8', 'replace'))
+        del pending[:]
+
+
 def cpp_literals(src, i):
     """Adjacent C++ string literals at src[i] ("a" "b" is one): (value, end) or None."""
-    val, found = [], False
+    val, found, pending = [], False, bytearray()
     n = len(src)
     while True:
         while i < n and src[i].isspace():
@@ -290,8 +318,16 @@ def cpp_literals(src, i):
                     nxt = src[j + 1]
                     if nxt == 'u':
                         val.append(chr(int(src[j + 2:j + 6], 16))); j += 6; continue
+                    if nxt == 'x':                         # \xe2\x80\xa6 is UTF-8 bytes, here an ellipsis
+                        k = j + 2
+                        while k < n and src[k] in '0123456789abcdefABCDEF':
+                            k += 1
+                        pending.append(int(src[j + 2:k], 16) & 0xFF); j = k; continue
+                    flush_bytes(val, pending)
                     val.append(CPP_ESCAPES.get(nxt, nxt)); j += 2; continue
+                flush_bytes(val, pending)
                 val.append(src[j]); j += 1
+            flush_bytes(val, pending)
             i = j + 1; found = True
             continue
         return (''.join(val), i) if found else None
@@ -301,7 +337,7 @@ SERVER = sorted((ROOT / 'native-tv' / 'src').rglob('*.cpp'))
 SERVER = [f for f in SERVER if 'ui' not in f.relative_to(ROOT / 'native-tv' / 'src').parts[:1]]
 for path in SERVER:
     src = path.read_text(encoding='utf-8')
-    if 'msg(' not in src:
+    if 'msg(' not in src and '"srv.' not in src:
         continue
     name = str(path.relative_to(ROOT))
     for m in re.finditer(r'(?<![\w.>])(?:say::)?msg\(', src):
@@ -322,14 +358,92 @@ for path in SERVER:
         if not english:
             continue                                       # English built by the caller
         note(key[0], english[0], where)
+    # Keys kept in tables, beside their English, for a loop to pass to msg()
+    # (screen savers, LG's settings, the Home screen's parts): {"id", "srv.x", "English"}.
+    for m in re.finditer(r'"(srv\.[A-Za-z0-9.]+)"\s*,', src):
+        line = src[src.rfind('\n', 0, m.start()) + 1:m.start()]
+        english = cpp_literals(src, m.end())
+        if line.lstrip().startswith('//') or not english:
+            continue
+        where = '%s:%d' % (name, 1 + src.count('\n', 0, m.start()))
+        if re.match(r'srv\.[A-Za-z0-9.]+$', english[0]):
+            problems.append('%s: key "%s" is followed by another key; put its English beside it' % (where, m.group(1)))
+            continue
+        note(m.group(1), english[0], where)
 
 for key, texts in sorted(uses.items()):
     if len(texts) > 1:
         detail = '; '.join('"%s" at %s' % (e, ', '.join(w)) for e, w in texts.items())
         problems.append('key "%s" has different English in different places: %s' % (key, detail))
 
+english = {k: next(iter(v)) for k, v in uses.items()}
+
+if '--template' in sys.argv:
+    print(json.dumps({k: {'text': '', 'from': english[k]} for k in sorted(english)},
+                     ensure_ascii=False, indent=2))
+    sys.exit(0)
+
+
+def placeholders(text):
+    return sorted(re.findall(r'\{\w+\}', text))
+
+
+def markup(text):
+    return sorted(re.findall(r'</?\w[^>]*>|&#?\w+;', text))
+
+
+# ---- dictionaries -----------------------------------------------------------
+
+listed = re.search(r'var LANGS = \[([^\]]*)\]', LOADER.read_text(encoding='utf-8'))
+listed = set(re.findall(r"'([a-z]{2})'", listed.group(1))) if listed else set()
+files = {p.stem: p for p in sorted(LANG_DIR.glob('*.json'))} if LANG_DIR.exists() else {}
+for lang in sorted(listed - set(files)):
+    problems.append('i18n.js lists "%s" but there is no assets/i18n/%s.json' % (lang, lang))
+for lang in sorted(set(files) - listed):
+    problems.append('assets/i18n/%s.json exists but i18n.js does not list "%s", so it is never loaded' % (lang, lang))
+
+report = []
+for lang, path in files.items():
+    name = 'i18n/%s.json' % lang
+    try:
+        entries = json.loads(path.read_text(encoding='utf-8'))
+    except ValueError as error:
+        problems.append('%s does not parse: %s' % (name, error))
+        continue
+    if not isinstance(entries, dict):
+        problems.append('%s is not an object of keys' % name)
+        continue
+    outdated, done = [], 0
+    for key, entry in sorted(entries.items()):
+        if key not in english:
+            problems.append('%s: "%s" is not used anywhere' % (name, key))
+            continue
+        if (not isinstance(entry, dict) or not isinstance(entry.get('text'), str)
+                or not isinstance(entry.get('from'), str) or not entry['text'].strip()):
+            problems.append('%s: "%s" needs a non-empty "text" and a "from"' % (name, key))
+            continue
+        if placeholders(entry['text']) != placeholders(entry['from']):
+            problems.append('%s: "%s" has placeholders %s, the English it was made from has %s'
+                            % (name, key, placeholders(entry['text']), placeholders(entry['from'])))
+        if markup(entry['text']) != markup(entry['from']):
+            problems.append('%s: "%s" has markup or entities %s, the English it was made from has %s'
+                            % (name, key, markup(entry['text']), markup(entry['from'])))
+        if entry['from'] != english[key]:
+            outdated.append(key)
+        else:
+            done += 1
+    missing = sorted(set(english) - set(entries))
+    report.append('%s: %d translated, %d outdated, %d missing' % (lang, done, len(outdated), len(missing)))
+    for key in outdated:
+        report.append('  outdated %s: now "%s"' % (key, english[key]))
+    if '--missing' in sys.argv:
+        for key in missing:
+            report.append('  missing  %s: "%s"' % (key, english[key]))
+
 for p in problems:
     print(p)
-print('%d strings keyed, %d problem%s'
-      % (len(uses), len(problems), '' if len(problems) == 1 else 's'))
+for line in report:
+    print(line)
+print('%d strings keyed, %d language file%s, %d problem%s'
+      % (len(uses), len(files), '' if len(files) == 1 else 's', len(problems), '' if len(problems) == 1 else 's'))
 sys.exit(1 if problems else 0)

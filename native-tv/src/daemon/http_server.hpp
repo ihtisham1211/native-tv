@@ -50,6 +50,9 @@ class HttpExchange {
     const std::string &responseBody() const;
     // Made by this process for itself, never read from a socket.
     bool inProcess() const { return buffered_; }
+    // Answer JSON bodies sent with respond() in this language, where there is a
+    // dictionary for it (say::translateJson); "" is English.
+    void setResponseLanguage(std::string language) { responseLanguage_ = std::move(language); }
 
   private:
     friend class HttpServer;
@@ -65,6 +68,7 @@ class HttpExchange {
     std::string bufferedRequestBody_;
     size_t bufferedRequestOffset_ = 0;
     std::string bufferedResponseBody_;
+    std::string responseLanguage_;
     int responseStatus_ = 0;
     bool responseStarted_ = false;
     bool buffered_ = false;

@@ -1,4 +1,5 @@
 #include "service/process_metrics.hpp"
+#include "domain/say.hpp"
 #include "service/kernel_files.hpp"
 #include <algorithm>
 #include <chrono>
@@ -155,7 +156,7 @@ bool sampleCpu(const std::string &root, CpuSample &result) {
 }
 Json memorySummary(const std::vector<Process> &processes, bool all, long pageBytes) {
     if (pageBytes <= 0 || processes.empty())
-        return error("could not read process list");
+        return error(say::msg("srv.processes.failed", "could not read process list"));
     struct Row {
         const Process *process;
         double mb;
@@ -186,7 +187,7 @@ Json memorySummary(const std::vector<Process> &processes, bool all, long pageByt
 }
 Json cpuSummary(const CpuSample &first, const CpuSample &second, unsigned windowMs) {
     if (second.total <= first.total)
-        return error("the CPU counters did not move");
+        return error(say::msg("srv.cpu.stuck", "the CPU counters did not move"));
     struct Row {
         const Process *process;
         double pct;
@@ -226,7 +227,7 @@ Json cpuSummary(const CpuSample &first, const CpuSample &second, unsigned window
 Json collectMemory(const std::string &root, bool all) {
     std::vector<Process> processes;
     if (!readProcesses(root, processes))
-        return error("could not read process list");
+        return error(say::msg("srv.processes.failed", "could not read process list"));
     return memorySummary(processes, all, sysconf(_SC_PAGESIZE));
 }
 Json collectCpu(const std::string &root, unsigned windowMs) {
@@ -240,7 +241,7 @@ Json collectCpu(const std::string &root, unsigned windowMs) {
         if (second.total > first.total)
             return cpuSummary(first, second, windowMs);
     }
-    return error("the CPU counters did not move");
+    return error(say::msg("srv.cpu.stuck", "the CPU counters did not move"));
 }
 } // namespace service
 } // namespace nativetv

@@ -1,4 +1,5 @@
 #include "service/app_catalog.hpp"
+#include "domain/say.hpp"
 #include "service/app_ids.hpp"
 #include "service/curl_global.hpp"
 
@@ -33,7 +34,7 @@ bool startsWithHttps(const std::string &value);
 
 bool validUrl(const std::string &url, std::string &error) {
     if (!startsWithHttps(url)) {
-        error = "the address must start with https://";
+        error = say::msg("srv.fetch.needHttps", "the address must start with https://");
         return false;
     }
     if (url.size() > kMaximumUrlBytes) {
@@ -42,7 +43,7 @@ bool validUrl(const std::string &url, std::string &error) {
     }
     for (unsigned char character : url) {
         if (character <= 0x20 || (character >= 0x7f && character <= 0x9f)) {
-            error = "the address contains spaces or control characters";
+            error = say::msg("srv.fetch.badChars", "the address contains spaces or control characters");
             return false;
         }
     }
@@ -563,7 +564,7 @@ void AppCatalog::refresh(const std::vector<std::string> &urls, int64_t nowMs) {
                 repo.apps = old->second.apps;
                 repo.hasApps = true;
             }
-            if (repo.error.empty()) repo.error = "catalog unavailable";
+            if (repo.error.empty()) repo.error = say::msg("srv.repo.unavailable", "catalog unavailable");
             errors.push_back(repo.error);
         } else {
             fresh = true;
@@ -705,7 +706,7 @@ Json AppCatalog::findPackage(const Json &configuredRepos, const Json &installedR
     if (defaultSelected && !catalog["ok"].boolean()) {
         Json failure = Json::object();
         failure.set("ok", Json::flag(false));
-        failure.set("error", Json::text(catalog["error"].string("catalog unavailable")));
+        failure.set("error", Json::text(catalog["error"].string(say::msg("srv.repo.unavailable", "catalog unavailable"))));
         return failure;
     }
     const Json apps = defaultSelected ? catalog["apps"] : catalog["others"];
@@ -774,9 +775,9 @@ std::string AppCatalog::repositoryInputError(const std::string &url) {
     if (exceedsUtf16Length(url, kMaximumUrlBytes))
         return "the address is longer than 2048 characters";
     if (hasUrlControlCharacter(url))
-        return "the address contains spaces or control characters";
+        return say::msg("srv.fetch.badChars", "the address contains spaces or control characters");
     if (!https)
-        return "the address must start with https://";
+        return say::msg("srv.fetch.needHttps", "the address must start with https://");
     return std::string();
 }
 

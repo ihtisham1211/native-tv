@@ -1,4 +1,5 @@
 #include "service/ssh_keys.hpp"
+#include "domain/say.hpp"
 #include "core/sha256.hpp"
 #include <algorithm>
 #include <array>
@@ -387,12 +388,12 @@ Json addSshKey(const std::string &systemRoot, const std::string &procRoot,
     std::lock_guard<std::mutex> lock(gSshKeysMutex);
     const std::string line = trim(input);
     if (line.size() > kMaximumLine || line.find_first_of("\r\n") != std::string::npos)
-        return error("Paste one public key, on one line.");
+        return error(say::msg("srv.ssh.oneKey", "Paste one public key, on one line."));
     if (line.find("PRIVATE KEY") != std::string::npos)
-        return error("That is a private key. Paste the public key, from the .pub file.");
+        return error(say::msg("srv.ssh.private", "That is a private key. Paste the public key, from the .pub file."));
     SshPublicKey key;
     if (!parseSshPublicKey(line, key))
-        return error("That is not an SSH public key.");
+        return error(say::msg("srv.ssh.notKey", "That is not an SSH public key."));
     const std::string path = rootedPath(systemRoot, kAuthorizedKeys);
     std::vector<std::string> lines;
     (void)readLines(path, lines);
@@ -402,10 +403,10 @@ Json addSshKey(const std::string &systemRoot, const std::string &procRoot,
         if (!parseSshPublicKey(existing, parsed)) continue;
         ++keyCount;
         if (parsed.blob == key.blob)
-            return error("That key is already there.");
+            return error(say::msg("srv.ssh.already", "That key is already there."));
     }
     if (keyCount >= kMaximumKeys)
-        return error("There are already 50 keys.");
+        return error(say::msg("srv.ssh.tooMany", "There are already 50 keys."));
     lines.push_back(line);
     std::string failure;
     if (!writeLines(path, lines, failure))
@@ -419,7 +420,7 @@ Json removeSshKey(const std::string &systemRoot, const std::string &procRoot,
     const std::string path = rootedPath(systemRoot, kAuthorizedKeys);
     std::vector<std::string> lines;
     if (!readLines(path, lines))
-        return error("That key is not there.");
+        return error(say::msg("srv.ssh.noSuchKey", "That key is not there."));
     std::vector<std::string> kept;
     bool removed = false;
     for (const std::string &line : lines) {
@@ -430,7 +431,7 @@ Json removeSshKey(const std::string &systemRoot, const std::string &procRoot,
         }
         kept.push_back(line);
     }
-    if (!removed) return error("That key is not there.");
+    if (!removed) return error(say::msg("srv.ssh.noSuchKey", "That key is not there."));
     std::string failure;
     if (!writeLines(path, kept, failure))
         return error("Could not write " + std::string(kAuthorizedKeys) + ": " + failure);

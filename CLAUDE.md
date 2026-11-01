@@ -29,6 +29,9 @@ pushed:
 - A Home Assistant entity, MQTT topic, config key or Prometheus metric:
   docs/integrations/ (entity names as discovery publishes them, when each is
   published, and the metrics table).
+- Dashboard text, a daemon message the dashboard shows (`say::msg`), or a
+  language: docs/development/strings.md, and the Language setting in
+  docs/dashboard/server.md.
 - A TV app screen or a setup wizard step: docs/apps/tv-app.md and the wizard
   summary in docs/getting-started/install.md.
 - The look of a TV screen (type, colour, shape, spacing, focus, motion, icons):
@@ -87,7 +90,10 @@ browser and may use modern JavaScript.
   `platform` (window, `--probe`, `--time`, `--perf`, the frame loop).
   `tests/golden/` compares rendered screens.
 - `native-tv/web/ui.html` - the phone/browser dashboard's markup; its CSS and
-  scripts are in `native-tv/web/ui/`, one script per tab or concern.
+  scripts are in `native-tv/web/ui/`, one script per tab or concern. `ui/i18n.js`
+  is the string loader (`t()`, the language choice); the dictionaries it reads are
+  `native-tv/assets/i18n/<lang>.json`, which the daemon also reads to translate
+  its messages (`domain/say.cpp`, applied in `HttpExchange::respond`).
 - `native-tv/assets/google-tv/` - the design system of the few web pages that
   remain, after Google's TV Design Kit: `shared/common.css` (named sections
   for literal tokens, fonts, themes and the components those pages use) and
@@ -228,9 +234,14 @@ dashboards' `q()` and `t()`, which every script uses.
 
 # Strings on the dashboards
 
-Text shown on the dashboards is keyed: `data-t` in markup,
-`t('key', 'English', {vars})` in script. The dashboards are English only, so
-the key names the string rather than a translation. docs/development/strings.md has the
-rules, and `scripts/check-strings.py` checks them. The parts already converted
-are listed in `CONVERTED` in that script, and new text in one of them needs a
-key.
+Text shown on the phone/browser dashboard is keyed: `data-t` in markup,
+`t('key', 'English', {vars})` in script, and the daemon's messages it shows
+`say::msg("srv.key", "English", vars)`. The dashboard is in English and Spanish:
+a translation is an entry in `native-tv/assets/i18n/es.json` that records the English
+it was made from, and English that has changed since is shown as English until the
+entry is redone, so editing English never waits on a translation. Removing or
+renaming a key takes its entries with it, or the check fails. The Spanish is partly
+machine-translated; say so wherever it is described. The TV pages and the native TV
+client are English only. docs/development/strings.md has the rules, and
+`scripts/check-strings.py` checks them. The parts already converted are listed in
+`CONVERTED` in that script, and new text in one of them needs a key.

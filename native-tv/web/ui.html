@@ -2605,6 +2605,28 @@
             <div class="sub" id="server-status-msg" role="status" aria-live="polite"></div>
             <div class="prot-row">
               <div class="prot-main">
+                <div class="prot-title" data-t="server.language.title">
+                  Language
+                </div>
+                <div class="prot-desc" data-t="server.language.desc">
+                  The language of this dashboard, kept on this browser only.
+                  Auto follows the browser's own language.
+                </div>
+              </div>
+              <div class="prot-status">
+                <select
+                  class="pill-sel"
+                  id="lang-sel"
+                  aria-label="Language"
+                  data-t-aria-label="server.language.group"
+                >
+                  <option value="auto" data-t="theme.auto">Auto</option>
+                  <option value="en" translate="no">English</option>
+                </select>
+              </div>
+            </div>
+            <div class="prot-row">
+              <div class="prot-main">
                 <div class="prot-title" data-t="server.watch.title">
                   Watch time
                 </div>
@@ -4093,6 +4115,7 @@
         ></div>
       </div>
     </dialog>
+    <script src="/assets/ui/i18n.js"></script>
     <script src="/assets/ui/core.js"></script>
     <script src="/assets/ui/theme.js"></script>
     <script src="/assets/ui/format.js"></script>

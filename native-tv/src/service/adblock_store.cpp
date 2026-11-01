@@ -1,4 +1,5 @@
 #include "service/adblock_store.hpp"
+#include "domain/say.hpp"
 #include "service/preload.hpp"
 #include <algorithm>
 #include <cerrno>
@@ -671,11 +672,11 @@ Json AdBlockStore::setCustomHosts(const Json &options, bool sdpGraceActive) cons
     std::string requestedMode = options["mode"].string();
     if (enabledOnly) {
         if (kept.names.empty())
-            return respond(false, "no hosts list has been uploaded");
+            return respond(false, say::msg("srv.adblock.custom.none", "no hosts list has been uploaded"));
         requestedMode = kept.mode;
     }
     if (requestedMode != "add" && requestedMode != "replace")
-        return respond(false, "mode must be add or replace");
+        return respond(false, say::msg("srv.adblock.custom.badMode", "mode must be add or replace"));
 
     std::vector<std::string> names;
     const bool uploaded = options["text"].isString();
@@ -685,14 +686,14 @@ Json AdBlockStore::setCustomHosts(const Json &options, bool sdpGraceActive) cons
         skipped = parsed.skipped;
         if (names.empty())
             return respond(false,
-                "No host names found in the file. A hosts file has lines such as "
-                "0.0.0.0 ads.example.com, and a plain list has one name on each line.");
+                say::msg("srv.adblock.custom.empty", "No host names found in the file. A hosts file has lines such as "
+                "0.0.0.0 ads.example.com, and a plain list has one name on each line."));
         if (names.size() > 10000)
             return respond(false, "the file has " + std::to_string(names.size()) +
                                   " names; the most the TV takes is 10000");
     } else {
         if (kept.names.empty())
-            return respond(false, "no hosts list has been uploaded");
+            return respond(false, say::msg("srv.adblock.custom.none", "no hosts list has been uploaded"));
         names = kept.names;
     }
 

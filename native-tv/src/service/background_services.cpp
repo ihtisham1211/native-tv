@@ -1,4 +1,5 @@
 #include "service/background_services.hpp"
+#include "domain/say.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cerrno>
@@ -22,70 +23,107 @@ struct CatalogItem {
     const char *id;
     const char *bin;
     const char *exe;
+    const char *titleKey; // each text sits beside its say::msg() key, for scripts/check-strings.py
     const char *title;
     const char *unit;
     const char *upstart;
+    const char *badgeKey; // null for a size such as "2.1 MB RAM", which reads the same in every language
     const char *badge;
+    const char *descriptionKey;
     const char *description;
     bool hidden;
 };
 
 const CatalogItem kCatalog[] = {
-    {"mycar", "com.webos.service.mycar", nullptr, "Car-to-Home Telematics",
-     "com.webos.service.mycar.service", nullptr, "2.1 MB RAM",
+    {"mycar", "com.webos.service.mycar", nullptr,
+     "srv.service.mycar", "Car-to-Home Telematics", "com.webos.service.mycar.service", nullptr,
+     nullptr, "2.1 MB RAM",
+     "srv.service.mycar.desc",
      "Hyundai/Kia Bluelink vehicle status listener in Home Dashboard. Unnecessary unless linking a connected vehicle.", false},
-    {"camera", "com.webos.service.camera2", nullptr, "USB Camera Listener",
-     "com.webos.service.camera.service", nullptr, "2.5 MB RAM",
+    {"camera", "com.webos.service.camera2", nullptr,
+     "srv.service.camera", "USB Camera Listener", "com.webos.service.camera.service", nullptr,
+     nullptr, "2.5 MB RAM",
+     "srv.service.camera.desc",
      "Background USB webcam detection daemon. Unnecessary unless a USB webcam is physically attached.", false},
-    {"uploadd", "uploadd", nullptr, "Telemetry & Diagnostics Uploader",
-     "uploadd.service", "uploadd", "Telemetry",
+    {"uploadd", "uploadd", nullptr,
+     "srv.service.uploadd", "Telemetry & Diagnostics Uploader", "uploadd.service", "uploadd",
+     "srv.service.badge.telemetry", "Telemetry",
+     "srv.service.uploadd.desc",
      "Uploads crash logs, diagnostic traces, and usage telemetry to LG servers.", false},
-    {"rdxd", "rdxd", nullptr, "Remote Diagnostics Daemon", "rdxd.service", "rdxd",
-     "Flash writes",
+    {"rdxd", "rdxd", nullptr,
+     "srv.service.rdxd", "Remote Diagnostics Daemon", "rdxd.service", "rdxd",
+     "srv.service.badge.flashWrites", "Flash writes",
+     "srv.service.rdxd.desc",
      "Continuously logs diagnostic traces, core dumps, and event data to internal flash memory.", false},
-    {"crashreportd", "crashreportd", nullptr, "Jira Crash Reporter", nullptr,
-     "crashreportd", "Telemetry",
+    {"crashreportd", "crashreportd", nullptr,
+     "srv.service.crashreportd", "Jira Crash Reporter", nullptr, "crashreportd",
+     "srv.service.badge.telemetry", "Telemetry",
+     "srv.service.crashreportd.desc",
      "Background daemon on older webOS versions that generates automated crash reports.", false},
-    {"contentminer", "contentminer", nullptr, "ACR Content Miner", "contentminer.service",
+    {"contentminer", "contentminer", nullptr,
+     "srv.service.contentminer", "ACR Content Miner", "contentminer.service", nullptr,
      nullptr, "4.2 MB RAM",
+     "srv.service.contentminer.desc",
      "Scans and indexes on-screen audio/video content for advertising and viewing habit telemetry.", false},
-    {"nudge", "nudge", nullptr, "LG Promotions & Tips Popups", "nudge.service", nullptr,
-     "3.1 MB RAM",
+    {"nudge", "nudge", nullptr,
+     "srv.service.nudge", "LG Promotions & Tips Popups", "nudge.service", nullptr,
+     nullptr, "3.1 MB RAM",
+     "srv.service.nudge.desc",
      "Pushes marketing notifications, promotional popups, and feature tips to the TV interface.", false},
-    {"remotelogger", "remotelogger", nullptr, "Remote Logging Daemon",
-     "remotelogger.service", "remotelogger", "1.7 MB RAM",
+    {"remotelogger", "remotelogger", nullptr,
+     "srv.service.remotelogger", "Remote Logging Daemon", "remotelogger.service", "remotelogger",
+     nullptr, "1.7 MB RAM",
+     "srv.service.remotelogger.desc",
      "Ships system log messages to remote servers.", false},
-    {"pushclient", "com.webos.service.pushclient", nullptr, "LG Push Messages",
-     "com.webos.service.pushclient.service", nullptr, "4.9 MB RAM",
+    {"pushclient", "com.webos.service.pushclient", nullptr,
+     "srv.service.pushclient", "LG Push Messages", "com.webos.service.pushclient.service", nullptr,
+     nullptr, "4.9 MB RAM",
+     "srv.service.pushclient.desc",
      "Receives messages LG sends to the TV, such as promotions and sports alerts.", false},
-    {"ocp", "ocpservice", nullptr, "LG Cloud Link", "ocp.service", nullptr,
-     "6.4 MB RAM",
+    {"ocp", "ocpservice", nullptr,
+     "srv.service.ocp", "LG Cloud Link", "ocp.service", nullptr,
+     nullptr, "6.4 MB RAM",
+     "srv.service.ocp.desc",
      "Keeps the TV linked to LG's ThinQ cloud. Unnecessary unless the TV is controlled from the LG ThinQ app.", false},
-    {"livepick", "livepick-plus", "/usr/sbin/livepick-plus", "Live Plus", nullptr,
+    {"livepick", "livepick-plus", "/usr/sbin/livepick-plus",
+     "srv.service.livepick", "Live Plus", nullptr, nullptr,
      nullptr, "4.5 MB RAM",
+     "srv.service.livepick.desc",
      "Works with screen recognition (ACR) to show interactive offers about what is on screen.", false},
-    {"admanager", "admanager", "/usr/sbin/admanager", "LG Advertising Service", nullptr,
+    {"admanager", "admanager", "/usr/sbin/admanager",
+     "srv.service.admanager", "LG Advertising Service", nullptr, nullptr,
      nullptr, "4.3 MB RAM",
+     "srv.service.admanager.desc",
      "Fetches the ads shown on the TV and keeps its advertising ID.", false},
-    {"sportsalarm", "sportsalarm", "/usr/sbin/sportsalarm", "Sports Alerts", nullptr,
+    {"sportsalarm", "sportsalarm", "/usr/sbin/sportsalarm",
+     "srv.service.sportsalarm", "Sports Alerts", nullptr, nullptr,
      nullptr, "3.8 MB RAM",
+     "srv.service.sportsalarm.desc",
      "Pops up scores for the teams followed on the TV.", false},
     {"iotclient", "iot-client", "/usr/palm/services/com.webos.service.iotclient/iot-client",
-     "ThinQ Smart Home", nullptr, nullptr, "9.3 MB RAM",
+     "srv.service.iotclient", "ThinQ Smart Home", nullptr, nullptr,
+     nullptr, "9.3 MB RAM",
+     "srv.service.iotclient.desc",
      "Controls LG ThinQ appliances from the TV's Home Hub. Unnecessary without ThinQ appliances.", false},
-    {"buddyconnector", "com.webos.service.buddyconnector",
-     "/usr/palm/services/com.webos.service.buddyconnector/com.webos.service.buddyconnector",
-     "ThinQ Device Pairing", nullptr, nullptr, "7.0 MB RAM",
+    {"buddyconnector", "com.webos.service.buddyconnector", "/usr/palm/services/com.webos.service.buddyconnector/com.webos.service.buddyconnector",
+     "srv.service.buddyconnector", "ThinQ Device Pairing", nullptr, nullptr,
+     nullptr, "7.0 MB RAM",
+     "srv.service.buddyconnector.desc",
      "Pairs the TV with other LG ThinQ devices.", false},
-    {"thinqai", "lg.thinqai.adapter", "/usr/sbin/lg.thinqai.adapter", "ThinQ AI",
-     nullptr, nullptr, "3.0 MB RAM",
+    {"thinqai", "lg.thinqai.adapter", "/usr/sbin/lg.thinqai.adapter",
+     "srv.service.thinqai", "ThinQ AI", nullptr, nullptr,
+     nullptr, "3.0 MB RAM",
+     "srv.service.thinqai.desc",
      "Connects the TV to LG's ThinQ AI cloud service.", false},
-    {"familycare", "com.webos.service.familycare",
-     "/usr/palm/services/com.webos.service.familycare/index.js", "Family Care",
-     nullptr, nullptr, "4.6 MB RAM",
+    {"familycare", "com.webos.service.familycare", "/usr/palm/services/com.webos.service.familycare/index.js",
+     "srv.service.familycare", "Family Care", nullptr, nullptr,
+     nullptr, "4.6 MB RAM",
+     "srv.service.familycare.desc",
      "Tracks screen time for LG's Family Care limits. Unnecessary unless Family Care is set up.", false},
-    {"voiceconductor", "voiceconductor", nullptr, "LG Voice Assistant",
-     "voiceconductor.service", nullptr, "",
+    {"voiceconductor", "voiceconductor", nullptr,
+     "srv.service.voiceconductor", "LG Voice Assistant", "voiceconductor.service", nullptr,
+     nullptr, "",
+     "srv.service.voiceconductor.desc",
      "LG's voice assistant: the AI button, voice search and the microphone.", true}
 };
 
@@ -600,9 +638,10 @@ Json backgroundServicesStatus(const std::string &systemRoot,
             continue;
         Json row = Json::object();
         row.set("id", Json::text(item.id));
-        row.set("title", Json::text(item.title));
-        row.set("badge", Json::text(item.badge));
-        row.set("desc", Json::text(item.description));
+        row.set("title", Json::text(say::msg(item.titleKey, item.title)));
+        row.set("badge", Json::text(item.badgeKey ? say::msg(item.badgeKey, item.badge)
+                                                  : std::string(item.badge)));
+        row.set("desc", Json::text(say::msg(item.descriptionKey, item.description)));
         if (item.unit) row.set("unit", Json::text(item.unit));
         else if (item.upstart) row.set("unit", Json::text(item.upstart));
         else row.set("unit", Json());  // null, as the server lists a service with neither

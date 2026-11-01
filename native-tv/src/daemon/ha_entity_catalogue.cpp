@@ -702,16 +702,27 @@ Json haEntityCatalogue() { return catalogueData(); }
 
 Json haEntityCategories() {
     Json out = Json::array();
-    const char *ids[] = {"controls", "oled", "video", "system", "diagnostics"};
-    const char *keys[] = {"srv.ha.cat.controls", "srv.ha.cat.oled", "srv.ha.cat.video", "srv.ha.cat.system", "srv.ha.cat.diagnostics"};
-    const char *names[] = {"Controls & Media", "OLED Care", "Video & HDMI Signal", "System & Telemetry", "Diagnostics & Settings"};
-    const char *descKeys[] = {"srv.ha.cat.controls.desc", "srv.ha.cat.oled.desc", "srv.ha.cat.video.desc", "srv.ha.cat.system.desc", "srv.ha.cat.diagnostics.desc"};
-    const char *descriptions[] = {"Power, volume, mute, playback buttons, apps, and input sources.", "Panel on-time, pixel refresher countdowns, and burn-in protections.", "Active picture mode, dynamic range, refresh rate, VRR, ALLM, and link mode.", "CPU, RAM, swap, SoC temperature, network rates, and storage health.", "Remote battery, audio format, standby LED, sleep timer, and ad blocker."};
-    for (size_t i = 0; i < sizeof(ids) / sizeof(ids[0]); ++i) {
+    // Each key beside its English, so scripts/check-strings.py can read the pair.
+    struct Category {
+        const char *id, *nameKey, *name, *descriptionKey, *description;
+    };
+    static const Category categories[] = {
+        {"controls", "srv.ha.cat.controls", "Controls & Media", "srv.ha.cat.controls.desc",
+         "Power, volume, mute, playback buttons, apps, and input sources."},
+        {"oled", "srv.ha.cat.oled", "OLED Care", "srv.ha.cat.oled.desc",
+         "Panel on-time, pixel refresher countdowns, and burn-in protections."},
+        {"video", "srv.ha.cat.video", "Video & HDMI Signal", "srv.ha.cat.video.desc",
+         "Active picture mode, dynamic range, refresh rate, VRR, ALLM, and link mode."},
+        {"system", "srv.ha.cat.system", "System & Telemetry", "srv.ha.cat.system.desc",
+         "CPU, RAM, swap, SoC temperature, network rates, and storage health."},
+        {"diagnostics", "srv.ha.cat.diagnostics", "Diagnostics & Settings",
+         "srv.ha.cat.diagnostics.desc",
+         "Remote battery, audio format, standby LED, sleep timer, and ad blocker."}};
+    for (const Category &category : categories) {
         Json item = Json::object();
-        item.set("id", Json::text(ids[i]));
-        item.set("name", Json::text(say::msg(keys[i], names[i])));
-        item.set("desc", Json::text(say::msg(descKeys[i], descriptions[i])));
+        item.set("id", Json::text(category.id));
+        item.set("name", Json::text(say::msg(category.nameKey, category.name)));
+        item.set("desc", Json::text(say::msg(category.descriptionKey, category.description)));
         out.add(item);
     }
     return out;

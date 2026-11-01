@@ -1,4 +1,5 @@
 #include "service/app_package_inspector.hpp"
+#include "domain/say.hpp"
 #include "core/sha256.hpp"
 
 #include <zlib.h>
@@ -29,11 +30,17 @@ const size_t kAppInfoBytes = 64 * 1024;
 const size_t kMaximumEntries = 20000;
 const size_t kIoBytes = 16 * 1024;
 
-const char *kTruncated = "the ipk is truncated";
-const char *kBadTar = "the ipk holds a damaged package archive";
-const char *kTooMany = "the ipk holds too many files";
-const char *kUnsupported = "the ipk uses a file format this installer does not read";
-const char *kTooBig = "the ipk unpacks to more than it may";
+// Made where they are used, as say::msg() remembers what it makes for the language of a request.
+std::string truncated() { return say::msg("srv.install.ipk.truncated", "the ipk is truncated"); }
+std::string badTar() {
+    return say::msg("srv.install.ipk.badTar", "the ipk holds a damaged package archive");
+}
+std::string tooMany() { return say::msg("srv.install.ipk.tooMany", "the ipk holds too many files"); }
+std::string unsupported() {
+    return say::msg("srv.install.ipk.unsupported",
+                    "the ipk uses a file format this installer does not read");
+}
+std::string tooBig() { return say::msg("srv.install.ipk.tooBig", "the ipk unpacks to more than it may"); }
 
 struct Member {
     uint64_t start = 0;
@@ -191,7 +198,7 @@ bool readMembers(int descriptor, uint64_t fileSize, Members &members,
     std::array<unsigned char, 8> magic = {};
     if (fileSize < magic.size() || !readAt(descriptor, 0, magic.data(), magic.size()) ||
         std::memcmp(magic.data(), "!<arch>\n", magic.size()) != 0) {
-        error = "the file is not an ipk archive";
+        error = say::msg("srv.install.ipk.notAr", "the file is not an ipk archive");
         return false;
     }
 
@@ -200,12 +207,12 @@ bool readMembers(int descriptor, uint64_t fileSize, Members &members,
     unsigned count = 0;
     while (position < fileSize) {
         if (fileSize - position < 60) {
-            error = kTruncated;
+            error = truncated();
             return false;
         }
         std::array<unsigned char, 60> header = {};
         if (!readAt(descriptor, position, header.data(), header.size())) {
-            error = kTruncated;
+            error = truncated();
             return false;
         }
         std::string name = arField(header.data(), 16);
@@ -214,7 +221,7 @@ bool readMembers(int descriptor, uint64_t fileSize, Members &members,
         uint64_t size = 0;
         if (header[58] != '`' || header[59] != '\n' ||
             !parseDecimal(header.data() + 48, 10, size)) {
-            error = "the file is not an ipk archive";
+            error = say::msg("srv.install.ipk.notAr", "the file is not an ipk archive");
             return false;
         }
         if ((name != "debian-binary" && name != "control.tar.gz" &&
@@ -224,11 +231,11 @@ bool readMembers(int descriptor, uint64_t fileSize, Members &members,
         }
         const uint64_t body = position + header.size();
         if (size > fileSize - body) {
-            error = kTruncated;
+            error = truncated();
             return false;
         }
         if (name != "debian-binary" && size < 18) {
-            error = kBadTar;
+            error = badTar();
             return false;
         }
         found[name] = Member{body, size};
@@ -241,7 +248,7 @@ bool readMembers(int descriptor, uint64_t fileSize, Members &members,
     if (found.size() != 3 || found.find("debian-binary") == found.end() ||
         found.find("control.tar.gz") == found.end() ||
         found.find("data.tar.gz") == found.end()) {
-        error = "the ipk is missing a part";
+        error = say::msg("srv.install.ipk.parts", "the ipk is missing a part");
         return false;
     }
     members.control = found["control.tar.gz"];
@@ -311,7 +318,7 @@ class TarWalker {
             if (mode_ == Mode::End) {
                 for (size_t index = position; index < size; ++index) {
                     if (bytes[index] != 0) {
-                        error = kBadTar;
+                        error = badTar();
                         return false;
                     }
                 }
@@ -351,7 +358,7 @@ class TarWalker {
     bool finish(std::string &error) const {
         if (mode_ == Mode::Body || mode_ == Mode::Padding ||
             (mode_ == Mode::Header && headerLength_ > 0)) {
-            error = kTruncated;
+            error = truncated();
             return false;
         }
         return true;
@@ -374,32 +381,32 @@ class TarWalker {
         }
         uint64_t expectedChecksum = 0;
         if (!parseOctal(header_.data() + 148, 8, expectedChecksum)) {
-            error = kBadTar;
+            error = badTar();
             return false;
         }
         uint64_t checksum = 0;
         for (size_t index = 0; index < header_.size(); ++index)
             checksum += (index >= 148 && index < 156) ? 32 : header_[index];
         if (checksum != expectedChecksum) {
-            error = kBadTar;
+            error = badTar();
             return false;
         }
         if (++entries_ > kMaximumEntries) {
-            error = kTooMany;
+            error = tooMany();
             return false;
         }
         if ((header_[124] & 0x80) != 0) {
-            error = kUnsupported;
+            error = unsupported();
             return false;
         }
         entry_.type = header_[156] ? static_cast<char>(header_[156]) : '0';
         if (entry_.type == 'L' || entry_.type == 'K' || entry_.type == 'x' ||
             entry_.type == 'g' || entry_.type == 'X') {
-            error = kUnsupported;
+            error = unsupported();
             return false;
         }
         if (!parseOctal(header_.data() + 124, 12, entry_.size)) {
-            error = kBadTar;
+            error = badTar();
             return false;
         }
         entry_.name = fixedString(header_.data(), 100);
@@ -414,7 +421,7 @@ class TarWalker {
         if (!entryHandler_(entry_, keepBytes_, error))
             return false;
         if (keepBytes_ > entry_.size) {
-            error = kBadTar;
+            error = badTar();
             return false;
         }
         left_ = entry_.size;
@@ -464,7 +471,7 @@ bool gunzipMember(int descriptor, const Member &member, uint64_t maximumOutput,
             const size_t count = static_cast<size_t>(
                 std::min<uint64_t>(input.size(), member.size - compressedRead));
             if (!readAt(descriptor, member.start + compressedRead, input.data(), count)) {
-                error = kTruncated;
+                error = truncated();
                 break;
             }
             compressedRead += count;
@@ -476,7 +483,7 @@ bool gunzipMember(int descriptor, const Member &member, uint64_t maximumOutput,
         const int result = inflate(&stream, Z_NO_FLUSH);
         const size_t produced = output.size() - stream.avail_out;
         if (produced > maximumOutput - totalOutput) {
-            error = kTooBig;
+            error = tooBig();
             break;
         }
         totalOutput += produced;
@@ -484,18 +491,18 @@ bool gunzipMember(int descriptor, const Member &member, uint64_t maximumOutput,
             break;
         if (result == Z_STREAM_END) {
             if (stream.avail_in != 0 || compressedRead != member.size) {
-                error = kBadTar;
+                error = badTar();
                 break;
             }
             success = walker.finish(error);
             break;
         }
         if (result != Z_OK) {
-            error = kTruncated;
+            error = truncated();
             break;
         }
         if (stream.avail_in == 0 && compressedRead == member.size && produced == 0) {
-            error = kTruncated;
+            error = truncated();
             break;
         }
     }
@@ -656,7 +663,7 @@ bool inspectControl(int descriptor, const Member &member, PackageInfo &package,
             if (segments.size() == 1 && segments[0] == "control" && entry.type == '0' &&
                 !foundControl) {
                 if (entry.size > kControlBytes) {
-                    failure = kTooBig;
+                    failure = tooBig();
                     return false;
                 }
                 foundControl = true;
@@ -672,7 +679,7 @@ bool inspectControl(int descriptor, const Member &member, PackageInfo &package,
     if (!gunzipMember(descriptor, member, kControlBytes, walker, error))
         return false;
     if (control.empty() || !parseControl(control, package.name, package.version)) {
-        error = "the ipk has no usable control file";
+        error = say::msg("srv.install.ipk.noControl", "the ipk has no usable control file");
         return false;
     }
     return true;
@@ -707,7 +714,7 @@ bool inspectData(int descriptor, const Member &member, PackageInfo &package,
                 }
                 links.insert(joinedPath(segments, segments.size()));
             } else if (entry.type != '0' && entry.type != '5') {
-                failure = kUnsupported;
+                failure = unsupported();
                 return false;
             }
             if (segments.size() < 4 || segments[0] != "usr" || segments[1] != "palm" ||
@@ -790,7 +797,7 @@ bool inspectData(int descriptor, const Member &member, PackageInfo &package,
     if (!gunzipMember(descriptor, member, kDataBytes, walker, error))
         return false;
     if (package.apps.empty() && package.services.empty()) {
-        error = "the ipk contains no app or service";
+        error = say::msg("srv.install.ipk.empty", "the ipk contains no app or service");
         return false;
     }
     return true;

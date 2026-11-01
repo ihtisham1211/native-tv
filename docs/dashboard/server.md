@@ -20,6 +20,8 @@ The **Server and backup** tab of the **Settings** section, `/?tab=server`, holds
 
 **Check daily** is off by default, so the TV contacts GitHub only when asked. Switched on, it checks five minutes after the server starts and again once a day has passed, retrying after an hour when GitHub could not be reached. It is `"update": {"check": true}` in `config.json`, which [Settings backup](#native-tv) carries.
 
+**Language** sets the language of this dashboard: Auto follows the browser's own, or English or Español. The choice is kept in the browser, not on the TV, and the page reloads when it changes; `/?lang=es` picks a language for one visit. The TV's own messages that the dashboard shows, such as errors, screen saver names and the descriptions of LG's settings, follow the page. Names the TV reports (picture modes, inputs), the descriptions of apps in the Homebrew Channel catalogue, the Home Assistant entities, the logs and the TV app are not translated. Much of the Spanish is [machine-translated and awaits review by a native speaker](../development/strings.md#spanish).
+
 **App on the TV's home screen** adds or removes [the dashboard's own app](../apps/tv-app.md), which opens it on the TV and is driven by the remote.
 
 ## Advanced

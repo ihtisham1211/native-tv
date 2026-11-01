@@ -28,14 +28,18 @@ int main() {
     char pattern[] = "/tmp/nativetv-retired-XXXXXX";
     const std::string root = mkdtemp(pattern);
     for (const char *folder : {"/assets", "/assets/i18n"}) mkdir((root + folder).c_str(), 0755);
-    touch(root + "/assets/i18n/es.json");
+    touch(root + "/assets/i18n.js");
     touch(root + "/assets/qr.js");
     touch(root + "/assets/kept.js");
+    // The dashboard's dictionary is shipped now, so it is not retired.
+    touch(root + "/assets/i18n/es.json");
     check(removeRetiredFiles(root) == 2, "the listed files that exist are counted");
-    check(!exists(root + "/assets/i18n"), "the emptied folder goes too");
+    check(exists(root + "/assets/i18n/es.json"), "the dashboard's dictionary stays");
     check(exists(root + "/assets/kept.js"), "nothing else is touched");
     check(removeRetiredFiles(root) == 0, "a second start finds nothing");
+    unlink((root + "/assets/i18n/es.json").c_str());
     unlink((root + "/assets/kept.js").c_str());
+    rmdir((root + "/assets/i18n").c_str());
     rmdir((root + "/assets").c_str());
     rmdir(root.c_str());
 

@@ -13,7 +13,7 @@ something is wrong, and Home Assistant and the TV's own browser fail quietly.
 | :--- | :--- |
 | `check-es5.py` | ES6 syntax, or a call or CSS the TV browser lacks, in the pages the TV shows (`native-tv/assets/google-tv/`, the Home app). The phone dashboard is not restricted. |
 | `check-ui-ids.py` | An element the dashboard's script reaches for that the page no longer has. |
-| `check-strings.py` | Dashboard text without a key, and one key used for two different texts. [Strings](strings.md) has the rules. |
+| `check-strings.py` | Dashboard text or a `say::msg` message without a key, one key used for two different texts, and a dictionary in `native-tv/assets/i18n/` that does not parse, holds a key nothing uses, or has placeholders or markup that differ from its English. Translations made from English that has since changed are reported, not failed. [Strings](strings.md) has the rules. |
 | `check-screensavers.py` | Screen saver QML that the TV's QtQuick version cannot load. |
 | `check-drift.py` | The [entity reference](../integrations/home-assistant-entities.md) out of step with the entities the daemon publishes, a file missing from `native-tv/lifecycle/deploy.sh`'s list, which would never be installed, and an asset the TV client names (`local:...`, the Google Sans Flex and Roboto fonts) that `tools/runtime_payload.py` does not stage for it. |
 | `check-entity-stability.py` | A Home Assistant entity from the last release that has gone, been renamed or changed domain, which leaves it unavailable and stops every automation that used it. A deliberate removal is listed in `scripts/retired-entities.txt` with its reason. |
@@ -430,7 +430,7 @@ suite adds the version shown with matching build metadata only (`test-version.js
 an install started after the settings save (`test-restart-wait.js`). The debounce and publish-gap timing of
 `test-state-push.js` belongs to the Home Assistant publication, which is the daemon's now. The suites
 `test-dashboard-nav.js`, `test-dashboard-search.js`, `test-dashboard-view.js`, `test-mqtt-save-ui.js`,
-`test-token-url.js`, `test-admin-session.js`, `test-release-card.js` and `test-home-boot.js` load the shipped sources (`native-tv/web/ui/`,
+`test-i18n.js` runs the string loader (`ui/i18n.js`) against a stand-in page, address bar, storage and network: the language is picked from `?lang=`, then the stored choice, then the browser's; the dictionary is read once, synchronously; English that no longer matches an entry's `from` is shown as it is; `data-t` text and attributes are translated in place; the `X-Native-Tv-Lang` header goes on requests to the TV and not to other sites; and the Server tab's list stores a choice and drops `?lang=` before reloading. `test-token-url.js`, `test-admin-session.js`, `test-release-card.js` and `test-home-boot.js` load the shipped sources (`native-tv/web/ui/`,
 `native-tv/assets/google-tv/` and `native-tv/lifecycle/50-tvweb.sh`) and run on the host with
 `node native-tv/tests/ui/run.js`. `test-admin-session.js` runs the fetch wrapper of `ui/core.js` against a stand-in network: the admin session goes out with API requests only, a 403 that says `pin:true` raises the unlock prompt and retries once, a cancelled prompt leaves the refusal, and a 401 raises the passcode screen. `test-dashboard-nav.js` holds the phone dashboard's sections and tabs
 against `ui.html` (the 13 panels, five sections, the tab buttons the scripts reveal), the Android wrapper's
@@ -500,6 +500,19 @@ tile's app kept).
 
 `native-retired-files` also checks `removeRetiredApps`: the developer client's two folders go whole and count once,
 the tile's app and a missing apps folder are left alone.
+
+`native-retired-files` also holds that the dashboard's dictionary, `assets/i18n/es.json`, is not retired: the daemon deleted
+it at every start while an earlier release listed it. `native-say` (`tests/say.cpp`) holds the translation of the daemon's messages
+for a dashboard in another language: only the display fields change and a raw value that reads like a message does not, values and
+messages inside values keep their place, English that changed since the entry was made, an empty or malformed entry and a
+missing key show the English, a body with nothing to change is sent as it came, memory stays bounded (the oldest message
+with values is forgotten once the table fills), and four threads making messages while others are translated stay consistent.
+`native-http-server` checks that `HttpExchange::respond()` translates a JSON answer when the exchange has a language and leaves
+other content types, other languages and requests with none alone. The `test_native_dashboard_language_header_translates_json`
+case of `daemon_runtime.py` runs the daemon with the real `native-tv/assets/i18n/es.json`: `/api/screensaver` answers in
+English without `X-Native-Tv-Lang` (or with another language, a bare `en` or an odd value) and with Spanish names and
+descriptions, with the same ids and states, with `es`; an error from `/api/control` is translated with a matching
+`Content-Length`; and the dictionary is served as an asset.
 
 The end-to-end cases (`native-tv/tests/e2e`, run against a real TV with `NATIVETV_TV_HOST`) run the client as the tile's
 app. Four flow cases (`E2E-080` to `E2E-083`, `requires: ["takeover"]`, so only with `--allow takeover`) switch Home on,

@@ -76,7 +76,7 @@ SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=6 -o StrictHostKeyChecking=accept-n
 STAGE=/var/lib/tvweb/.deploy     # on the TV; beside the install so moves are renames
 
 FILES="tvwebctl assets/ui.html assets/favicon.svg \
-assets/ui/theme.css assets/ui/ui.css assets/ui/core.js assets/ui/theme.js assets/ui/format.js assets/ui/readouts.js \
+assets/ui/theme.css assets/ui/ui.css assets/ui/i18n.js assets/ui/core.js assets/ui/theme.js assets/ui/format.js assets/ui/readouts.js \
 assets/ui/server.js assets/ui/controls.js assets/ui/privacy.js assets/ui/lgsettings.js assets/ui/game.js \
 assets/ui/system.js assets/ui/history.js assets/ui/ssh.js assets/ui/screentime.js assets/ui/apps.js assets/ui/install.js assets/ui/home.js assets/ui/tabs.js assets/ui/servicemenu.js \
 assets/ui/oled.js assets/ui/screensavers.js assets/ui/mqtt.js assets/ui/tools.js assets/ui/search-aliases.js assets/ui/search.js assets/ui/main.js \
@@ -88,6 +88,7 @@ assets/home-app/assets/icon80.png assets/home-app/assets/icon130.png \
 assets/splash-app/appinfo.json assets/splash-app/packageinfo.json \
 assets/splash-app/assets/icon80.png assets/splash-app/assets/icon130.png \
 assets/early-service/install.sh assets/early-service/early-start.sh \
+assets/i18n/es.json \
 assets/fonts/Roboto-Regular.woff assets/fonts/Roboto-Medium.woff assets/fonts/LICENSE-Roboto.txt \
 assets/fonts/GoogleSansFlex-Display.ttf assets/fonts/GoogleSansFlex-Regular.ttf assets/fonts/GoogleSansFlex-Medium.ttf assets/fonts/LICENSE-GoogleSansFlex-OFL.txt \
 assets/app-icons/app-icons.pack assets/app-icons/LICENSE-DashboardIcons.txt \
