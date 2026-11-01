@@ -94,11 +94,11 @@ Native Tv running on a model that is not listed? A [TV report](https://github.co
 
 Native Tv installs from a computer on the same network as the TV, over SSH, or over the Homebrew Channel's telnet when no SSH key is set up. The TV needs no internet access.
 
-The computer needs Git, Bash, Python 3, CMake, `pkg-config` and a [webOSbrew native SDK](https://github.com/webosbrew/native-toolchain), which is built for macOS (Apple silicon and Intel) and arm64 Linux only.
+The computer needs Git, Bash, Python 3, CMake, `pkg-config`, Ninja or `make` and the [webOSbrew native SDK](https://github.com/webosbrew/native-toolchain), which is built for macOS (Apple silicon and Intel) and arm64 Linux only. The [installation guide](https://ihtisham1211.github.io/native-tv/getting-started/install/#get-the-sdk) has the commands that download the SDK.
 
 1. Root the TV and install the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel). Native Tv does not root the TV.
 2. Clone this repository on the computer: `git clone https://github.com/ihtisham1211/native-tv.git && cd native-tv`.
-3. Build the ARM server and TV app with the SDK: `python3 native-tv/build.py --sdk /path/to/arm-webos-linux-gnueabi_sdk-buildroot`.
+3. Build the ARM server and TV app with the SDK: `python3 native-tv/build.py --sdk /path/to/arm-webos-linux-gnueabi_sdk-buildroot`. It says what to install if the computer lacks a tool.
 4. Run `native-tv/lifecycle/deploy.sh <tv-ip>` from the repository root.
 5. Open `http://<tv-ip>:8080/` in a browser.
 
@@ -106,7 +106,7 @@ The [installation guide](https://ihtisham1211.github.io/native-tv/getting-starte
 
 ### Try the dashboard without a TV
 
-The emulator serves the dashboard at `http://localhost:8080/` with stand-in readings. It needs Node.js on the computer; the TV runs none.
+The emulator serves the dashboard at `http://localhost:8080/` with stand-in readings. It needs Node.js on the computer, and a host build, which needs a C++ compiler, CMake, pkg-config, json-c and libcurl ([what to install](https://ihtisham1211.github.io/native-tv/development/contributing/#building-and-testing)); the TV runs no Node.
 
 ```bash
 python3 native-tv/build.py --service-only
@@ -125,7 +125,7 @@ An AI coding assistant with a shell on a computer on the TV's network (Claude Co
 
    ```bash
    uname -sm
-   for t in git python3 cmake pkg-config bash ssh curl; do command -v "$t" >/dev/null || echo "missing: $t"; done
+   for t in git python3 bash curl tar bzip2 file; do command -v "$t" >/dev/null || echo "missing: $t"; done
    ```
 
 2. Clone the repository: `git clone https://github.com/ihtisham1211/native-tv.git && cd native-tv`.
@@ -138,9 +138,10 @@ An AI coding assistant with a shell on a computer on the TV's network (Claude Co
    ~/webos-sdk/arm-webos-linux-gnueabi_sdk-buildroot/relocate-sdk.sh
    ```
 
-4. Build the ARM server and TV app. Leave out `--service-only`: it skips the TV app, which the deploy packages too.
+4. Build the ARM server and TV app. The first command lists what the computer lacks (CMake, pkg-config, Ninja or make) with the install command for macOS and Debian/Ubuntu: run it with the owner's OK. Leave out `--service-only` from the second: it skips the TV app, which the deploy packages too.
 
    ```bash
+   python3 native-tv/build.py --check --sdk ~/webos-sdk/arm-webos-linux-gnueabi_sdk-buildroot
    python3 native-tv/build.py --sdk ~/webos-sdk/arm-webos-linux-gnueabi_sdk-buildroot
    ```
 

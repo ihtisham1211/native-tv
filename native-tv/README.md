@@ -35,41 +35,25 @@ belong to the adapter; screens send named `Operation` values.
 
 ## Build and test
 
-Host dependencies: CMake 3.16+, a C++14 compiler, pkg-config, SDL2, SDL2_image,
-SDL2_ttf, json-c, zlib, libcurl and OpenGL/GLES2. On macOS:
+What to install is in [Contributing](../docs/development/contributing.md#building-and-testing);
+`python3 native-tv/build.py --check` lists what is missing. The full host build, with the
+TV client, and a run of the client in a window:
 
 ```sh
-brew install cmake ninja ccache sdl2_image sdl2_ttf json-c
 python3 native-tv/build.py --out native-tv/build-host-ninja --test
 native-tv/build-host-ninja/nativetv-tv --windowed
 ```
 
-`--sanitize --out native-tv/build-sanitize --test` enables address and undefined
-behavior sanitizers. Incremental builds reuse CMake's build directory. When
-`ninja` is on `PATH`, `build.py` generates new build directories with it and
-falls back to Makefiles without it. An existing directory keeps its generator;
-delete an older `build-*` directory to switch it. When
-`ccache` is on `PATH`, `build.py` uses it as the C/C++ compiler launcher;
-`--no-ccache` disables that. It speeds up clean builds and rebuilds after
-header changes; Ninja skips unchanged targets on incremental builds. Native
-tests run through CTest.
-Without `--out`, `build.py` now selects `build-host-ninja` when Ninja is
-installed and falls back to `build-host` otherwise. Existing output
-directories keep their configured generator. Set `--build-jobs N` to tune
-compile parallelism; the default uses up to eight available CPUs.
-
-Existing `build-host` directories created with Make keep that generator. Use a
-fresh output directory such as `build-host-ninja` to switch the current
-checkout to Ninja. For an optimized sanitized service build, use
-this command:
-
-```sh
-python3 native-tv/build.py --service-only --sanitize --out native-tv/build-host-sanitize-ninja --test
-```
-
-Host test builds shorten SAM's
-wait intervals to 5 ms; SDK builds set `BUILD_TESTING=OFF` and keep production
-timings.
+`--sanitize` enables the address and undefined behavior sanitizers; an optimized
+sanitized service build is
+`python3 native-tv/build.py --service-only --sanitize --out native-tv/build-host-sanitize-ninja --test`.
+Without `--out`, `build.py` uses `build-host-ninja` when Ninja is installed and
+`build-host` otherwise; a build directory keeps the generator it was made with, so
+delete an older `build-*` directory to switch it. `ccache` is the compiler launcher
+when it is installed (`--no-ccache` turns that off). `--build-jobs N` sets compile
+parallelism, up to eight CPUs by default. Native tests run through CTest. Host test
+builds shorten SAM's wait intervals to 5 ms; SDK builds set `BUILD_TESTING=OFF` and
+keep production timings.
 
 The service can also build without any SDL/OpenGL dependencies:
 

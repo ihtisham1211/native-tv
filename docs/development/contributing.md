@@ -1,20 +1,50 @@
 # Contributing
 
-The server is a C++14 daemon in `native-tv/`; no Node runs on the TV or in the
-build. The [layout](https://github.com/ihtisham1211/native-tv/blob/main/CLAUDE.md#code-map)
+The server is a C++14 daemon in `native-tv/`; no Node runs on the TV, and the
+build needs none. The [layout](https://github.com/ihtisham1211/native-tv/blob/main/CLAUDE.md#code-map)
 and [module boundaries](https://github.com/ihtisham1211/native-tv/blob/main/native-tv/ARCHITECTURE.md)
 say where a change goes.
 
 ## Building and testing
+
+The host build and its tests need a C++14 compiler, CMake, pkg-config, Python 3
+(standard library only), json-c and libcurl, and nothing else:
+
+```bash
+# macOS, after xcode-select --install
+brew install cmake pkgconf json-c
+# Debian/Ubuntu
+sudo apt install g++ cmake ninja-build pkg-config python3 libjson-c-dev libcurl4-openssl-dev
+```
+
+`python3 native-tv/build.py --check` lists what a computer lacks and the command that
+installs it; `build.py` runs the same check before it starts CMake. Then:
 
 ```bash
 python3 native-tv/build.py --service-only --test
 python3 native-tv/build.py --service-only --test --sanitize --out native-tv/build-host-ninja-asan
 ```
 
-The ARM build, which `deploy.sh` and the Homebrew package need, takes the webOSbrew SDK:
-`python3 native-tv/build.py --sdk /path/to/arm-webos-linux-gnueabi_sdk-buildroot`, which builds the daemon, its worker
-and the TV app. To check only that a daemon change cross-compiles, add `--service-only --target nativetv-daemon`.
+`ninja` and `ccache` are used when installed and make rebuilds faster. `node` runs three
+more tests (the dashboard scripts and the metrics worker's output), the route and
+test-matrix checks and the emulator; without it those tests are listed as skipped (CI fails
+without it). `openssl` runs one more test and
+is skipped the same way. Building without `--service-only` adds the TV client, which needs SDL2,
+SDL2_image, SDL2_ttf and FreeType:
+
+```bash
+brew install sdl2 sdl2_image sdl2_ttf freetype
+sudo apt install libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libfreetype6-dev libgles2-mesa-dev
+```
+
+The ARM build, which `deploy.sh` and the Homebrew package need, takes the webOSbrew SDK
+([getting it](../getting-started/install.md#get-the-sdk)) and, on the computer, only
+CMake, pkg-config and Ninja or make: `python3 native-tv/build.py --sdk /path/to/arm-webos-linux-gnueabi_sdk-buildroot`
+builds the daemon, its worker and the TV app. To check only that a daemon change
+cross-compiles, add `--service-only --target nativetv-daemon`. The Homebrew package
+(`scripts/build-ipk.py`) also needs LG's `ares-package`, which it runs with `npx` (so Node)
+unless it is on `PATH`.
+
 [Testing and CI](testing.md) lists every check CI runs and how to run
 each one locally. Code compiles with `-Wall -Wextra -Werror`.
 
