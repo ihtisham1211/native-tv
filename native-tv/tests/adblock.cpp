@@ -416,6 +416,10 @@ int main() {
               tier + ": the customer data host is blocked");
     }
     const std::string adsOnly = adBlockHostsTable("ads", "", "", false, false, nullptr, {});
+    check(sinkholed(adBlockHostsTable("full", "", "", false, false, nullptr, {}),
+                    "avsxappcaptiveportal.com") &&
+              !sinkholed(adsOnly, "avsxappcaptiveportal.com"),
+          "Alexa's internet check is blocked on the everything tier only");
     for (const std::string &host : reachable)
         check(!sinkholed(adsOnly, host), host + " must not be sinkholed by the ads tier");
     check(adBlockList("off", "", "", false, nullptr).empty() &&

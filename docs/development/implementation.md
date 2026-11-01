@@ -875,6 +875,7 @@ list of common third-party ad and measurement endpoints. The following are
 | `cdplauncher.lgtvcommon.com`, `lgchhomeapp.lgtvcommon.com` | The Home launcher's recommendations and usage reports; needed by the Content Store after a factory reset |
 | `lgtviot.com` | The ThinQ cloud: the LG ThinQ app can no longer control the TV with it blocked |
 | `ueiwsp.com` | Universal Electronics' identification of devices connected over HDMI-CEC |
+| `avsxappcaptiveportal.com` | Amazon's Alexa SDK asks it for `/generate_204` on a timer while Alexa runs, to tell whether the TV is online; blocked, Alexa reads the TV as offline |
 | `lgtvsdp.com` (and `us.`/`gb.`/`eu.`) | Service platform behind the Content Store on webOS 4 |
 | `nextlgsdp.com` (and `us.`/`gb.`/`eu.`) | The same on webOS 9 |
 

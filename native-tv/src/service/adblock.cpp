@@ -68,7 +68,11 @@ const std::vector<std::string> kPlatformHosts = {
     "ngfts.lge.com", "aic-ngfts.lge.com", "cdplauncher.lgtvcommon.com",
     "lgchhomeapp.lgtvcommon.com", "lgtviot.com", "api.lgtviot.com",
     "push.lgtviot.com", "ocp.lgtviot.com", "common.lgthinq.com",
-    "connect-client.lgthinq.com", "ueiwsp.com"
+    "connect-client.lgthinq.com", "ueiwsp.com",
+    // Amazon's Alexa SDK (libAVSCommon) fetches /generate_204 from it on a
+    // timer to tell whether the TV is online, while Alexa runs; blocked,
+    // Alexa reads the TV as offline.
+    "avsxappcaptiveportal.com"
 };
 const std::vector<std::string> kSdpHosts = {
     "nextlgsdp.com", "us.nextlgsdp.com", "gb.nextlgsdp.com",
