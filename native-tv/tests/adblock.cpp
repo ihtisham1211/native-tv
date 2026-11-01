@@ -77,6 +77,7 @@ class TempTree {
         ::unlink((data + "/adblock_hosts").c_str());
         ::unlink((data + "/adblock_enabled").c_str());
         ::unlink((data + "/adblock_custom.json").c_str());
+        ::unlink((data + "/local_lookups").c_str());
         ::unlink((etc + "/hosts").c_str());
         ::unlink((preferences + "/webosbrew_block_updates").c_str());
         ::rmdir(preferences.c_str());
@@ -184,6 +185,118 @@ void checkStore() {
     }
 }
 } // namespace
+
+void checkLocalLookups() {
+    using namespace nativetv::service;
+    // 192.168.2.128/24, 10.0.0.9/16 (covered as the /24 around it), 192.168.5.37/28
+    // and a public address, which is left alone.
+    const std::vector<LocalInterface> interfaces = {
+        {0xc0a80280u, 0xffffff00u}, {0x0a000009u, 0xffff0000u},
+        {0xc0a80525u, 0xfffffff0u}, {0x51020304u, 0xffffff00u}};
+    const std::vector<std::string> addresses = adBlockLocalLookupAddresses(interfaces);
+    size_t onWlan = 0, onSmall = 0;
+    for (const std::string &address : addresses) {
+        if (address.compare(0, 10, "192.168.2.") == 0) ++onWlan;
+        if (address.compare(0, 10, "192.168.5.") == 0) ++onSmall;
+    }
+    check(onWlan == 253 && !has(addresses, "192.168.2.128") && !has(addresses, "192.168.2.0") &&
+              !has(addresses, "192.168.2.255"),
+          "a /24 is 1 to 254, less the TV");
+    check(has(addresses, "10.0.0.1") && has(addresses, "10.0.0.254") &&
+              !has(addresses, "10.0.0.9") && !has(addresses, "10.0.1.1"),
+          "a wider network covers the /24 around the TV");
+    check(onSmall == 13 && has(addresses, "192.168.5.33") && has(addresses, "192.168.5.46") &&
+              !has(addresses, "192.168.5.37") && !has(addresses, "192.168.5.47"),
+          "a /28 is its 14 hosts, less the TV");
+    check(addresses.size() == 253 + 253 + 13, "public addresses add none");
+
+    check(adBlockIsLocalLookupLine("192.168.2.1\t192.168.2.1") &&
+              !adBlockIsLocalLookupLine("192.168.2.5\tnas") &&
+              !adBlockIsLocalLookupLine("192.168.2.1 192.168.2.2") &&
+              !adBlockIsLocalLookupLine("nas nas") &&
+              !adBlockIsLocalLookupLine("999.1.1.1 999.1.1.1") &&
+              !adBlockIsLocalLookupLine("192.168.2.1\t192.168.2.1\tnas"),
+          "only an address named as itself is a local lookup line");
+
+    const std::string table = adBlockHostsTable("off", "", "", false, false, nullptr, {},
+                                                {"192.168.2.1", "192.168.2.2"});
+    check(table.find("\n192.168.2.1\t192.168.2.1\n192.168.2.2\t192.168.2.2\n") != std::string::npos,
+          "the table names each address as itself");
+    check(adBlockHostsTable("off", "", "", false, false, nullptr, {}).find("192.168.2.1") ==
+              std::string::npos,
+          "nothing without the setting");
+    const std::vector<std::string> foreign = adBlockForeignHostsLines(
+        table + "192.168.2.5\tnas\n", adBlockManagedNames("", ""));
+    check(foreign.size() == 1 && foreign[0] == "192.168.2.5\tnas",
+          "the table's own lines are not carried over as another tool's, a real name is");
+
+    {
+        TempTree tree;
+        const std::string hosts = tree.etc + "/hosts";
+        writeFile(hosts, "127.0.0.1 localhost\n");
+        const std::shared_ptr<std::vector<LocalInterface>> current(
+            new std::vector<LocalInterface>{{0xc0a80280u, 0xffffff00u}});
+        AdBlockMountOperations operations = fakeMountOperations();
+        operations.interfaces = [current]() { return *current; };
+        AdBlockStore store(tree.data, tree.system, operations);
+        check(!store.localLookups() && !store.tableMounted(), "off to begin with");
+        const Json on = store.setLocalLookups(true, false);
+        check(on["ok"].boolean() && on["localLookups"].boolean() && store.localLookups() &&
+                  store.tableMounted() && store.mode() == "off",
+              "switching it on mounts the table with the ad blocker off");
+        std::string mounted = readFile(hosts);
+        check(mounted.find("\n192.168.2.1\t192.168.2.1\n") != std::string::npos &&
+                  mounted.find("192.168.2.128\t") == std::string::npos &&
+                  mounted.find("0.0.0.0") == std::string::npos,
+              "the mounted table answers the network but not the TV, and blocks nothing");
+
+        // A real bind mount shows the table file as it is rewritten; the fake copies
+        // it once, so later writes are read from the file itself.
+        const std::string tableFile = tree.data + "/adblock_hosts";
+        check(store.refreshForNetworkChange(false) && readFile(tableFile) == mounted,
+              "the same network leaves the table as it is");
+        (*current)[0] = LocalInterface{0x0a000009u, 0xffffff00u};
+        check(store.refreshForNetworkChange(false), "a refresh succeeds");
+        const std::string moved = readFile(tableFile);
+        check(moved.find("\n10.0.0.1\t10.0.0.1\n") != std::string::npos &&
+                  moved.find("192.168.2.1\t") == std::string::npos,
+              "another network replaces the lines, which are not kept as another tool's");
+
+        const Json off = store.setLocalLookups(false, false);
+        check(off["ok"].boolean() && !off["localLookups"].boolean() && !store.localLookups() &&
+                  !store.tableMounted() && readFile(hosts) == "127.0.0.1 localhost\n",
+              "switching it off takes the table down when nothing else needs it");
+    }
+    {
+        // A table that cannot be mounted must not leave the switch on.
+        TempTree tree;
+        writeFile(tree.etc + "/hosts", "127.0.0.1 localhost\n");
+        AdBlockMountOperations operations = fakeMountOperations();
+        operations.bind = [](const std::string &, const std::string &) { return false; };
+        operations.interfaces = []() {
+            return std::vector<LocalInterface>{{0xc0a80280u, 0xffffff00u}};
+        };
+        AdBlockStore store(tree.data, tree.system, operations);
+        const Json refused = store.setLocalLookups(true, false);
+        check(!refused["ok"].boolean() && !refused["error"].string().empty() &&
+                  !store.localLookups(),
+              "a refused mount leaves the setting off, and says why");
+    }
+    {
+        TempTree tree;
+        writeFile(tree.etc + "/hosts", "127.0.0.1 localhost\n");
+        writeFile(tree.data + "/local_lookups", "");
+        AdBlockMountOperations operations = fakeMountOperations();
+        operations.interfaces = []() {
+            return std::vector<LocalInterface>{{0xc0a80280u, 0xffffff00u}};
+        };
+        AdBlockStore store(tree.data, tree.system, operations);
+        check(store.restoreAtBoot(true) && store.tableMounted() &&
+                  readFile(tree.etc + "/hosts").find("192.168.2.1\t192.168.2.1\n") !=
+                      std::string::npos,
+              "the table comes back at boot for the setting alone");
+    }
+}
 
 int main() {
     using namespace nativetv::service;
@@ -311,6 +424,7 @@ int main() {
     check(adsOnly.find("::1\tlocalhost ip6-localhost ip6-loopback") != std::string::npos,
           "localhost keeps its IPv6 entry");
     checkStore();
+    checkLocalLookups();
     std::cout << "native ad-block policy checks passed\n";
     return 0;
 }

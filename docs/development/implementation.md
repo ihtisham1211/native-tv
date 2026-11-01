@@ -854,6 +854,17 @@ the previous boot's, so a tool that is no longer started leaves nothing behind.
 The table is written in place rather than replaced, since app jails such as
 Amazon's bind-mount it as their own `tmp/hosts` while it is mounted.
 
+**Answer device scans on the TV** puts the table up on its own, as update
+blocking does, and adds a line naming each host address of the TV's private
+IPv4 networks as itself (`192.168.2.7<TAB>192.168.2.7`), less the TV's own
+addresses, which the daemon looks up to name the TV. A network is the TV's
+subnet where that is a /24 or smaller, otherwise the /24 around the TV, which
+is what LG's scans cover. Those lines are not carried over as another tool's.
+The switch is the file `/var/lib/tvweb/local_lookups`. A timer checks the
+TV's addresses every 10 minutes and rewrites the table when they differ from
+the ones it was last written for. The research is in
+[LG's device scans](tv-research.md#lgs-device-scans-webos-922-c2).
+
 The ads tier includes LG's ad, tracking and diagnostics hosts and a compact
 list of common third-party ad and measurement endpoints. The following are
 **LG infrastructure rather than advertising**, which is why they are a separate tier:
