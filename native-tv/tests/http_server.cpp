@@ -3,6 +3,8 @@
 #include "daemon/http_auth.hpp"
 #include "daemon/http_caps.hpp"
 #include "daemon/http_proxy.hpp"
+#include "domain/say.hpp"
+#include "domain/say_translation.hpp"
 #include <arpa/inet.h>
 #include <cerrno>
 #include <chrono>
@@ -16,6 +18,7 @@
 #include <string>
 #include <sys/resource.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <sys/time.h>
 #include <thread>
 #include <unistd.h>
@@ -804,6 +807,44 @@ void testBufferedExchange() {
     check(!oversized.setBodyLimit(4) && oversized.bodyLimitExceeded(),
           "buffered exchange did not reject a body beyond its limit");
 }
+
+// A dashboard in another language gets the messages in its JSON answers translated, once, in respond().
+void testTranslatedResponses() {
+    char pattern[] = "/tmp/nativetv-http-lang-XXXXXX";
+    const std::string folder = mkdtemp(pattern);
+    std::ofstream(folder + "/es.json") << "{\"srv.test.hello\":{\"text\":\"Hola\",\"from\":\"Hello\"}}";
+    check(nativetv::say::loadTranslations(folder) == 1, "the test dictionary was not read");
+    const std::string hello = nativetv::say::msg("srv.test.hello", "Hello");
+    const std::string json = "{\"error\":\"" + hello + "\"}";
+    HttpRequest request;
+    request.method = "GET";
+    request.uri = "/api/screensaver";
+    request.version = "1.1";
+
+    HttpExchange spanish(request, "");
+    spanish.setResponseLanguage("es");
+    check(spanish.respond(200, {{"content-type", "Application/JSON; charset=utf-8"}}, json) &&
+              spanish.responseBody() == "{\"error\":\"Hola\"}",
+          "a JSON answer to a Spanish request was not translated");
+    HttpExchange english(request, "");
+    check(english.respond(200, {{"Content-Type", "application/json"}}, json) &&
+              english.responseBody() == json,
+          "an answer to a request with no language was changed");
+    HttpExchange text(request, "");
+    text.setResponseLanguage("es");
+    check(text.respond(200, {{"Content-Type", "text/plain"}}, json) && text.responseBody() == json,
+          "an answer that is not JSON was changed");
+    HttpExchange unknown(request, "");
+    unknown.setResponseLanguage("xx");
+    check(unknown.respond(200, {{"Content-Type", "application/json"}}, json) &&
+              unknown.responseBody() == json,
+          "an answer in a language with no dictionary was changed");
+
+    check(nativetv::say::loadTranslations("/nonexistent/nativetv-http-lang") == 0,
+          "an empty dictionary folder was read");
+    unlink((folder + "/es.json").c_str());
+    rmdir(folder.c_str());
+}
 } // namespace
 
 int main() {
@@ -815,6 +856,7 @@ int main() {
         testNodeProxy();
         testHttpAuthentication();
         testBufferedExchange();
+        testTranslatedResponses();
         return 0;
     } catch (const std::exception &error) {
         std::fprintf(stderr, "native HTTP server test failed: %s\n", error.what());
