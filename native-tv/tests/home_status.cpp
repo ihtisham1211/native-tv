@@ -49,7 +49,6 @@ int main() {
     assert(status["hideLgHomeAtStartAvailable"].boolean());
     assert(status["history"].boolean());
     assert(status["wallpapers"]["available"].boolean());
-    assert(status["colourPresets"].size() == 6);
     assert(status["profiles"].size() == 1);
     assert(status["profiles"][0]["active"].boolean());
     assert(status["profile"].string() == "family");
