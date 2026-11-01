@@ -37,6 +37,7 @@
 #include "daemon/state_subscriptions.hpp"
 #include "domain/names.hpp"
 #include "domain/say.hpp"
+#include "domain/say_translation.hpp"
 #include "service/hdmi_inputs.hpp"
 #include "service/ntp.hpp"
 #include "service/release_check.hpp"
@@ -7418,27 +7419,24 @@ void HttpFrontDoor::handleHomeProfilePost(HttpExchange &exchange) const {
     }
     if (!update.response["ok"].boolean()) {
         const std::string error = update.response["error"].string();
-        std::string key;
-        std::string english;
-        Json variables = Json::object();
+        std::string message;
         if (error == "a profile action is expected") {
-            key = "srv.home.profileAction";
-            english = error;
+            message = say::msg("srv.home.profileAction", "a profile action is expected");
         } else if (error == "no such profile") {
-            key = "srv.home.noProfile";
-            english = error;
+            message = say::msg("srv.home.noProfile", "no such profile");
         } else if (error == "there can be 5 profiles at most") {
-            key = "srv.home.profileLimit";
-            english = "there can be {n} profiles at most";
+            Json variables = Json::object();
             variables.set("n", Json::text("5"));
+            message = say::msg("srv.home.profileLimit", "there can be {n} profiles at most",
+                               variables);
         } else if (error == "the last profile cannot be removed") {
-            key = "srv.home.profileLast";
-            english = error;
+            message = say::msg("srv.home.profileLast", "the last profile cannot be removed");
         } else {
-            key = "srv.home.profileRename";
-            english = "a name of up to 20 characters or one of the colours is expected";
+            message = say::msg(
+                "srv.home.profileRename",
+                "a name of up to 20 characters or one of the colours is expected");
         }
-        failure(say::msg(key, english, variables), 400);
+        failure(message, 400);
         return;
     }
 
@@ -17652,11 +17650,15 @@ void HttpFrontDoor::handlePhoneHandoff(HttpExchange &exchange) const {
 }
 
 void HttpFrontDoor::handle(HttpExchange &exchange) const {
+    const HttpRequest &request = exchange.request();
+    // A dashboard in another language says so on its requests (ui/i18n.js), and
+    // the JSON it gets back has its messages translated. The logs stay English.
+    if (request.uri.compare(0, 5, "/api/") == 0 && request.uri != "/api/logs")
+        exchange.setResponseLanguage(say::requestedLanguage(request.header("x-native-tv-lang")));
     dispatch(exchange);
     // A write the TV accepted makes the next stats read fresh and drops every
     // cached Luna read, as controls.js does after each control; a forwarded
     // write counts too, as the Node side cannot reach this collector.
-    const HttpRequest &request = exchange.request();
     const int status = exchange.responseStatus();
     if (request.method != "GET" && request.method != "HEAD" && request.method != "OPTIONS" &&
         status >= 200 && status < 300 && request.uri.compare(0, 10, "/_internal") != 0) {

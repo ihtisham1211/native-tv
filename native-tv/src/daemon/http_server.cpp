@@ -1,5 +1,6 @@
 #include "daemon/http_server.hpp"
 #include "civetweb.h"
+#include "domain/say_translation.hpp"
 #include <algorithm>
 #include <cerrno>
 #include <csignal>
@@ -317,9 +318,21 @@ bool HttpExchange::finishResponse(const std::vector<HttpHeader> &trailers) {
 
 bool HttpExchange::respond(int status, const std::vector<HttpHeader> &headers,
                            const std::string &body) {
-    if (!beginResponse(status, headers, static_cast<long long>(body.size())))
+    // Every route answers through here, so the language of a dashboard in
+    // another one is applied once, rather than at each of the routes.
+    std::string translated;
+    if (!responseLanguage_.empty()) {
+        for (const HttpHeader &header : headers)
+            if (lower(header.name) == "content-type" &&
+                lower(header.value).compare(0, 16, "application/json") == 0) {
+                translated = say::translateJson(body, responseLanguage_);
+                break;
+            }
+    }
+    const std::string &sent = translated.empty() ? body : translated;
+    if (!beginResponse(status, headers, static_cast<long long>(sent.size())))
         return false;
-    return writeBody(body.data(), body.size()) && finishResponse();
+    return writeBody(sent.data(), sent.size()) && finishResponse();
 }
 
 bool HttpExchange::responseStarted() const { return responseStarted_; }
