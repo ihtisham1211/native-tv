@@ -19,9 +19,12 @@ def main():
                         help="Build only this CMake target; may be repeated")
     parser.add_argument("--test-filter",
                         help="Run CTest tests matching this regular expression")
+    # The daemon tests mostly wait on timers and child processes (about 25% CPU
+    # at 8 jobs on 8 cores), so twice the cores finishes sooner: 117 s at 8 jobs
+    # and 69 s at 16 on an 8-core Mac, all 220 passing.
     parser.add_argument("--test-jobs", type=int,
-                        default=min(os.cpu_count() or 4, 8),
-                        help="Maximum concurrent CTest targets (default: available CPUs, capped at 8)")
+                        default=min((os.cpu_count() or 4) * 2, 16),
+                        help="Maximum concurrent CTest targets (default: twice the available CPUs, capped at 16)")
     parser.add_argument("--build-jobs", type=int,
                         default=min(os.cpu_count() or 2, 8),
                         help="Maximum concurrent build jobs (default: available CPUs, capped at 8)")
