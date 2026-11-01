@@ -1,3 +1,7 @@
+---
+description: "Native Tv server health, watch time, settings backup and restore, and the update notice for a rooted LG webOS TV."
+---
+
 # Server
 
 The **Server and backup** tab of the **Settings** section, `/?tab=server`, holds Native Tv's server status and settings, and an Advanced section for developers and home-lab setups. The theme is the button at the top right of every screen.

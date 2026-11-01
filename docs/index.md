@@ -23,6 +23,8 @@ description: "Open-source dashboard, privacy controls and Home Assistant MQTT br
 
 Native Tv is a server that runs directly on a rooted LG webOS TV, with a live dashboard for any phone or computer browser and a native app on the TV itself.
 
+Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by Rory Gallagher and is now its own project: the server is a C++ daemon with no Node on the TV, and the TV has a native app in Google TV's design. It supports webOS 4 and later; Glasshouse covers webOS 2 and 3.
+
 [Install](getting-started/install.md){ .md-button .md-button--primary } [See the dashboard](dashboard/index.md){ .md-button }
 
 <p align="center">
@@ -56,6 +58,8 @@ Native Tv is a server that runs directly on a rooted LG webOS TV, with a live da
 * **webOS**: 4 and later. The native server is verified on one TV, an LG B3 on webOS 10.3.2; reports from 48 TVs on earlier releases are in [Tested TVs](getting-started/tested-tvs.md). LG names its versions two ways: [webOS version numbers](getting-started/tested-tvs.md#webos-version-numbers).
 * **Panels**: OLED (panel wear telemetry and burn-in controls) and LCD (the OLED Care tab hides itself).
 * **Access**: rooted with the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel), over SSH or telnet. The TV needs no internet access.
+
+Native Tv running on a model that is not listed? A [TV report](https://github.com/ihtisham1211/native-tv/issues/new?template=tv_report.md) with the model and webOS version adds it to the table.
 
 ## Disclaimer
 

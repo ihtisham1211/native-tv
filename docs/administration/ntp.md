@@ -1,3 +1,7 @@
+---
+description: "Set an LG webOS TV's clock from a time server on the local network (NTP) instead of LG's servers, for networks that block LG's time servers."
+---
+
 # Network time (NTP)
 
 Native Tv can set the TV's clock from a time server on the local network, instead of leaving it to LG's time servers.
