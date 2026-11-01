@@ -447,11 +447,12 @@ bool HttpStaticAssets::handle(HttpExchange &exchange) const {
                                       "Bad Request\n")
                    : false;
 
-    // The dashboard and Home apps installed on a TV open the pages by their flat
-    // names (pages/dashboard.html); each page now lives in a folder of its own.
+    // The dashboard app and the Homebrew Channel app installed on a TV open the
+    // pages by their flat names (pages/dashboard.html); each page now lives in a
+    // folder of its own.
     {
         const std::string pages = "/assets/google-tv/pages/";
-        for (const char *name : {"dashboard", "home", "setup", "setup-phone"}) {
+        for (const char *name : {"dashboard", "setup", "setup-phone"}) {
             if (path == pages + name + ".html") {
                 path = pages + name + "/index.html";
                 break;
@@ -490,15 +491,12 @@ bool HttpStaticAssets::handle(HttpExchange &exchange) const {
                                  {"Referrer-Policy", "no-referrer"}}, *page);
     }
 
-    if (path == "/assets/dashboard.html" || path == "/assets/setup.html" ||
-        path == "/assets/home.html") {
+    if (path == "/assets/dashboard.html" || path == "/assets/setup.html") {
         if (!supportedMethod(request))
             return false;
         std::string destination = path == "/assets/dashboard.html"
                                       ? "/assets/google-tv/pages/dashboard/index.html"
-                                      : path == "/assets/setup.html"
-                                            ? "/assets/google-tv/pages/setup/index.html"
-                                            : "/assets/google-tv/pages/home/index.html";
+                                      : "/assets/google-tv/pages/setup/index.html";
         if (!request.query.empty())
             destination += "?" + request.query;
         return exchange.respond(302, {{"Location", destination}, {"Cache-Control", "no-store"}}, "");

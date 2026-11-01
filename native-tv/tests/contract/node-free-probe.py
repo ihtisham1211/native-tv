@@ -30,7 +30,7 @@ from urllib.request import Request, urlopen
 ROOT = Path(__file__).resolve().parents[2]
 SAMPLES = {
     "/assets/*": "/assets/ui/app.js",
-    "/assets/google-tv/*": "/assets/google-tv/pages/home/home.js",
+    "/assets/google-tv/*": "/assets/google-tv/pages/dashboard/dashboard.js",
     # The icon listener is the main port plus two, and only with iconServer set.
     "/icons/{appId}.png": ("/icons/com.webos.app.home.png", 2),
 }

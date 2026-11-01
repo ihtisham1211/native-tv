@@ -7,7 +7,7 @@
  * developers to preview and interact with:
  *   - The Web Dashboard:      http://localhost:8080/
  *   - The TV App Dashboard:   http://localhost:8080/assets/google-tv/pages/dashboard/index.html
- *   - Native Tv Home:        http://localhost:8080/assets/google-tv/pages/home/index.html
+ *     (the page the Homebrew Channel app opens; the TV's own app is the native client)
  *
  * Usage:
  *   node scripts/emulate-tv.js [--port 8080] [--model c2|b8|c3] [--open]
@@ -264,7 +264,6 @@ async function main() {
   console.log(`\n✨ TV Emulator is READY! Open these in your browser:\n`);
   console.log(`  🌐 Web Dashboard:      ${base}/`);
   console.log(`  📺 TV App Dashboard:   ${base}/assets/google-tv/pages/dashboard/index.html`);
-  console.log(`  🏠 Native Tv Home:    ${base}/assets/google-tv/pages/home/index.html`);
   console.log(`\n  (Press Ctrl+C to stop the emulator)\n`);
 
   if (autoOpen) {

@@ -88,18 +88,20 @@ browser and may use modern JavaScript.
   `tests/golden/` compares rendered screens.
 - `native-tv/web/ui.html` - the phone/browser dashboard's markup; its CSS and
   scripts are in `native-tv/web/ui/`, one script per tab or concern.
-- `native-tv/assets/google-tv/` - the TV pages' design system, after Google's
-  TV Design Kit: `shared/common.css` (named sections for literal tokens,
-  fonts, themes and reusable components) and `shared/common.js` (text
-  helpers). The daemon inlines the sections selected by each page's
-  `data-sections`, so the TV gets one response.
-- `native-tv/assets/google-tv/pages/` - the pages the TV shows, built on it:
-  `dashboard/`, `setup/`, `setup-phone/` (served to the phone by the one-time
-  link), and `home/`, Native Tv Home, laid out as Google TV's home. English
-  only (`shared/common.js`). `native-tv/assets/dashboard-app/` is the TV app
+- `native-tv/assets/google-tv/` - the design system of the few web pages that
+  remain, after Google's TV Design Kit: `shared/common.css` (named sections
+  for literal tokens, fonts, themes and the components those pages use) and
+  `shared/common.js` (text helpers). The daemon inlines the sections selected
+  by each page's `data-sections`, so a page arrives in one response.
+- `native-tv/assets/google-tv/pages/` - `dashboard/` and `setup/`, which the
+  Homebrew Channel app opens in the TV's browser, and `setup-phone/` (served to
+  the phone by the one-time link). The TV's own screens, Home included, are the
+  native client's (`src/ui`); there is no web Home page. English only
+  (`shared/common.js`). `native-tv/assets/dashboard-app/` is the TV app
   itself (a native app: the C++ client opened on the dashboard screen, with
-  `install-app.sh` for it and the other apps), `native-tv/assets/home-app/` Home's app,
-  `native-tv/assets/splash-app/` the splash the boot key filter opens.
+  `install-app.sh` for it and the other apps), `native-tv/assets/home-app/` the
+  black stub that opens the client's Home screen, `native-tv/assets/splash-app/`
+  the splash the boot key filter opens.
 - `native-tv/assets/screensavers/` - QML.
 - `native-tv/lifecycle/` - `tvwebctl` (start, stop and watchdog on the TV),
   `50-tvweb.sh` (the boot hook) and `deploy.sh` (installs over ssh; its

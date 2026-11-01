@@ -359,11 +359,6 @@ google-tv/
     common.js
     qr.js
   pages/
-    home/
-      index.html
-      home.css
-      home.js
-      quick.js
     dashboard/
       index.html
       dashboard.css
@@ -376,32 +371,21 @@ google-tv/
       index.html
       setup-phone.css
       setup-phone.js
-    kit/
-      index.html
-      kit.css
-      kit.js
 ```
 
 `shared/common.css` is the single source for reusable TV styles: fonts, reset,
 type, themes and components from Google's TV Design Kit. Its named
 `/* @section name */` blocks are selected by each HTML file's `data-sections`
-attribute, in the order listed. Home selects `tokens fonts reset base button list
-card chip controls overlay drawer progress carousel boot field keyboard`
-(quick settings, carousel, boot and content views); the dashboard adds its
-list, tab, chip and overlay components. The server includes
-only those blocks, so sharing a file does not make Home parse the entire kit.
+attribute, in the order listed. The dashboard selects `tokens fonts reset base list tabs chip overlay`, setup
+`tokens fonts reset base button list` and the phone form `reset`. The server
+includes only those blocks, so sharing a file does not make a page parse the
+entire stylesheet.
 
 Chromium 38 (webOS 3.x) has no CSS custom properties, so the token table is
 documentation and rules use literal values. Sizes are in rem, 1rem being 1%
 of screen height: the base section sets it to 1vh, and the fixed 1920x1080
 Home stage sets 10.8px. `.focus` is focused, `.on` selected and `.dim`
 disabled.
-
-The `carousel` and `boot` sections use Home's fixed 1920 × 1080 pixel stage.
-The gallery scales their frames to fit its width. Home keeps its colour
-overrides in `home.css`, where `applyColours` swaps the editable text literals;
-the shared sections use the kit's default colours. Runtime class updates
-retain the component classes when the hero changes or the boot screen fades.
 
 A page names its parts with `<link>` and `<script src>` under
 `/assets/google-tv/`, and the daemon (`http_static_assets.cpp`) puts them back inline on its first
@@ -1425,7 +1409,7 @@ feature off, or `tvwebctl restore-home` before uninstalling, deletes the webOS
 from the dashboard's Home tab (webOS 9; webOS 10 and 11 with `allowExperimentalHome`). The screens are the native client's
 (`nativetv-tv`, run as the Native Tv tile's app `com.tvweb.dashboard`, the one native app sam is told of, which opens the dashboard unless a screen is named). LG's Home's place is held by a small web app with no screen, whose files are
 `assets/home-app/index.html` and its icons: it asks sam to open the client at its Home screen, and is black until the client is in
-front. The page `assets/google-tv/pages/home/index.html` is still in the tree, and nothing opens it.
+front. There is no web page for Home; the client's Home screen is all of it.
 
 Where Native Tv Home cannot start, the server starts without it and
 logs why, rather than not starting at all (on a G5 a missing Home module had
@@ -1732,16 +1716,6 @@ No Home wallpapers are packaged; the background is black until one is uploaded. 
 A failed Home restore persists `restorePending` with the guard stopped; both dashboards keep a retry action until all settings and the Home key are restored. HBC uninstall uses the same owner before removing the app, and skips Home service writes on TVs that never used it. App absence requires the specific `Invalid appId` response, including raw replies accompanying a non-zero luna-send exit. A failed Home layout restore makes the backup result report partial failure.
 
 ## Home content views
-
-`pages/home/content.js` owns title details and the full-screen search/profile
-editor; `shared/keyboard.js` owns the QWERTY component. `home.js` routes remote
-keys to the active view, suspends the idle carousel and retains the mounted
-Home selection. Details reuse `carousel`, `button`, `card` and `overlay`;
-search and profile naming add `field`, `keyboard` and `chip`. Results show
-four cards per page, details at most twelve similar titles, and related-title
-navigation retains at most eight views. Physical input and pointer actions
-share the same editor state. Profile names use the existing
-`POST /api/home/profile` rename action.
 
 `GET /api/home/discover` adds `titlesEnabled`, independent of a YouTube-only
 feed. Its rows are the three TMDB trending lists of the week (`trending/all/week`,

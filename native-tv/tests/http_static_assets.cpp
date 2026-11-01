@@ -59,11 +59,11 @@ int main() {
     char pattern[] = "/tmp/nativetv-lazy-ui-XXXXXX";
     const std::string root = mkdtemp(pattern);
     put(root + "/google-tv/pages/dashboard/index.html", "<html>TV dashboard</html>");
-    put(root + "/google-tv/pages/home/index.html", "<html>TV home</html>");
+    put(root + "/google-tv/pages/setup/index.html", "<html>TV setup</html>");
     const HttpStaticAssets assets(root);
 
     check(get(assets, "/assets/google-tv/pages/dashboard/index.html", false).status == 200 &&
-              get(assets, "/assets/google-tv/pages/home/index.html", false).status == 200,
+              get(assets, "/assets/google-tv/pages/setup/index.html", false).status == 200,
           "the TV pages are served");
     // ui.html appears only now: had a TV page request tried to load the phone page, it
     // would have found it missing and kept it so.

@@ -37,7 +37,7 @@
       "notes": "The daemon serves the TV pages from the packaged Google TV assets, inlining the sections each page names in data-sections, so the TV gets one response; the native setup handoff assembles its phone page from the same assets."
     },
     {
-      "paths": ["/assets/dashboard.html", "/assets/setup.html", "/assets/home.html"],
+      "paths": ["/assets/dashboard.html", "/assets/setup.html"],
       "methods": ["GET", "HEAD"],
       "auth": "public",
       "csrf": "not applicable",
@@ -848,8 +848,7 @@
   ],
   "redirects": [
     {"path": "/assets/dashboard.html", "target": "/assets/google-tv/pages/dashboard/index.html"},
-    {"path": "/assets/setup.html", "target": "/assets/google-tv/pages/setup/index.html"},
-    {"path": "/assets/home.html", "target": "/assets/google-tv/pages/home/index.html"}
+    {"path": "/assets/setup.html", "target": "/assets/google-tv/pages/setup/index.html"}
   ],
   "notes": [
     "The public listener is dual-stack when supported; the temporary phone setup listener is separate and short-lived.",
