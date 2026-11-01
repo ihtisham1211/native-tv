@@ -4,14 +4,23 @@ description: "Replace LG’s screen saver on a rooted webOS TV with a clock, sta
 
 # Screen savers
 
-The **Screen savers** tab of the **Display** section, `/?tab=screensaver`, provides six alternatives to LG's default:
+The **Screen savers** tab of the **Display** section, `/?tab=screensaver`, provides sixteen alternatives to LG's default:
 
 * Clock
+* Clock with date, with seconds, the weekday and the date
 * Black screen, nothing on screen (on an OLED the pixels are off)
 * Starfield
 * Fireworks
 * Bokeh, soft circles of light drifting in and out
 * Harmonograph, pendulum ribbons of light weaving and fading on black
+* Filament, swarms of light circling and trailing across black
+* Currents, streams of light flowing along a slowly changing wind
+* Veils, translucent ribbons of light rippling slowly
+* Incense, thin streams of coloured smoke rising and curling
+* Murmuration, flocks of light swooping after their leaders
+* Vortex, whirlwinds of light spiralling up swaying funnels
+* Neo, columns of falling glyphs
+* Tesseract, a four-dimensional cube turning in fine lines of light
 * Panel vitals, showing the TV's own panel hours and refresher countdown
 
 Each mode but the black screen offers dim and bright variants, and visual elements continuously drift across the screen to prevent OLED burn-in or image retention.

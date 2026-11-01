@@ -96,7 +96,12 @@ assets/google-tv/pages/setup-phone/index.html assets/google-tv/pages/setup-phone
 assets/screensavers/clock.qml assets/screensavers/fireworks.qml \
 assets/screensavers/starfield.qml assets/screensavers/vitals.qml assets/screensavers/star.png \
 assets/screensavers/bokeh.qml assets/screensavers/bokeh.png \
-assets/screensavers/harmonograph.qml assets/screensavers/black.qml"
+assets/screensavers/harmonograph.qml assets/screensavers/black.qml \
+assets/screensavers/clock-date.qml assets/screensavers/filament.qml \
+assets/screensavers/currents.qml assets/screensavers/veils.qml \
+assets/screensavers/incense.qml assets/screensavers/murmuration.qml \
+assets/screensavers/vortex.qml assets/screensavers/neo.qml \
+assets/screensavers/tesseract.qml assets/screensavers/tesseract.js"
 
 for t in tar base64 fold; do
   command -v "$t" >/dev/null 2>&1 && continue
