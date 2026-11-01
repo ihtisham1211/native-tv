@@ -92,7 +92,8 @@ allows this system library. `--node-port` names an upstream for the daemon's
 tests; with none, a route the daemon does not own answers 404.
 
 CTest uses twice the available CPU count, capped at sixteen workers by default, since
-most of the daemon tests wait on timers rather than computing; use
+most of the daemon tests wait on timers rather than computing (CI keeps one per CPU,
+capped at eight); use
 `--test-jobs 1` for a serial run or choose another value from 1 to 32. During
 development, build only the target you changed and filter CTest to the matching
 suite. For example:
