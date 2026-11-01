@@ -56,6 +56,13 @@ TV readings go in `native-tv/tests/fixtures/tv/`.
 The pages the TV's own browser shows are strict ES5 and CSS for Chromium 38;
 only `native-tv/web/ui/` may use modern JavaScript.
 
+Text on the phone and computer dashboard, and the daemon's messages it shows, is keyed
+and has a Spanish translation in `native-tv/assets/i18n/es.json`. A change to such text
+changes its English in one place and leaves the Spanish entry outdated: the English shows
+until the entry is redone (`scripts/check-strings.py` lists them), so a pull request need
+not translate, but may. A string removed or renamed takes its entry with it, or the check
+fails. [Strings](strings.md) has the rules and how to add a language.
+
 ## Docs move with the change
 
 A change updates the docs that describe it, in the same pull request: the page for

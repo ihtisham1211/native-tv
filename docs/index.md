@@ -51,6 +51,7 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
 * **[Read the TV's logs](dashboard/tools.md)** in one searchable timeline in the browser, with no SSH, and with private details hidden when copied or exported.
 * **[Connect it to Home Assistant](integrations/home-assistant.md).** An MQTT bridge with Discovery exposes the TV as one device; the remote's buttons can trigger automations. [Prometheus metrics](integrations/prometheus.md) and [log forwarding](integrations/syslog.md) are there for monitoring.
 * **[Open the service menu](dashboard/service-menu.md)** from a browser, with no service remote, and unlock it where newer firmware cuts it down.
+* **[Use it in English or Spanish](dashboard/server.md).** The dashboard follows the browser's language, with a Language setting on the Server tab, and shows the TV's own messages in it too. The Spanish is [partly machine-translated](development/strings.md#spanish) and open to review by native speakers.
 * **[Use it on the TV itself](apps/tv-app.md).** A native app on the home screen, driven by the remote and [drawn at 60 frames a second](apps/tv-app.md#how-smooth-it-is).
 
 ## Compatibility
@@ -76,7 +77,7 @@ MIT. See [LICENSE](https://github.com/ihtisham1211/native-tv/blob/main/LICENSE).
 
 ## Credits
 
-Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by Rory Gallagher, released under the MIT licence; his copyright notice is kept in [LICENSE](https://github.com/ihtisham1211/native-tv/blob/main/LICENSE). Bundled third-party work, with its licence ([THIRD-PARTY-NOTICES.md](https://github.com/ihtisham1211/native-tv/blob/main/THIRD-PARTY-NOTICES.md) has the texts):
+Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by Rory Gallagher, released under the MIT licence; his copyright notice is kept in [LICENSE](https://github.com/ihtisham1211/native-tv/blob/main/LICENSE). The dashboard's Spanish reuses Glasshouse's translations, which are also MIT. Bundled third-party work, with its licence ([THIRD-PARTY-NOTICES.md](https://github.com/ihtisham1211/native-tv/blob/main/THIRD-PARTY-NOTICES.md) has the texts):
 
 * [CivetWeb](https://github.com/civetweb/civetweb): the HTTP server (MIT)
 * [json-c](https://github.com/json-c/json-c): JSON, from the webOSbrew SDK (MIT)

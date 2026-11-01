@@ -16,7 +16,7 @@ The sections are a bar along the bottom on a phone, a rail down the left on a ta
 
 For the app on the TV's home screen, see [The TV app](../apps/tv-app.md).
 
-The page works with no internet access. It follows the system's light or dark setting; the button at the top right steps through Auto, Dark and Light, and `/?theme=light` or `/?theme=dark` sets it for the visit. The choice is kept in the browser.
+The page works with no internet access. It follows the system's light or dark setting; the button at the top right steps through Auto, Dark and Light, and `/?theme=light` or `/?theme=dark` sets it for the visit. The choice is kept in the browser. The dashboard is in English and Spanish: it follows the browser's language, and the Language setting on the [Server tab](server.md#native-tv) or `/?lang=es` or `/?lang=en` changes it.
 
 Use the search button (at the top of the drawer on a computer, in the top bar elsewhere), or press `/` or `Ctrl`/`Cmd` + `K`,
 to find sections, settings, controls, and installed apps. Useful destinations can be pinned

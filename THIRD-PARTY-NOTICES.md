@@ -8,6 +8,7 @@ the path given, or is the licence named by its SPDX id at the address given.
 
 | Component | Used for | Licence | Licence text |
 | :-------- | :------- | :------ | :----------- |
+| [Glasshouse](https://github.com/rorygallagher2024/glasshouse) (Rory Gallagher) | The Spanish in `native-tv/assets/i18n/es.json`, where the English it was made from is unchanged | MIT | The copyright notice in [LICENSE](LICENSE) |
 | [CivetWeb](https://github.com/civetweb/civetweb) 1.16 | The daemon's HTTP server, built in | MIT | [native-tv/third_party/civetweb/LICENSE.md](native-tv/third_party/civetweb/LICENSE.md); credits in `CREDITS.md` beside it; copied into runtime packages as `LICENSE-civetweb.txt` |
 | [NanoSVG](https://github.com/memononen/nanosvg) | Parsing and rasterising SVG icons in the TV client | zlib | [native-tv/third_party/nanosvg/LICENSE.txt](native-tv/third_party/nanosvg/LICENSE.txt) |
 | [QR Code generator library](https://www.nayuki.io/page/qr-code-generator-library) (Project Nayuki) | The QR codes on the TV | MIT | Header of each file in [native-tv/third_party/qrcodegen/](native-tv/third_party/qrcodegen/) |

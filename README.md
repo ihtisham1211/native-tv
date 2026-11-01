@@ -59,6 +59,7 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
 * **[Monitoring](https://ihtisham1211.github.io/native-tv/dashboard/metrics/).** SoC temperature, per-core CPU load, memory, swap, Wi-Fi signal and throughput; [Prometheus metrics](https://ihtisham1211.github.io/native-tv/integrations/prometheus/) and [syslog forwarding](https://ihtisham1211.github.io/native-tv/integrations/syslog/).
 * **[Update notice](https://ihtisham1211.github.io/native-tv/dashboard/server/).** The Server tab says when a newer release is out, when asked or once a day if switched on, with its release notes, package and SHA-256, and opens the Homebrew Channel on the TV to install it. Off until asked, so the TV contacts GitHub only on request.
 * **[Backup and logs](https://ihtisham1211.github.io/native-tv/dashboard/server/).** LG's sound, device, HDMI and ad settings and Native Tv's own, saved to a file or once a day on the TV and restored on the same TV or another. The [System, Native Tv and kernel logs](https://ihtisham1211.github.io/native-tv/dashboard/tools/) in one searchable timeline in the browser, with no SSH, and private details hidden when copied or exported.
+* **[English and Spanish](https://ihtisham1211.github.io/native-tv/dashboard/server/).** The dashboard follows the browser's language, with a Language setting on the Server tab, and shows the TV's own messages in it too, such as errors and screen saver names. The Spanish is [partly machine-translated](https://ihtisham1211.github.io/native-tv/development/strings/#spanish) and open to review by native speakers.
 * **[Screen savers](https://ihtisham1211.github.io/native-tv/dashboard/screen-savers/) and [the service menu](https://ihtisham1211.github.io/native-tv/dashboard/service-menu/).** A clock, starfield, fireworks or the TV's own readings in place of LG's screen saver; LG's engineering menu opened from a browser, with no service remote, and unlocked where newer firmware cuts it down.
 * **[A native TV app](https://ihtisham1211.github.io/native-tv/apps/tv-app/).** A C++ and OpenGL ES client after Google TV's design puts the same readings and controls on the TV, driven by the remote, and offers [Native Tv Home](https://ihtisham1211.github.io/native-tv/dashboard/home/) as a replacement home screen. It is drawn on the GPU at the display's 60 frames a second with no browser behind it ([how smooth it is](https://ihtisham1211.github.io/native-tv/apps/tv-app/#how-smooth-it-is)).
 
@@ -213,6 +214,9 @@ Yes. The dashboard, controls and telemetry work on LCD panels; the OLED Care tab
 **Is the TV app smooth, or does it lag like a slow home screen?**
 It is a native OpenGL ES client, not a web page, and it draws at the display's 60 Hz. On an LG B3 with the processor busy (load average about 32) its frames arrive 15 to 18 ms apart, against 16.7 ms ideal. [How it stays smooth](https://ihtisham1211.github.io/native-tv/apps/tv-app/#how-smooth-it-is) lists the reasons and the measurement.
 
+**Is the dashboard available in Spanish?**
+Yes. It follows the browser's language, and the Language setting on the Server tab, or `/?lang=es`, changes it. The TV's messages the dashboard shows are translated too. The TV app and the pages the TV's own browser shows are English only for now. Much of the Spanish is machine-translated, and [corrections are welcome](https://ihtisham1211.github.io/native-tv/development/strings/#spanish).
+
 **What does it change on the TV?**
 [What it changes on the TV](https://ihtisham1211.github.io/native-tv/administration/tv-changes/) lists every change and how each is undone. The read-only system partition is left untouched.
 
@@ -245,7 +249,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Credits
 
-Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by Rory Gallagher, released under the MIT licence; his copyright notice is kept in [LICENSE](LICENSE). Bundled third-party work, with its licence ([THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) has the texts):
+Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by Rory Gallagher, released under the MIT licence; his copyright notice is kept in [LICENSE](LICENSE). The dashboard's Spanish reuses Glasshouse's translations, which are also MIT. Bundled third-party work, with its licence ([THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) has the texts):
 
 * [CivetWeb](https://github.com/civetweb/civetweb): the HTTP server (MIT)
 * [json-c](https://github.com/json-c/json-c): JSON, from the webOSbrew SDK (MIT)
