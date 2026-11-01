@@ -11,8 +11,10 @@
 #           file transfer, so the bundle is sent down the connection as text
 #           and decoded on the TV.
 #
-# Deployment needs bash, Python 3 and an ARM native runtime build on the host;
-# the TV needs no internet connection.
+# Deployment needs bash, Python 3, tar, base64 and fold, and the ARM build of the
+# server and TV app (native-tv/build.py --sdk ...) on the host; ssh and curl are
+# used when present (without ssh it uses telnet, without curl it skips the final
+# check). The TV needs no internet connection.
 #
 # Usage: ./deploy.sh <tv-ip> [--no-persist] [--telnet] [--app|--no-app] [--native-build=DIR]
 #   --no-persist  skip the boot hook, so the server does not come back after
@@ -109,6 +111,10 @@ for t in tar base64 fold; do
   echo "and Git Bash window on Windows has one, so try one of those." >&2
   exit 1
 done
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "Can't install: this computer has no 'python3' command, which builds the install bundle." >&2
+  exit 1
+fi
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT

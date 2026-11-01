@@ -20,7 +20,7 @@ An AI coding assistant can run these steps: the [README](https://github.com/ihti
 ## Requirements
 
 * A rooted LG webOS TV ([Root tool here](https://github.com/throwaway96/dejavuln-autoroot/)) with the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel).
-* A computer on the same network with Git, Bash, Python 3, CMake, `pkg-config` and a compatible webOSbrew native SDK, which is built for macOS (Apple silicon and Intel) and arm64 Linux only. A source install needs the ARM build of the server, its metrics worker and the TV app. The TV does not need internet access during installation.
+* A computer on the same network with Git, Bash, Python 3, CMake, `pkg-config`, Ninja or `make`, and the webOSbrew native SDK ([how to get it](#get-the-sdk)), which exists for macOS (Apple silicon and Intel) and arm64 Linux only. A Mac already has `make`; on Debian or Ubuntu, `sudo apt install cmake pkg-config ninja-build`. A source install needs the ARM build of the server, its metrics worker and the TV app. The TV does not need internet access during installation.
 
 The MQTT bridge also needs an MQTT broker on the network. Home Assistant's Mosquitto add-on is one option, but any compatible MQTT broker works.
 
@@ -47,14 +47,34 @@ Find the TV's address under Settings → Network on the TV, or in the router's l
 > [!CAUTION]
 > Rooting an LG TV will often open an unauthenticated telnet server by default, leaving a root shell open on the local network. It is good practice to turn telnet off and turn SSH on, for more secure access — [moving from telnet to SSH](../administration/security.md#moving-from-telnet-to-ssh) takes about five minutes and is strongly recommended.
 
-Build the server and the TV app from the repository root using a compatible
-[webOSbrew native SDK](https://github.com/webosbrew/native-toolchain):
+#### Get the SDK
+
+The build uses the [webOSbrew native SDK](https://github.com/webosbrew/native-toolchain),
+a download of about 150 MB. Skip this when a relocated copy is already on the computer.
+The commands need `curl` and `tar`, which a Mac has; Debian and Ubuntu also need
+`sudo apt install curl bzip2 file`.
 
 ```bash
-python3 native-tv/build.py --sdk /path/to/arm-webos-linux-gnueabi_sdk-buildroot
+platform=$(uname -s | tr '[:upper:]' '[:lower:]')-$(uname -m)
+mkdir -p ~/webos-sdk
+curl -fsSL "https://github.com/webosbrew/native-toolchain/releases/download/webos-d7ed7ee.6/arm-webos-linux-gnueabi_sdk-buildroot_$platform.tar.bz2" | tar -xj -C ~/webos-sdk
+~/webos-sdk/arm-webos-linux-gnueabi_sdk-buildroot/relocate-sdk.sh
 ```
 
-Do not add `--service-only`: it leaves out the TV app, which `deploy.sh` packages too, so the deploy would stop.
+The release has builds for `darwin-arm64`, `darwin-x86_64` and `linux-aarch64` only. On any
+other computer the SDK does not run, and the server cannot be built there.
+
+#### Build and deploy
+
+Build the server and the TV app from the repository root:
+
+```bash
+python3 native-tv/build.py --sdk ~/webos-sdk/arm-webos-linux-gnueabi_sdk-buildroot
+```
+
+If the computer lacks a tool, or the SDK is not relocated, `build.py` says so, and what to
+install, before it starts; `--check` does only that check. Do not add `--service-only`: it
+leaves out the TV app, which `deploy.sh` packages too, so the deploy would stop.
 
 The default output is `native-tv/build-webos`. A different build directory can
 be selected with `--native-build=DIR` during deployment. Missing or invalid ARM

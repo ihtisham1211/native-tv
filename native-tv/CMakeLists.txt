@@ -178,13 +178,25 @@ if(BUILD_TESTING AND NOT CMAKE_CROSSCOMPILING)
 endif()
 if(BUILD_TESTING)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  # CI has both and fails without them. Elsewhere the tests that run one skip
+  # when it is missing (CTest lists them as skipped), so building and testing
+  # need neither.
   find_program(OPENSSL_EXECUTABLE openssl)
   if(NOT OPENSSL_EXECUTABLE)
-    message(FATAL_ERROR "OpenSSL is required for the custom-CA MQTT TLS test")
+    if(DEFINED ENV{CI})
+      message(FATAL_ERROR "OpenSSL is required for the custom-CA MQTT TLS test")
+    endif()
+    message(WARNING "openssl not found: native-mqtt-tls will be skipped")
+    set(OPENSSL_EXECUTABLE "")
   endif()
   find_program(NODE_EXECUTABLE node)
   if(NOT NODE_EXECUTABLE)
-    message(FATAL_ERROR "Node is required for the process CLI contract tests and the UI suites")
+    if(DEFINED ENV{CI})
+      message(FATAL_ERROR "Node is required for the process CLI contract tests and the UI suites")
+    endif()
+    message(WARNING "node not found: native-process-contract, native-ui-suites and native-service-port will be skipped")
+    # A command that exits 77, which those tests treat as a skip.
+    set(NODE_EXECUTABLE "${Python3_EXECUTABLE}" -c "raise SystemExit(77)")
   endif()
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/daemon_runtime.py")
@@ -780,13 +792,15 @@ if(BUILD_TESTING)
   add_test(NAME native-mqtt-tls COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/mqtt_tls_fixture.py"
     "$<TARGET_FILE:native-mqtt-tls-probe>" "${OPENSSL_EXECUTABLE}")
-  add_test(NAME native-process-contract COMMAND "${NODE_EXECUTABLE}"
+  add_test(NAME native-process-contract COMMAND ${NODE_EXECUTABLE}
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/process-contract.js" "$<TARGET_FILE:nativetv-service>")
   # The dashboard's scripts and the boot hook, run on the host.
-  add_test(NAME native-ui-suites COMMAND "${NODE_EXECUTABLE}"
+  add_test(NAME native-ui-suites COMMAND ${NODE_EXECUTABLE}
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/ui/run.js")
-  add_test(NAME native-service-port COMMAND "${NODE_EXECUTABLE}"
+  add_test(NAME native-service-port COMMAND ${NODE_EXECUTABLE}
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/service-port.js" "$<TARGET_FILE:nativetv-service>")
+  set_tests_properties(native-mqtt-tls native-process-contract native-ui-suites native-service-port
+    PROPERTIES SKIP_RETURN_CODE 77)
   add_test(NAME native-service-stuck-child-reaper COMMAND "${Python3_EXECUTABLE}"
     "${CMAKE_CURRENT_SOURCE_DIR}/tests/stuck_child_reaper_runtime.py"
     "$<TARGET_FILE:nativetv-service>")

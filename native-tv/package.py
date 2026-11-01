@@ -18,7 +18,8 @@ def main():
     args = parser.parse_args()
     binary = args.build / "nativetv-tv"
     if not binary.is_file():
-        parser.error("Build the native webOS client first")
+        parser.error("Build the native webOS client first with native-tv/build.py --sdk SDK "
+                     "(without --service-only)")
     header = binary.read_bytes()[:20]
     if len(header) != 20 or header[:7] != b"\x7fELF\x01\x01\x01" or header[18:20] != b"\x28\x00":
         parser.error("Packaging requires a 32-bit little-endian ARM ELF build")

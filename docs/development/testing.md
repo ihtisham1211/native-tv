@@ -774,7 +774,12 @@ node native-tv/tests/contract/check-test-matrix.js
 node native-tv/tests/ui/run.js
 for s in check-es5 check-ui-ids check-strings check-screensavers check-drift check-entity-stability check-retired-files; do ./scripts/$s.py || break; done
 ./scripts/check-entities.py --stats native-tv/tests/fixtures/tv/stats-b8-webos4.json
+shellcheck native-tv/lifecycle/deploy.sh native-tv/lifecycle/tvwebctl native-tv/lifecycle/50-tvweb.sh hbc/install.sh scripts/tvstats.sh
 ```
+
+The builds need what [Contributing](contributing.md#building-and-testing) lists. The `.py` checks use
+only Python 3's standard library, the `node` lines need Node, and the last line needs `shellcheck`
+(`brew install shellcheck` or `sudo apt install shellcheck`).
 
 The ARM daemon, which `deploy.sh` and the Homebrew package need, is built with
 `python3 native-tv/build.py --sdk /path/to/arm-webos-linux-gnueabi_sdk-buildroot --service-only --target nativetv-daemon`.
@@ -786,13 +791,25 @@ npm install --no-save playwright && npx playwright install chromium
 node scripts/check-dashboards.js
 ```
 
+With Chrome installed, CI's way skips the Chromium download:
+`npm install --no-save playwright-core && BROWSER_CHANNEL=chrome node scripts/check-dashboards.js`.
+
 Scripts that talk to a TV or to GitHub rather than to the tree, and need no change when a release changes: `soak.js` (a soak test against a real TV, with an optional MQTT broker; it carries its own small MQTT client), `footprint.sh` (the daemon's CPU and memory on the TV), `tv-wakeups.sh` (context switches a second for each thread of the daemon, over SSH), `tv-client-run.sh` (a client build that is not installed, run once on the TV with its report and perf summary printed), `tv-memory-soak.sh` (the server's memory, threads and open files over hours, over SSH), `tvmon.py` with `probe_defs.py` and `tvstats.sh` (live SoC and load readings over telnet), and `run-prometheus.sh`. Retired with Node: `check-es5.py` for the server, `check-module-calls.py`, `check-upgrade.js`, `discovery-configs.js` and the two `check-native-ha-*.py` comparisons, which the `native-ha-golden` test replaced.
 
-The Home Assistant check needs Python 3.13 and the `homeassistant` package:
+The Home Assistant check needs Python 3.13 and the `homeassistant` package. CI runs it when
+the discovery code changes and weekly, so it is needed locally only for that code:
 
 ```bash
 pip install homeassistant
 ./scripts/check-ha-discovery.py
+```
+
+The docs site builds with the packages and version ranges `docs.yml` installs; `mkdocs.yml` makes the
+build strict, so a broken link fails it:
+
+```bash
+pip install 'mkdocs>=1.6,<2' 'mkdocs-material>=9.7,<10' 'markdown-callouts>=0.4,<0.5'
+NO_MKDOCS_2_WARNING=1 mkdocs build
 ```
 
 ## Local TV emulation

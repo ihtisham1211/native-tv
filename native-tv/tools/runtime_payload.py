@@ -376,7 +376,8 @@ def stage(build, destination, sysroot=None):
         binary = build / name
         if not binary.is_file():
             raise ValueError("Build nativetv-service and nativetv-daemon first with "
-                             "native-tv/build.py --sdk SDK --service-only")
+                             "native-tv/build.py --sdk SDK (without --service-only, "
+                             "which leaves out the TV app that an install also needs)")
         if binary.stat().st_size > 32 * 1024 * 1024:
             raise ValueError("The " + name + " binary exceeds the runtime size limit")
         data = binary.read_bytes()
@@ -399,7 +400,8 @@ def stage_client(build, destination, sysroot=None):
     sysroot = Path(sysroot) if sysroot else _configured_sysroot(build)
     binary = build / "nativetv-tv"
     if not binary.is_file():
-        raise ValueError("Build the native webOS client first")
+        raise ValueError("Build the native webOS client first with native-tv/build.py --sdk SDK "
+                         "(without --service-only)")
     if binary.stat().st_size > 32 * 1024 * 1024:
         raise ValueError("The nativetv-tv binary exceeds the runtime size limit")
     data = binary.read_bytes()

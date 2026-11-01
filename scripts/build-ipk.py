@@ -102,7 +102,8 @@ def stage(app, ver, native_build=None):
     """Lay out the app directory ares-package is given."""
     native_build = native_build or os.path.join(ROOT, 'native-tv/build-webos')
     if not os.path.isfile(os.path.join(native_build, 'nativetv-tv')):
-        raise ValueError('Build the native webOS client first')
+        raise ValueError('Build the native webOS client first with native-tv/build.py --sdk SDK '
+                         '(without --service-only)')
     spec = importlib.util.spec_from_file_location('runtime_payload', os.path.join(ROOT, 'native-tv/tools/runtime_payload.py'))
     runtime = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(runtime)
