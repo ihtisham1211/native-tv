@@ -93,7 +93,16 @@ Native Tv running on a model that is not listed? A [TV report](https://github.co
 
 ## Install
 
-Native Tv installs from a computer on the same network as the TV, over SSH, or over the Homebrew Channel's telnet when no SSH key is set up. The TV needs no internet access.
+Native Tv installs from a release package, with no build, or from a computer on the same network as the TV that builds it and installs it over SSH, or over the Homebrew Channel's telnet when no SSH key is set up. The TV needs no internet access.
+
+### Install a release (no build)
+
+1. Root the TV and install the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel). Native Tv does not root the TV.
+2. Download `io.github.ihtisham1211.nativetv_<version>_all.ipk` (about 12 MB) from the [latest release](https://github.com/ihtisham1211/native-tv/releases/latest).
+3. Install it on the TV with [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop) or `ares-install`.
+4. Open the Native Tv app on the TV. It sets the server up and opens the dashboard, and the first run starts the setup wizard.
+
+### Build and install from source
 
 The computer needs Git, Bash, Python 3, CMake, `pkg-config`, Ninja or `make` and the [webOSbrew native SDK](https://github.com/webosbrew/native-toolchain), which is built for macOS (Apple silicon and Intel) and arm64 Linux only. The [installation guide](https://ihtisham1211.github.io/native-tv/getting-started/install/#get-the-sdk) has the commands that download the SDK.
 

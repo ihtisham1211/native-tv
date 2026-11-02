@@ -767,6 +767,15 @@ Publishing a release runs [`homebrew-channel.yml`](https://github.com/ihtisham12
 attaches it and the Homebrew Channel manifest to the release, and records the
 package's sha256 in the manifest.
 
+To publish one, set `native-tv/VERSION` and merge it, then create a release whose
+tag is `v` followed by that version: the workflow stops when they differ. Create
+it as a pre-release first, `gh release create v<version> --target main --prerelease --notes-file notes.md`.
+The workflow runs for a pre-release too; when the run is green and the release
+lists the `.ipk` and the `.manifest.json`, `gh release edit v<version> --prerelease=false --latest`
+makes it the latest. The update notice in the Server tab and the Homebrew Channel's
+listing read `releases/latest/download/<id>.manifest.json`, so a pre-release reaches
+only people who install its `.ipk` by hand.
+
 A release's notes open with a short summary for people using Native Tv, one
 to three plain lines, then a `## Details` heading with the full notes and their
 pull requests. The Server tab and TV app
