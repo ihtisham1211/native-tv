@@ -1234,7 +1234,7 @@ TV-RESEARCH.md has how this was found.
 `service/release_check` fetches
 `github.com/ihtisham1211/native-tv/releases/latest/download/<id>.manifest.json`,
 the file `scripts/build-ipk.py` writes and the Homebrew Channel workflow attaches
-to each published release (a pre-release is never "latest"). The manifest has to
+to each release's draft, before it is published (a pre-release is never "latest"). The manifest has to
 name Native Tv's app id, an `x.y.z` version and a 64-digit SHA-256; the release
 and `.ipk` links are then built from that version, not read from the file. The
 request is libcurl through `AppPackageFetcher`, cancelled after 20 seconds, and
