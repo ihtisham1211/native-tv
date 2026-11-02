@@ -24,6 +24,9 @@ from urllib.parse import urlsplit
 from urllib.request import Request, urlopen
 import unittest
 
+# The version the daemon is built with, so a release bump does not touch the tests.
+BUILT_VERSION = (Path(__file__).resolve().parents[1] / "VERSION").read_text().strip()
+
 
 def unused_port_pair(excluded=()):
     excluded = set(excluded)
@@ -6549,7 +6552,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertEqual(caps["allowControl"], False)
                 self.assertEqual(caps["allowPower"], True)
                 self.assertIsNone(caps["origin"], "loopback-only config must not publish a LAN origin")
-                self.assertEqual(caps["version"], "0.118.0")
+                self.assertEqual(caps["version"], BUILT_VERSION)
                 self.assertTrue(caps["fromHomebrewChannel"])
                 self.assertTrue(caps["setupNeeded"])
                 self.assertEqual(caps["key"], "front-door-token",
@@ -7010,7 +7013,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                                  "text/plain; version=0.0.4; charset=utf-8")
                 self.assertIn("# HELP nativetv_info", prometheus)
                 self.assertIn('nativetv_info{model="Test TV"', prometheus)
-                self.assertIn('version="0.118.0"', prometheus)
+                self.assertIn('version="%s"' % BUILT_VERSION, prometheus)
                 self.assertEqual(observed[-1]["path"], "/_internal/native-stats")
                 self.assertEqual(observed[-1]["peer"], "")
                 self.assertEqual(observed[-1]["secret"], secret)
@@ -12527,7 +12530,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                                                   message[1] and '"time":' in message[1] and
                                                   message[2])
                     nativeTelemetry = json.loads(nativeTelemetryMessage[1])
-                    self.assertEqual(nativeTelemetry["tvwebVersion"], "0.118.0")
+                    self.assertEqual(nativeTelemetry["tvwebVersion"], BUILT_VERSION)
                     self.assertEqual(nativeTelemetry["device"]["name"],
                                      "Migration Fixture")
                     self.assertEqual(nativeTelemetry["app_id"],
