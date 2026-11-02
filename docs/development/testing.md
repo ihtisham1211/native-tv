@@ -763,18 +763,25 @@ change is merged.
 
 ## Releases
 
-Publishing a release runs [`homebrew-channel.yml`](https://github.com/ihtisham1211/native-tv/blob/main/.github/workflows/homebrew-channel.yml), which builds the `.ipk`,
-attaches it and the Homebrew Channel manifest to the release, and records the
-package's sha256 in the manifest.
+Pushing a version tag runs [`homebrew-channel.yml`](https://github.com/ihtisham1211/native-tv/blob/main/.github/workflows/homebrew-channel.yml), which builds the `.ipk`
+and drafts a release with it and the Homebrew Channel manifest attached; the
+manifest records the package's sha256.
 
-To publish one, set `native-tv/VERSION` and merge it, then create a release whose
-tag is `v` followed by that version: the workflow stops when they differ. Create
-it as a pre-release first, `gh release create v<version> --target main --prerelease --notes-file notes.md`.
-The workflow runs for a pre-release too; when the run is green and the release
-lists the `.ipk` and the `.manifest.json`, `gh release edit v<version> --prerelease=false --latest`
-makes it the latest. The update notice in the Server tab and the Homebrew Channel's
-listing read `releases/latest/download/<id>.manifest.json`, so a pre-release reaches
-only people who install its `.ipk` by hand.
+To publish one, set `native-tv/VERSION` and merge it, then push the tag `v`
+followed by that version from the merge commit (`git tag v<version> <commit>`,
+`git push origin v<version>`): the workflow stops when the two differ. When the
+run is green, open the draft on the Releases page, check that it lists the `.ipk`
+and the `.manifest.json`, write its notes, and publish it with
+`gh release edit v<version> --draft=false --latest`. Use `--prerelease` instead of
+`--latest` to publish one that is not the latest.
+
+The repository has immutable releases on: once a release is published its assets
+and tag are locked, and the tag name cannot be used again even if the release is
+deleted. That is why the files are attached to a draft. A draft that is wrong is
+deleted with its tag (`gh release delete v<version> --cleanup-tag`) and the tag
+pushed again; a published one needs a new version. The update notice in the Server
+tab and the Homebrew Channel's listing read `releases/latest/download/<id>.manifest.json`,
+so a pre-release reaches only people who install its `.ipk` by hand.
 
 A release's notes open with a short summary for people using Native Tv, one
 to three plain lines, then a `## Details` heading with the full notes and their

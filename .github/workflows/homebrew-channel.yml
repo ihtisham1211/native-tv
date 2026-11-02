@@ -1,12 +1,16 @@
-# Attaches the Homebrew Channel package to each release. The store's listing
-# reads releases/latest/download/<id>.manifest.json, so a published release is
-# what users get; a pre-release is never "latest" and reaches only those who
-# install it by hand.
+# Builds the Homebrew Channel package for each version tag and drafts a release
+# with the package and its manifest attached. The repository has immutable
+# releases on: once a release is published its assets and tag are locked, so the
+# files have to be on the draft before it is published. The maintainer looks at
+# the draft, writes its notes and publishes it. The store's listing reads
+# releases/latest/download/<id>.manifest.json, so a published release is what
+# users get; a pre-release is never "latest" and reaches only those who install
+# it by hand.
 name: Homebrew Channel
 
 on:
-  release:
-    types: [published]
+  push:
+    tags: ['v*']
 
 permissions:
   contents: write
@@ -17,8 +21,6 @@ jobs:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v7
-        with:
-          ref: ${{ github.event.release.tag_name }}
 
       # The package is named from native-tv/VERSION, which the daemon is built with;
       # a mismatch would ship one version under the other's name.
@@ -31,7 +33,9 @@ jobs:
       - name: build
         uses: ./.github/actions/package-ipk
 
-      - name: attach to the release
+      - name: draft the release with the package attached
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" dist/*.ipk dist/*.manifest.json --clobber
+        run: >
+          gh release create "$GITHUB_REF_NAME" dist/*.ipk dist/*.manifest.json
+          --draft --verify-tag --title "Native Tv ${GITHUB_REF_NAME#v}" --generate-notes
