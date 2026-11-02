@@ -1,9 +1,20 @@
 ---
 title: Install Native Tv on a rooted LG webOS TV
-description: "Install Native Tv on a rooted LG webOS TV: build the ARM server with the webOSbrew SDK, run deploy.sh over SSH, open the dashboard."
+description: "Install Native Tv on a rooted LG webOS TV: install the release package, or build the ARM server with the webOSbrew SDK and run deploy.sh over SSH, then open the dashboard."
 ---
 
 # Installing
+
+## Install a release (no build)
+
+Each [release](https://github.com/ihtisham1211/native-tv/releases) carries the Homebrew Channel package, an `.ipk` of about 12 MB. Installing it needs no SDK, compiler or Git.
+
+1. Root the TV and install the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel).
+2. Download `io.github.ihtisham1211.nativetv_<version>_all.ipk` from the [latest release](https://github.com/ihtisham1211/native-tv/releases/latest).
+3. Install it on the TV with [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop) or `ares-install`.
+4. Open the Native Tv app on the TV. It puts the server in place, starts it and opens the dashboard; the first run starts the [setup wizard](#option-1-on-screen-setup-in-the-tv-app).
+
+[Managing](managing.md) covers updating a package install. The rest of this page, from the quick start on, builds the server from a clone and installs it over SSH instead.
 
 ## Quick start
 
