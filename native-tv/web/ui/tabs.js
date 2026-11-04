@@ -149,7 +149,9 @@ function placeTabIndicators() {
     const indicator = bar.querySelector('.tab-ind');
     if (!current || !indicator || !current.offsetWidth) return;
     indicator.style.transform = 'translateX(' + current.offsetLeft + 'px) scaleX(' + current.offsetWidth / 100 + ')';
-    current.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    // Scrolls the bar, never the page: scrollIntoView also moves the window, and this runs
+    // on every `hidden` write - including a tab re-hidden on each poll on an LCD set.
+    bar.scrollLeft = Math.max(Math.min(bar.scrollLeft, current.offsetLeft), current.offsetLeft + current.offsetWidth - bar.clientWidth);
   });
 }
 

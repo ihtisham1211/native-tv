@@ -54,6 +54,32 @@ Object.keys(TABS).forEach(function (key) { panelIds[TABS[key]] = true; });
   console.log('  ok: panels, sections and tabs agree');
 })();
 
+(function testTabIndicatorLeavesThePageAlone() {
+  // The bar re-places its indicator on every `hidden` write, which an LCD set makes each poll
+  // (the OLED care tab). It used to scrollIntoView, which dragged the page up to the bar (#22).
+  var source = /function placeTabIndicators\(\) \{[\s\S]*?\n\}/.exec(tabsJs);
+  assert(source, 'placeTabIndicators is in tabs.js');
+  function place(scrollLeft, offsetLeft) {
+    var indicator = { style: {} };
+    var current = {
+      offsetLeft: offsetLeft, offsetWidth: 100,
+      scrollIntoView: function () { throw new Error('scrollIntoView moves the page'); }
+    };
+    var bar = {
+      scrollLeft: scrollLeft, clientWidth: 300,
+      querySelector: function (sel) { return /tab-ind/.test(sel) ? indicator : current; }
+    };
+    vm.runInNewContext(source[0] + '\nplaceTabIndicators();', {
+      document: { querySelectorAll: function () { return [bar]; } }
+    });
+    return bar.scrollLeft;
+  }
+  assert.strictEqual(place(0, 400), 200, 'a tab past the right edge scrolls the bar to show it');
+  assert.strictEqual(place(100, 50), 50, 'a tab past the left edge scrolls the bar back');
+  assert.strictEqual(place(100, 150), 100, 'a tab in view leaves the bar where it is');
+  console.log('  ok: placing the indicator scrolls the bar, not the page');
+})();
+
 (function testAndroidBridge() {
   var calls = [];
   var sandbox = {
