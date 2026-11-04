@@ -11,13 +11,26 @@ on:
 jobs:
   native:
     runs-on: ubuntu-latest
+    env:
+      # build.py compiles through ccache when it is installed. Keeping its cache between runs
+      # leaves only what a change touches to compile: 502 objects took 152 s from nothing.
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_MAXSIZE: 500M
     steps:
       - uses: actions/checkout@v7
       - name: Native build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends cmake ninja-build g++ pkg-config libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libjson-c-dev libcurl4-openssl-dev zlib1g-dev libgles2-mesa-dev
+          sudo apt-get install -y --no-install-recommends ccache cmake ninja-build g++ pkg-config libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev libjson-c-dev libcurl4-openssl-dev zlib1g-dev libgles2-mesa-dev
+      - uses: actions/cache@v6
+        with:
+          path: .ccache
+          key: ccache-sanitize-${{ github.sha }}
+          restore-keys: ccache-sanitize-
       - name: Build and test with sanitizers
         run: python3 native-tv/build.py --sanitize --out native-tv/build-sanitize --test
+      - name: ccache statistics
+        if: always()
+        run: ccache --show-stats
       - name: Route manifest and test matrix
         run: node native-tv/tests/contract/check-route-manifest.js && node native-tv/tests/contract/check-test-matrix.js

@@ -1046,7 +1046,9 @@ if(NATIVETV_BUILD_CLIENT)
     add_test(NAME native-client-platform COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/client_platform.py" "$<TARGET_FILE:nativetv-tv>")
     add_test(NAME native-golden-compare COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/test_golden.py")
     add_test(NAME native-golden COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/golden.py" check --client "$<TARGET_FILE:nativetv-tv>")
-    set_tests_properties(native-golden PROPERTIES SKIP_RETURN_CODE 77)
+    # 188 s of the 465 s test phase on a 4-core CI runner under the sanitizers. CTest starts the
+    # costliest tests first, so this one runs beside the others instead of alone at the end.
+    set_tests_properties(native-golden PROPERTIES SKIP_RETURN_CODE 77 COST 200)
     # The end-to-end cases need a real TV (NATIVETV_TV_HOST); without one this entry skips, visibly.
     add_test(NAME native-e2e-runner COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/test_runner.py")
     add_test(NAME native-e2e-tv COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/e2e/run.py" --all)

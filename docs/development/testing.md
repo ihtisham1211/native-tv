@@ -58,6 +58,13 @@ the unit suites, the daemon runtime suite and the contract checks. Native
 tests live under `native-tv/tests/`; they require no running server or TV.
 Compilation is measured separately from test runtime.
 
+CTest starts the costliest tests first, so a test that takes minutes is given a
+`COST` in `native-tv/CMakeLists.txt`: `native-golden` (188 s under the sanitizers on a
+four-core runner, the longest by four times) has one, and starts beside the rest instead
+of alone at the end. Without it the 257 tests took 465 s there; scheduling the same
+timings with it gives about 340 s, which is the work of the other tests divided by four
+plus the two `RUN_SERIAL` tests, which run alone.
+
 The legacy `test/` suites that tested the Node release are gone.
 `native-tv/contract/test-migration.json` records, for each of them, the native
 test that took it over or the reason it was retired, and `check-test-matrix.js`
@@ -284,7 +291,9 @@ four suites using json-c, threads and Python.
 is installed; `--no-ccache` disables it. That reduces clean or header-touching
 rebuilds, not CTest runtime. It also generates new build directories with Ninja
 when installed, which makes no-op and incremental rebuilds faster; CI installs
-`ninja-build` for this.
+`ninja-build` for this. CI installs `ccache` too and keeps its cache between runs
+(`actions/cache`, keyed on the commit and restored from the latest earlier run), so
+a run compiles only what its change touched: a cold run took 152 s for 502 objects.
 
 For a native code change, build only the affected target and run only its
 related CTest cases. For example, the managed app install front door can be
