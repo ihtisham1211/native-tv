@@ -27,6 +27,8 @@ jobs:
           path: .ccache
           key: ccache-sanitize-${{ github.sha }}
           restore-keys: ccache-sanitize-
+      - name: Reset ccache statistics
+        run: ccache --zero-stats
       - name: Build and test with sanitizers
         run: python3 native-tv/build.py --sanitize --out native-tv/build-sanitize --test
       - name: ccache statistics
