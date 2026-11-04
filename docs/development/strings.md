@@ -9,7 +9,8 @@ or the script shows the real words. [Spanish](#spanish) is the one language so f
 
 The pages the TV's own browser shows (`native-tv/assets/google-tv/`) and the native
 TV client are English only. So are Home Assistant entity names, MQTT topics and
-the logs.
+the logs, and the "Can't reach the TV" page of the dashboard's service worker
+(`assets/pwa/sw.js`), which has to work with no TV to fetch a dictionary from.
 
 `scripts/check-strings.py` enforces what follows, and runs in CI.
 

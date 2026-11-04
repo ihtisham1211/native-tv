@@ -92,6 +92,7 @@ function runTest(name, scenario, done) {
     Promise: Promise,
     URLSearchParams: URLSearchParamsClass,
     location: { search: '' },
+    navigator: {},   // main.js registers the service worker only where the browser has one
     window: { location: { search: '' }, innerWidth: 1024, addEventListener: function () {} },
     document: {
       querySelectorAll: function () { return []; },

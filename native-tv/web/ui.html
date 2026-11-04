@@ -10,10 +10,11 @@
     <meta name="theme-color" content="#111411" />
     <title>Native Tv</title>
     <link rel="icon" type="image/svg+xml" href="/assets/favicon.svg" />
-    <link
-      rel="apple-touch-icon"
-      href="/assets/dashboard-app/assets/icon130.png"
-    />
+    <link rel="manifest" href="/assets/pwa/manifest.webmanifest" />
+    <!-- iOS ignores the manifest's icons and wants an opaque square, which it rounds itself. -->
+    <link rel="apple-touch-icon" href="/assets/pwa/icon-maskable-512.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Native Tv" />
     <link rel="stylesheet" href="/assets/ui/theme.css" />
     <link rel="stylesheet" href="/assets/ui/ui.css" />
   </head>

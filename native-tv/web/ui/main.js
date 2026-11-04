@@ -85,3 +85,7 @@ document.addEventListener('visibilitychange', () => {
 tick();
 startPolling();
 loadServerStatus();
+
+// An installable app. The browser offers no service worker on a plain http:// address, so
+// the manifest and icons are all such a TV address gets; HTTPS or localhost adds this.
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/assets/pwa/sw.js', { scope: '/' }).catch(() => {});

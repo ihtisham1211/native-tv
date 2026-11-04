@@ -1,0 +1,16 @@
+{
+  "id": "/",
+  "name": "Native Tv",
+  "short_name": "Native Tv",
+  "description": "Control and monitor an LG webOS TV from a phone or computer.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#111411",
+  "theme_color": "#111411",
+  "icons": [
+    { "src": "/assets/pwa/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/pwa/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/pwa/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

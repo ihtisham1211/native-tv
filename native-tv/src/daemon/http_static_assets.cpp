@@ -270,6 +270,7 @@ std::string contentType(const std::string &path) {
         extension == ".woff2") return "application/javascript";
     if (extension == ".css" || extension == ".js") return "application/javascript";
     if (extension == ".json") return "application/json; charset=utf-8";
+    if (extension == ".webmanifest") return "application/manifest+json; charset=utf-8";
     if (extension == ".png") return "image/png";
     if (extension == ".svg") return "image/svg+xml";
     return "application/octet-stream";
@@ -289,7 +290,7 @@ std::string etag(const std::string &body) {
 std::string cacheControl(const std::string &path, const std::string &query) {
     const size_t dot = path.find_last_of('.');
     std::string extension = dot == std::string::npos ? "" : path.substr(dot);
-    if (extension == ".html" || extension == ".json")
+    if (extension == ".html" || extension == ".json" || extension == ".webmanifest")
         return "no-cache";
     size_t start = 0;
     while (start <= query.size()) {
@@ -527,10 +528,13 @@ bool HttpStaticAssets::handle(HttpExchange &exchange) const {
     const std::string cache = cacheControl(relative, request.query);
     if (request.header("if-none-match") == tag)
         return exchange.respond(304, {{"ETag", tag}, {"Cache-Control", cache}}, "");
-    return exchange.respond(200,
-                            {{"Content-Type", contentType(relative)},
-                             {"Cache-Control", cache},
-                             {"ETag", tag}}, body);
+    std::vector<HttpHeader> headers = {{"Content-Type", contentType(relative)},
+                                       {"Cache-Control", cache},
+                                       {"ETag", tag}};
+    // The service worker lives under /assets/pwa/ but has to control the dashboard at /.
+    if (relative == "pwa/sw.js")
+        headers.push_back({"Service-Worker-Allowed", "/"});
+    return exchange.respond(200, headers, body);
 }
 
 } // namespace daemon

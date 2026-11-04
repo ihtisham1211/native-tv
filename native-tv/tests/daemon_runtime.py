@@ -6439,6 +6439,7 @@ class DaemonRuntimeTests(unittest.TestCase):
             }))
             assetsRoot = root / "assets"
             shutil.copytree(str(sourceAssets), str(assetsRoot))
+            shutil.copytree(str(sourceAssets.parent / "assets" / "pwa"), str(assetsRoot / "pwa"))
             outside = root / "outside.js"
             outside.write_text("must not be served through an assets symlink")
             (assetsRoot / "ui" / "escape.js").symlink_to(outside)
@@ -6885,6 +6886,27 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertEqual(response.status, 200)
                 self.assertEqual(response.read(), b"")
                 self.assertGreater(int(response.headers.get("Content-Length", "0")), 0)
+
+                # The installable app: the manifest is not kept for a day, and the service worker,
+                # which sits under /assets/pwa/, may control the dashboard at /.
+                response = urlopen("http://127.0.0.1:%d/assets/pwa/manifest.webmanifest" % port, timeout=3)
+                manifest = json.loads(response.read().decode("utf-8"))
+                self.assertEqual(response.headers.get("Content-Type"),
+                                 "application/manifest+json; charset=utf-8")
+                self.assertEqual(response.headers.get("Cache-Control"), "no-cache")
+                self.assertEqual(manifest["start_url"], "/")
+                for icon in manifest["icons"]:
+                    response = urlopen("http://127.0.0.1:%d%s" % (port, icon["src"]), timeout=3)
+                    self.assertEqual(response.headers.get("Content-Type"), "image/png")
+                    self.assertTrue(response.read().startswith(b"\x89PNG"), icon["src"])
+                response = urlopen("http://127.0.0.1:%d/assets/pwa/sw.js" % port, timeout=3)
+                self.assertEqual(response.headers.get("Service-Worker-Allowed"), "/")
+                self.assertEqual(response.headers.get("Content-Type"), "application/javascript")
+                self.assertIn("addEventListener('fetch'", response.read().decode("utf-8"))
+                response = urlopen("http://127.0.0.1:%d/assets/ui/core.js" % port, timeout=3)
+                response.read()
+                self.assertIsNone(response.headers.get("Service-Worker-Allowed"),
+                                  "only the service worker may widen its scope")
 
                 connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
                 connection.request("GET", "/assets/dashboard.html?tab=apps")
