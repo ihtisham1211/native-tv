@@ -54,7 +54,7 @@ flowchart TD
   system snapshots, HDMI input mapping, the syslog parser and formatter), LG
   settings rows, OLED care, privacy and ad blocking, app lists, package
   inspection and install previews, background services, backup, watch history
-  (`nativetv_history`), screen time, PicCap, Prometheus rendering and the
+  (`nativetv_history`), screen time, the volume ceiling, PicCap, Prometheus rendering and the
   Home content services. `nativetv_tv_services` holds device-service request
   rules separately from metrics collection, including Quick Access target
   validation and volume parsing.

@@ -31,20 +31,32 @@ const args = process.argv.slice(2);
 let port = 8080;
 let model = 'c2';
 let autoOpen = false;
+let simulatorApp = '';
+let simulator = null;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--port' && args[i + 1]) { port = parseInt(args[++i], 10); }
   else if (args[i] === '--model' && args[i + 1]) { model = args[++i].toLowerCase(); }
   else if (args[i] === '--open') { autoOpen = true; }
+  else if (args[i] === '--simulator' && args[i + 1]) { simulatorApp = args[++i]; }
   else if (args[i] === '--help' || args[i] === '-h') {
     console.log('Usage: node scripts/emulate-tv.js [options]');
     console.log('Options:');
     console.log('  --port <number>    HTTP port to bind (default: 8080)');
     console.log('  --model <c2|b8|c3> TV profile to simulate (default: c2)');
     console.log('  --open             Automatically open the dashboard in browser');
+    console.log('  --simulator <app>  Also open the TV dashboard in LG\'s webOS TV Simulator (macOS .app)');
     process.exit(0);
   }
 }
+
+// The apps on the emulated TV, under their webOS ids. Each gets the appinfo.json a
+// real TV has, from which the client finds the brand icon by title.
+const APPS = [
+  ['youtube.leanback.v4', 'YouTube'], ['netflix', 'Netflix'], ['amazon', 'Prime Video'],
+  ['com.disney.disneyplus-prod', 'Disney+'], ['com.apple.appletv', 'Apple TV'],
+  ['spotify-beehive', 'Spotify'], ['plex', 'Plex'], ['com.webos.app.browser', 'Web Browser']
+].map(([id, title]) => ({ id, title }));
 
 // Model profiles
 const PROFILES = {
@@ -138,6 +150,12 @@ async function main() {
   for (const d of ['tmp/snapshots/netflix', 'tmp/snapshots/youtube', 'tmp/snapshots/plex', 'var/luna/preferences']) {
     fs.mkdirSync(path.join(system, d), { recursive: true });
   }
+  for (const app of APPS) {
+    const dir = path.join(system, 'usr/palm/applications', app.id);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'appinfo.json'), JSON.stringify(
+      { id: app.id, title: app.title, type: 'web', main: 'index.html', version: '1.0.0', vendor: 'LG Electronics' }));
+  }
   fs.mkdirSync(path.join(root, 'proc', 'net'), { recursive: true });
   fs.mkdirSync(path.join(root, 'var', 'lib', 'tvweb'), { recursive: true });
   const dataDir = path.join(root, 'var', 'lib', 'tvweb');
@@ -209,6 +227,8 @@ async function main() {
     env: Object.assign({}, process.env, {
       TVWEB_NODE_FREE: '1',
       TVWEB_LUNA_SEND: fakeLuna,
+      NATIVETV_FAKE_LUNA_MODE: 'emulator',
+      NATIVETV_FAKE_LUNA_APPS: JSON.stringify(APPS),
       TVWEB_DATA_DIR: dataDir,
       TVWEB_STATS_SYSTEM_JSON: path.join(root, 'native-system.json')
     })
@@ -236,6 +256,7 @@ async function main() {
   process.on('SIGTERM', cleanup);
   process.on('exit', () => {
     try { srv.kill('SIGKILL'); } catch (e) {}
+    try { if (simulator) simulator.kill(); } catch (e) {}
   });
 
   // Wait for server to bind
@@ -265,6 +286,16 @@ async function main() {
   console.log(`  🌐 Web Dashboard:      ${base}/`);
   console.log(`  📺 TV App Dashboard:   ${base}/assets/google-tv/pages/dashboard/index.html`);
   console.log(`\n  (Press Ctrl+C to stop the emulator)\n`);
+
+  if (simulatorApp) {
+    // The simulator takes the app's folder, then its launch parameters.
+    const binDir = path.join(simulatorApp, 'Contents', 'MacOS');
+    const exe = path.join(binDir, fs.readdirSync(binDir)[0]);
+    simulator = child.spawn(exe, [
+      path.join(__dirname, 'simulator-apps', 'native-tv'),
+      JSON.stringify({ url: `${base}/assets/google-tv/pages/dashboard/index.html` })
+    ], { stdio: 'ignore' });
+  }
 
   if (autoOpen) {
     const cmd = process.platform === 'darwin' ? `open "${base}/"` : (process.platform === 'win32' ? `start "" "${base}/"` : `xdg-open "${base}/"`);

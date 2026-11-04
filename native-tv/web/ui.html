@@ -2071,7 +2071,56 @@
                   the Advanced tab.</span
                 >
               </div>
-<details class="pv-d" id="disc-adblock-custom">
+<details class="pv-d" id="disc-adblock-export">
+            <summary>
+              <span data-t="pv.adblock.export">Export the block list</span>
+            </summary>
+            <div class="pv-sub" data-t="pv.adblock.export.desc">
+              The names the ad blocker blocks at its level, as a file for a
+              router, Pi-hole or AdGuard Home, so every device on the network
+              is covered and the blocking survives a factory reset of the TV.
+              While the ad blocker is off, the ads level is exported.
+            </div>
+            <div class="prot-table">
+              <div class="prot-row">
+                <div class="prot-main">
+                  <div class="prot-title" data-t="pv.adblock.export.hosts">
+                    Hosts file
+                  </div>
+                  <div class="prot-desc" data-t="pv.adblock.export.hosts.desc">
+                    0.0.0.0 lines, for a router or a computer.
+                  </div>
+                </div>
+                <div class="prot-status">
+                  <a class="pill idle" id="abx-hosts" download data-t="pv.adblock.export.download">Download</a>
+                </div>
+              </div>
+              <div class="prot-row">
+                <div class="prot-main">
+                  <div class="prot-title" translate="no">Pi-hole</div>
+                  <div class="prot-desc" data-t="pv.adblock.export.pihole.desc">
+                    One name per line, for an adlist or a domain list.
+                  </div>
+                </div>
+                <div class="prot-status">
+                  <a class="pill idle" id="abx-pihole" download data-t="pv.adblock.export.download">Download</a>
+                </div>
+              </div>
+              <div class="prot-row">
+                <div class="prot-main">
+                  <div class="prot-title" translate="no">AdGuard Home</div>
+                  <div class="prot-desc" data-t="pv.adblock.export.adguard.desc">
+                    ||name^ rules, for a DNS blocklist. They also cover each
+                    name's subdomains.
+                  </div>
+                </div>
+                <div class="prot-status">
+                  <a class="pill idle" id="abx-adguard" download data-t="pv.adblock.export.download">Download</a>
+                </div>
+              </div>
+            </div>
+          </details>
+          <details class="pv-d" id="disc-adblock-custom">
             <summary>
               <span data-t="pv.adblock.custom">Custom ad blocking</span>
               <span class="cur" id="abc-summary"></span>
@@ -2582,6 +2631,30 @@
               </button>
               <span class="cfg-msg" id="cfg-msg"></span>
             </div>
+<article class="card" id="cfg-haconfig" style="--p:2;--t:4;--d:6">
+<div class="card-h"><span class="badge"><svg class="ic" aria-hidden="true"><use href="#i-hub"/></svg></span><h2 data-t="mqtt.haconfig">Home Assistant configuration</h2></div>
+<div class="pv-sub" data-t="mqtt.haconfig.desc">
+              A media player with volume, mute, playback and source, and a
+              power switch that wakes the TV, for Home Assistant's
+              configuration.yaml, with this TV's topic prefix, device id and
+              MAC address filled in. Add it to the file and restart Home
+              Assistant.
+            </div>
+<textarea
+              id="ha-config"
+              class="copy-box"
+              readonly
+              rows="12"
+              spellcheck="false"
+              translate="no"
+              aria-label="Home Assistant configuration"
+              data-t-aria-label="mqtt.haconfig"
+            ></textarea>
+<div class="cfg-save">
+              <button id="ha-copy" onclick="copyHaConfig()" data-t="mqtt.haconfig.copy">Copy</button>
+              <span class="cfg-msg" id="ha-copy-msg"></span>
+            </div>
+</article>
 </section>
       <section class="panel grid" id="serverpane" role="tabpanel" hidden>
 <article class="card" style="--p:2;--t:4;--d:12">
@@ -3182,6 +3255,31 @@
               </div>
             </div>
           </details>
+<article class="card" id="srv-report" style="--p:2;--t:4;--d:12">
+<div class="card-h"><span class="badge"><svg class="ic" aria-hidden="true"><use href="#i-dns"/></svg></span><h2 data-t="server.report">TV report</h2></div>
+<div class="pv-sub" data-t="server.report.desc">
+              The Native Tv and webOS versions, the model and which readings
+              this TV answered, to paste into an issue. It holds no address, no
+              MAC address, no network or host name and none of the TV's
+              settings.
+            </div>
+<textarea
+              id="report-text"
+              class="copy-box"
+              readonly
+              hidden
+              rows="16"
+              spellcheck="false"
+              translate="no"
+              aria-label="TV report"
+              data-t-aria-label="server.report"
+            ></textarea>
+<div class="cfg-save">
+              <button id="report-create" onclick="createTvReport()" data-t="server.report.create">Create the report</button>
+              <button id="report-copy" onclick="copyTvReport()" data-t="server.report.copy" hidden>Copy</button>
+              <span class="cfg-msg" id="report-msg"></span>
+            </div>
+</article>
 </section>
       <section class="panel grid" id="toolspane" role="tabpanel" hidden>
 <article class="card tools-card" style="--p:2;--t:4;--d:12">
@@ -3800,6 +3898,106 @@
           </div>
         </div>
 </article>
+<article class="card" id="adv-volumelimit" style="--p:2;--t:4;--d:12">
+<div class="card-h"><span class="badge"><svg class="ic" aria-hidden="true"><use href="#i-volume_up"/></svg></span><h2 data-t="adv.volumeLimit">Volume ceiling</h2></div>
+<div class="prot-table">
+          <div class="prot-row">
+            <div class="prot-main">
+              <div class="prot-title" data-t="adv.volumeLimit.limits">
+                Volume limits
+              </div>
+              <div class="prot-desc" data-t="adv.volumeLimit.desc">
+                Keeps the volume at or under a maximum, whoever sets it: the
+                remote, an app or Home Assistant. A lower limit can apply at
+                night, and a volume can be set whenever the TV comes on. An
+                external sound device that sets its own level is not held.
+              </div>
+              <div class="prot-desc st-note" id="vl-note" hidden></div>
+            </div>
+            <div class="prot-status">
+              <button
+                type="button"
+                class="pill sw idle"
+                id="vl-enabled"
+                onclick="toggleVolumeLimit()"
+              >
+                &mdash;
+              </button>
+            </div>
+          </div>
+          <div class="prot-row">
+            <div class="prot-main">
+              <div class="prot-title" data-t="adv.volumeLimit.max">
+                Maximum volume
+              </div>
+            </div>
+            <div class="prot-status">
+              <select
+                class="pill-sel"
+                id="vl-max"
+                aria-label="Maximum volume"
+                data-t-aria-label="adv.volumeLimit.max"
+                onchange="saveVolumeLimit({ maxVolume: Number(this.value) })"
+              ></select>
+            </div>
+          </div>
+          <div class="prot-row">
+            <div class="prot-main">
+              <div class="prot-title" data-t="adv.volumeLimit.night">
+                Night limit
+              </div>
+              <div class="prot-desc" data-t="adv.volumeLimit.night.desc">
+                A lower maximum between the two times, on the TV’s clock.
+                Clearing either time turns it off.
+              </div>
+            </div>
+            <div class="prot-status timer-ctl">
+              <select
+                class="pill-sel"
+                id="vl-night-max"
+                aria-label="Night limit"
+                data-t-aria-label="adv.volumeLimit.night"
+                onchange="saveVolumeLimit({ nightMaxVolume: Number(this.value) })"
+              ></select>
+              <input
+                type="time"
+                class="pill-sel"
+                id="vl-night-from"
+                aria-label="Night limit starts"
+                data-t-aria-label="adv.volumeLimit.night.from"
+                onchange="saveVolumeLimit({ nightStart: this.value })"
+              />
+              <input
+                type="time"
+                class="pill-sel"
+                id="vl-night-to"
+                aria-label="Night limit ends"
+                data-t-aria-label="adv.volumeLimit.night.to"
+                onchange="saveVolumeLimit({ nightEnd: this.value })"
+              />
+            </div>
+          </div>
+          <div class="prot-row">
+            <div class="prot-main">
+              <div class="prot-title" data-t="adv.volumeLimit.startup">
+                Start-up volume
+              </div>
+              <div class="prot-desc" data-t="adv.volumeLimit.startup.desc">
+                Set when the TV is switched on. It never passes the maximum.
+              </div>
+            </div>
+            <div class="prot-status">
+              <select
+                class="pill-sel"
+                id="vl-startup"
+                aria-label="Start-up volume"
+                data-t-aria-label="adv.volumeLimit.startup"
+                onchange="saveVolumeLimit({ startupVolume: Number(this.value) })"
+              ></select>
+            </div>
+          </div>
+        </div>
+</article>
 <article class="card" id="adv-updates" style="--p:2;--t:4;--d:6">
 <div class="card-h"><span class="badge"><svg class="ic" aria-hidden="true"><use href="#i-refresh"/></svg></span><h2 data-t="adv.systemUpdates">System updates</h2></div>
 <div class="prot-table">
@@ -4066,6 +4264,26 @@
           <button type="button" class="btn btn-tonal" data-rcu="home" onclick="sendCommand('rcu', 'home')"><svg class="ic" aria-hidden="true"><use href="#i-home" /></svg><span data-t="ctl.home">Home</span></button>
           <button type="button" class="btn btn-tonal" data-rcu="settings" onclick="sendCommand('rcu', 'settings')"><svg class="ic" aria-hidden="true"><use href="#i-settings" /></svg><span data-t="ctl.settings">Settings</span></button>
         </div>
+        <form class="toast-form" id="kbd-form" onsubmit="sendKeyboardText(event); return false">
+          <input
+            type="text"
+            id="kbd-input"
+            maxlength="256"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            placeholder="Type on the TV"
+            aria-label="Type on the TV"
+            data-t-placeholder="ctl.keyboard"
+            data-t-aria-label="ctl.keyboard"
+          />
+          <button type="submit" data-t="ctl.keyboard.send">Send</button>
+        </form>
+        <div class="pad-row">
+          <button type="button" class="btn btn-tonal" onclick="keyboardKey('delete')" data-t="ctl.keyboard.delete">Delete</button>
+          <button type="button" class="btn btn-tonal" onclick="keyboardKey('enter')" data-t="ctl.keyboard.enter">Enter</button>
+        </div>
+        <p class="hint t-body-s" id="kbd-status" role="status" hidden></p>
         <p class="hint t-body-s" data-t="ctl.dpad.keys">
           On a keyboard: the arrows, Enter for OK, Esc or Backspace for Back, H
           for Home, M for Settings, Space to play or pause, K to mute.
@@ -4129,6 +4347,9 @@
     <script src="/assets/ui/history.js"></script>
     <script src="/assets/ui/ssh.js"></script>
     <script src="/assets/ui/screentime.js"></script>
+<script src="/assets/ui/volumelimit.js"></script>
+<script src="/assets/ui/keyboard.js"></script>
+<script src="/assets/ui/report.js"></script>
     <script src="/assets/ui/apps.js"></script>
     <script src="/assets/ui/install.js"></script>
     <script src="/assets/ui/home.js"></script>

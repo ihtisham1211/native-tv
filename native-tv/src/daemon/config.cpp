@@ -1,6 +1,7 @@
 #include "daemon/config.hpp"
 #include "daemon/json_file.hpp"
 #include "daemon/paths.hpp"
+#include "service/volume_ceiling.hpp"
 #include <cerrno>
 #include <cmath>
 #include <csignal>
@@ -535,6 +536,7 @@ Json backupSettingDefault(const std::string &section, const std::string &key) {
         if (key == "appAction") return Json::text("home");
         if (key == "apps") return Json::object();
     }
+    if (section == "volumeCeiling") return service::volumeCeilingSettings(Json::object())[key];
     return Json();
 }
 } // namespace
@@ -552,7 +554,7 @@ bool ConfigStore::patchBackupSettings(const Json &patch, std::string *error,
     }
     const char *const allowedSections[] = {
         "logging", "syslog", "ntp", "history", "backup", "screenTime",
-        "prometheus", "update"
+        "volumeCeiling", "prometheus", "update"
     };
     for (const std::string &section : patch.keys()) {
         bool allowed = false;

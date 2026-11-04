@@ -119,6 +119,23 @@ int main() {
     assert(appleTv["title"].string() == "Apple TV" && appleTv["kind"].string() == "input");
     assert(findChoice(result["choices"], "com.webos.app.hdmi2")["title"].string() == "HDMI 2");
     assert(findChoice(result["choices"], "media:fastForward")["title"].string() == "Fast forward");
+    // Screen off and Power off, offered while the server's switches allow them.
+    assert(findChoice(result["choices"], "action:screenOff")["title"].string() == "Screen off");
+    assert(findChoice(result["choices"], "action:screenOff")["kind"].string() == "action");
+    assert(findChoice(result["choices"], "action:powerOff")["title"].string() == "Power off");
+    {
+        service::RemoteKeysReadState noPower = state;
+        noPower.allowPower = false;
+        const Json withoutPower = service::remoteKeysReadResponse(noPower);
+        assert(findChoice(withoutPower["choices"], "action:screenOff").valid());
+        assert(!findChoice(withoutPower["choices"], "action:powerOff").valid());
+        service::RemoteKeysReadState noControl = state;
+        noControl.allowControl = false;
+        const Json withoutControl = service::remoteKeysReadResponse(noControl);
+        assert(!findChoice(withoutControl["choices"], "action:screenOff").valid());
+        assert(!findChoice(withoutControl["choices"], "action:powerOff").valid());
+        assert(findChoice(withoutControl["choices"], "media:play").valid());
+    }
     assert(!findChoice(result["choices"], "org.example.hidden").valid());
     assert(!findChoice(result["choices"], "com.webos.app.hdmi-extra").valid());
     assert(!findChoice(result["choices"], "com.webos.app.container.demo").valid());
@@ -169,6 +186,8 @@ int main() {
     assert(findKey(nativeResult["keys"], "iplayer").valid());
     assert(findChoice(nativeResult["choices"], "com.webos.app.quickinputpicker").valid());
     assert(findChoice(nativeResult["choices"], "media:play").valid() == false);
+    assert(findChoice(nativeResult["choices"], "action:screenOff").valid() == false);
+    assert(findChoice(nativeResult["choices"], "action:powerOff").valid() == false);
     assert(findChoice(nativeResult["choices"], "org.example.hidden").valid() == false);
 
     service::NativeRemoteKeysWriteState nativeWriteState;

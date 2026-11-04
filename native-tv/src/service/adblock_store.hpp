@@ -29,6 +29,10 @@ class AdBlockStore {
     bool tableMounted() const;
     bool waitsForSdp() const;
     Json privacyState(bool sdpGraceActive) const;
+    // The names blocked at a tier ("ads" or "full"; anything else is the current level,
+    // or "ads" while off) as a list for another blocker (see adBlockExport); empty for a
+    // format it does not know.
+    std::string exportList(const std::string &format, const std::string &tier) const;
     bool updateCountry(const std::string &country, bool sdpGraceActive,
                        std::string *error = nullptr) const;
     bool restoreAtBoot(bool sdpGraceActive, std::string *error = nullptr) const;

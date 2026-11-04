@@ -143,6 +143,8 @@ const std::vector<int> &screenTimeIdleChoices() {
     return choices;
 }
 
+bool screenTimeValidClock(const Json &value) { return validClock(value); }
+
 bool validateScreenTimePatch(const Json &patch, Json &value, std::string &error) {
     value = Json::object();
     error.clear();

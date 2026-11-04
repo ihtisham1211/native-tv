@@ -456,12 +456,14 @@ const RK_GROUPS = [
 // The colour keys' own colours, the one place colour is the key's name, so
 // they are the remote's colours and not the theme's accents.
 const RK_COLOURS = { red: '#FF3030', green: '#30DE61', yellow: '#F2C230', blue: '#3061FF' };
-// The volume controls' own marks; the rest share the play/pause one. Drawn
+// The volume controls' and the actions' own marks; the rest share the play/pause one. Drawn
 // rather than typed: the page is one font now, and a speaker is not in it.
 const RK_MEDIA_MARKS = {
   'media:volumeUp': '<svg class="sym" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.5 9H4v6h2.5L11 19z"/><path d="M15.5 9.6a3.4 3.4 0 0 1 0 4.8M18 7.2a7 7 0 0 1 0 9.6"/></svg>',
   'media:volumeDown': '<svg class="sym" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.5 9H4v6h2.5L11 19z"/><path d="M15.5 9.6a3.4 3.4 0 0 1 0 4.8"/></svg>',
-  'media:mute': '<svg class="sym" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.5 9H4v6h2.5L11 19z"/><path d="M16 9.5 20.5 14M20.5 9.5 16 14"/></svg>'
+  'media:mute': '<svg class="sym" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.5 9H4v6h2.5L11 19z"/><path d="M16 9.5 20.5 14M20.5 9.5 16 14"/></svg>',
+  'action:screenOff': '<svg class="sym" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M3 3l18 18"/></svg>',
+  'action:powerOff': '<svg class="sym" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v9"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>'
 };
 const RK_MEDIA_MARK = '<svg class="sym" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4.5 16 12l-9 7.5z"/><path d="M18.5 4.5v15M21.5 4.5v15"/></svg>';
 // The marks that say what a key is, drawn rather than typed.
@@ -482,7 +484,7 @@ function rkDoes(k, kindOf) {
   if (k.action === 'lg') return `<span class="rk-lg">${esc(t('apps.remoteKeys.lg', 'As LG has it'))}</span>`;
   if (k.action === 'nothing') return `<span class="rk-none" aria-hidden="true">${RK_NOTHING_MARK}</span>${esc(t('apps.remoteKeys.doesNothing', 'Does nothing'))}`;
   if (kindOf(k.id) === 'switcher') return `<span class="rk-none" aria-hidden="true">${RK_SWITCHER_MARK}</span>${esc(t('apps.remoteKeys.inputSwitcher', 'Input switcher'))}`;
-  if (kindOf(k.id) === 'media') return `<span class="rk-none" aria-hidden="true">${RK_MEDIA_MARKS[k.id] || RK_MEDIA_MARK}</span>${esc(k.opens)}`;
+  if (kindOf(k.id) === 'media' || kindOf(k.id) === 'action') return `<span class="rk-none" aria-hidden="true">${RK_MEDIA_MARKS[k.id] || RK_MEDIA_MARK}</span>${esc(k.opens)}`;
   const icon = kindOf(k.id) === 'app' ? rkIcon(k.id) : '';
   return `${icon}<span translate="no">${esc(k.opens)}</span>`;
 }
@@ -509,7 +511,7 @@ function renderRemoteKeys(d) {
   const kindOf = id => kinds[id] || 'app';
   const tile = k => {
     const dot = RK_COLOURS[k.key] ? `<i class="rk-dot" style="background:${RK_COLOURS[k.key]}"></i>` : '';
-    const label = k.action === 'open' && kindOf(k.id) === 'media' ? k.opens
+    const label = k.action === 'open' && (kindOf(k.id) === 'media' || kindOf(k.id) === 'action') ? k.opens
       : k.action === 'open' ? t('apps.remoteKeys.opens', 'Opens {app}', { app: k.opens })
       : k.action === 'nothing' ? t('apps.remoteKeys.doesNothing', 'Does nothing') : t('apps.remoteKeys.lg', 'As LG has it');
     return `<button type="button" class="rk-key${k.action !== 'lg' ? ' rk-changed' : ''}" data-key="${esc(k.key)}"
@@ -565,6 +567,7 @@ function toggleRemoteKey(tile) {
   const opt = (value, html, extra) => `<button type="button" class="rk-opt${value === cur ? ' on' : ''}${extra || ''}"
       data-value="${esc(value)}" aria-pressed="${value === cur}" onclick="chooseRemoteKey(this)">${html}</button>`;
   const media = rkData.choices.filter(c => c.kind === 'media');
+  const actions = rkData.choices.filter(c => c.kind === 'action');
   const inputs = rkData.choices.filter(c => c.kind === 'input');
   const apps = rkData.choices.filter(c => c.kind === 'app');
   // LG's input switcher, beside As LG has it and Nothing.
@@ -584,6 +587,9 @@ function toggleRemoteKey(tile) {
     <div class="rk-opts">${opt('lg', esc(t('apps.remoteKeys.lg', 'As LG has it')))}${k.noNothing ? '' : opt('nothing', `<span aria-hidden="true">${RK_NOTHING_MARK}</span> ${esc(t('apps.remoteKeys.nothing', 'Nothing'))}`)}${switchers}${gone}</div>
     ${media.length ? `<div class="rk-sub">${esc(t('apps.remoteKeys.media', 'Media'))}</div>
     <div class="rk-opts">${media.map(c => opt(c.id, esc(c.title))).join('')}</div>` : ''}
+    ${actions.length ? `<div class="rk-sub">${esc(t('apps.remoteKeys.actions', 'Actions'))}</div>
+    <div class="pv-note">${esc(t('apps.remoteKeys.actionsNote', 'Not yet tried on a TV. If the key then does nothing, set it back to As LG has it.'))}</div>
+    <div class="rk-opts">${actions.map(c => opt(c.id, esc(c.title))).join('')}</div>` : ''}
     ${inputs.length ? `<div class="rk-sub">${esc(t('apps.remoteKeys.inputs', 'Inputs'))}</div>
     <div class="rk-opts">${inputs.map(c => opt(c.id, `<span translate="no">${esc(c.title)}</span>`)).join('')}</div>` : ''}
     ${apps.length ? `<div class="rk-sub">${esc(t('apps.remoteKeys.apps', 'Apps'))}</div>

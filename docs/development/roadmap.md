@@ -1,32 +1,22 @@
-  # Roadmap
+# Roadmap
 
-  Planned features come first, most useful for the effort first. After them, what the TV app is still missing next to Google TV, whose layout it follows; the web dashboard is not affected by those.
+Planned features come first, most useful for the effort first. After them, what the TV app is still missing next to Google TV, whose layout it follows; the web dashboard is not affected by those.
 
-  ## Planned features
+## Planned features
 
-  1. **Install without building.** No release has been published yet, so installing needs the SDK and a build. Publish releases, so the `.ipk` the release workflow attaches can be installed directly, and list the package in the Homebrew Channel.
-  2. **Block-list catch-up.** `nsu.lge.com`, `snu-dev.lge.com`, `tv.wiselg.com` and `elastic.lgwebostv.com` are not in the platform hosts, so blocking TV software updates can still leak.
-  3. **Volume ceiling.** A maximum volume, a night limit and a start-up volume, kept by the daemon.
-  4. **Keyboard box.** Type into the TV's text fields from the phone, through the TV's text-input service. It is also the base for typing into apps.
-  5. **Home Assistant example fixes and a config generator.** The media-player example reports the volume as 0 to 100 where Home Assistant expects 0 to 1. A "copy my config" button would fill in the TV's address, MAC, topic prefix and device id.
-  6. **Block-list export.** Download the block list in Pi-hole, AdGuard or hosts format, so the router can block too and the protection survives a factory reset.
-  7. **TV report.** A redacted compatibility report (model, webOS version, what worked) to paste into an issue.
-  8. **More remote keys.** Screen off, Power off and "send to Home Assistant" as choices for a remote key.
+1. **List the package in the Homebrew Channel.** Releases carry the `.ipk` and `io.github.ihtisham1211.nativetv.manifest.json`, which installs directly; the Homebrew Channel's own app list does not name it yet. Listing is a pull request to [webosbrew/apps-repo](https://github.com/webosbrew/apps-repo) that adds `packages/<name>.yml` (title, icon, category, description, pool `main`, and `manifestUrl` pointing at `releases/latest/download/` for that manifest), as the [publishing guide](https://www.webosbrew.org/develop/guides/publishing/how-to/) sets out; not yet opened.
+2. **Remote key actions on a TV.** Screen off and Power off are choices for a remote key where the key handling is the JavaScript filter, tried only against stand-ins: a TV has to show whether the filter's role may call the power service's `powerOff` and `turnOffScreen` (it answered another `tvpower` call on a B3). "Send to Home Assistant" is not done, as a key the filter takes does not reach the server; it needs a way for the filter to tell the daemon, which a TV has to show.
 
-  ## Settings
+## Found testing the B3 by hand
 
-  - The Settings page has no tabs and no quick-settings icon, both of which Google TV's Settings has.
+- **App icon.** The Native Tv tile on LG's launcher does not fill its tile the way the channel tiles do.
+- **Privacy.** The Overview should be easier to use (someone who only wants ad tracking off).
 
-  ## Found testing the B3 by hand
+## Home, from the second hands-on test
 
-  - **App icon.** The Native Tv tile on LG's launcher does not fill its tile the way the channel tiles do.
-  - **Privacy.** The Overview should be easier to use (someone who only wants ad tracking off).
-
-  ## Home, from the second hands-on test
-
-  - **Review.** From the Home captures (`tests/golden/home-*.png`), to be tried on the TV:
-    - The carousel and the first row, Top picks for you, show the same six titles one above the other.
-    - Row labels (Top picks for you, Your apps) are small and low in contrast at TV distance.
-    - Only the focused app circle shows its name; the others are unlabelled.
-    - Available on Netflix and Trending on YouTube are the last two rows, four rows down from the top.
-    - The avatar and the search and settings buttons are small targets at 56 px.
+- **Review.** From the Home captures (`tests/golden/home-*.png`), to be tried on the TV:
+  - The carousel and the first row, Top picks for you, show the same six titles one above the other.
+  - Row labels (Top picks for you, Your apps) are small and low in contrast at TV distance.
+  - Only the focused app circle shows its name; the others are unlabelled.
+  - Available on Netflix and Trending on YouTube are the last two rows, four rows down from the top.
+  - The avatar and the search and settings buttons are small targets at 56 px.

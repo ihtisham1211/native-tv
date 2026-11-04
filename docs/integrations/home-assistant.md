@@ -267,9 +267,18 @@ action:
 
 Home Assistant Core does not offer native MQTT discovery for `media_player` platforms. To group all the discovered volume, mute, power, playback, and source controls into a single native media player card:
 
-Add the following to `configuration.yaml`. Power uses the `LG TV` switch from [Switched off, and back on](#switched-off-and-back-on).
+The **Home Assistant configuration** card at the bottom of the Home Assistant tab on the dashboard shows this configuration, and the power switch below, with the topic prefix, device id, name and MAC address of the TV filled in, and a **Copy** button. The text below is the same for a TV with the default device id and prefix.
+
+Add the following to `configuration.yaml`. Power uses the `LG TV` switch from [Switched off, and back on](#switched-off-and-back-on). The Universal Media Player reads the volume as 0 to 1 and the TV's **Volume** entity is 0 to 100, so a template sensor converts it (`volume_set` converts the other way).
 
 ```yaml
+template:
+  - sensor:
+      - name: "LG TV Volume Level"
+        unique_id: lg_tv_volume_level
+        state: "{{ (states('number.lg_tv_volume') | float / 100) | round(2) }}"
+        availability: "{{ states('number.lg_tv_volume') | is_number }}"
+
 media_player:
   - platform: universal
     name: "LG OLED TV"
@@ -329,7 +338,7 @@ media_player:
     attributes:
       state: switch.lg_tv
       is_volume_muted: switch.lg_tv_mute
-      volume_level: number.lg_tv_volume
+      volume_level: sensor.lg_tv_volume_level
       source: select.lg_tv_input_source
       source_list: select.lg_tv_input_source|options
 ```

@@ -13,6 +13,10 @@ struct RemoteKeysReadState {
     Json appsReply;
     Json inputDevices;
     bool inputSwitcherAvailable = false;
+    // The server's own switches: a key set to an action runs it in LG's key filter, where
+    // the server cannot check them, so an action is offered only while they allow it.
+    bool allowControl = true;
+    bool allowPower = true;
 };
 
 struct NativeRemoteKeysReadState {

@@ -42,6 +42,17 @@ std::vector<std::string> adBlockList(const std::string &mode,
                                     const std::string &serverHost,
                                     bool sdpGraceActive,
                                     const AdBlockCustomList *custom);
+// The names the TV blocks at a level ("ads" or "full"), with a custom list as it is
+// used and the TV software update servers when those are blocked.
+std::vector<std::string> adBlockExportNames(const std::string &mode,
+                                            const std::string &country,
+                                            const std::string &serverHost,
+                                            const AdBlockCustomList *custom,
+                                            bool tvUpdatesBlocked);
+// A list of names as another blocker reads it: "hosts" (0.0.0.0 lines), "pihole"
+// (one name per line) or "adguard" (||name^ rules). Empty for any other format.
+std::string adBlockExport(const std::string &format,
+                          const std::vector<std::string> &names);
 // The addresses LG's device scans reverse-look-up: every host on each private
 // IPv4 network the TV is on, less the TV's own addresses.
 std::vector<std::string> adBlockLocalLookupAddresses(

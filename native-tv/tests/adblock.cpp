@@ -312,6 +312,57 @@ int main() {
           "custom hosts parsing keeps unique sinkhole names and normalizes case");
     check(parsed.skipped == 2,
           "custom hosts parsing counts redirects and malformed host names");
+    {
+        const std::vector<std::string> names = {"ad.example.com", "gb.ad.example.com"};
+        check(adBlockExport("hosts", names) ==
+                  "# Native Tv block list: 2 names\n0.0.0.0 ad.example.com\n"
+                  "0.0.0.0 gb.ad.example.com\n",
+              "the hosts export is 0.0.0.0 lines under a comment");
+        check(adBlockExport("pihole", names) ==
+                  "# Native Tv block list: 2 names\nad.example.com\ngb.ad.example.com\n",
+              "the Pi-hole export is one name per line");
+        check(adBlockExport("adguard", names) ==
+                  "! Native Tv block list: 2 names\n||ad.example.com^\n||gb.ad.example.com^\n",
+              "the AdGuard export is ||name^ rules under a ! comment");
+        check(adBlockExport("csv", names).empty() && adBlockExport("", names).empty(),
+              "an unknown export format gives nothing");
+        check(adBlockExport("hosts", {}) == "# Native Tv block list: 0 names\n",
+              "an empty list exports its header only");
+        const std::vector<std::string> full = adBlockList("full", "gb", "", false, nullptr);
+        check(parseAdBlockCustomHosts(adBlockExport("hosts", full)).names == full,
+              "the hosts export of the built-in list reads back as the same names");
+        // What is exported is what the TV blocks at the level.
+        const std::vector<std::string> ads = adBlockExportNames("ads", "gb", "", nullptr, false);
+        const std::vector<std::string> everything =
+            adBlockExportNames("full", "gb", "", nullptr, false);
+        check(has(ads, "ad.doubleclick.net") && has(ads, "gb.info.lgsmartad.com") &&
+                  !has(ads, "lgtviot.com") && !has(ads, "snu.lge.com"),
+              "the ads export holds the ad and tracker names, no platform or update hosts");
+        check(has(everything, "ad.doubleclick.net") && has(everything, "lgtviot.com") &&
+                  has(everything, "nextlgsdp.com") && !has(everything, "snu.lge.com") &&
+                  everything.size() > ads.size(),
+              "the full export adds the platform hosts");
+        const std::vector<std::string> withUpdates =
+            adBlockExportNames("ads", "gb", "", nullptr, true);
+        check(has(withUpdates, "snu.lge.com") && has(withUpdates, "nsu.lge.com") &&
+                  has(withUpdates, "snu-dev.lge.com") && withUpdates.size() == ads.size() + 6,
+              "the TV software update servers are exported while they are blocked");
+        check(std::set<std::string>(withUpdates.begin(), withUpdates.end()).size() ==
+                  withUpdates.size(),
+              "an exported list has no name twice");
+        AdBlockCustomList own;
+        own.mode = "add";
+        own.names = {"extra.example.com", "ad.doubleclick.net"};
+        check(has(adBlockExportNames("ads", "gb", "", &own, false), "extra.example.com") &&
+                  adBlockExportNames("ads", "gb", "", &own, false).size() == ads.size() + 1,
+              "a custom list added to the built-in names is exported once");
+        own.mode = "replace";
+        check(adBlockExportNames("ads", "gb", "", &own, false) == own.names,
+              "a custom list that replaces the built-in names is all that is exported");
+        own.enabled = false;
+        check(adBlockExportNames("ads", "gb", "", &own, false) == ads,
+              "a custom list that is switched off is not exported");
+    }
     check(parseAdBlockCustomHosts("notes\n").names.empty(),
           "a single word is not a host name");
 
@@ -379,7 +430,8 @@ int main() {
     check(table.find("# LG Ad & Telemetry Blackhole (lg-webos-dashboard)") !=
               std::string::npos && sinkholed(table, "ad.doubleclick.net"),
           "hosts table carries its marker and dual-stack built-in entries");
-    check(sinkholed(table, "snu.lge.com") && sinkholed(table, "su-ssl.lge.com"),
+    check(sinkholed(table, "snu.lge.com") && sinkholed(table, "su-ssl.lge.com") &&
+              sinkholed(table, "nsu.lge.com") && sinkholed(table, "snu-dev.lge.com"),
           "TV update servers are blocked only when their flag is set");
     check(table.find("127.0.0.1 cloudfront.xp-assets.aiv-cdn.net\n") !=
               std::string::npos,
@@ -400,7 +452,8 @@ int main() {
         "netflix.com", "www.netflix.com", "nflxvideo.net", "primevideo.com", "www.amazon.com",
         "cloudfront.net", "cloudfront.xp-assets.aiv-cdn.net", "akamaized.net", "lgtvsdp.com",
         "gb.lgtvsdp.com", "nextlgsdp.com", "gb.nextlgsdp.com", "wiselg.com", "gb.tv.wiselg.com",
-        "lgtviot.com", "ueiwsp.com", "snu.lge.com", "su-dev.lge.com", "su.lge.com", "su-ssl.lge.com"};
+        "lgtviot.com", "ueiwsp.com", "snu.lge.com", "nsu.lge.com", "snu-dev.lge.com", "su-dev.lge.com", "su.lge.com",
+        "su-ssl.lge.com"};
     for (const char *mode : {"ads", "full"}) {
         const std::string tier = mode;
         const std::string tierTable = adBlockHostsTable(tier, "", "", false, false, nullptr, {});

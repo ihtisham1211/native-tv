@@ -1,0 +1,24 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Start</title>
+<style>body{margin:0;background:#111;color:#eee;font:32px sans-serif}form{padding:40vh 10vw}input{width:100%;box-sizing:border-box;font:inherit;padding:16px}</style>
+<script>
+// Shared by every app in this folder: the app's id picks the site it opens.
+// A launch parameter {"url": "..."} overrides it; the browser has no site, so it asks.
+var sites = {
+  'com.tvweb.simulator': 'http://localhost:8080/assets/google-tv/pages/dashboard/index.html',
+  'youtube.leanback.v4': 'https://www.youtube.com/tv',
+  'netflix': 'https://www.netflix.com/',
+  'amazon': 'https://www.primevideo.com/'
+};
+var params = {};
+try { params = JSON.parse(webOSSystem.launchParams); } catch (e) {}
+var url = params.url || sites[webOSSystem.identifier];
+if (url) location.replace(url);
+function go(f) {
+  var text = f.u.value.trim();
+  location.href = /^[a-z]+:\/\//i.test(text) ? text : 'https://' + text;
+  return false;
+}
+</script>
+<form onsubmit="return go(this)"><input name="u" autofocus placeholder="Address, then Enter"></form>

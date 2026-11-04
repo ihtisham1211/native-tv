@@ -6,7 +6,7 @@ labels: bug
 
 **What happened, and what was expected**
 
-**TV**: model, webOS version (as the dashboard shows it), OLED or LCD
+**TV**: the Server tab's TV report, pasted, or the model, webOS version (as the dashboard shows it) and OLED or LCD
 
 **Native Tv version**: from the Server tab, or `native-tv/VERSION`
 

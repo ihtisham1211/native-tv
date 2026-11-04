@@ -132,7 +132,7 @@ function showTab(name) {
   if (name === 'oledcare') loadOledCare();
   if (name === 'home') loadHome();
   gamePolling(name === 'game');
-  if (name === 'advanced') { loadAdvSettings(); loadServerStatus(); loadScreenTime(); }
+  if (name === 'advanced') { loadAdvSettings(); loadServerStatus(); loadScreenTime(); loadVolumeLimit(); }
   if (name === 'servicemenu') loadServiceMenu();
   if (name === 'screensaver') loadScreensavers();
   if (name === 'privacy') loadPrivacy();

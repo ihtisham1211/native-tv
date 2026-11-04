@@ -1,0 +1,9 @@
+{
+  "id": "com.tvweb.simulator",
+  "title": "Native Tv",
+  "type": "web",
+  "main": "../start.html",
+  "icon": "../../../native-tv/assets/dashboard-app/assets/icon130.png",
+  "version": "1.0.0",
+  "vendor": "Native Tv"
+}

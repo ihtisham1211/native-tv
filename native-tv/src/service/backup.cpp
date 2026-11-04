@@ -2,6 +2,7 @@
 #include "domain/say.hpp"
 #include "domain/names.hpp"
 #include "service/screen_time.hpp"
+#include "service/volume_ceiling.hpp"
 
 #include <cerrno>
 #include <algorithm>
@@ -159,6 +160,7 @@ bool validSetting(const std::string &section, const std::string &key,
         if (key == "appAction") return validAction(value, true);
         if (key == "apps") return validScreenTimeApps(value);
     }
+    if (section == "volumeCeiling") return volumeCeilingValidField(key, value);
     return false;
 }
 
@@ -171,6 +173,9 @@ std::vector<std::string> backupSettingKeys(const std::string &section) {
     if (section == "screenTime")
         return {"enabled", "dailyMinutes", "idleMinutes", "bedtimeStart", "bedtimeEnd",
                 "action", "appAction", "apps"};
+    if (section == "volumeCeiling")
+        return {"enabled", "maxVolume", "nightMaxVolume", "nightStart", "nightEnd",
+                "startupVolume"};
     if (section == "prometheus") return {"enabled"};
     if (section == "update") return {"check"};
     return {};
@@ -286,7 +291,7 @@ Json safeConfig(const Json &config) {
     Json result = Json::object();
     const std::string sections[] = {
         "logging", "syslog", "ntp", "history", "backup", "screenTime",
-        "prometheus", "update"
+        "volumeCeiling", "prometheus", "update"
     };
     for (const std::string &section : sections) {
         const Json source = config[section];

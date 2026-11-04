@@ -352,6 +352,42 @@
       "notes": "When controls are enabled, the daemon validates the JSON body, same-origin and size guards, patches the existing config.json screenTime section under the shared config lock, applies the merged settings to native enforcement, and asks Node to reload its in-memory config. When controls are disabled it forwards the original POST to Node for the established localized refusal response."
     },
     {
+      "paths": ["/api/volumelimit"],
+      "methods": ["non-POST"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Reads the volumeCeiling settings from the live config. HEAD suppresses the response body."
+    },
+    {
+      "paths": ["/api/volumelimit"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "POST uses JSON body guard and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 256, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Requires allowControl (403 otherwise). Validates the partial settings, patches the config.json volumeCeiling section under the shared config lock and applies the merged settings to the native volume ceiling enforcer."
+    },
+    {
+      "paths": ["/api/keyboard"],
+      "methods": ["POST"],
+      "auth": "token",
+      "csrf": "POST uses JSON body guard and same-origin Origin/Host comparison when Origin is present",
+      "bodyLimit": {"max": 4096, "unit": "bytes"},
+      "owner": "native",
+      "notes": "Requires allowControl (403 otherwise). Validates a text, delete or enter request and sends it to the TV's text-input service (com.webos.service.ime) through the command policy; the TV's refusal, such as no text field being open, comes back as ok false with its text. Other methods get 405."
+    },
+    {
+      "paths": ["/api/adblock/export"],
+      "methods": ["non-POST"],
+      "auth": "token",
+      "csrf": "not applicable",
+      "bodyLimit": {"max": 0, "unit": "bytes"},
+      "owner": "native",
+      "notes": "A download of the names the ad blocker blocks, as hosts, Pi-hole or AdGuard lines (format) at the ads or full tier (tier, the current level when left out). Other methods get 405."
+    },
+    {
       "paths": ["/api/apps/catalog"],
       "methods": ["GET"],
       "auth": "token",

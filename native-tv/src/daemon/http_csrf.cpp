@@ -15,6 +15,8 @@ struct GuardedRoute {
 const GuardedRoute kGuardedRoutes[] = {
     {"/api/ssh", ContentTypeRule::JsonPrefix},
     {"/api/screentime", ContentTypeRule::JsonPrefix},
+    {"/api/volumelimit", ContentTypeRule::JsonPrefix},
+    {"/api/keyboard", ContentTypeRule::JsonPrefix},
     {"/api/apps/install/fetch", ContentTypeRule::JsonPrefix},
     {"/api/apps/install/url", ContentTypeRule::JsonPrefix},
     {"/api/apps/install/confirm", ContentTypeRule::JsonPrefix},

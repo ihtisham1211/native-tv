@@ -148,6 +148,13 @@ function nativeTvMedia(name) {
     if (nativeTvMediaCodes.hasOwnProperty(name)) nativeTvSendKey(nativeTvMediaCodes[name]);
 }
 
+// What a key set to "action:<name>" does, through the TV's power service. The server only
+// offers these while its allowControl and allowPower switches are on.
+function nativeTvAction(name) {
+    var uri = name === "screenOff" ? "/power/turnOffScreen" : name === "powerOff" ? "/power/powerOff" : "";
+    if (uri) lunaCall.send("com.webos.service.tvpower", uri, "{}", function () {});
+}
+
 // Opens Home once the app manager runs Native Tv Home under its id, and
 // says it is starting until then. The key has been kept from LG's filters.
 function nativeTvHomePressed() {
@@ -202,6 +209,11 @@ function handleNativeTvKeys(key, pressed, autoRepeat) {
             if (pressed && (!autoRepeat || nativeTvMediaRepeats.hasOwnProperty(media))) {
                 if (!autoRepeat) console.info("nativetv keyfilter: key", key, "sends", id);
                 nativeTvMedia(media);
+            }
+        } else if (id.indexOf("action:") === 0) {
+            if (pressed && !autoRepeat) {
+                console.info("nativetv keyfilter: key", key, "runs", id);
+                nativeTvAction(id.substring(7));
             }
         } else if (pressed && !autoRepeat && id) {
             console.info("nativetv keyfilter: key", key, "opens", id);

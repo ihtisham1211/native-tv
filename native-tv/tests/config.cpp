@@ -351,13 +351,20 @@ void testObjectSectionPatchPreservesConfig(const std::string &root) {
                   "{\"logging\":{\"level\":\"info\"},\"syslog\":{\"port\":514,"
                   "\"redact\":true,\"sources\":[\"system\",\"nativetv\"]},"
                   "\"history\":{\"enabled\":false},"
-                  "\"screenTime\":{\"dailyMinutes\":0,\"action\":\"off\",\"apps\":{}}}"),
+                  "\"screenTime\":{\"dailyMinutes\":0,\"action\":\"off\",\"apps\":{}},"
+                  "\"volumeCeiling\":{\"enabled\":false,\"maxVolume\":100,"
+                  "\"nightMaxVolume\":100,\"nightStart\":\"\",\"startupVolume\":-1}}"),
                   &error, &defaultsChanged) && defaultsChanged.size() == 0,
               "restoring settings that equal the defaults was reported as a change");
         check(defaultsStore.patchBackupSettings(Json::parse(
                   "{\"syslog\":{\"port\":515}}"), &error, &defaultsChanged) &&
                   defaultsChanged.size() == 1,
               "a setting that differs from its default was not reported as a change");
+        check(defaultsStore.patchBackupSettings(Json::parse(
+                  "{\"volumeCeiling\":{\"maxVolume\":50}}"), &error, &defaultsChanged) &&
+                  defaultsChanged.size() == 1 &&
+                  defaultsChanged[0].string() == "volumeCeiling.maxVolume",
+              "a volume ceiling that differs from its default was not reported as a change");
         unlink(defaultsPath.c_str());
     }
     check(!store.patchBackupSettings(Json::parse(

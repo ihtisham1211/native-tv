@@ -24,6 +24,9 @@ struct ScreenTimeBedtime {
 // The times the idle power-off offers, in minutes (0 is off): 15 and 30 minutes, then every hour up to eight.
 const std::vector<int> &screenTimeIdleChoices();
 
+// Whether a value is a clock time as the settings hold one: "HH:MM", or "" for none.
+bool screenTimeValidClock(const Json &value);
+
 // Validate and copy a partial screen-time settings document using the same
 // accepted fields and error strings as the legacy API.
 bool validateScreenTimePatch(const Json &patch, Json &value, std::string &error);

@@ -228,6 +228,11 @@ input[type=text], input[type=search], input[type=password], input[type=number], 
 .toast-form button { min-height: 40px; padding: 0 24px; border-radius: var(--shape-full); background: var(--c-secondary-container); color: var(--c-on-secondary-container); font: var(--type-label-l); letter-spacing: var(--track-label); }
 .toast-form button:disabled { opacity: .38; }
 #port-input { max-width: 120px; flex: 0 1 120px; }
+#kbd-form { margin-bottom: 8px; }
+#cfg-haconfig { grid-column: 1 / -1; }
+#cfg-haconfig .cfg-save, #srv-report .cfg-save { margin-top: 12px; }
+.copy-box { display: block; width: 100%; min-height: 260px; box-sizing: border-box; margin: 8px 0 0; padding: 12px 16px; border: 0; border-radius: var(--shape-md); background: var(--c-surface-container-lowest); color: var(--c-on-surface); font: 400 .8125rem/1.5 var(--font-mono); white-space: pre; overflow: auto; resize: vertical; }
+.copy-box:focus-visible { outline: 2px solid var(--c-primary); outline-offset: 2px; }
 .pill-sel { appearance: none; -webkit-appearance: none; min-height: 40px; max-width: 100%; padding: 0 36px 0 14px; border: 0; border-radius: var(--shape-md); background: var(--c-surface-container-highest) var(--caret) right 10px center / 20px no-repeat; font: var(--type-label-l); cursor: pointer; outline: none; }
 input[type=time].pill-sel, #home-tmdb-key, #home-youtube-key { padding-right: 14px; background-image: none; }
 #home-tmdb-key, #home-youtube-key { width: min(100%, 360px); margin-top: 8px; cursor: text; }

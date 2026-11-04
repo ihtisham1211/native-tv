@@ -400,7 +400,10 @@ is dropped, a new address asked at once, and the caller never waits. `native-sta
 (`tests/http_static_assets.cpp`) ports `test-lazy-ui.js`: the TV pages never load the phone page, which is
 assembled once on its first request, compressed, with missing parts reported and not retried.
 
-`native-ha-golden` (`tests/ha_golden.py`) and `native-prometheus-golden` (`tests/prometheus_golden.py`) hold
+`native-ha-config-example` (`tests/ha_config_example.py`) renders the Home Assistant configuration the MQTT tab
+generates (`haConfigText` in `web/ui/mqtt.js`) with Node and compares it, parsed, with the YAML in
+[Home Assistant](../integrations/home-assistant.md), so the card and the page cannot drift; it is skipped without
+Node or PyYAML. `native-ha-golden` (`tests/ha_golden.py`) and `native-prometheus-golden` (`tests/prometheus_golden.py`) hold
 the entity catalogue, the capability filter, the discovery payloads and the Prometheus text to what `ha.js` and
 `prometheus.js` answered when recorded (`tests/fixtures/ha-golden.json`, `prometheus-golden.json`; the recording
 went with the Node server), so they need no Node. The Prometheus golden carries the `nativetv_` names. `test-timers.js` is
@@ -846,8 +849,22 @@ NO_MKDOCS_2_WARNING=1 mkdocs build
 `scripts/emulate-tv.js` runs the host build of the daemon as on a TV with no Node (`TVWEB_NODE_FREE=1`), on the build's stand-in `luna-send`, a fixed system snapshot and a seeded Native Tv Home. It serves the web dashboard, the TV pages and the API on a computer, for development without a TV; build first with `python3 native-tv/build.py --service-only`.
 
 ```bash
-node scripts/emulate-tv.js [--port 8080] [--model c2|b8|c3] [--open]
+node scripts/emulate-tv.js [--port 8080] [--model c2|b8|c3] [--open] [--simulator <app>]
 ```
+
+`--simulator` also opens the TV dashboard page in LG's webOS TV Simulator, given the path to its `.app` (1.5.0 tried, LG's webOS 26, webOS 11 as a TV reports it), and closes it with the emulator. The simulator is an Electron app that runs on Apple Silicon. It shows the pages the Homebrew Channel app opens on the TV, with its virtual remote for the arrow keys, OK and Back, which a desktop browser cannot. It does not run the daemon, the native client or LG's services: it fakes a few Luna services for web apps, so ACR, TV settings and sam behaviour still need a real TV.
+
+`scripts/simulator-apps/` holds web apps for the simulator's app list: Native Tv, YouTube (`youtube.leanback.v4`), Netflix (`netflix`), Prime Video (`amazon`) and a Web Browser with an address bar. Each opens the service's website, so the simulator, which has no Widevine, shows Netflix and Prime Video but does not play their protected video. Add each folder once in the simulator's app dialog; it keeps the list. Native Tv opened from that list uses port 8080.
+
+The TV app itself, the native client, runs on the computer against the emulator, which is the closest check to a TV without one. Build it without `--service-only` (`python3 native-tv/build.py --out native-tv/build-host-full`, which needs SDL2), then, with the emulator on a port:
+
+```bash
+native-tv/build-host-full/nativetv-tv --server http://127.0.0.1:8080 --screen home --windowed
+```
+
+The arrow keys, Enter, Esc (Back), F1 (red) and Page Up and Down stand in for the remote. `--screen` takes `home`, `dashboard`, `setup:welcome`, `splash` and `kit:keyboard`; `--script steps.json` plays timed keys; `--capture frame.ppm --duration-ms 9000` saves a frame (`write_png` in `tests/golden/golden.py` turns the last width x height x 3 bytes of the PPM, the raw RGB, into a PNG). It draws through the computer's own GPU, so frame rate, smoothness and colour say nothing about a TV.
+
+The emulated TV has eight apps installed under their webOS ids (YouTube, Netflix, Prime Video, Disney+, Apple TV, Spotify, Plex and the browser), listed in `APPS` in `scripts/emulate-tv.js`. The script writes each one's `appinfo.json` as a TV has it and passes the list to the stand-in `luna-send` (`NATIVETV_FAKE_LUNA_MODE=emulator`); the client takes each brand icon from the pack by id, then by the title in `appinfo.json`. The Home is otherwise empty, with no feed or catalogue: `tests/home_fixture.py` serves those.
 
 ## Route and Home controller tests
 

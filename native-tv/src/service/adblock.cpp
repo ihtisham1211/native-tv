@@ -79,7 +79,8 @@ const std::vector<std::string> kSdpHosts = {
     "eu.nextlgsdp.com"
 };
 const std::vector<std::string> kUpdateHosts = {
-    "snu.lge.com", "su-dev.lge.com", "su.lge.com", "su-ssl.lge.com"
+    "snu.lge.com", "nsu.lge.com", "snu-dev.lge.com", "su-dev.lge.com",
+    "su.lge.com", "su-ssl.lge.com"
 };
 const std::vector<std::string> kCustomSinkAddresses = {
     "0.0.0.0", "127.0.0.1", "::", "::1"
@@ -456,6 +457,42 @@ std::string adBlockHostsTable(const std::string &mode,
             output << line << '\n';
     }
     output << '\n';
+    return output.str();
+}
+
+std::vector<std::string> adBlockExportNames(const std::string &mode,
+                                            const std::string &country,
+                                            const std::string &serverHost,
+                                            const AdBlockCustomList *custom,
+                                            bool tvUpdatesBlocked) {
+    std::vector<std::string> names = adBlockList(mode, country, serverHost, false, custom);
+    if (tvUpdatesBlocked)
+        for (const std::string &host : kUpdateHosts)
+            appendUnique(names, host);
+    return names;
+}
+
+std::string adBlockExport(const std::string &format,
+                          const std::vector<std::string> &names) {
+    std::string comment, prefix, suffix;
+    if (format == "hosts") {
+        comment = "# ";
+        prefix = "0.0.0.0 ";
+    } else if (format == "pihole") {
+        comment = "# ";
+    } else if (format == "adguard") {
+        comment = "! ";
+        prefix = "||";
+        suffix = "^";
+    } else {
+        return std::string();
+    }
+    std::ostringstream output;
+    output << comment << "Native Tv block list: " << names.size() << " names\n";
+    // A router or AdGuard rule also matches subdomains, which the TV's own hosts
+    // table does not; the names already include the regional ones.
+    for (const std::string &name : names)
+        output << prefix << name << suffix << '\n';
     return output.str();
 }
 

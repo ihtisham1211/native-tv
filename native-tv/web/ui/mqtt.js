@@ -290,6 +290,121 @@ function cfgToggleEnt(cb) {
   renderEntitiesUI();
 }
 
+// ---- Home Assistant configuration, with this TV's values ----
+// What docs/integrations/home-assistant.md sets out, for the topic prefix, device id and MAC
+// address of this TV. Entity ids start with the device id.
+function haConfigText(v) {
+  const id = v.id;
+  const mac = v.mac ? v.mac.toUpperCase() : 'AA:BB:CC:DD:EE:FF';
+  const topic = suffix => JSON.stringify(v.prefix + '/command/' + suffix);
+  const press = (action, entity) => [
+    '      ' + action + ':',
+    '        service: button.press',
+    '        target:',
+    '          entity_id: button.' + id + '_' + entity];
+  const head = ['# Native Tv: ' + v.name + (v.address ? ' (' + v.address + ')' : '') + '. For Home Assistant\'s configuration.yaml.'];
+  if (!v.mac) head.push('# This TV\'s MAC address was not found: put it in the wake_on_lan action below.');
+  return head.concat([
+    'template:',
+    '  - sensor:',
+    '      - name: ' + JSON.stringify(v.name + ' Volume Level'),
+    '        unique_id: ' + id + '_volume_level',
+    '        state: "{{ (states(\'number.' + id + '_volume\') | float / 100) | round(2) }}"',
+    '        availability: "{{ states(\'number.' + id + '_volume\') | is_number }}"',
+    '',
+    'switch:',
+    '  - platform: template',
+    '    switches:',
+    '      ' + id + ':',
+    '        friendly_name: ' + JSON.stringify(v.name),
+    '        value_template: "{{ is_state(\'binary_sensor.' + id + '_power\', \'on\') }}"',
+    '        turn_on:',
+    '          # Wakes a TV that is asleep in standby.',
+    '          - action: wake_on_lan.send_magic_packet',
+    '            data:',
+    '              mac: "' + mac + '"',
+    '          # Wakes a TV that is still up in Active Standby, which ignores the packet above.',
+    '          - action: button.press',
+    '            continue_on_error: true',
+    '            target:',
+    '              entity_id: button.' + id + '_power_on',
+    '        turn_off:',
+    '          - action: button.press',
+    '            target:',
+    '              entity_id: button.' + id + '_power_off',
+    '        icon_template: mdi:television',
+    '',
+    'media_player:',
+    '  - platform: universal',
+    '    name: ' + JSON.stringify(v.name),
+    '    unique_id: ' + id + '_media_player',
+    '    children: []',
+    '    commands:',
+    '      turn_on:',
+    '        service: switch.turn_on',
+    '        target:',
+    '          entity_id: switch.' + id,
+    '      turn_off:',
+    '        service: switch.turn_off',
+    '        target:',
+    '          entity_id: switch.' + id,
+    '      volume_up:',
+    '        service: mqtt.publish',
+    '        data:',
+    '          topic: ' + topic('volumeStep'),
+    '          payload: "1"',
+    '      volume_down:',
+    '        service: mqtt.publish',
+    '        data:',
+    '          topic: ' + topic('volumeStep'),
+    '          payload: "-1"',
+    '      volume_set:',
+    '        service: number.set_value',
+    '        target:',
+    '          entity_id: number.' + id + '_volume',
+    '        data:',
+    '          value: "{{ volume * 100 }}"',
+    '      volume_mute:',
+    '        service: switch.toggle',
+    '        target:',
+    '          entity_id: switch.' + id + '_mute'],
+    press('media_play', 'play'), press('media_pause', 'pause'),
+            press('media_play_pause', 'play_pause'), press('media_stop', 'stop'), [
+    '      select_source:',
+    '        service: select.select_option',
+    '        target:',
+    '          entity_id: select.' + id + '_input_source',
+    '        data:',
+    '          option: "{{ source }}"',
+    '    attributes:',
+    '      state: switch.' + id,
+    '      is_volume_muted: switch.' + id + '_mute',
+    '      volume_level: sensor.' + id + '_volume_level',
+    '      source: select.' + id + '_input_source',
+    '      source_list: select.' + id + '_input_source|options']).join('\n') + '\n';
+}
+
+// The saved settings, and the address and MAC of the network the TV is on.
+async function renderHaConfig(settings) {
+  let stats = {};
+  try { stats = await (await fetch(api('/api/stats'), { cache: 'no-store' })).json(); } catch (e) { /* placeholders stand in */ }
+  q('ha-config').value = haConfigText({
+    id: settings.device.id, name: settings.device.name || 'LG webOS TV',
+    prefix: settings.mqtt.topicPrefix, mac: stats.mac || '', address: stats.address || ''
+  });
+}
+
+async function copyHaConfig() {
+  const msg = q('ha-copy-msg');
+  try {
+    await copyToClipboard(q('ha-config').value);
+    msg.textContent = t('mqtt.haconfig.copied', 'Copied');
+  } catch (e) {
+    q('ha-config').select();
+    msg.textContent = t('mqtt.haconfig.select', 'Select the text and copy it');
+  }
+}
+
 async function loadSettings(keepMsg) {
   try {
     const r = await fetch(api('/api/settings'));
@@ -320,6 +435,7 @@ async function loadSettings(keepMsg) {
     cfgSyncTls();
     if (m.entities) cfgEntities = m.entities;
     if (m.categories) cfgCategories = m.categories;
+    renderHaConfig(j);
     if (m.entityCatalogue) cfgCatalogue = m.entityCatalogue;
     renderEntitiesUI();
     renderMqttTopology(j.status);

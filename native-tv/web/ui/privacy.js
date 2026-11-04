@@ -81,7 +81,15 @@ async function switchAllOff() {
   loadPrivacy();
 }
 
+// The links carry the token, as a download cannot send a header.
+function setBlockListLinks() {
+  q('abx-hosts').href = api('/api/adblock/export?format=hosts');
+  q('abx-pihole').href = api('/api/adblock/export?format=pihole');
+  q('abx-adguard').href = api('/api/adblock/export?format=adguard');
+}
+
 async function loadPrivacy() {
+  setBlockListLinks();
   try {
     const r = await fetch(api('/api/privacy'), { cache: 'no-store' });
     if (!r.ok) throw new Error('HTTP ' + r.status);

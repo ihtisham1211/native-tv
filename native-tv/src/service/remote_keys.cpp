@@ -350,6 +350,16 @@ std::vector<Choice> mediaChoices() {
     return result;
 }
 
+// Screen off and Power off, which the filter does through the TV's power service.
+std::vector<Choice> actionChoices(const RemoteKeysReadState &state) {
+    std::vector<Choice> result;
+    if (!state.allowControl) return result;
+    result.push_back({"action:screenOff", say::msg("srv.remoteKeys.screenOff", "Screen off"), "action"});
+    if (state.allowPower)
+        result.push_back({"action:powerOff", say::msg("srv.remoteKeys.powerOff", "Power off"), "action"});
+    return result;
+}
+
 std::vector<Choice> appChoices(const Json &apps) {
     std::set<std::string> seen;
     std::vector<Choice> result;
@@ -578,6 +588,7 @@ Json remoteKeysReadResponse(const RemoteKeysReadState &state) {
     if (!appList.isArray()) appList = Json::array();
     const std::vector<Choice> inputs = inputChoices(state.inputDevices);
     const std::vector<Choice> media = mediaChoices();
+    const std::vector<Choice> actions = actionChoices(state);
     const std::vector<Choice> apps = appChoices(appList);
     std::vector<Choice> switchers;
     if (state.inputSwitcherAvailable)
@@ -595,6 +606,7 @@ Json remoteKeysReadResponse(const RemoteKeysReadState &state) {
     Json choices = Json::array();
     appendChoices(choices, switchers, titles);
     appendChoices(choices, media, titles);
+    appendChoices(choices, actions, titles);
     appendChoices(choices, inputs, titles);
     appendChoices(choices, apps, titles);
 

@@ -446,6 +446,16 @@ Json AdBlockStore::privacyState(bool sdpGraceActive) const {
     return result;
 }
 
+std::string AdBlockStore::exportList(const std::string &format, const std::string &tier) const {
+    const std::string current = mode();
+    const std::string level = tier == "ads" || tier == "full" ? tier
+                              : current == "off" ? "ads" : current;
+    const AdBlockCustomList custom = customHosts();
+    return adBlockExport(format, adBlockExportNames(level, country(), serverHost(),
+                                                    custom.names.empty() ? nullptr : &custom,
+                                                    tvUpdatesBlocked()));
+}
+
 std::vector<std::string> AdBlockStore::currentForeignHostsLines() const {
     return adBlockForeignHostsLines(
         readText(rootedSystemPath(kHostsPath)),

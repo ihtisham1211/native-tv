@@ -44,6 +44,7 @@
 #include "daemon/screen_time_enforcer.hpp"
 #include "daemon/state_node_bridge.hpp"
 #include "daemon/state_subscriptions.hpp"
+#include "daemon/volume_ceiling_enforcer.hpp"
 #include "daemon/syslog_forwarder.hpp"
 #include "domain/names.hpp"
 #include "domain/say_translation.hpp"
@@ -958,6 +959,7 @@ int main(int argc, char **argv) {
             std::make_shared<std::atomic<bool>>(false);
         std::unique_ptr<service::HistoryRecorder> historyRecorder;
         std::unique_ptr<ScreenTimeEnforcer> screenTimeEnforcer;
+        std::unique_ptr<VolumeCeilingEnforcer> volumeCeilingEnforcer;
         // What the remote's reader thread tells about key presses: set once the enforcer exists.
         std::atomic<ScreenTimeEnforcer *> screenTimeActivity{nullptr};
         std::unique_ptr<SyslogForwarder> syslogForwarder;
@@ -1790,6 +1792,11 @@ int main(int argc, char **argv) {
                     &commandPolicy));
                 screenTimeActivity.store(screenTimeEnforcer.get());
             }
+            if (stateSubscriptions)
+                volumeCeilingEnforcer.reset(new VolumeCeilingEnforcer(
+                    loop, stateSubscriptions->cache(), luna, procRoot,
+                    loaded.config.document["volumeCeiling"], loaded.config.allowControl,
+                    &logger, VolumeCeilingTimings(), &commandPolicy));
             HttpProxy proxy(std::move(proxyOptions), nodeFreeHooks);
             HttpProxyOptions handoffProxyOptions;
             handoffProxyOptions.port = nodeHandoffPort;
@@ -1817,7 +1824,7 @@ int main(int argc, char **argv) {
                                               samRescanManager.get(),
                                               appTileManager.get(), {}, {},
                                               homeTakeoverLifecycleManager.get(),
-                                              &loop));
+                                              &loop, volumeCeilingEnforcer.get()));
             if (nodeFreeHooks) {
                 nodeFreeHooks->restart = [&frontDoor](bool checkOnly, int &status, std::string &body,
                                                       std::string &error) {
@@ -2045,7 +2052,7 @@ int main(int argc, char **argv) {
             const char *nativeStateEnabled = std::getenv("TVWEB_NATIVE_STATE");
             if (nativeStateEnabled && std::string(nativeStateEnabled) == "1") {
                 if (!loop.post([&loop, &luna, &stateSubscriptions, &historyRecorder, &remoteBattery,
-                                &screenTimeEnforcer, &mqttShadowClient,
+                                &screenTimeEnforcer, &volumeCeilingEnforcer, &mqttShadowClient,
                                 &mqttShadowAvailability,
                                 &nativeRemoteKeysReconciler,
                                 &mqttShadowTopics, &mqttShadowPublisher,
@@ -2065,6 +2072,8 @@ int main(int argc, char **argv) {
                             &historyRecorder;
                         std::unique_ptr<ScreenTimeEnforcer> *screenTimeRef =
                             &screenTimeEnforcer;
+                        std::unique_ptr<VolumeCeilingEnforcer> *volumeCeilingRef =
+                            &volumeCeilingEnforcer;
                         std::unique_ptr<RemoteKeysReconciler> *remoteKeysRef =
                             &nativeRemoteKeysReconciler;
                         Logger *loggerRef = &logger;
@@ -2073,7 +2082,8 @@ int main(int argc, char **argv) {
                         const std::shared_ptr<std::function<void()>> startStateGroups =
                             std::make_shared<std::function<void()>>();
                         *startStateGroups = [subscriptionsRef, batteryRef, historyRef,
-                                             screenTimeRef, remoteKeysRef, loggerRef, stateGroupsStarted,
+                                             screenTimeRef, volumeCeilingRef, remoteKeysRef, loggerRef,
+                                             stateGroupsStarted,
                                              mqttEnabled]() {
                             if (*stateGroupsStarted)
                                 return;
@@ -2087,6 +2097,8 @@ int main(int argc, char **argv) {
                                 (*historyRef)->start((*subscriptionsRef)->snapshot());
                             if (*screenTimeRef)
                                 (void)(*screenTimeRef)->start();
+                            if (*volumeCeilingRef)
+                                (void)(*volumeCeilingRef)->start();
                             if (*remoteKeysRef && !(*remoteKeysRef)->start())
                                 loggerRef->warning(
                                     "remotekeys: native reapplication manager could not start");
@@ -2449,7 +2461,7 @@ int main(int argc, char **argv) {
         const EventLoop::TimerId signalPoll =
             loop.scheduleEvery(EventLoop::Milliseconds(250),
             [&loop, &stateSubscriptions, &historyRecorder, &screenTimeEnforcer,
-             &remoteBattery, &gameFrameRate, &adBlockManager,
+             &volumeCeilingEnforcer, &remoteBattery, &gameFrameRate, &adBlockManager,
              &dailyBackupScheduler, &releaseCheckScheduler, &mqttShadowClient, &mqttShadowPublisher,
              &mqttShadowTelemetryPublisher, &remoteButtonsReader,
              &remoteHomeHoldTimer,
@@ -2483,6 +2495,8 @@ int main(int argc, char **argv) {
                     // of orderly shutdown.
                     if (screenTimeEnforcer)
                         screenTimeEnforcer->stop();
+                    if (volumeCeilingEnforcer)
+                        volumeCeilingEnforcer->stop();
                     if (remoteBattery)
                         remoteBattery->stop();
                     if (gameFrameRate)

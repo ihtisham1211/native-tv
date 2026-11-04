@@ -705,6 +705,22 @@ the same codes as the dashboard's media buttons (play 207, pause 119, stop 128,
 rewind 168, fast forward 208, volume up 115, volume down 114, mute 113;
 volume repeats while the key is held). Those keys go through the chain again, and the
 filter names none of them, so they reach LG's filters and the app in front.
+A key set to an action holds `action:` and its name (`action:screenOff`, `action:powerOff`) and its
+press calls `com.webos.service.tvpower` `/power/turnOffScreen` or `/power/powerOff` with `{}`, the
+two calls the daemon makes itself for the same actions. Screen off and Power off are offered only
+while `allowControl`, and for Power off `allowPower` too, are on, since the filter runs in the
+compositor where the server's switches cannot be checked; a key set earlier keeps its action if a
+switch is turned off later, until it is changed. The calls are the filter's own, under its role, which
+reaches `com.lge.*`, `com.palm.*` and `com.webos.*` services; a call to `tvpower` from the filter was
+answered on a B3 ([research](tv-research.md#running-our-own-code-early-in-a-cold-start-b3-webos-1032)),
+and the filter already calls `/power/getPowerOnReason`. That `powerOff` and `turnOffScreen` are
+allowed has not been tried on a TV, and a refusal would leave the key taken and doing nothing. There
+is no way yet for a key the filter takes to reach the daemon (the filter's console output is in no
+file, and a bus service of ours runs a fixed script that takes no input from the call), so a key
+cannot be sent to Home Assistant. `tests/ui/test-remote-keys-filter.js` runs the
+filter against stand-ins for the compositor's objects, which shows what the script does and not what
+the compositor allows. Only the JavaScript filter has actions: webOS 11's native key handling only
+launches apps, as it has no media controls either.
 LG's files are never written. configd has no way to
 delete a value, so **As LG has it** on every key leaves the filter in the
 chain, passing every key on, and `tvwebctl restore-keys` takes it out, deletes
@@ -851,6 +867,13 @@ Channel's update block, which points LG's update servers at `127.0.0.1` and
 `::1` and must not outlive update blocking being switched off. At boot,
 `50-tvweb` takes them from that boot's `/etc/hosts` before mounting and drops
 the previous boot's, so a tool that is no longer started leaves nothing behind.
+
+Block TV software updates sinkholes `snu`, `nsu`, `snu-dev`, `su`, `su-dev` and
+`su-ssl` under `lge.com`. `nsu` and `snu-dev` come from
+[a guide for a webOS 10.2.1 TV](https://forum.level1techs.com/t/lg-tv-block-mini-how-to/255178),
+not from a capture. `tv.wiselg.com` is left out because on webOS 11 it is the
+Content Store's platform, and `elastic.lgwebostv.com` because nothing found says
+it serves updates.
 The table is written in place rather than replaced, since app jails such as
 Amazon's bind-mount it as their own `tmp/hosts` while it is mounted.
 
@@ -1203,6 +1226,52 @@ chosen one it shows a toast and switches the TV off a minute later if nothing ha
 screen-time limits' own, so it needs `allowControl` and `allowPower`. The raw presses of some remotes do not reach
 `/dev/input` (see "Native key filters" in [tv-research.md](tv-research.md)), which is why app, input and volume
 changes count too.
+
+## Volume ceiling
+
+`volume_ceiling_enforcer` listens to the `audio` group of the live state, the same
+subscription the Overview's volume reads, so a change from any source arrives as an event:
+the remote's keys, an app, the dashboard, MQTT. It sets the volume back with
+`com.webos.audio/setVolume` when it is over the limit for the TV's local time
+(`service/volume_ceiling.cpp`), one request at a time, and checks again on the next event or
+every 30 s, which catches a night window that starts under a volume already set.
+
+The command goes through the command policy under its own resource, `volume-ceiling`, so that
+it does not collide with a person's `audio-volume` command in the dashboard (a busy resource is
+refused, not queued). A refusal of the kind LG gives an external sound device ("Current Scenario
+doesn't support volume") holds the enforcer off for five minutes. The start-up volume is set 3 s
+after the screen comes on, for the audio service to be up, and once at start-up when `/proc/uptime`
+is under 180 s: a C5 on webOS 10.3.1 shuts down fully and starts the server again as it comes on, so
+it sees no change of power. The TV's clock before 1 January 2026 is taken as unset, and leaves the
+night window out. Nothing is cached: the settings the front door saves are handed to the enforcer
+on the loop.
+
+## Typing into the TV's text fields
+
+`POST /api/keyboard` (`service/keyboard.cpp` maps the request) calls LG's text-input
+service, `com.webos.service.ime`: `insertText` with `{"text", "replace"}`, `deleteCharacters`
+with `{"count"}` and `sendEnterKey`, through the command policy under the resource
+`ime-keyboard`. LG's
+[reference](https://webosose.org/docs/reference/ls2-api/com-webos-service-ime) documents the
+three, with `replace` a boolean, which is how it is sent; that reference's own text for
+`insertText` is a copy of another method's, and a TV was not available to try them, so only
+the stand-in `luna-send` has answered them. Text longer than 256 characters, or with a control
+character (a line break presses Enter in some fields, which is what the enter action is for), is
+refused before it reaches the TV. The TV's refusal, with its `errorText`, comes back as
+`{"ok":false,"error":...}` with status 200, as `/api/control` does. The service also has
+`registerRemoteKeyboard`, which tells when a field gains focus; it is not used, so the page
+cannot tell beforehand whether a field is open.
+
+## Exporting the block list
+
+`GET /api/adblock/export` builds the names with `adBlockExportNames`, which is `adBlockList`
+at the tier (the current level, or ads while off) with the update servers when updates are
+blocked, and formats them with `adBlockExport`. It uses `sdpGraceActive` false, so the
+`nextlgsdp.com` hosts are in the full tier, which the TV itself leaves out for a while after
+a start. A hosts file and a Pi-hole list match exact names, as the TV's table does, so the
+regional names (`gb.info.lgsmartad.com` and the like) are listed one by one; an AdGuard
+rule also matches subdomains. The page's links carry the token as `k=`, as a download
+cannot send a header.
 
 ## Reading the Magic Remote's battery
 
