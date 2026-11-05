@@ -43,3 +43,7 @@ and Prometheus `nativetv_watch_seconds_total`.
 Time is counted while the server runs, so a TV switched off at the wall or
 before the server has started is not counted, and a power cut loses up to the
 last 10 minutes.
+
+![Metrics readings on the Overview: Processor, Temperature, Memory and Network cards, then the HDMI inputs and This TV](../screenshots/metrics.png)
+
+*The Metrics readings, under the controls on the Overview, from the emulator's stand-in readings.*

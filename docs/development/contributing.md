@@ -130,6 +130,20 @@ The wizard's PIN, network and phone pairing screens (`tv-app-setup-pin.png`, `-n
 `-handoff` and `tv-app-pin-prompt.png`) are reached by pressing through the wizard, which
 writes the TV's settings, so they come from a TV before it is set up.
 
+The browser dashboard's screenshots (`dashboard.png`, `privacy.png`, one per tab page)
+come from the emulator's stand-in readings: `node scripts/emulate-tv.js --port 8090`, then
+headless Chrome at the dashboard's size, in the dark theme, the tab named in the address:
+
+```sh
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless=new --hide-scrollbars \
+  --window-size=1440,900 --virtual-time-budget=12000 --screenshot=docs/screenshots/server.png \
+  'http://127.0.0.1:8090/?tab=server'
+```
+
+The Metrics readings sit down the Overview, where that capture tears mid-scroll, so
+`metrics.png` is a browser's own screenshot of the scrolled page. Look at each one before it
+goes in; the emulator shows no apps, logs or LG settings, and the page says so where it matters.
+
 ## Pull requests
 
 Open with a plain-language summary of what changes for the people using

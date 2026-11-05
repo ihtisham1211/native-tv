@@ -100,3 +100,7 @@ Per-port settings for HDMI Deep Colour (extended bandwidth for 4K HDR) and audio
 
 * **Standby light:** Toggles the red standby indicator LED located on the front bezel of the TV.
 
+![Advanced tab: Power & standby, System updates with Block TV software updates, Switch off when idle, and Screen time with its daily limit and bedtime](../screenshots/advanced.png)
+
+*The top of the Advanced tab; the sound, HDMI, device and light settings follow below it.*
+

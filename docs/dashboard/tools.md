@@ -33,3 +33,7 @@ How much the Native Tv server writes is set in `/var/lib/tvweb/config.json`:
 
 `info`, the default, writes the server's normal activity. `quiet` leaves that out and writes only warnings and errors. `debug` adds extra detail for troubleshooting: each call to the TV's services as it starts and ends, flushed to disk at once so the last lines survive a TV that restarts itself, and the timing of each remote key. The level is read when the server starts, so a change takes effect after `/var/lib/tvweb/tvwebctl restart` or a reboot of the TV.
 
+![Tools and logs tab: System logs with the source, level and line filters, the search box, Live, Hide private details, Auto-scroll, Copy and Export](../screenshots/tools.png)
+
+*The Tools and logs tab; the emulated TV writes no log lines.*
+

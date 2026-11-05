@@ -136,3 +136,7 @@ The RAM column is the approximate memory the dashboard shows beside each switch.
 * Live TV, Settings, Home, the HDMI inputs, the Homebrew Channel and Native Tv itself are protected: they can't be hidden or uninstalled.
 * Everything on this tab also works from the TV app, except saved web pages and installing from a URL or a file, which are in the browser dashboard only.
 * Apps that check they were installed from the LG store may refuse to run when installed another way, and apps built for a newer webOS than the TV runs may not launch.
+
+![Apps tab, Installed: Manage applications and Saved web pages, with the Catalogue, LG launcher and Native Tv Home tabs above](../screenshots/apps.png)
+
+*The Apps tab as it opens, on an emulated TV with no removable apps.*

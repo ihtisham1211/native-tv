@@ -37,3 +37,7 @@ The **Control** tab, `/?tab=control`, is the top of the **Overview** section, ab
   * **Screen notifications:** Send instant on-screen toast notifications (up to 120 characters) to display messages on the TV.
   * **Open a web page:** Enter any HTTP or HTTPS URL to launch it immediately in the TV's native web browser.
 
+![Control, at the top of the Overview: the picture preview with the transport controls and the source, and Quick controls with the volume, the panel buttons and power](../screenshots/dashboard.png)
+
+*The controls at the top of the Overview, with the Metrics readings starting under them.*
+

@@ -17,3 +17,7 @@ Newer firmware shows a cut-down version until it is unlocked, and the dashboard 
 > [!WARNING]
 > The service menu provides low-level hardware and calibration control. Changing unfamiliar values in EZ Adjust or In Start can cause permanent display corruption or render the TV unbootable.
 
+![Service menu tab: the warning, Unlock, and Open with the EZ Adjust and In Start buttons](../screenshots/service-menu.png)
+
+*The Service menu tab on a TV that does not lock its service menu.*
+
