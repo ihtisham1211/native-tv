@@ -554,7 +554,10 @@ with the fonts, icons and licences it opens (`CLIENT_ASSETS` in
 fixtures exercise fresh install, upgrade with config/layout preserved,
 same-version component repair, newer-runtime preservation and rejection of an
 incomplete or absent payload before installed files change. Package fixtures
-also require an ARM worker and reject missing builds before deployment.
+also require an ARM worker and reject missing builds before deployment, and
+`deploy.sh`'s telnet probe is run against a listening and a closed port, with a
+stand-in `nc` and without one: it believes `nc`'s yes, and tries bash's own
+`/dev/tcp` after its no or when the host has none.
 `scripts/build-ipk.py
 --native-build native-tv/build-webos` includes the shared runtime payload;
 the packager defaults to `native-tv/build-webos` and fails when it is missing. The TV check

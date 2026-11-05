@@ -5,6 +5,7 @@ import io
 import json
 from pathlib import Path
 import shutil
+import socket
 import stat
 import struct
 import subprocess
@@ -117,6 +118,45 @@ class RuntimeTests(unittest.TestCase):
                                     capture_output=True, text=True, timeout=10)
             self.assertNotEqual(deploy.returncode, 0)
             self.assertIn("Build nativetv-service and nativetv-daemon first", deploy.stderr)
+
+    def test_deploy_probe_asks_nc_before_bash(self):
+        # On macOS, bash's own /dev/tcp open fails now and then with "No route to
+        # host" on an address nc connects to, so answers() asks nc first and falls
+        # back to /dev/tcp without it or when it says no.
+        script = (ROOT / "lifecycle/deploy.sh").read_text()
+        start = script.index("\nanswers() {")
+        probe = script[start:script.index("\n}\n", start) + 3]
+        with tempfile.TemporaryDirectory() as folder, socket.socket() as listener:
+            listener.bind(("127.0.0.1", 0))
+            listener.listen(1)
+            openPort = listener.getsockname()[1]
+            with socket.socket() as spare:
+                spare.bind(("127.0.0.1", 0))
+                closedPort = spare.getsockname()[1]
+            tools = Path(folder) / "bin"
+            tools.mkdir()
+            (tools / "sleep").symlink_to(shutil.which("sleep"))
+            calls = Path(folder) / "nc-calls"
+
+            def answers(port, nc=None):
+                fake = tools / "nc"
+                if nc is None:
+                    fake.unlink(missing_ok=True)
+                else:
+                    fake.write_text('#!/bin/sh\necho "$@" >> "%s"\nexit %d\n' % (calls, nc))
+                    fake.chmod(0o755)
+                run = subprocess.run(
+                    [shutil.which("bash"), "-c", probe + '\nTV=127.0.0.1\nanswers "$1"',
+                     "deploy", str(port)],
+                    env={"PATH": str(tools)}, capture_output=True, text=True, timeout=20)
+                return run.returncode
+
+            self.assertEqual(answers(openPort), 0, "bash alone reaches a listening port")
+            self.assertNotEqual(answers(closedPort), 0, "bash alone reports a closed port")
+            self.assertEqual(answers(closedPort, nc=0), 0, "nc's yes is believed")
+            self.assertEqual(calls.read_text().split(),
+                             ["-z", "-w", "6", "127.0.0.1", str(closedPort)])
+            self.assertEqual(answers(openPort, nc=1), 0, "after nc's no, bash still tries")
 
     def test_abi_rejections(self):
         for invalid in (b"host Mach-O", elf()[:100], elf(glibc="2.34"),
