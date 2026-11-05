@@ -256,6 +256,11 @@ const DashboardRow kDashboardRows[] = {
     {"ipControl", "devices", "option", "enableIpControl", Kind::Switch, 0, 0,
      "srv.lgs.ipControl", "IP control", "srv.lgs.ipControl.desc",
      "Lets home automation systems control the TV over the network with LG's own protocol. Off unless something needs it."},
+
+    // The Control tab's own switch, here so that a settings backup carries it.
+    {"lgLogo", "display", "other", "lgLogoDisplay", Kind::Switch, 0, 0,
+     "adv.lgLogo", "LG logo", "adv.lgLogo.desc",
+     "Shows the LG logo as the TV switches on and off. LG calls this LG Logo Display."},
 };
 
 const Definition kGameSettings[] = {

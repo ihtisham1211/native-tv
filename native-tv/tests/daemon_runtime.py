@@ -5204,6 +5204,8 @@ class DaemonRuntimeTests(unittest.TestCase):
                     "nativetv": (Path(__file__).resolve().parents[1] / "VERSION").read_text().strip()})
                 self.assertEqual(backup["lg"]["homePromotion"], False)
                 self.assertEqual(backup["lg"]["soundMode"], "movie")
+                self.assertEqual(backup["lg"]["lgLogo"], True,
+                                 "the Control tab's LG logo switch is part of a backup")
                 # Settings no module was given are saved at their defaults.
                 self.assertEqual(backup["nativetv"], {
                     "history": {"enabled": False},
@@ -5811,7 +5813,8 @@ class DaemonRuntimeTests(unittest.TestCase):
 
                 backup = {
                     "format": "nativetv-backup", "version": 1,
-                    "lg": {"homePromotion": True, "soundMode": "movie", "bogus": 1},
+                    "lg": {"homePromotion": True, "soundMode": "movie", "bogus": 1,
+                           "lgLogo": False},
                     "apps": [{"id": "com.example.alpha", "title": "Alpha"},
                              {"id": "com.example.zed", "title": "Zed"}],
                     "home": {"rows": ["ch", "app", "dev"], "picture": False},
@@ -5822,7 +5825,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                 status, body = post(backup)
                 self.assertEqual(status, 200, body)
                 self.assertEqual(body["lg"], {
-                    "applied": ["homePromotion"], "unchanged": 1,
+                    "applied": ["homePromotion", "lgLogo"], "unchanged": 1,
                     "skipped": [{"id": "bogus", "reason": "absent"}], "failed": []})
                 self.assertEqual(sorted(body["nativetv"]), ["backup.daily", "ntp.server"])
                 self.assertTrue(body["restart"])
@@ -5846,8 +5849,10 @@ class DaemonRuntimeTests(unittest.TestCase):
                 calls = [json.loads(line) for line in details.read_text().splitlines()]
                 written = [call for call in calls if call["uri"] ==
                            "com.webos.service.settings/setSystemSettings"]
-                self.assertEqual(len(written), 1, written)
-                self.assertEqual(written[0]["payload"]["settings"], {"homePromotion": "on"})
+                self.assertEqual([(call["payload"]["category"], call["payload"]["settings"])
+                                  for call in written],
+                                 [("general", {"homePromotion": "on"}),
+                                  ("other", {"lgLogoDisplay": "off"})], written)
                 deadline = time.monotonic() + 5
                 while time.monotonic() < deadline and not restarted.exists():
                     time.sleep(0.05)
@@ -5860,8 +5865,8 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertEqual(status, 200, body)
                 self.assertEqual(body["nativetv"], [])
                 self.assertFalse(body["restart"])
-                # The stand-in TV keeps homePromotion off, so it is written again.
-                self.assertEqual(body["lg"]["applied"], ["homePromotion"])
+                # The stand-in TV keeps homePromotion off and the logo on, so both are written again.
+                self.assertEqual(body["lg"]["applied"], ["homePromotion", "lgLogo"])
                 self.assertEqual(body["lg"]["unchanged"], 1)
                 time.sleep(1)
                 self.assertFalse(restarted.exists())

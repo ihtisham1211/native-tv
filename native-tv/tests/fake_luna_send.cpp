@@ -745,6 +745,8 @@ int main(int argc, char **argv) {
             settings.set("homePromotion", Json::text("off"));
         else if (category == "sound")
             settings.set("soundMode", Json::text("movie"));
+        else if (category == "other")
+            settings.set("lgLogoDisplay", Json::text("on"));
         reply.set("returnValue", Json::flag(true));
         reply.set("settings", settings);
     } else if (mode == "backup" &&
