@@ -208,8 +208,12 @@ span.pill.fixed { box-shadow: none; }
 
 /* The switch: the pill's words stay for a screen reader, its state is the track. */
 button.pill.sw { width: 52px; height: 32px; min-height: 32px; padding: 0; border-radius: var(--shape-full); box-shadow: none; font-size: 0; color: transparent; background: var(--c-surface-container-highest); border: 2px solid var(--c-outline); flex: none; }
-button.pill.sw::before { position: absolute; z-index: 1; left: 6px; top: 50%; inset: auto auto auto 6px; width: 16px; height: 16px; margin-top: -8px; border-radius: 50%; background: var(--c-outline); opacity: 1; transform: translateX(0); transition: transform var(--dur-short) var(--ease-out), background-color var(--dur-state); }
-button.pill.sw::after { content: ""; position: absolute; inset: -2px; z-index: -1; border-radius: inherit; background: var(--c-primary); opacity: 0; transition: opacity var(--dur-state) var(--ease-standard); }
+/* The handle: 16 px centred 16 px in while off, 24 px centred 16 px from the end while on (M3). */
+button.pill.sw::before { position: absolute; z-index: 1; left: 8px; top: 50%; width: 16px; height: 16px; margin-top: -8px; border-radius: 50%; background: var(--c-outline); opacity: 1; transform: translateX(0); transition: transform var(--dur-short) var(--ease-out), background-color var(--dur-state); }
+button.pill.sw::after { content: ""; position: absolute; inset: 0; z-index: -1; border-radius: inherit; background: var(--c-primary); opacity: 0; transition: opacity var(--dur-state) var(--ease-standard); }
+/* On, the track has no outline: the border takes the track's colour. */
+button.pill.sw[aria-pressed="true"] { border-color: var(--c-primary); }
+button.pill.sw[aria-pressed="true"].warn { border-color: var(--c-warning); }
 button.pill.sw[aria-pressed="true"]::after { opacity: 1; }
 button.pill.sw[aria-pressed="true"].warn::after { background: var(--c-warning); }
 button.pill.sw[aria-pressed="true"]::before { background: var(--c-on-primary); transform: translateX(20px) scale(1.5); }
