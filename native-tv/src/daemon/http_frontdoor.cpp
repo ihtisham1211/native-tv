@@ -2760,7 +2760,12 @@ bool HttpFrontDoor::serverSettingControl(const std::string &action, const Json &
             logger_->error("port: " + error);
         return true;
     }
-if (action == "privacyAllOff" || action == "privacyAdTrackingOff") {
+    if (action == "privacyAllOff" || action == "privacyAreaOff") {
+        // privacyAreaOff names one area of the summary (watching, ads, reports,
+        // onScreen) and switches off only what that area lists.
+        const std::string area = action == "privacyAreaOff" ? value.string() : std::string();
+        if (action == "privacyAreaOff" && area.empty())
+            return fail("no privacy area named");
         {
             std::lock_guard<std::mutex> lock(privacyCacheMutex_);
             privacyCacheValid_ = false;
@@ -2774,11 +2779,14 @@ if (action == "privacyAllOff" || action == "privacyAdTrackingOff") {
         sendPrivacyProjection(readExchange);
         const Json projection = Json::parse(readExchange.responseBody());
         std::vector<Json> todo;
-        for (const Json &area : projection["simple"]["areas"].items()) {
-            if (action == "privacyAdTrackingOff" && area["id"].string() != "ads")
-                continue;
-            for (const Json &item : area["items"].items()) todo.push_back(item);
+        bool found = area.empty();
+        for (const Json &summaryArea : projection["simple"]["areas"].items()) {
+            if (!area.empty() && summaryArea["id"].string() != area) continue;
+            found = true;
+            for (const Json &item : summaryArea["items"].items()) todo.push_back(item);
         }
+        if (!found)
+            return fail("no such privacy area: " + area);
         // The ad block goes first: it is the slow one, and others may depend on its state.
         std::stable_sort(todo.begin(), todo.end(), [](const Json &a, const Json &b) {
             return (a["action"].string() == "setAdBlock" ? 1 : 0) >

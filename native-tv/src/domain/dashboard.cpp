@@ -1074,22 +1074,23 @@ void privacy(Rows &rows, const Json &data, const std::string &sub) {
                 names += (names.empty() ? "" : ", ") + item["label"].string();
             Json n = vars({{"n", std::to_string(area["items"].size())}});
             Json listed = vars({{"names", names}});
-            const bool isAds = area["id"].string() == "ads";
-            Command cmd = (isAds && area["items"].size() && consentWritable)
-                              ? control("privacyAdTrackingOff")
-                              : Command();
+            // Each area switches off on its own, for whoever wants only, say, ad tracking off.
+            const bool stillOn = area["items"].size() && consentWritable;
             row(rows, area["name"].string(),
                 area["items"].size() ? say::msg("tv.privacy.area.stillOn", "{n} still on", n)
                                      : say::msg("tv.privacy.area.nothingOn", "Nothing on"),
-                cmd,
+                stillOn ? control("privacyAreaOff", area["id"]) : Command(),
                 area["detail"].string() + (names.empty()
                                                ? ""
                                                : " " + say::msg("tv.privacy.area.stillOnNames",
-                                                                "Still on: {names}.", listed)));
+                                                                "Still on: {names}.", listed)),
+                stillOn ? pressAction(say::msg("tv.privacy.area.press",
+                                               "Press OK to switch these off"))
+                        : "");
         }
         if (simple["kept"].size()) {
             std::string names;
-            for (const auto &name : simple["kept"].items()) 
+            for (const auto &name : simple["kept"].items())
                 names += (names.empty() ? "" : ", ") + name.string();
             Json n = vars({{"n", std::to_string(simple["kept"].size())}});
             Json listed = vars({{"names", names}});

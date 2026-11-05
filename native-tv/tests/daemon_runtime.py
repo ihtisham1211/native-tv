@@ -2750,6 +2750,141 @@ class DaemonRuntimeTests(unittest.TestCase):
                 nodeThread.join(timeout=3)
             self.assertIn("command-policy: action=control.consent result=success", output)
 
+    def test_native_privacy_area_off_switches_off_one_area(self):
+        # privacyAreaOff names one area of the privacy summary: the ads area's
+        # consent goes off, the watching area's stays, and an unknown area is refused.
+        binary = Path(sys.argv[1]).resolve()
+        fakeLuna = binary.parent / "native-fake-luna-send"
+        publicPort = unused_port_pair()
+        nodePort = unused_port_pair((publicPort, publicPort + 1))
+        token = "privacy-area-test-token"
+        secret = "privacy-area-proxy-secret-0123456789abcdef"
+
+        class NodeHandler(BaseHTTPRequestHandler):
+            def do_POST(self):
+                self.rfile.read(int(self.headers.get("Content-Length", "0")))
+                self.send_response(204)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+            def log_message(self, *_args):
+                pass
+
+        node = HTTPServer(("127.0.0.1", nodePort), NodeHandler)
+        nodeThread = threading.Thread(target=node.serve_forever, daemon=True)
+        nodeThread.start()
+
+        with tempfile.TemporaryDirectory(prefix="nativetv-native-privacy-area-") as folder:
+            root = Path(folder)
+            config = root / "config.json"
+            heartbeat = root / "tvweb.beat"
+            assets = root / "assets"
+            systemRoot = root / "system"
+            licenseDirectory = systemRoot / "var/palm/license"
+            assets.mkdir()
+            licenseDirectory.mkdir(parents=True)
+            # The summary reads the flags from the TV's preferences file; a write goes
+            # through the settings service, which the stand-in answers from its own state.
+            (systemRoot / "var/luna/preferences").mkdir(parents=True)
+            (systemRoot / "var/luna/preferences/eula").write_text(json.dumps({
+                "eulaInfo": {"eulaList": []},
+                "eulaStatus": {"acrAllowed": True, "acrAdAllowed": True,
+                               "generalTermsAllowed": False}
+            }))
+            # Each consent has an agreement of its own, so one area's switch-off
+            # cannot take the other's consent with it through LG's document rules.
+            (licenseDirectory / "eulaInfoNetwork.json").write_text(json.dumps({
+                "eulaMappingList": {"eulaInfo": [
+                    {"settingKey": "acrAllowed", "mandatory": ["acr-doc"]},
+                    {"settingKey": "acrAdAllowed", "mandatory": ["other-doc"]},
+                    {"settingKey": "generalTermsAllowed", "mandatory": ["terms-doc"]}
+                ]}
+            }))
+            details = root / "luna-details.jsonl"
+            config.write_text(json.dumps({
+                "host": "127.0.0.1", "port": publicPort, "token": token,
+                "allowControl": True
+            }))
+            environment = os.environ.copy()
+            environment["TVWEB_LUNA_SEND"] = str(fakeLuna)
+            environment["TVWEB_DATA_DIR"] = str(root / "data")
+            environment["TVWEB_PROXY_SECRET"] = secret
+            environment["NATIVETV_FAKE_LUNA_MODE"] = "privacy-consent"
+            environment["NATIVETV_FAKE_LUNA_DETAILS"] = str(details)
+            process = subprocess.Popen(
+                [str(binary), "--config", str(config), "--heartbeat", str(heartbeat),
+                 "--workers", "4", "--listen", "--node-port", str(nodePort),
+                 "--assets-root", str(assets), "--system-root", str(systemRoot)],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                env=environment)
+
+            def request(path, body=None):
+                data = None if body is None else json.dumps(body).encode("utf-8")
+                headers = {"Authorization": "Bearer " + token}
+                if data is not None:
+                    headers["Content-Type"] = "application/json"
+                req = Request("http://127.0.0.1:%d%s" % (publicPort, path),
+                              data=data, method="POST" if data else "GET", headers=headers)
+                try:
+                    with urlopen(req, timeout=8) as response:
+                        return response.status, json.loads(response.read())
+                except HTTPError as error:
+                    return error.code, json.loads(error.read())
+
+            try:
+                deadline = time.monotonic() + 8
+                ready = False
+                while time.monotonic() < deadline and process.poll() is None:
+                    try:
+                        request("/api/caps")
+                        ready = True
+                        break
+                    except (OSError, URLError):
+                        time.sleep(0.03)
+                self.assertTrue(ready, "native daemon did not start")
+
+                status, before = request("/api/privacy")
+                self.assertEqual(status, 200, before)
+                areas = {area["id"]: area for area in before["simple"]["areas"]}
+                self.assertEqual([item["value"]["key"] for item in areas["watching"]["items"]],
+                                 ["acrAllowed"], json.dumps(before["simple"]))
+                self.assertIn("acrAdAllowed",
+                              [item["value"].get("key") if isinstance(item["value"], dict) else None
+                               for item in areas["ads"]["items"]], json.dumps(before["simple"]))
+
+                status, body = request("/api/control", {"action": "privacyAreaOff", "value": "ads"})
+                self.assertEqual(status, 200, body)
+                self.assertEqual(body["done"] + len(body["failed"]), len(areas["ads"]["items"]),
+                                 "only the ads area's items are attempted: " + json.dumps(body))
+                calls = [json.loads(line) for line in details.read_text().splitlines()]
+                writes = [call["payload"]["settings"]["eulaStatus"] for call in calls
+                          if call["uri"] == "com.webos.settingsservice/setSystemSettings"]
+                self.assertEqual(len(writes), 1, writes)
+                self.assertEqual((writes[0]["acrAdAllowed"], writes[0]["acrAllowed"]),
+                                 (False, True), "the watching area's consent is left alone")
+
+                status, body = request("/api/control", {"action": "privacyAreaOff", "value": "nope"})
+                self.assertEqual(status, 200, body)
+                self.assertEqual(body, {"ok": False, "error": "no such privacy area: nope"})
+                status, body = request("/api/control", {"action": "privacyAreaOff"})
+                self.assertEqual(status, 200, body)
+                self.assertEqual(body, {"ok": False, "error": "no privacy area named"})
+                calls = [json.loads(line) for line in details.read_text().splitlines()]
+                self.assertEqual(len([call for call in calls
+                                      if call["uri"] == "com.webos.settingsservice/setSystemSettings"]),
+                                 1, "a refused area writes nothing")
+            finally:
+                if process.poll() is None:
+                    process.send_signal(signal.SIGTERM)
+                try:
+                    process.communicate(timeout=6)
+                except subprocess.TimeoutExpired:
+                    process.kill()
+                    process.communicate(timeout=3)
+                node.shutdown()
+                node.server_close()
+                nodeThread.join(timeout=3)
+
     def test_native_acr_toggle_follows_binary_consents_and_fallback(self):
         binary = Path(sys.argv[1]).resolve()
         fakeLuna = binary.parent / "native-fake-luna-send"

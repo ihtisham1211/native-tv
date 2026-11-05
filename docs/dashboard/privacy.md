@@ -7,7 +7,7 @@ description: "Turn off LG ACR (Live Plus), ad tracking and data agreements on a 
 
 The **Privacy** section, `/?tab=privacy`, reports what the TV is configured to do rather than hiding these settings behind its normal menus.
 
-It opens with a summary of screen recognition, ad tracking and usage reports, what is still on under each, and a button that switches all of it off while leaving voice alone. Everything below it is the detail.
+It opens with a summary of screen recognition, ad tracking and usage reports, what is still on under each, and a button that switches all of it off while leaving voice alone. Each area also has a **Switch off** of its own (on the TV, OK on the area's row), for someone who wants only, say, ad tracking off. Everything below it is the detail.
 
 It shows whether the content-recognition engine is running and sampling frames, the advertising ID and whether ad tracking is limited, recorded data agreements, and toggles to disable LG's background collection and diagnostics services.
 

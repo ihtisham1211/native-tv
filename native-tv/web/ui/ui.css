@@ -687,6 +687,7 @@ input[type=file]::file-selector-button { margin-right: 12px; padding: 0 20px; he
 .ps-area .d { grid-column: 1; font: var(--type-body-m); color: var(--c-on-surface-variant); }
 .ps-area .on { grid-column: 1 / -1; margin-top: 4px; font: var(--type-body-m); }
 .ps-area .on b { color: var(--c-warning); font-weight: 500; }
+.ps-area .btn-row { grid-column: 1 / -1; margin-top: 8px; }
 .ps-st { grid-column: 2; grid-row: 1 / span 2; align-self: center; display: inline-flex; align-items: center; height: 32px; padding: 0 12px; border-radius: var(--shape-sm); background: var(--c-primary-container); color: var(--c-on-primary-container); font: var(--type-label-l); letter-spacing: var(--track-label); }
 .ps-st.warn { background: var(--c-warning-container); color: var(--c-on-warning-container); }
 .pv-list { display: block; }

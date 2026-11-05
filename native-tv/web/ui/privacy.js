@@ -45,17 +45,16 @@ function renderSimple(d) {
   q('ps-sub').textContent = sm.total
     ? t('pv.allOff.hint', 'Switching it all off includes blocking LG\u2019s ad and tracking servers. If an app stops working afterwards, switch the blocker off under Advanced.')
     : t('pv.allOff.watch', 'If an LG update switches anything back on, it shows here.');
-q('ps-areas').innerHTML = sm.areas.map(a => {
+  q('ps-areas').innerHTML = sm.areas.map(a => {
     const n = a.items.length;
-    const isAds = a.id === 'ads';
-    const shortcutBtn = (isAds && n && d.consentWritable !== false)
-      ? `<div style="margin-top: 8px;"><button type="button" class="btn btn-inline" id="ps-ads-go" onclick="switchAdsOff()">${esc(t('pv.switchAdsOff', 'Turn ad tracking off'))}</button></div>`
-      : '';
     return `<div class="ps-area">` +
       `<span class="ps-st${n ? ' warn' : ''}">${esc(n ? t('pv.areaOn', '{n} on', { n }) : t('common.off', 'Off'))}</span>` +
       `<div class="n">${esc(a.name)}</div><div class="d">${esc(a.detail)}</div>` +
       (n ? `<div class="on"><b>${esc(t('pv.stillOnLabel', 'Still on'))}</b> &middot; ${a.items.map(i => esc(i.label)).join(', ')}</div>` : '') +
-      shortcutBtn +
+      // Each area switches off on its own, for whoever wants only, say, ad tracking off.
+      (n && d.consentWritable !== false
+        ? `<div class="btn-row"><button type="button" class="btn btn-tonal" data-area="${esc(a.id)}" onclick="switchAreaOff(this)">${esc(t('pv.areaOff', 'Switch off'))}</button></div>`
+        : '') +
       `</div>`;
   }).join('');
   const go = q('ps-go');
@@ -86,14 +85,11 @@ async function switchAllOff() {
   loadPrivacy();
 }
 
-async function switchAdsOff() {
-  const btn = q('ps-ads-go');
-  if (btn) {
-    btn.disabled = true;
-    btn.textContent = t('pv.switchingOff', 'Switching off\u2026');
-  }
+async function switchAreaOff(button) {
+  button.disabled = true;
+  button.textContent = t('pv.switchingOff', 'Switching off\u2026');
   try {
-    await sendCommand('privacyAdTrackingOff');
+    await sendCommand('privacyAreaOff', button.dataset.area);
   } finally {
     loadPrivacy();
   }
