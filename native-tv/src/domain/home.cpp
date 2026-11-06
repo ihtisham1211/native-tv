@@ -251,11 +251,12 @@ std::vector<CardRow> homeRows(const std::string &tab, const Json &catalogue, con
     for (const auto &source : discover["rows"].items())
         feedRows[source["key"].string()] = source;
     // The apps lead, as on Google TV, in their kinds' order when sorted by kind; the top picks
-    // follow and the hero is drawn from them.
+    // follow and the hero is drawn from them. The rows that open in an app (Netflix, YouTube)
+    // come next, so they are not four rows down.
     CardRow apps = appsRow(catalogue, guide, false);
     if (!apps.cards.empty())
         result.push_back(apps);
-    for (const auto &key : {"trending", "movies", "series", "netflix", "youtube"}) {
+    for (const auto &key : {"trending", "netflix", "youtube", "movies", "series"}) {
         if (!feedRows.count(key))
             continue;
         Json source = feedRows[key];

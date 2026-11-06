@@ -9,7 +9,7 @@ namespace {
 constexpr Color white = {1, 1, 1, 1};
 constexpr Color clear = {0, 0, 0, 0};
 // The avatar initial and the focused-row ink on a light fill have no token of their own.
-constexpr TypeStyle avatarStyle = {24, 32, 600, 0};
+constexpr TypeStyle avatarStyle = {32, 40, 600, 0};
 constexpr Color onFocusFaint = {19 / 255.0f, 17 / 255.0f, 24 / 255.0f, .12f};
 constexpr Color onFocusRing = {19 / 255.0f, 17 / 255.0f, 24 / 255.0f, .55f};
 constexpr Color onFocusKnob = {19 / 255.0f, 17 / 255.0f, 24 / 255.0f, .6f};
@@ -228,7 +228,8 @@ void roundButton(Paint paint, const RoundButton &button) {
     if (button.focus > 0)
         scene.shape(button.rest, faded(color::focusFill, focus::clamp01(button.focus)), rounding);
     Color ink = focus::inkAt(button.ink, color::onFocus, button.focus);
-    paint.glyphs.icon(scene, centreOf(button.rest, 28), button.icon, ink);
+    // The icon is half the button: 40 px in the top bar's 80 px buttons.
+    paint.glyphs.icon(scene, centreOf(button.rest, button.rest.h / 2), button.icon, ink);
     text(paint,
          {button.rest.x, button.rest.y + (button.rest.h - avatarStyle.line) / 2, button.rest.w,
           avatarStyle.line},
@@ -435,8 +436,10 @@ void row(Paint paint, const Row &row) {
     if (invisible(row.enter))
         return;
     Group group(paint.scene, row.enter);
-    text(paint, geometry::rowLabel(row.index), row.label, type::title,
-         faded(color::onSurface2, focus::dimmedRowAlpha(row.dim)));
+    // Title Large in on-surface: at Title Medium in on-surface-2 the labels read small and faint
+    // from the sofa (a B3 at 3 m).
+    text(paint, geometry::rowLabel(row.index), row.label, type::rowTitle,
+         faded(color::onSurface, focus::dimmedRowAlpha(row.dim)));
 }
 void card(Paint paint, const PosterCard &poster) {
     focus::Look look = focus::lookAt(poster.rest, motion::scale::card, poster.focus);

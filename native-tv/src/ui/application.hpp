@@ -55,6 +55,7 @@ struct HomeState {
     std::vector<CardRow> rows;
     Card hero;                 // the card the hero is showing or about to show
     std::vector<Card> spotlight; // the top picks the hero cycles through
+    bool picksTaken = false;     // the spotlight is out of the top picks row (homeData)
     size_t spotIndex = 0;
     HeroArt art;
     Json picture;

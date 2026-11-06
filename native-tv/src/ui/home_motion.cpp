@@ -55,9 +55,15 @@ size_t rowIndex(const std::vector<CardRow> &rows, const char *key) {
             return i;
     return rows.size();
 }
-// Where focus lands when Home opens: the top picks, so the hero opens on artwork; the apps row
-// above them is one press up.
-size_t defaultRow(const HomeState &home) {
+// Where focus lands when Home opens: the first row, the apps, with the hero cycling through the
+// top picks behind them; the Top picks row below holds the rest, and a card focused there takes
+// the hero.
+size_t defaultRow(const HomeState &) {
+    return 0;
+}
+// The row the stack rises from: the top picks, which share the hero's screen with the apps row
+// above them, so both are reached without the hero leaving.
+size_t anchorRow(const HomeState &home) {
     if (home.tabs.empty() || home.tabs[home.tab].key != "home")
         return 0;
     size_t trending = rowIndex(home.rows, "trending");
@@ -172,16 +178,38 @@ void Application::homeData() {
     auto &home = state_.home;
     if (home.tabs.empty())
         return;
-    // The spotlight: the top picks, the pictures the hero cycles through.
-    home.spotlight.clear();
+    // The spotlight: the first top picks, the pictures the hero cycles through. The row then
+    // carries the rest, so the same titles are not shown twice, one above the other. The rows
+    // come whole from rebuildHome, which clears `picksTaken`; the other callers find them split.
     size_t trending = rowIndex(home.rows, "trending");
-    if (trending < home.rows.size() && home.tabs[home.tab].key == "home")
-        for (const Card &card : home.rows[trending].cards) {
+    if (home.tabs[home.tab].key != "home") {
+        home.spotlight.clear();
+    } else if (!home.picksTaken && trending < home.rows.size()) {
+        home.spotlight.clear();
+        std::vector<Card> &cards = home.rows[trending].cards;
+        for (const Card &card : cards) {
             if (home.spotlight.size() == home::kSpotlightMax)
                 break;
             if (isTitle(card))
                 home.spotlight.push_back(card);
         }
+        // A feed of six or fewer stays whole: the carousel cannot be focused, so its titles are
+        // only reachable as cards.
+        if (cards.size() > home.spotlight.size()) {
+            cards.erase(std::remove_if(cards.begin(), cards.end(),
+                                       [&home](const Card &card) {
+                                           for (const Card &shown : home.spotlight)
+                                               if (shown.id == card.id && shown.kind == card.kind)
+                                                   return true;
+                                           return false;
+                                       }),
+                        cards.end());
+            // The focus was placed on the whole row; the shorter one may not reach it.
+            if (home.row == trending && home.column >= cards.size())
+                home.column = cards.empty() ? 0 : cards.size() - 1;
+        }
+    }
+    home.picksTaken = true;
     home.spotIndex = home.spotlight.empty() ? 0 : std::min(home.spotIndex, home.spotlight.size() - 1);
     std::vector<std::string> titles;
     for (const auto &tab : home.tabs)
@@ -243,7 +271,7 @@ void Application::homePlayEntrance(size_t firstRow, size_t endRow) {
                                             std::min(static_cast<int>(i), stagger::pageItemMax)));
         flow_.rowsEntered = home.rows.size();
     } else {
-        const bool named = home.tabs[home.tab].key == "apps";
+        const bool named = home::namesShown(home.tabs[home.tab].key, state_.catalogue["layout"]);
         endRow = std::min(endRow, home.rows.size());
         for (size_t r = firstRow; r < endRow && r < 3; ++r) {
             double rowDelay = stagger::homeBase + stagger::homeRow * static_cast<double>(r);
@@ -331,7 +359,7 @@ void Application::homeFocus(bool jump) {
                 motion_.spring("gy", target, springParams(kit::motion::spring::list));
         } else {
             std::string name = home::id("rx", home.row);
-            bool named = home.tabs[home.tab].key == "apps";
+            bool named = home::namesShown(home.tabs[home.tab].key, state_.catalogue["layout"]);
             double target = kit::geometry::rowScrollTarget(
                 static_cast<int>(home.column), static_cast<int>(row.cards.size()),
                 home::itemWidth(row), home::itemGap(row, named));
@@ -346,7 +374,7 @@ void Application::homeFocus(bool jump) {
     double stack = home.navigation || grid ? 0
                    : kindRows ? home::kindStackTarget(home.row, home.rows.size())
                               : kit::geometry::stackTarget(static_cast<int>(home.row) -
-                                                           static_cast<int>(defaultRow(home)));
+                                                           static_cast<int>(anchorRow(home)));
     if (jump)
         motion_.set("sy", stack);
     else
@@ -499,11 +527,10 @@ void Application::homeUpdate() {
             home.column < home.rows[home.row].cards.size())
             focus = &home.rows[home.row].cards[home.column];
         // The hero follows the focus on titles and inputs; the slideshow runs while focus is on the
-        // bar, the top picks or an app, which has no preview of its own while there are picks.
-        size_t trending = rowIndex(home.rows, "trending");
+        // bar or an app, which has no preview of its own while there are picks.
         const bool picks = !home.spotlight.empty();
         const bool appFocus = focus && focus->kind == "app" && picks;
-        bool onSpotlight = home.navigation || home.row == trending || appFocus;
+        bool onSpotlight = home.navigation || appFocus;
         Card want;
         if (focus && !appFocus)
             want = *focus;
@@ -536,15 +563,8 @@ void Application::homeUpdate() {
         // The slideshow: with nobody pressing keys the hero moves on when its progress is full.
         if (home.spotlight.size() > 1 && onSpotlight && !motion_.moving("hp") &&
             !shownId.empty()) {
-            if (!flow_.idle && due(now_, flow_.lastKeyAt + static_cast<uint32_t>(ms::heroAdvance))) {
+            if (!flow_.idle && due(now_, flow_.lastKeyAt + static_cast<uint32_t>(ms::heroAdvance)))
                 home.spotIndex = (home.spotIndex + 1) % home.spotlight.size();
-                // On the top picks the focus travels with the slideshow.
-                if (!home.navigation && home.row == trending &&
-                    home.spotIndex < home.rows[trending].cards.size()) {
-                    home.column = home.spotIndex;
-                    homeFocus();
-                }
-            }
             motion_.play("hp", Tween(0, 1, ms::heroAdvance, Easing::linear()));
         }
     }
@@ -610,11 +630,14 @@ void Application::homeRetargetHero(const Card &card, bool instant) {
         art.wallTint = art.tint[outgoing];
     }
     motion_.play("hp", Tween(0, 1, ms::heroAdvance, Easing::linear()));
-    // The dots describe the top picks: they fade while the hero shows an app or an input.
+    // The dots describe the carousel: they fade while the hero shows a focused card instead.
+    bool featured = false;
+    for (const Card &shown : home.spotlight)
+        featured = featured || (shown.id == card.id && shown.kind == card.kind);
     if (instant)
-        motion_.set("dots", isTitle(card) ? 1 : 0);
+        motion_.set("dots", featured ? 1 : 0);
     else
-        motion_.tween("dots", isTitle(card) ? 1 : 0, ms::fast, easing(ease::out));
+        motion_.tween("dots", featured ? 1 : 0, ms::fast, easing(ease::out));
     for (size_t i = 0; i < home::kSpotlightMax; ++i) {
         bool current = i < home.spotlight.size() && home.spotlight[i].id == card.id &&
                        home.spotlight[i].kind == card.kind;

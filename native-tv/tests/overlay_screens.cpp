@@ -98,6 +98,7 @@ void kitChecks() {
 
 void detailsChecks() {
     World world;
+    world.press(Key::Down); // from the apps row to the top picks
     world.press(Key::Ok);
     check(world.screen() == "details", "OK on a title opens its details");
     check(world.transport.count("action") == 0 && world.transport.count("title:details") == 1,
@@ -153,6 +154,7 @@ void detailsChecks() {
 
     // A reply for a title that was left behind does not fill the one on screen.
     World stale;
+    stale.press(Key::Down);
     stale.press(Key::Ok);
     unsigned first = stale.transport.revisions["title:details"];
     stale.reply("title:details", detailsJson, 200, static_cast<int>(first) - 1);
@@ -161,6 +163,7 @@ void detailsChecks() {
 
 void detailsFailureChecks() {
     World world;
+    world.press(Key::Down);
     world.press(Key::Ok);
     world.reply("title:details", R"({"ok":false,"error":"Metadata is warming up"})", 503);
     world.settle(300);
@@ -178,11 +181,13 @@ void detailsFailureChecks() {
     check(world.snapshot()["contentState"].string() == "ready" && world.app.shows("No overview available"),
           "A title without an overview says so");
     World stale;
+    stale.press(Key::Down);
     stale.press(Key::Ok);
     stale.reply("title:details", R"({"ok":true,"enabled":true,"stale":true,"item":{"id":7,"type":"movie","title":"Coast","overview":"Kept."}})");
     check(stale.snapshot()["contentStatus"].string() == "Saved details · offline",
           "Details served from the saved copy say they are offline");
     World busy;
+    busy.press(Key::Down);
     busy.transport.refuse = true;
     busy.press(Key::Ok);
     check(busy.snapshot()["contentState"].string() == "error",
@@ -210,6 +215,7 @@ void detailsOverviewChecks() {
     for (int i = 0; i < 400; ++i)
         long_text += "wordy ";
     World paged;
+    paged.press(Key::Down);
     paged.press(Key::Ok);
     paged.reply("title:details", std::string(R"({"ok":true,"enabled":true,"item":{"id":7,"type":"movie","title":"Coast","overview":")") +
                                      long_text + R"("}})");
@@ -238,7 +244,7 @@ void detailsDepthChecks() {
 
 void detailsFocusReturnChecks() {
     World world;
-    world.press({Key::Right, Key::Right});
+    world.press({Key::Down, Key::Right, Key::Right});
     world.settle(300);
     check(world.snapshot()["column"].number() == 2, "Home focus moved to the third card");
     world.press(Key::Ok);

@@ -14,6 +14,7 @@ void Application::rebuildHome() {
     if (home.row < home.rows.size() && home.column < home.rows[home.row].cards.size())
         oldId = home.rows[home.row].cards[home.column].id;
     home.rows = homeRows(home.tabs[home.tab].key, state_.catalogue, state_.discover, state_.guide);
+    home.picksTaken = false; // homeData() takes the spotlight out of the whole top picks row
     home.arranging = false; // the rows are the server's again
     home.grid = home.tabs[home.tab].key == "apps" &&
                 state_.catalogue["layout"]["sort"]["app"].string() != "kind";

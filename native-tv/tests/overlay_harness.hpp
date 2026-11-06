@@ -149,7 +149,9 @@ struct World {
         check(app.activate("tool:2"), "The search button is on the bar");
         settle(500);
     }
+    // Home opens on the apps row; the top picks, whose cards open details, are one row down.
     void openDetails(const char *answer = detailsJson) {
+        press(Key::Down);
         press(Key::Ok);
         reply("title:details", answer);
         settle(500);

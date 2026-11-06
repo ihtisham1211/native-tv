@@ -14,9 +14,4 @@ Planned features come first, most useful for the effort first. After them, what 
 
 ## Home, from the second hands-on test
 
-- **Review.** From the Home captures (`tests/golden/home-*.png`), to be tried on the TV:
-  - The carousel and the first row, Top picks for you, show the same six titles one above the other.
-  - Row labels (Top picks for you, Your apps) are small and low in contrast at TV distance.
-  - Only the focused app circle shows its name; the others are unlabelled.
-  - Available on Netflix and Trending on YouTube are the last two rows, four rows down from the top.
-  - The avatar and the search and settings buttons are small targets at 56 px.
+- **Look on a TV.** The five findings from the Home captures (the carousel repeating the first row, small faint row labels, unlabelled app circles, the Netflix and YouTube rows four rows down, 56 px top-bar buttons) are changed in the client and checked in `tests/golden/home-*.png` on the host; they are still owed a look on a TV at viewing distance.
