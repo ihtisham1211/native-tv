@@ -174,7 +174,7 @@ def catalogue(profiles=1, sort="custom"):
 
 def discover():
     return {"ok": True, "enabled": True, "titlesEnabled": True, "rows": [
-        {"key": "trending", "items": [item(n) for n in range(8)]},
+        {"key": "trending", "items": [item(n) for n in range(14)]},
         {"key": "movies", "items": [item(n) for n in range(2, 10)]},
         {"key": "series", "items": [item(n) for n in range(4, 10)]}]}
 

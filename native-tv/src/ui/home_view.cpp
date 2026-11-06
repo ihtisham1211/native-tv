@@ -144,9 +144,8 @@ void rows(kit::Paint paint, const Frame &frame, float top = 0) {
     const HomeState &home = state.home;
     const Motion &motion = frame.motion;
     const float stack = static_cast<float>(motion.value("sy")) + top;
-    const bool appNames = state.catalogue["layout"]["appNames"].boolean(true);
-    // On the Apps page every circle carries its name; on Home only the focused one does.
-    const bool namedApps = home.tabs[home.tab].key == "apps";
+    // Every circle carries its name on the Apps page, and on Home while App names is on.
+    const bool namedApps = home::namesShown(home.tabs[home.tab].key, state.catalogue["layout"]);
     for (size_t ri = 0; ri < home.rows.size(); ++ri) {
         const CardRow &row = home.rows[ri];
         float labelY = kit::geometry::rowLabelY(static_cast<int>(ri)) + stack;
@@ -200,7 +199,7 @@ void rows(kit::Paint paint, const Frame &frame, float top = 0) {
                 kit::AppCircle circle;
                 circle.rest = rest;
                 circle.id = id;
-                circle.name = appNames || namedApps ? card.title : "";
+                circle.name = namedApps ? card.title : "";
                 circle.icon = card.id == "lg-home" ? "home" : "apps";
                 circle.image = card.image;
                 circle.color = appColor(card);

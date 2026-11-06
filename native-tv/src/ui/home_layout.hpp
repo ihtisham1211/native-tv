@@ -48,6 +48,11 @@ inline unsigned hashOf(const std::string &text) {
 inline bool isApps(const CardRow &row) {
     return row.key == "app";
 }
+// Whether every app circle on the page carries its name: always on the Apps page, and on Home
+// while the layout's App names switch is on (its default).
+inline bool namesShown(const std::string &tabKey, const Json &layout) {
+    return tabKey == "apps" || layout["appNames"].boolean(true);
+}
 inline float itemWidth(const CardRow &row) {
     return isApps(row) ? kit::layout::appD : kit::layout::cardW;
 }
