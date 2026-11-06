@@ -98,8 +98,16 @@ target_link_libraries(nativetv_daemon PUBLIC nativetv_history)
 target_compile_options(nativetv_daemon PRIVATE -Wall -Wextra -Werror)
 add_library(civetweb STATIC third_party/civetweb/src/civetweb.c)
 target_include_directories(civetweb PUBLIC third_party/civetweb)
+# 256 KB per worker thread on the TV. The sanitizers' frames are several times larger, and the
+# nested control path (privacyAllOff -> executeMqttControl -> setControl -> the ad block's
+# hosts write) overflowed it under them, so their build gets 1 MB.
+if(NATIVETV_SANITIZE)
+  set(NATIVETV_WORKER_STACK 1048576)
+else()
+  set(NATIVETV_WORKER_STACK 262144)
+endif()
 target_compile_definitions(civetweb PRIVATE USE_IPV6 NO_SSL NO_CGI NO_WEBSOCKET
-  NO_ZLIB NO_LUA NO_DUKTAPE USE_STACK_SIZE=262144)
+  NO_ZLIB NO_LUA NO_DUKTAPE USE_STACK_SIZE=${NATIVETV_WORKER_STACK})
 target_link_libraries(civetweb PUBLIC Threads::Threads ${CMAKE_DL_LIBS})
 add_library(nativetv_http_server src/daemon/http_auth.cpp src/daemon/http_csrf.cpp
   src/daemon/http_caps.cpp src/daemon/http_frontdoor.cpp

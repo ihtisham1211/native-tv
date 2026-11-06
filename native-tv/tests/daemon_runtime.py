@@ -2818,7 +2818,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                 stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
                 env=environment)
 
-            def request(path, body=None):
+            def request(path, body=None, timeout=8):
                 data = None if body is None else json.dumps(body).encode("utf-8")
                 headers = {"Authorization": "Bearer " + token}
                 if data is not None:
@@ -2826,7 +2826,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                 req = Request("http://127.0.0.1:%d%s" % (publicPort, path),
                               data=data, method="POST" if data else "GET", headers=headers)
                 try:
-                    with urlopen(req, timeout=8) as response:
+                    with urlopen(req, timeout=timeout) as response:
                         return response.status, json.loads(response.read())
                 except HTTPError as error:
                     return error.code, json.loads(error.read())
@@ -2852,7 +2852,10 @@ class DaemonRuntimeTests(unittest.TestCase):
                               [item["value"].get("key") if isinstance(item["value"], dict) else None
                                for item in areas["ads"]["items"]], json.dumps(before["simple"]))
 
-                status, body = request("/api/control", {"action": "privacyAreaOff", "value": "ads"})
+                # The ads area's ad-block step waits on the stand-in TV, several seconds under
+                # the sanitizer.
+                status, body = request("/api/control", {"action": "privacyAreaOff", "value": "ads"},
+                                       timeout=60)
                 self.assertEqual(status, 200, body)
                 self.assertEqual(body["done"] + len(body["failed"]), len(areas["ads"]["items"]),
                                  "only the ads area's items are attempted: " + json.dumps(body))
@@ -2874,16 +2877,19 @@ class DaemonRuntimeTests(unittest.TestCase):
                                       if call["uri"] == "com.webos.settingsservice/setSystemSettings"]),
                                  1, "a refused area writes nothing")
             finally:
-                if process.poll() is None:
+                crashed = process.poll() is not None
+                if not crashed:
                     process.send_signal(signal.SIGTERM)
                 try:
-                    process.communicate(timeout=6)
+                    daemonOutput, _ = process.communicate(timeout=6)
                 except subprocess.TimeoutExpired:
                     process.kill()
-                    process.communicate(timeout=3)
+                    daemonOutput, _ = process.communicate(timeout=3)
                 node.shutdown()
                 node.server_close()
                 nodeThread.join(timeout=3)
+                if crashed:
+                    print("daemon left before the test ended:\n" + daemonOutput[-8000:])
 
     def test_native_acr_toggle_follows_binary_consents_and_fallback(self):
         binary = Path(sys.argv[1]).resolve()
