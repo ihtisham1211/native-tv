@@ -110,7 +110,7 @@ inline Rect card(int row, int index) {
 inline Rect inputTile(int row, int index) {
     return card(row, index);
 }
-constexpr Rect appCircle(int row, int index) {
+inline Rect appCircle(int row, int index) {
     return {canvas::safeX + index * (layout::appD + layout::appGap), rowItemsY(row), layout::appD,
             layout::appD};
 }
