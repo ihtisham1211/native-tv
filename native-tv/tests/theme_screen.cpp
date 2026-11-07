@@ -132,6 +132,7 @@ void compactHomeChecks() {
     World world;
     world.settle(600);
     check(world.app.shows("Coast"), "Google TV's Home shows the feed's top pick");
+    check(hasHit(world.app.scene(), "tool:2"), "Google TV's bar has the search button");
     const size_t discoverReads = world.transport.count("discover");
 
     // The server names OLED Care: Home becomes the apps, the inputs and the panel, and stops asking for a feed.
@@ -147,6 +148,11 @@ void compactHomeChecks() {
           "the Pixel Refresher is a card");
     check(world.app.shows("HDMI 1") && world.app.shows("Console"), "the inputs are a row of Home");
     check(!world.app.shows("Coast") && !world.app.shows("Top picks for you"), "there is no hero text and no picks");
+    check(!hasHit(world.app.scene(), "tool:2"),
+          "there is no search button, though the client read the feed under Google TV");
+    world.app.open("search");
+    world.settle(300);
+    check(world.screen() != "search", "title search does not open in OLED Care");
     world.settle(10500);
     check(world.transport.count("discover") == discoverReads, "the feed is not asked for again");
     check(world.transport.count("stats") >= 2, "the panel's figures are read again with Home's refresh");

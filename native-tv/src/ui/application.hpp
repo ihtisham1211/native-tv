@@ -98,6 +98,11 @@ struct ViewState {
     bool installRoot = false, installReplace = false;
     int hour = 0, minute = 0, weekday = 0, day = 1, month = 0;
     Json catalogue, discover, guide, stats, caps, setup, menuData, catalog, install;
+    // Title search needs a TMDB key and a theme with a feed: a client that read the feed under one
+    // theme keeps it when it switches to a theme without one.
+    bool titleSearch() const {
+        return kit::look::discover && discover["titlesEnabled"].boolean();
+    }
 };
 // What a view reads to draw a frame: the state the controllers keep and the animated values the
 // motion engine owns. Views never change either.

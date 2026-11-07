@@ -15,7 +15,7 @@ inline std::vector<size_t> navigationStops(const ViewState &state) {
     if (state.catalogue["profiles"].size())
         stops.insert(stops.begin(), state.home.tabs.size());
     // Search is drawn left of the gear (Quick settings), so the focus reaches it first.
-    if (state.discover["titlesEnabled"].boolean())
+    if (state.titleSearch())
         stops.push_back(state.home.tabs.size() + 2);
     stops.push_back(state.home.tabs.size() + 1);
     return stops;

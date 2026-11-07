@@ -18,7 +18,7 @@ void Application::route(const std::string &path) {
         if (path != "home:resume")
             state_.home.navigation = false;
     }
-    if (path == "search" && !state_.discover["titlesEnabled"].boolean())
+    if (path == "search" && !state_.titleSearch())
         return;
     if (path != "refresh" && path.compare(0, 8, "install-") != 0 && path != "theme" &&
         path.compare(0, 4, "sub:") != 0) {

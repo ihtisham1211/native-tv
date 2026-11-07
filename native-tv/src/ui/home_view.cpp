@@ -122,7 +122,7 @@ void drawTopBar(kit::Paint paint, const Frame &frame, int pageTab) {
     bar.settingsFocus = static_cast<float>(motion.value("f:gr"));
     bar.clock = clockText(state);
     kit::topBar(paint, bar);
-    if (state.discover["titlesEnabled"].boolean()) {
+    if (state.titleSearch()) {
         kit::RoundButton search;
         Rect gear = kit::geometry::settingsButton();
         search.rest = {gear.x - layout::circle - 24, gear.y, layout::circle, layout::circle};
