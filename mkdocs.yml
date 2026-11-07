@@ -69,6 +69,7 @@ nav:
       - What it changes on the TV: administration/tv-changes.md
       - Network time (NTP): administration/ntp.md
       - Experimental features: administration/experimental.md
+  - Support and donate: support.md
   - Development:
       - Contributing: development/contributing.md
       - Internals: development/implementation.md
@@ -105,6 +106,9 @@ extra:
     - icon: fontawesome/brands/github
       link: https://github.com/ihtisham1211/native-tv
       name: Native Tv on GitHub
+    - icon: fontawesome/solid/mug-hot
+      link: https://buymeacoffee.com/ihtisham12z
+      name: Buy me a coffee
 
 markdown_extensions:
   - github-callouts
