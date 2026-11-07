@@ -24,7 +24,7 @@
 
 **Native Tv** is a server that runs directly on a rooted LG webOS TV. It gives the TV a live browser dashboard for any phone or computer, a native app on the TV itself, and an MQTT bridge for Home Assistant and other smart-home software.
 
-Use it to control an LG OLED or LCD TV without the cloud, see and switch off what LG's ACR (Live Plus), ad tracking and data agreements collect, block LG's ad and telemetry servers, debloat apps and background services, remap the remote's buttons, protect an OLED panel from burn-in, and read the TV's hardware telemetry.
+Use it to control an LG OLED or LCD TV without the cloud, see and switch off what LG's ACR (Live Plus), ad tracking and data agreements collect, block LG's ad and telemetry servers, debloat apps and background services, remap the remote's buttons, protect an OLED panel from burn-in with panel care and an OLED-friendly TV theme, and read the TV's hardware telemetry.
 
 Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by Rory Gallagher and is now its own project: the server is a C++ daemon with no Node on the TV, and the TV has a native app in Google TV's design. It supports webOS 4 and later; Glasshouse covers webOS 2 and 3.
 
@@ -90,7 +90,7 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
 | **webOS** | 4 and later. webOS 2.2 and 3.x ran the earlier Node release and are not supported by the native server |
 | **Verified with this server** | LG B3 (OLED65B3PUA), webOS 10.3.2. Other models and versions are untried |
 | **Reports from the earlier release** | 48 TVs across 33 series, 2015 to 2026 models, webOS 2.2 to 11 ([the table](https://ihtisham1211.github.io/native-tv/getting-started/tested-tvs/)) |
-| **Panels** | OLED (panel wear telemetry and burn-in controls) and LCD (the OLED Care tab hides itself) |
+| **Panels** | OLED (panel wear telemetry, burn-in controls and the OLED Care TV theme) and LCD (the OLED Care tab hides itself; the theme can still be chosen) |
 | **Access** | Rooted, with the Homebrew Channel; SSH or telnet |
 
 LG names its versions two ways; [webOS version numbers](https://ihtisham1211.github.io/native-tv/getting-started/tested-tvs/#webos-version-numbers) gives both.
@@ -224,7 +224,10 @@ No. It runs on the TV, serves the dashboard on the local network, collects no da
 Through an MQTT broker. The TV publishes itself with MQTT Discovery as one device with its controls and telemetry, and the remote's buttons can fire automations. [Setup](https://ihtisham1211.github.io/native-tv/integrations/home-assistant/) and the [entity list](https://ihtisham1211.github.io/native-tv/integrations/home-assistant-entities/) are in the docs.
 
 **Does it work on LCD and non-OLED LG TVs?**
-Yes. The dashboard, controls and telemetry work on LCD panels; the OLED Care tab hides itself.
+Yes. The dashboard, controls and telemetry work on LCD panels; the OLED Care tab hides itself, and the OLED Care theme can be chosen on any TV.
+
+**Is there an OLED-friendly theme, and does it prevent burn-in?**
+Yes: OLED Care, chosen in Settings, TV theme on the TV or on the dashboard's Server tab. It is true black with dimmed icons, a thin focus ring and a layout that moves a few pixels each minute, and its Home shows the apps, the inputs and the panel's hours with no film picks. Measured on the rendered screens, it puts about 70% less light on the panel than the default Google TV theme. That lowers the load on the panel, but it cannot promise there is no burn-in; the [OLED care tab](https://ihtisham1211.github.io/native-tv/dashboard/oled-care/) has the panel's own protections. [The TV theme](https://ihtisham1211.github.io/native-tv/apps/tv-app/#tv-theme) describes it. It has been checked in the client's tests and an emulator, not yet on a real TV.
 
 **Is the TV app smooth, or does it lag like a slow home screen?**
 It is a native OpenGL ES client, not a web page, and it draws at the display's 60 Hz. On an LG B3 with the processor busy (load average about 32) its frames arrive 15 to 18 ms apart, against 16.7 ms ideal. [How it stays smooth](https://ihtisham1211.github.io/native-tv/apps/tv-app/#how-smooth-it-is) lists the reasons and the measurement.

@@ -61,7 +61,7 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
 ## Compatibility
 
 * **webOS**: 4 and later. The native server is verified on one TV, an LG B3 on webOS 10.3.2; reports from 48 TVs on earlier releases are in [Tested TVs](getting-started/tested-tvs.md). LG names its versions two ways: [webOS version numbers](getting-started/tested-tvs.md#webos-version-numbers).
-* **Panels**: OLED (panel wear telemetry and burn-in controls) and LCD (the OLED Care tab hides itself).
+* **Panels**: OLED (panel wear telemetry, burn-in controls and the OLED Care TV theme) and LCD (the OLED Care tab hides itself; the theme can still be chosen).
 * **Access**: rooted with the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel), over SSH or telnet. The TV needs no internet access.
 
 Native Tv running on a model that is not listed? A [TV report](https://github.com/ihtisham1211/native-tv/issues/new?template=tv_report.md) with the model and webOS version adds it to the table.
