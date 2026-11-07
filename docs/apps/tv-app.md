@@ -45,10 +45,10 @@ A change shows the moment OK is pressed: the switch has already slid and a faint
 
 ### TV theme
 
-**Settings, TV theme** (in the Settings section) opens the picker: a card for each theme, drawn from that theme's own colours, with the one in use marked. A theme changes how the screens look and nothing else: every screen has the same content, rows and keys in every theme.
+**Settings, TV theme** (in the Settings section) opens the picker: a card for each theme, drawn from that theme's own colours, with the one in use marked. A theme changes how the screens look. OLED Care also changes what Home shows and has no title search (below); everything else, every row and key, is the same in every theme.
 
 * **Google TV** (`n-google-tv`) is the default: ambient artwork behind Home and the filled white focus pill.
-* **OLED Care** (`n-oled-care`) is for OLED panels. The canvas is `#000000`, so pixels that are off do not wear. App icons rest at 62% brightness and the focused one is at full. Home's cards are tiles with their titles, and the artwork is not drawn or downloaded. Focus is a thin ring, the selected tab an underline, and Settings rows have no background until focused. The whole screen moves a few pixels as the minutes pass: up to 8 px sideways and 6 px up or down, in whole pixels, at most 3 px between two minutes. The [design notes](../development/material-3-expressive.md#n-oled-care) give each value and its reason.
+* **OLED Care** (`n-oled-care`) is for OLED panels. The canvas is `#000000`, so pixels that are off do not wear. App icons rest at 62% brightness and the focused one is at full. Focus is a thin ring, the selected tab an underline, and Settings rows have no background until focused. The whole screen moves a few pixels as the minutes pass: up to 8 px sideways and 6 px up or down, in whole pixels, at most 3 px between two minutes. Its Home is the apps, the inputs and two cards from the panel's own figures (its hours with the compensation cycle's progress, and the hours to the Pixel Refresher), and OK on a card opens OLED Care in Settings. It has no hero, no film or series picks and no YouTube row, so it asks neither TMDB nor YouTube for anything, and without TMDB there is no title search. The [design notes](../development/material-3-expressive.md#n-oled-care) give each value and its reason.
 
 The idle behaviour is the same in every theme: the dim after 30 seconds and the screen saver's start time in Settings are not the theme's.
 

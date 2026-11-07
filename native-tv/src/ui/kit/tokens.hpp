@@ -58,6 +58,8 @@ struct Palette {
     Color focusRingColor;
     float wall;
     bool pictures;
+    bool discover;
+    float homeTop;
     bool ringFocus;
     float restFill;
     float restBrightness;
@@ -88,6 +90,8 @@ constexpr Palette nGoogleTv = {
     rgb(0xF1EEF4),
     1,
     true,
+    true,
+    556,
     false,
     1,
     1,
@@ -118,6 +122,8 @@ constexpr Palette nOledCare = {
     rgb(0xCFCFCF),
     0,
     false,
+    false,
+    196,
     true,
     0,
     0.62f,
@@ -165,6 +171,8 @@ extern const Color &scrimStrong;
 namespace look {
 extern const float &wall;
 extern const bool &pictures;
+extern const bool &discover;
+extern const float &homeTop;
 extern const bool &ringFocus;
 extern const float &restFill;
 extern const float &restBrightness;

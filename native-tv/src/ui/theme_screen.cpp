@@ -72,17 +72,38 @@ void preview(kit::Paint paint, Rect box, const kit::Palette &p) {
                     4);
         tabX += tabWidth[i] + 28;
     }
+    const Color apps[] = {kit::rgb(0xC0392B), kit::rgb(0x12805C), kit::rgb(0x6C3483),
+                          kit::rgb(0x1F618D), kit::rgb(0xB9651B)};
+    auto circles = [&](float top) {
+        for (int i = 0; i < 5; ++i) {
+            const Rect circle = {x + 24 + 44.0f * i, y + top, 32, 32};
+            scene.shape(circle, i == 0 ? apps[i] : dimmed(apps[i]), 16);
+            if (i == 0)
+                scene.shape(circle, kClear, 16).ring = {3, 0, p.focusRingColor};
+        }
+    };
+    if (!p.discover) {
+        // A Home with no feed: the apps, the inputs and the panel's cards.
+        circles(78);
+        for (int i = 0; i < 4; ++i) {
+            const Rect tile = {x + 24 + 76.0f * i, y + 132, 66, 42};
+            scene.shape(tile, p.surface1, 8);
+            scene.shape({tile.x + 8, tile.y + 24, 38, 7}, p.onSurface2, 3.5f);
+        }
+        for (int i = 0; i < 2; ++i) {
+            const Rect card = {x + 24 + 150.0f * i, y + 196, 138, 78};
+            scene.shape(card, p.surface1, 10);
+            scene.shape({card.x + 12, card.y + 12, 52, 7}, p.onSurface2, 3.5f);
+            scene.shape({card.x + 12, card.y + 28, 70, 18}, p.onSurface, 5);
+            scene.shape({card.x + 12, card.y + card.h - 14, card.w - 24, 4}, p.surface3, 2);
+            scene.shape({card.x + 12, card.y + card.h - 14, (card.w - 24) * (i ? .25f : .62f), 4}, p.accent, 2);
+        }
+        return;
+    }
     scene.shape({x + 24, y + 86, 190, 16}, p.onSurface, 8);
     scene.shape({x + 24, y + 112, 250, 8}, p.onSurface2, 4);
     scene.shape({x + 24, y + 128, 210, 8}, p.onSurface2, 4);
-    const Color apps[] = {kit::rgb(0xC0392B), kit::rgb(0x12805C), kit::rgb(0x6C3483),
-                          kit::rgb(0x1F618D), kit::rgb(0xB9651B)};
-    for (int i = 0; i < 5; ++i) {
-        const Rect circle = {x + 24 + 44.0f * i, y + 160, 32, 32};
-        scene.shape(circle, i == 0 ? apps[i] : dimmed(apps[i]), 16);
-        if (i == 0)
-            scene.shape(circle, kClear, 16).ring = {3, 0, p.focusRingColor};
-    }
+    circles(160);
     for (int i = 0; i < 3; ++i) {
         const Rect tile = {x + 24 + 112.0f * i, y + 212, 100, 56};
         Node &face = scene.shape(tile, p.pictures ? p.surface2 : p.surface1, 8);
@@ -304,8 +325,9 @@ void ThemeScreen::build(ScreenHost &host, kit::Paint paint) {
         paint.glyphs.text(scene, {80, 330, 900, kit::type::body.line * 6},
                           msg("tv.theme.offer.body",
                               "This TV has an OLED panel. OLED Care keeps the screens black and dim, "
-                              "and they move a little, so they wear the panel less. Every feature "
-                              "stays the same, and Settings, TV theme changes it back."),
+                              "and they move a little, so they wear the panel less. Home shows your "
+                              "apps, inputs and panel, without film picks. Settings, TV theme "
+                              "changes it back."),
                           kit::type::body, kit::color::onSurface2, Node::Align::Left, 6);
         if (sheet_ == Sheet::Suggest) {
             button(host, paint, {80, 560, 280, 84}, msg("tv.theme.offer.use", "Use it"), 0);
@@ -315,7 +337,7 @@ void ThemeScreen::build(ScreenHost &host, kit::Paint paint) {
         paint.glyphs.text(scene, {80, 159, 1760, kit::type::headline.line}, msg("tv.theme.title", "TV theme"),
                           kit::type::headline, kit::color::onSurface);
         paint.glyphs.text(scene, {80, 232, 1760, kit::type::body.line},
-                          msg("tv.theme.lead", "Changes how the TV screens look. Every feature stays the same."),
+                          msg("tv.theme.lead", "Changes how the TV screens look and what Home shows."),
                           kit::type::body, kit::color::onSurface2);
         for (int i = 0; i < kThemeChoiceCount; ++i) {
             const ThemeChoice &choice = kThemeChoices[i];

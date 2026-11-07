@@ -1600,7 +1600,8 @@ void settings(Rows &rows, const Json &data) {
     row(rows, say::msg("tv.settings.tvTheme", "TV theme"),
         (tvTheme ? tvTheme : findTheme(kDefaultTheme))->name, navigate("tvtheme"),
         say::msg("tv.settings.tvTheme.hint",
-                 "Changes how the TV screens look. Every feature stays the same in every theme."),
+                 "Changes how the TV screens look. OLED Care's Home shows the apps, inputs and "
+                 "panel, without film picks."),
         say::msg("tv.settings.open", "Open"));
     row(rows, say::msg("theme", "Theme"), say::msg("theme.dark", "Dark"), navigate("theme"),
         say::msg("tv.appearance.theme.hint", "Switches the dashboard interface between Dark (true "

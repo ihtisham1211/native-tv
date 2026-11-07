@@ -61,6 +61,20 @@ int main() {
         assert(rejects(path));
     }
 
+    // The theme the client last drew in.
+    const std::string themeFile = nativetv::clientThemePath(path);
+    assert(themeFile == root + "/native/client-theme");
+    assert(nativetv::readClientTheme(themeFile).empty());
+    nativetv::writeClientTheme(themeFile, "n-oled-care");
+    assert(nativetv::readClientTheme(themeFile) == "n-oled-care");
+    nativetv::writeClientTheme(themeFile, "n-nope");
+    assert(nativetv::readClientTheme(themeFile) == "n-oled-care"); // not a theme: left as it was
+    writeText(themeFile, "n-gone\n");
+    assert(nativetv::readClientTheme(themeFile).empty());          // a theme this build lacks
+    writeText(themeFile, "n-google-tv");
+    assert(nativetv::readClientTheme(themeFile) == "n-google-tv");
+    unlink(themeFile.c_str());
+
     const std::string symlink = root + "/native/client-link.json";
     assert(symlinkat("client-config.json", AT_FDCWD, symlink.c_str()) == 0);
     assert(rejects(symlink));

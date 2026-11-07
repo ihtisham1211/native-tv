@@ -28,7 +28,9 @@ A theme for OLED panels: the screens should never be what wears the panel. Its d
 | `focusRingColor` | #CFCFCF | #F1EEF4 | |
 | `alpha::outline` | 0 | 0.12 | A static hairline is the classic burn-in shape. |
 | `wash` and `look.wall` | black, 0 | teal, 1 | The accent glow and the tint wash behind a screen light every pixel. |
-| `look.pictures` | false | true | The Home hero, the picks' pictures and the Details backdrop are not drawn or downloaded: artwork is the largest lit region on Home. Cards become tiles with their titles. App icons are icons and stay. |
+| `look.pictures` | false | true | The Details backdrop and any artwork are not drawn or downloaded: artwork is the largest lit region on a screen. App icons are icons and stay. |
+| `look.discover` | false | true | No feed: Home has no hero text, no pager, no picks and no YouTube row, and the client does not ask for the TMDB or YouTube feed, so there is no title search either. Home is the apps, the inputs and the panel's cards, which come from the stats the Live screen already reads. |
+| `look.homeTop` | 196 | 556 | Where Home's first row starts: under the hero for a theme with a feed, near the top for one without. |
 | `look.ringFocus` | true | false | Focus is a ring over the fill and the selected tab an underline. A dark fill alone is 1.3:1 on black, too faint to find from the sofa. |
 | `look.restFill` | 0 | 1 | Settings rows have no background until focused: spacing groups them, and a static fill is lit all day. |
 | `look.restBrightness` | 0.62 | 1 | App icons rest dimmer than the focused one. Over black, opacity is brightness. |

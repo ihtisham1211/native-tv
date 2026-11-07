@@ -561,7 +561,7 @@ void inputTile(Paint paint, const InputTile &tile) {
     if (tile.unused)
         enter.alpha *= .62f;
     Group group(scene, enter, look.scale != 1 ? &scale : nullptr);
-    Node &base = scene.shape(tile.rest, color::surface2, radius::md);
+    Node &base = scene.shape(tile.rest, look::ringFocus ? color::surface1 : color::surface2, radius::md);
     restOutline(base);
     if (look.ringAlpha > 0)
         base.shadow = {0, look.shadowDy, look.shadowBlur, 0, {0, 0, 0, look.shadowAlpha}};
@@ -573,10 +573,41 @@ void inputTile(Paint paint, const InputTile &tile) {
     text(paint, {box.x + 20, nameY, box.w - 40, type::inputName.line}, tile.name, type::inputName,
          color::onSurface);
     text(paint, {box.x + 20, subY, box.w - 40, type::labelS.line}, tile.sub, type::labelS,
-         color::onSurface3);
+         look::ringFocus ? color::onSurface2 : color::onSurface3);
     if (tile.live)
         scene.shape({box.x + box.w - 16 - 10, box.y + 16, 10, 10}, color::accent, 5);
     hit(scene, look.rect, tile.id);
+}
+
+void infoCard(Paint paint, const InfoCard &card) {
+    if (invisible(card.enter) || offCanvas(card.rest))
+        return;
+    Scene &scene = paint.scene;
+    Group group(scene, card.enter, nullptr);
+    const float amount = focus::clamp01(card.focus);
+    scene.shape(card.rest, focus::mix(color::surface1, color::surface3, amount), radius::lg);
+    focusRing(scene, card.rest, radius::lg, amount);
+    const float left = card.rest.x + 28, inner = card.rest.w - 56;
+    text(paint, {left, card.rest.y + 20, inner, type::labelM.line}, card.title, type::labelM,
+         color::onSurface2);
+    text(paint, {left, card.rest.y + 52, inner, type::numeral.line}, card.value, type::numeral,
+         color::onSurface);
+    // The unit shares the figure's baseline, 33 px lower in its own box.
+    const float unitX = left + paint.glyphs.measure(card.value, type::numeral) + 10;
+    text(paint, {unitX, card.rest.y + 52 + 33, left + inner - unitX, type::numeralUnit.line}, card.unit,
+         type::numeralUnit, color::onSurface2);
+    if (!card.caption.empty())
+        text(paint, {left, card.rest.y + 132, inner, type::labelM.line}, card.caption, type::labelM,
+             color::onSurface2);
+    if (card.bar >= 0) {
+        const Rect track = {left, card.rest.y + card.rest.h - 24, inner, layout::barH};
+        scene.shape(track, color::surface3, layout::barH / 2);
+        const float fraction = focus::clamp01(card.bar);
+        if (fraction > 0)
+            scene.shape({track.x, track.y, track.w * fraction, track.h}, faded(color::accent, .8f),
+                        layout::barH / 2);
+    }
+    hit(scene, card.rest, card.id);
 }
 
 // ---- Apps and Live

@@ -1,5 +1,7 @@
 #include "domain/models.hpp"
+#include "domain/say.hpp"
 #include <algorithm>
+#include <cmath>
 #include <map>
 
 namespace nativetv {
@@ -294,5 +296,79 @@ std::vector<CardRow> homeRows(const std::string &tab, const Json &catalogue, con
             result.push_back(row);
     }
     return result;
+}
+} // namespace nativetv
+
+namespace nativetv {
+namespace {
+std::string grouped(long value) {
+    const std::string digits = std::to_string(value < 0 ? -value : value);
+    std::string text;
+    for (size_t i = 0; i < digits.size(); ++i) {
+        if (i && (digits.size() - i) % 3 == 0)
+            text += ',';
+        text += digits[i];
+    }
+    return (value < 0 ? "-" : "") + text;
+}
+// One of the panel's cards: `value` and `unit` are the big figure, `bar` 0..1 or -1 for none.
+Card panelCard(const std::string &id, const std::string &title, const std::string &value,
+               const std::string &unit, const std::string &caption, double bar) {
+    Card card;
+    card.id = id;
+    card.kind = "oled";
+    card.title = title;
+    card.subtitle = caption;
+    card.data = fields(
+        {{"value", Json::text(value)}, {"unit", Json::text(unit)}, {"bar", Json::numeric(bar)}});
+    card.command = navigate("dashboard:oled");
+    return card;
+}
+} // namespace
+
+std::vector<CardRow> compactHomeRows(const Json &catalogue, const Json &guide, const Json &stats) {
+    std::vector<CardRow> rows;
+    CardRow apps = appsRow(catalogue, guide, false);
+    if (!apps.cards.empty())
+        rows.push_back(apps);
+    if (catalogue["layout"]["showInputs"].boolean(true)) {
+        CardRow inputs = catalogueRow("dev", catalogue, guide);
+        if (!inputs.cards.empty())
+            rows.push_back(inputs);
+    }
+    const Json oled = stats["oled"];
+    if (!oled["panel_hours"].valid())
+        return rows;
+    CardRow panel;
+    panel.key = "oled";
+    panel.title = say::msg("tv.home.oledCare", "OLED Care");
+    // The panel's hours, with how far the compensation cycle has run.
+    const double interval = oled["comp_interval_hours"].number(0),
+                 since = oled["hours_since_comp"].number(-1);
+    const bool cycle = interval > 0 && since >= 0;
+    const double done = cycle ? std::min(1.0, since / interval) : -1;
+    Json percent = Json::object();
+    percent.set("pct", Json::text(std::to_string(static_cast<int>(done * 100 + .5))));
+    panel.cards.push_back(panelCard(
+        "oled:hours", say::msg("tv.home.panelHours", "Panel hours"),
+        grouped(std::lround(oled["panel_hours"].number())), "h",
+        cycle ? say::msg("tv.home.compCycle", "Compensation cycle {pct}%", percent) : std::string(),
+        done));
+    // The Pixel Refresher: the hours until it runs, and how far on its schedule the panel is.
+    if (oled["hours_until_refresher"].valid()) {
+        const double every = oled["refresher_interval_hours"].number(0),
+                     last = oled["hours_since_refresher"].number(-1);
+        const long cycles = std::lround(oled["refresher_cycles"].number(0));
+        Json count = Json::object();
+        count.set("n", Json::text(std::to_string(cycles)));
+        panel.cards.push_back(panelCard(
+            "oled:refresher", say::msg("tv.home.refresher", "Pixel Refresher"),
+            grouped(std::lround(oled["hours_until_refresher"].number())), "h",
+            cycles == 1 ? say::msg("tv.home.refresherOne", "1 cycle done")
+                        : say::msg("tv.home.refresherCycles", "{n} cycles done", count),
+            every > 0 && last >= 0 ? std::min(1.0, last / every) : -1));
+    }
+    rows.push_back(panel);
+    return rows;
 }
 } // namespace nativetv

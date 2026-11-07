@@ -53,6 +53,8 @@ const Color &focusRingColor = active.focusRingColor;
 namespace look {
 const float &wall = active.wall;
 const bool &pictures = active.pictures;
+const bool &discover = active.discover;
+const float &homeTop = active.homeTop;
 const bool &ringFocus = active.ringFocus;
 const float &restFill = active.restFill;
 const float &restBrightness = active.restBrightness;

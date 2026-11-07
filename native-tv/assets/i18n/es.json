@@ -1007,7 +1007,7 @@
 "server.tvApp.remove.confirm": {"text": "¿Quitar el panel de la pantalla de inicio de la TV?", "from": "Take the dashboard off the TV's home screen?"},
 "server.tvApp.removing": {"text": "Eliminando…", "from": "Removing…"},
 "server.tvApp.title": {"text": "App en la pantalla de inicio de la TV", "from": "App on the TV's home screen"},
-"server.tvTheme.desc": {"text": "Cómo se ven las pantallas de la TV. Todas las funciones son las mismas en cualquier tema.", "from": "How the screens on the TV look. Every feature stays the same in every theme."},
+"server.tvTheme.desc": {"text": "Cómo se ven las pantallas de la TV. El Inicio de OLED Care muestra las aplicaciones, las entradas y el panel, sin recomendaciones de películas.", "from": "How the screens on the TV look. OLED Care's Home shows the apps, inputs and panel, without film picks."},
 "server.tvTheme.group": {"text": "Tema de la TV", "from": "TV theme"},
 "server.tvTheme.title": {"text": "Tema de la TV", "from": "TV theme"},
 "server.tvUpdates.allowed": {"text": "Permitidas", "from": "Allowed"},

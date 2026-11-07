@@ -177,6 +177,17 @@ struct InputTile {
 };
 void inputTile(Paint paint, const InputTile &tile);
 
+// A card with a figure, a caption and a bar: the panel's hours, or its Pixel Refresher, on a Home
+// that has no feed (OLED Care's).
+struct InfoCard {
+    Rect rest;
+    std::string id, title, value, unit, caption;
+    float bar = -1; // 0..1, or -1 for no bar
+    float focus = 0;
+    Enter enter;
+};
+void infoCard(Paint paint, const InfoCard &card);
+
 // ---- Apps and Live ------------------------------------------------------------------------------
 
 struct PageHead {

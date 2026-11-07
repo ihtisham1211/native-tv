@@ -123,6 +123,8 @@ bool Application::update(uint32_t now) {
     if (state_.screen == Screen::Splash)
         return true;
     clock_.tick();
+    if (shownTheme_ != kit::themeId())
+        themeChanged();
     bool moved = motion_.update(clock_);
     updateWallpaperTransition();
     if (static_cast<int32_t>(now_ - refreshAt_) >= 0)
@@ -326,12 +328,6 @@ void Application::buildFrame() {
     if (coveredForCaps()) {
         scene.background = kit::color::ink;
         return;
-    }
-    // The wash the Home art falls back to is the theme's, so a changed theme resets it.
-    if (shownTheme_ != kit::themeId()) {
-        shownTheme_ = kit::themeId();
-        state_.home.art.wallTint = neutralWash();
-        state_.home.art.tint[0] = state_.home.art.tint[1] = neutralWash();
     }
     // A theme with drift moves everything it draws, pointer hits included, by a few pixels as the
     // minutes pass; the idle veil stays put so it still covers the whole screen.

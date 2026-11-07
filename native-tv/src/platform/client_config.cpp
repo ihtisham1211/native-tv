@@ -1,8 +1,12 @@
 #include "platform/client_config.hpp"
 
 #include "core/json.hpp"
+#include "core/themes.hpp"
 
+#include <cctype>
 #include <cerrno>
+#include <cstdio>
+#include <fstream>
 #include <cmath>
 #include <cstdlib>
 #include <cstring>
@@ -69,6 +73,36 @@ std::string clientServerConfigPath() {
     const char *configured = std::getenv("NATIVETV_CLIENT_CONFIG");
     return configured && *configured ? configured
                                      : "/var/lib/tvweb/native/client-config.json";
+}
+
+std::string clientThemePath(const std::string &configPath) {
+    std::string name;
+    return join(parentDirectory(configPath, name), "client-theme");
+}
+
+std::string readClientTheme(const std::string &path) {
+    std::ifstream file(path);
+    std::string id;
+    std::getline(file, id);
+    while (!id.empty() && std::isspace(static_cast<unsigned char>(id.back())))
+        id.pop_back();
+    return findTheme(id) ? id : std::string();
+}
+
+void writeClientTheme(const std::string &path, const std::string &id) {
+    if (!findTheme(id))
+        return;
+    const std::string temporary = path + ".tmp." + std::to_string(getpid());
+    {
+        std::ofstream file(temporary, std::ios::trunc);
+        file << id << "\n";
+        if (!file) {
+            std::remove(temporary.c_str());
+            return;
+        }
+    }
+    if (std::rename(temporary.c_str(), path.c_str()) != 0)
+        std::remove(temporary.c_str());
 }
 
 std::string clientServerConfigPathForDataRoot(const std::string &dataRoot) {

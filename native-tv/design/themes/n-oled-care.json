@@ -48,6 +48,8 @@
  "look": {
   "wall": 0,
   "pictures": false,
+  "discover": false,
+  "homeTop": 196,
   "ringFocus": true,
   "restFill": 0,
   "restBrightness": 0.62,

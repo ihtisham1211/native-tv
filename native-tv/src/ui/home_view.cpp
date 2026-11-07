@@ -238,6 +238,18 @@ void rows(kit::Paint paint, const Frame &frame, float top = 0) {
                 if (home.arranging && ri != home.row) // the rows behind the lifted one
                     circle.enter.alpha *= .55f;
                 kit::appCircle(paint, circle);
+            } else if (home::isPanel(row)) {
+                kit::InfoCard info;
+                info.rest = rest;
+                info.id = id;
+                info.title = card.title;
+                info.value = card.data["value"].string();
+                info.unit = card.data["unit"].string();
+                info.caption = card.subtitle;
+                info.bar = static_cast<float>(card.data["bar"].number(-1));
+                info.focus = focus;
+                info.enter = enter;
+                kit::infoCard(paint, info);
             } else if (row.key == "dev" || row.key == "ch") {
                 kit::InputTile tile;
                 tile.rest = rest;
@@ -296,7 +308,7 @@ void appRows(kit::Paint paint, const Frame &frame) {
     bool clipped = motion.value("sy") < -.5;
     if (clipped)
         paint.scene.pushClip({0, layout::appsTop + lift - 16, kit::canvas::width, kit::canvas::height});
-    rows(paint, frame, layout::appsTop - layout::rowsTop + lift);
+    rows(paint, frame, layout::appsTop - kit::look::homeTop + lift);
     if (clipped)
         paint.scene.popClip();
     if (home.arranging) {
@@ -354,6 +366,13 @@ void drawHome(kit::Paint paint, const Frame &frame) {
         none.wallAlpha = wall;
         kit::heroWall(paint, none);
         appRows(paint, frame);
+    } else if (!kit::look::discover) {
+        // No feed, so no hero and no dots: the rows start near the top.
+        rows(paint, frame);
+        if (home.rows.empty())
+            paint.glyphs.text(scene, {kit::canvas::safeX, 400, 1600, kit::type::body.line},
+                              !state.catalogue.valid() ? "Loading Home…" : "No items to show. Open Settings to arrange Home.",
+                              kit::type::body, kit::color::onSurface2);
     } else {
         kit::Hero hero = heroOf(frame);
         kit::heroWall(paint, hero);

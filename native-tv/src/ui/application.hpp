@@ -211,6 +211,12 @@ class Application : private ScreenHost {
     // Shows the theme the server names (caps, then every catalogue answer), unless a change of the
     // person's is still being saved, and opens the one-time offer of OLED Care when the server sends it.
     void followTheme(const Json &data);
+    // The theme in use is not the one the Home art and rows were built for: rebuild them, and read what
+    // the theme's Home needs.
+    void themeChanged();
+    // Home's rows for a tab: with a feed, the catalogue's and the feed's; without one (look::discover
+    // off) Home is the apps, the inputs and the panel's cards.
+    std::vector<CardRow> homeRowsFor(const std::string &tab) const;
     bool coveredForCaps() const;
     void rebuildHome();
     void rebuildMenu();

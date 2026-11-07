@@ -35,10 +35,17 @@ size_t writesOf(const World &world, const std::string &action) {
             ++count;
     return count;
 }
+// Answers the newest write; a theme change is followed by the reads the new theme needs, so it is
+// not always the last request.
 void answerLastWrite(World &world, long status, const char *body) {
-    const auto request = world.transport.requests.back();
-    check(request.write, "The last request was a write");
-    world.reply(request.channel, body, status, static_cast<int>(request.generation));
+    for (size_t i = world.transport.requests.size(); i-- > 0;) {
+        const auto request = world.transport.requests[i];
+        if (!request.write)
+            continue;
+        world.reply(request.channel, body, status, static_cast<int>(request.generation));
+        return;
+    }
+    check(false, "There was a write to answer");
 }
 
 void pickerChecks() {
@@ -116,6 +123,60 @@ void followServerChecks() {
     kit::useTheme("n-google-tv");
 }
 
+// The panel's figures as /api/stats carries them.
+const char *const statsWithPanel =
+    R"({"ok":true,"oled":{"care":true,"panel_hours":4210,"hours_since_comp":2.7,"comp_interval_hours":4,"hours_until_refresher":1613,"refresher_interval_hours":2000,"hours_since_refresher":387,"refresher_cycles":12}})";
+
+void compactHomeChecks() {
+    kit::useTheme("n-google-tv");
+    World world;
+    world.settle(600);
+    check(world.app.shows("Coast"), "Google TV's Home shows the feed's top pick");
+    const size_t discoverReads = world.transport.count("discover");
+
+    // The server names OLED Care: Home becomes the apps, the inputs and the panel, and stops asking for a feed.
+    world.reply("catalogue", catalogueWith("n-oled-care"));
+    world.settle(300);
+    check(themeNow() == "n-oled-care", "the client follows the server to OLED Care");
+    check(world.transport.count("stats") >= 1, "a Home with no feed asks for the panel's figures");
+    world.reply("stats", statsWithPanel);
+    world.settle(900);
+    check(world.app.shows("Panel hours") && world.app.shows("4,210") && world.app.shows("Compensation cycle 68%"),
+          "the panel's hours and compensation cycle are a card");
+    check(world.app.shows("Pixel Refresher") && world.app.shows("1,613") && world.app.shows("12 cycles done"),
+          "the Pixel Refresher is a card");
+    check(world.app.shows("HDMI 1") && world.app.shows("Console"), "the inputs are a row of Home");
+    check(!world.app.shows("Coast") && !world.app.shows("Top picks for you"), "there is no hero text and no picks");
+    world.settle(10500);
+    check(world.transport.count("discover") == discoverReads, "the feed is not asked for again");
+    check(world.transport.count("stats") >= 2, "the panel's figures are read again with Home's refresh");
+
+    // OK on a panel card opens OLED Care in Settings.
+    world.press({Key::Down, Key::Down});
+    world.press(Key::Ok, 400);
+    check(world.screen() == "dashboard:oled", "OK on a panel card opens OLED Care in Settings");
+
+    // Without panel figures (an LCD TV that chose the theme) the row is simply left out.
+    World lcd;
+    lcd.reply("catalogue", catalogueWith("n-oled-care"));
+    lcd.settle(600);
+    lcd.reply("stats", R"({"ok":true,"oled":{"care":false}})");
+    lcd.settle(600);
+    check(!lcd.app.shows("Panel hours") && lcd.app.shows("HDMI 1"), "no panel figures, no panel card");
+
+    // Back to Google TV: the feed returns and is asked for.
+    World back;
+    back.reply("catalogue", catalogueWith("n-oled-care"));
+    back.settle(600);
+    back.reply("catalogue", catalogueWith("n-google-tv"));
+    back.settle(600);
+    check(themeNow() == "n-google-tv" && back.transport.count("discover") >= 1, "the feed is asked for again");
+    back.reply("discover", feedJson);
+    back.settle(900);
+    check(back.app.shows("Coast"), "Google TV's Home shows the feed again");
+    kit::useTheme("n-google-tv");
+}
+
 void offerChecks() {
     kit::useTheme("n-google-tv");
     {
@@ -169,6 +230,7 @@ int main() {
         pickerChecks();
         refusedSaveChecks();
         followServerChecks();
+        compactHomeChecks();
         offerChecks();
         std::printf("%d native theme-screen checks passed\n", checkCount());
         return 0;

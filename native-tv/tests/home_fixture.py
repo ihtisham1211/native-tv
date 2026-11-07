@@ -125,7 +125,9 @@ MODES = {"vivid": "Vivid", "normal": "Standard", "cinema": "Cinema", "game": "Ga
 
 
 def stats():
-    return {"ok": True, "volume": SETTINGS["volume"], "muted": SETTINGS["muted"], "oled": {"care": True},
+    return {"ok": True, "volume": SETTINGS["volume"], "muted": SETTINGS["muted"], "oled": {"care": True, "panel_hours": 4210, "hours_since_comp": 2.7, "comp_interval_hours": 4,
+                     "hours_until_refresher": 1613, "refresher_interval_hours": 2000, "hours_since_refresher": 387,
+                     "refresher_cycles": 12},
             "sleepTimer": SETTINGS["sleepTimer"], "device": {"id": "lg_tv", "name": "LG OLED65B3PUA", "model": "OLED65B3PUA.DUSQLJR"},
             "audio_output": "TV Speaker",
             "picture": {"mode": MODES.get(SETTINGS["pictureMode"], "Cinema"), "mode_raw": SETTINGS["pictureMode"],

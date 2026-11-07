@@ -51,8 +51,13 @@ inline bool isApps(const CardRow &row) {
 inline bool namesShown(const std::string &tabKey, const Json &layout) {
     return tabKey == "apps" || layout["appNames"].boolean(true);
 }
+// The panel's cards (OLED Care's Home) carry a figure and a bar, so they are wider and taller.
+constexpr float kPanelCardW = 420, kPanelCardH = 200;
+inline bool isPanel(const CardRow &row) {
+    return row.key == "oled";
+}
 inline float itemWidth(const CardRow &row) {
-    return isApps(row) ? kit::layout::appD : kit::layout::cardW;
+    return isApps(row) ? kit::layout::appD : isPanel(row) ? kPanelCardW : kit::layout::cardW;
 }
 // `named`: a row of apps that carries every name (the Apps page), so the circles stand wider.
 inline float itemGap(const CardRow &row, bool named = false) {
@@ -73,7 +78,7 @@ inline Rect item(const CardRow &row, size_t rowIndex, size_t column, bool named 
     float width = itemWidth(row), gap = itemGap(row, named);
     return {kit::canvas::safeX + static_cast<float>(column) * (width + gap),
             kit::geometry::rowItemsY(static_cast<int>(rowIndex)), width,
-            isApps(row) ? kit::layout::appD : kit::layout::cardH};
+            isApps(row) ? kit::layout::appD : isPanel(row) ? kPanelCardH : kit::layout::cardH};
 }
 // The Apps page by kind starts at layout::appsTop and holds this many rows whole.
 constexpr size_t kKindRowsVisible =

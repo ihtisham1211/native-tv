@@ -92,20 +92,22 @@ constexpr Rect dotSlot(int index, int count = layout::dotSlots) {
 }
 
 // Home rows: label, then items 36 px below, 212 px per row.
-constexpr float rowLabelY(int row) {
-    return layout::rowsTop + layout::rowPitch * row;
+// The first row sits at the theme's look::homeTop: under the hero (layout::rowsTop) for a theme with
+// a feed, near the top for one without.
+inline float rowLabelY(int row) {
+    return look::homeTop + layout::rowPitch * row;
 }
-constexpr float rowItemsY(int row) {
+inline float rowItemsY(int row) {
     return rowLabelY(row) + layout::rowLabelH + layout::rowLabelGap;
 }
-constexpr Rect rowLabel(int row) {
+inline Rect rowLabel(int row) {
     return {canvas::safeX, rowLabelY(row), canvas::width - canvas::safeX, layout::rowLabelH};
 }
-constexpr Rect card(int row, int index) {
+inline Rect card(int row, int index) {
     return {canvas::safeX + index * (layout::cardW + layout::cardGap), rowItemsY(row),
             layout::cardW, layout::cardH};
 }
-constexpr Rect inputTile(int row, int index) {
+inline Rect inputTile(int row, int index) {
     return card(row, index);
 }
 constexpr Rect appCircle(int row, int index) {

@@ -94,13 +94,15 @@ void tokens() {
           "Colour tokens come from tokens.json");
     // Themes: the names the screens read follow the palette in use, and the look values with it.
     check(std::string(kit::themeId()) == "n-google-tv" && kit::look::pictures && !kit::look::ringFocus &&
-              kit::look::wall == 1 && kit::look::restBrightness == 1,
+              kit::look::wall == 1 && kit::look::restBrightness == 1 && kit::look::discover &&
+              kit::look::homeTop == kit::layout::rowsTop,
           "The default theme is n-google-tv, with its pictures, wash and filled pill");
     check(kit::useTheme("n-oled-care") && std::string(kit::themeId()) == "n-oled-care" &&
               sameColor(kit::color::ink, kit::rgb(0x000000)) &&
               sameColor(kit::color::accent, kit::rgb(0x27B45E)) &&
               sameColor(kit::alpha::outline, kit::rgb(0xD9D9D9, 0)) && !kit::look::pictures &&
-              kit::look::ringFocus && kit::look::wall == 0 && near(kit::look::restBrightness, .62f, 1e-6f),
+              kit::look::ringFocus && kit::look::wall == 0 && near(kit::look::restBrightness, .62f, 1e-6f) &&
+              !kit::look::discover && kit::look::homeTop == 196,
           "n-oled-care is black, green, outline-free, with no pictures and a ring for focus");
     check(!kit::useTheme("n-nope") && !kit::useTheme("") &&
               std::string(kit::themeId()) == "n-oled-care",

@@ -369,8 +369,10 @@ void Application::homeFocus(bool jump) {
     }
     // The apps row and the top picks share the hero's screen; the stack rises from the picks on.
     const bool kindRows = home.tabs[home.tab].key == "apps";
+    // A Home with no feed has three rows that all fit, so its stack stays put.
     double stack = home.navigation ? 0
                    : kindRows ? home::kindStackTarget(home.row, home.rows.size())
+                   : !kit::look::discover ? 0
                               : kit::geometry::stackTarget(static_cast<int>(home.row) -
                                                            static_cast<int>(anchorRow(home)));
     if (jump)
