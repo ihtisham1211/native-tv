@@ -30,6 +30,21 @@ void Application::rebuildHome() {
     homeData();
     dirty_ = true;
 }
+void Application::followTheme(const Json &data) {
+    const std::string server = data["tvTheme"].string();
+    if (!server.empty()) {
+        const char *before = kit::themeId();
+        // A theme the person has just chosen shows until the server has it, not the one it still has.
+        if (kit::useTheme(optimistic_.text("tvTheme", server)) && kit::themeId() != before)
+            dirty_ = true;
+    }
+    // Offered on Home only, so never over setup, and once a run: the server keeps sending the offer
+    // until it is answered.
+    if (data["suggestTvTheme"].boolean() && !themeOffered_ && !screen_ && state_.screen == Screen::Home) {
+        themeOffered_ = true;
+        route("tvtheme:suggest");
+    }
+}
 void Application::refresh() {
     if (!active_)
         return;
@@ -142,6 +157,7 @@ void Application::response(const Response &response) {
     if (response.channel == "caps") {
         state_.caps = data;
         capsAnswered_ = true;
+        followTheme(data);
         // The rule of the old dashboard page: a server that says setup is needed opens setup first,
         // whichever screen the client was asked for. A setup screen already open (Settings'
         // phone link, or setup itself) stays: it is where the person was sent.
@@ -150,6 +166,7 @@ void Application::response(const Response &response) {
             route("setup:welcome");
     } else if (response.channel == "catalogue") {
         state_.catalogue = data;
+        followTheme(data);
         if (state_.serverSilent) {
             state_.serverSilent = false;
             motion_.tween("fault", 0, kit::motion::ms::fast, Easing::out());

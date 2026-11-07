@@ -114,6 +114,7 @@ void drawTopBar(kit::Paint paint, const Frame &frame, int pageTab) {
     bar.selected = home.navigation && home.nav < home.tabs.size() ? static_cast<int>(home.nav)
                                                                   : pageTab;
     bar.pillAlpha = bar.selected < 0 ? 0.0f : 1.0f;
+    bar.barFocused = home.navigation && home.nav < home.tabs.size();
     bar.settingsSelected = pageTab < 0 && !home.navigation;
     bar.pillLeft = static_cast<float>(motion.value("pill:0"));
     bar.pillRight = static_cast<float>(motion.value("pill:1"));
@@ -347,7 +348,7 @@ void drawHome(kit::Paint paint, const Frame &frame) {
     float wall = static_cast<float>(motion.value("wall"));
     // The Apps page, and a page with nothing to show, wash in the neutral colour: the tint is the last
     // hero's, which they would otherwise keep.
-    kit::ambientWall(paint, 1 - wall, apps || home.rows.empty() ? neutralWash : home.art.wallTint);
+    kit::ambientWall(paint, 1 - wall, apps || home.rows.empty() ? neutralWash() : home.art.wallTint);
     if (apps) {
         kit::Hero none = heroOf(frame);
         none.wallAlpha = wall;

@@ -1,0 +1,57 @@
+{
+ "id": "n-oled-care",
+ "name": "OLED Care",
+ "summary": "True black, dimmed controls and a layout that drifts. Made for OLED panels.",
+ "color": {
+  "ink": "#000000",
+  "surface1": "#0E0E0E",
+  "surface2": "#181818",
+  "surface3": "#232323",
+  "onSurface": "#D9D9D9",
+  "onSurface2": "#9A9A9A",
+  "onSurface3": "#777777",
+  "accent": "#27B45E",
+  "onAccent": "#000000",
+  "focusFill": "#2E2E2E",
+  "onFocus": "#D9D9D9",
+  "warn": "#D9A05B",
+  "bad": "#E5605A",
+  "pillRest": "#181818",
+  "navButton": "#181818"
+ },
+ "colorFloat": {
+  "wash": [
+   0,
+   0,
+   0
+  ]
+ },
+ "colorAlpha": {
+  "outline": [
+   "#D9D9D9",
+   0
+  ],
+  "outlineStrong": [
+   "#D9D9D9",
+   0.24
+  ],
+  "accentDim": [
+   "#27B45E",
+   0.16
+  ],
+  "scrimStrong": [
+   "#000000",
+   0.86
+  ]
+ },
+ "focusRingColor": "#CFCFCF",
+ "look": {
+  "wall": 0,
+  "pictures": false,
+  "ringFocus": true,
+  "restFill": 0,
+  "restBrightness": 0.62,
+  "driftX": 8,
+  "driftY": 6
+ }
+}

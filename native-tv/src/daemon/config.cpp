@@ -1,4 +1,5 @@
 #include "daemon/config.hpp"
+#include "core/themes.hpp"
 #include "daemon/json_file.hpp"
 #include "daemon/paths.hpp"
 #include "service/volume_ceiling.hpp"
@@ -528,6 +529,7 @@ Json backupSettingDefault(const std::string &section, const std::string &key) {
     }
     if (section == "history" && key == "enabled") return Json::flag(false);
     if (section == "backup" && key == "daily") return Json::flag(false);
+    if (section == "tvTheme" && key == "id") return Json::text(kDefaultTheme);
     if (section == "screenTime") {
         if (key == "enabled") return Json::flag(false);
         if (key == "dailyMinutes" || key == "idleMinutes") return Json::numeric(0);
@@ -554,7 +556,7 @@ bool ConfigStore::patchBackupSettings(const Json &patch, std::string *error,
     }
     const char *const allowedSections[] = {
         "logging", "syslog", "ntp", "history", "backup", "screenTime",
-        "volumeCeiling", "prometheus", "update"
+        "volumeCeiling", "prometheus", "update", "tvTheme"
     };
     for (const std::string &section : patch.keys()) {
         bool allowed = false;

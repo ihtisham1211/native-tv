@@ -57,7 +57,7 @@ bool translate(SDL_Keycode code, Key &key) {
 }
 struct Options {
     std::string server, font = "/usr/share/fonts/LG_Smart_UI-Regular.ttf",
-                screen = "home", capture, script, report, perf;
+                screen = "home", capture, script, report, perf, theme;
     Uint32 duration = 0;
     long long time = -1; // --time: fixed clock, stop and capture at this many ms; -1 is off
     bool windowed = false, probe = false;
@@ -86,7 +86,8 @@ Options options(int argc, char **argv) {
             std::puts("nativetv-tv [--server http://127.0.0.1:PORT] [--font font.ttf] [--screen "
                       "splash|home|dashboard|setup:welcome|kit:keyboard] [--windowed] [--script "
                       "steps.json] [--capture image.ppm] [--duration-ms N] [--time=MS] "
-                      "[--perf=log.jsonl] [--report report.json] [--probe]");
+                      "[--perf=log.jsonl] [--report report.json] [--theme n-google-tv|n-oled-care] "
+                      "[--probe]");
             std::exit(0);
         } else if (inlineValue || i + 1 < argc) {
             if (!inlineValue)
@@ -105,6 +106,11 @@ Options options(int argc, char **argv) {
                 result.report = value;
             else if (arg == "--perf")
                 result.perf = value;
+            else if (arg == "--theme") {
+                if (!kit::useTheme(value))
+                    throw std::runtime_error("Unknown theme: " + value);
+                result.theme = value;
+            }
             else if (arg == "--duration-ms")
                 result.duration = static_cast<Uint32>(std::stoul(value));
             else if (arg == "--time") {

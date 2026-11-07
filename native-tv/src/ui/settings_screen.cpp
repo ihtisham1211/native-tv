@@ -864,6 +864,7 @@ class SettingsScreen final : public ScreenView {
             Color fill = kit::focus::mix(shown ? kit::color::pillRest : Color{0, 0, 0, 0},
                                          kit::color::focusFill, focus);
             scene.shape(rest, fill, kPillH / 2);
+            kit::focus::ringOnFocus(scene, rest, kPillH / 2, focus);
             Color ink = kit::focus::inkAt(shown ? kit::color::onSurface : kit::color::onSurface2,
                                           kit::color::onFocus, focus);
             paint.glyphs.text(

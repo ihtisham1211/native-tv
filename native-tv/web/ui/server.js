@@ -67,6 +67,7 @@ function renderServerStatus(d) {
     if (document.activeElement !== portInput && !portInput.dataset.dirty) portInput.value = d.daemon.port;
   }
   if (d.backupDaily) renderBackupDaily(d.backupDaily, writable);
+  renderTvTheme(d.tvTheme, d.tvThemes, writable);
   if (d.release !== undefined) renderRelease(d.release, d.releaseCheck, writable);
   const hlRow = q('exp-homelayout-row');
   if (hlRow) {
@@ -438,6 +439,35 @@ async function toggleReleaseCheck() {
   const b = q('release-daily');
   b.disabled = true;
   const r = await sendCommand('setReleaseCheck', !b.dataset.on);
+  if (r && r.ok) renderServerStatus(r); else loadServerStatus();
+}
+
+// The names and summaries are the themes' own, from the TV; the rest of the row is keyed text.
+function renderTvTheme(current, themes, writable) {
+  const row = q('tvtheme-row');
+  const sel = q('tvtheme-sel');
+  if (!row || !sel || !Array.isArray(themes) || !themes.length) return;
+  if (sel.options.length !== themes.length || themes.some((theme, i) => sel.options[i].value !== theme.id)) {
+    sel.innerHTML = '';
+    themes.forEach(theme => {
+      const option = document.createElement('option');
+      option.value = theme.id;
+      option.textContent = theme.name;
+      option.translate = false;
+      sel.appendChild(option);
+    });
+  }
+  sel.value = current;
+  sel.disabled = !writable;
+  const shown = themes.find(theme => theme.id === current);
+  q('tvtheme-summary').textContent = shown ? shown.summary : '';
+  row.hidden = false;
+}
+
+async function chooseTvTheme() {
+  const sel = q('tvtheme-sel');
+  sel.disabled = true;
+  const r = await sendCommand('setTvTheme', sel.value);
   if (r && r.ok) renderServerStatus(r); else loadServerStatus();
 }
 

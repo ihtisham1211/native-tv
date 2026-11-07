@@ -1,4 +1,5 @@
 #include "service/backup.hpp"
+#include "core/themes.hpp"
 #include "domain/say.hpp"
 #include "domain/names.hpp"
 #include "service/screen_time.hpp"
@@ -146,6 +147,7 @@ bool validSetting(const std::string &section, const std::string &key,
         return value.isBoolean();
     if (section == "backup" && key == "daily") return value.isBoolean();
     if (section == "update" && key == "check") return value.isBoolean();
+    if (section == "tvTheme" && key == "id") return value.isString() && findTheme(value.string());
     if (section == "screenTime") {
         if (key == "enabled") return value.isBoolean();
         if (key == "dailyMinutes") return validMinutes(value, 0);
@@ -178,6 +180,7 @@ std::vector<std::string> backupSettingKeys(const std::string &section) {
                 "startupVolume"};
     if (section == "prometheus") return {"enabled"};
     if (section == "update") return {"check"};
+    if (section == "tvTheme") return {"id"};
     return {};
 }
 
@@ -291,7 +294,7 @@ Json safeConfig(const Json &config) {
     Json result = Json::object();
     const std::string sections[] = {
         "logging", "syslog", "ntp", "history", "backup", "screenTime",
-        "volumeCeiling", "prometheus", "update"
+        "volumeCeiling", "prometheus", "update", "tvTheme"
     };
     for (const std::string &section : sections) {
         const Json source = config[section];

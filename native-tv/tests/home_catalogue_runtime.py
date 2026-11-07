@@ -129,6 +129,35 @@ def main():
             assert calls.count("com.webos.applicationManager/getAppInfo") == 2
             assert calls.count("com.webos.service.eim/getAllInputStatus") == 1
             assert "com.webos.service.apiadapter/tv/getChannelList" not in calls
+
+            # The TV theme rides in the catalogue, the read an open client repeats, and in caps for its
+            # first frame. An OLED panel on the default theme is offered OLED Care once.
+            def control(action, value=None):
+                request = Request("http://127.0.0.1:%d/api/control" % port,
+                                  data=json.dumps({"action": action, "value": value}).encode(),
+                                  method="POST",
+                                  headers={"Authorization": "Bearer " + token,
+                                           "Content-Type": "application/json"})
+                with urlopen(request, timeout=5) as response:
+                    return json.loads(response.read().decode("utf-8"))
+
+            assert catalogue["tvTheme"] == "n-google-tv" and "suggestTvTheme" not in catalogue
+            settings = json.loads(config.read_text())
+            settings["panel"] = "OLED65B3PUA"
+            config.write_text(json.dumps(settings))
+            assert get_json(port, "/api/home/catalogue?view=1", token)[1]["suggestTvTheme"] is True
+            assert control("dismissTvThemeSuggestion")["ok"] is True
+            offered = get_json(port, "/api/home/catalogue?view=1", token)[1]
+            assert "suggestTvTheme" not in offered and offered["tvTheme"] == "n-google-tv"
+            assert json.loads(config.read_text())["tvTheme"]["suggested"] is True
+            assert control("setTvTheme", "n-oled-care")["tvTheme"] == "n-oled-care"
+            assert get_json(port, "/api/home/catalogue?view=1", token)[1]["tvTheme"] == "n-oled-care"
+            assert get_json(port, "/api/caps", token)[1]["tvTheme"] == "n-oled-care"
+            # Once it is not the default there is nothing to suggest, whatever the panel.
+            settings = json.loads(config.read_text())
+            settings["tvTheme"]["suggested"] = False
+            config.write_text(json.dumps(settings))
+            assert "suggestTvTheme" not in get_json(port, "/api/home/catalogue?view=1", token)[1]
         finally:
             if process.poll() is None:
                 process.send_signal(signal.SIGTERM)

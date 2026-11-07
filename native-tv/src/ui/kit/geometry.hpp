@@ -1,6 +1,7 @@
 #pragma once
 #include "ui/kit/focus.hpp"
 #include <algorithm>
+#include <cmath>
 #include <string>
 #include <vector>
 
@@ -12,6 +13,19 @@ namespace kit {
 namespace geometry {
 constexpr float clamp(float value, float low, float high) {
     return value < low ? low : value > high ? high : value;
+}
+
+// Where a theme with drift sits its whole scene, in whole pixels, at a minute of the day: an orbit
+// of the given radii whose axes have periods of 20 and 13 minutes, so the path does not close and
+// no edge rests on one pixel row for long. Whole pixels keep text sharp; the fastest axis moves
+// at most 3 px between two minutes. Radii of 0 give no drift.
+struct Drift {
+    float x, y;
+};
+inline Drift driftAt(int minuteOfDay, float radiusX, float radiusY) {
+    const double turn = 6.283185307179586;
+    return {static_cast<float>(std::round(radiusX * std::sin(turn * minuteOfDay / 20.0))),
+            static_cast<float>(std::round(radiusY * std::sin(turn * minuteOfDay / 13.0)))};
 }
 
 // Top bar.

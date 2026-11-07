@@ -1,3 +1,4 @@
+#include "core/themes.hpp"
 #include "domain/models.hpp"
 #include "domain/say.hpp"
 #include <algorithm>
@@ -1594,6 +1595,12 @@ void settings(Rows &rows, const Json &data) {
                        "Connects this TV to Home Assistant through an MQTT broker, such as Home "
                        "Assistant’s Mosquitto add-on, so it can join your automations. The "
                        "broker’s details are entered on your phone."),
+        say::msg("tv.settings.open", "Open"));
+    const ThemeChoice *tvTheme = findTheme(data["tvTheme"].string());
+    row(rows, say::msg("tv.settings.tvTheme", "TV theme"),
+        (tvTheme ? tvTheme : findTheme(kDefaultTheme))->name, navigate("tvtheme"),
+        say::msg("tv.settings.tvTheme.hint",
+                 "Changes how the TV screens look. Every feature stays the same in every theme."),
         say::msg("tv.settings.open", "Open"));
     row(rows, say::msg("theme", "Theme"), say::msg("theme.dark", "Dark"), navigate("theme"),
         say::msg("tv.appearance.theme.hint", "Switches the dashboard interface between Dark (true "

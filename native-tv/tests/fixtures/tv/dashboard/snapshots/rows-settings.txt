@@ -2,5 +2,6 @@
 toggle  Web dashboard = On [on] -> Turn off <globe>
 link    Address = http://192.168.1.50:3000 -> Open <globe>
 link    Home Assistant = Connected -> Open <ha>
+link    TV theme = Google TV -> Open <palette>
 link    Theme = Dark -> Open <palette>
 link    Native Tv Home = Open -> Open <globe>

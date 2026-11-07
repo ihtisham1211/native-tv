@@ -7,5 +7,6 @@
  "homeAssistant": {
   "configured": true,
   "state": "connected"
- }
+ },
+ "tvTheme": "n-google-tv"
 }

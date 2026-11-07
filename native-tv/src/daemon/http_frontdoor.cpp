@@ -7,6 +7,7 @@
 #include "daemon/app_tile_manager.hpp"
 #include "daemon/backup_restore.hpp"
 #include "core/json.hpp"
+#include "core/themes.hpp"
 #include "daemon/child_process.hpp"
 #include "daemon/devtools_firewall.hpp"
 #include "daemon/event_loop.hpp"
@@ -1259,7 +1260,8 @@ bool isSetupDemo(const ServerConfig &config, const HttpRequest &request) {
 
 bool setupRead(HttpExchange &exchange, const ServerConfig &config, const std::string &dataRoot,
                LunaClient &luna, const HttpProxy &proxy,
-               const std::string &nativeHandoffUrl, const std::string &model) {
+               const std::string &nativeHandoffUrl, const std::string &model,
+               const std::string &tvTheme) {
     const HttpRequest &request = exchange.request();
     const bool demo = isSetupDemo(config, request);
     if (!isLoopbackPeer(request.remoteAddress) && !demo) {
@@ -1297,6 +1299,8 @@ bool setupRead(HttpExchange &exchange, const ServerConfig &config, const std::st
     state.set("hostname", context["hostname"]);
     // What the TV is: the first setup step names it after the series.
     state.set("model", Json::text(model));
+    // The TV theme, for the row in Settings.
+    state.set("tvTheme", Json::text(tvTheme));
 
     const Json mqtt = config.document["mqtt"];
     Json homeAssistant = Json::object();
@@ -2281,6 +2285,27 @@ Json HttpFrontDoor::currentConfigDocument() const {
     return config_.document;
 }
 
+std::string HttpFrontDoor::tvThemeId(const Json &document) {
+    const Json value = document["tvTheme"]["id"];
+    return value.isString() && findTheme(value.string()) ? value.string()
+                                                          : std::string(kDefaultTheme);
+}
+
+bool HttpFrontDoor::suggestTvTheme(const Json &document) const {
+    if (document["tvTheme"]["suggested"].boolean() || tvThemeId(document) != kDefaultTheme)
+        return false;
+    // The same three signs the OLED Care tab goes by, without asking the TV again: a panel set in
+    // the config, the panel type marker, then the model the stats collector has already read.
+    const Json forced = service::javascriptTruthy(document["panel"]) ? document["panel"]
+                                                                     : document["device"]["panel"];
+    if (service::javascriptTruthy(forced))
+        return service::oledModel(service::javascriptString(forced));
+    if (service::hasOledPanelTypeMarker(systemRoot_))
+        return true;
+    const std::string model = statsCollector() ? statsCollector()->deviceModel() : std::string();
+    return service::oledModel(model) || service::hasOledPanelRecords(systemRoot_);
+}
+
 // The shared server-status response: the Server tab's switches and the
 // daemon's own vitals. Node assembled the same document from its modules.
 Json HttpFrontDoor::serverStatus() const {
@@ -2288,6 +2313,16 @@ Json HttpFrontDoor::serverStatus() const {
     Json status = Json::object();
     status.set("ok", Json::flag(true));
     status.set("writable", Json::flag(config_.allowControl));
+    status.set("tvTheme", Json::text(tvThemeId(document)));
+    Json themeChoices = Json::array();
+    for (const ThemeChoice &choice : kThemeChoices) {
+        Json item = Json::object();
+        item.set("id", Json::text(choice.id));
+        item.set("name", Json::text(choice.name));
+        item.set("summary", Json::text(choice.summary));
+        themeChoices.add(item);
+    }
+    status.set("tvThemes", themeChoices);
 
     service::AdBlockStore fallbackStore(dataRoot_, systemRoot_);
     const service::AdBlockStore &adBlockStore = adBlockManager_
@@ -2439,6 +2474,16 @@ bool HttpFrontDoor::serverSettingControl(const std::string &action, const Json &
     if (action == "setPrometheusEnabled") {
         patch.set("enabled", Json::flag(on));
         return saveSection("prometheus", patch) ? answer() : true;
+    }
+    if (action == "setTvTheme" || action == "dismissTvThemeSuggestion") {
+        if (action == "setTvTheme") {
+            if (!value.isString() || !findTheme(value.string()))
+                return fail(say::msg("srv.tvTheme.unknown", "That theme does not exist"));
+            patch.set("id", value);
+        }
+        // Choosing a theme, or saying no thanks, ends the one-time suggestion for good.
+        patch.set("suggested", Json::flag(true));
+        return saveSection("tvTheme", patch) ? answer() : true;
     }
     if (action == "setReleaseCheck") {
         // "update" is the key backups already carry for it.
@@ -15849,6 +15894,12 @@ Json HttpFrontDoor::homeCatalogueResponse(bool view) const {
 #endif
     }
     response.set("layoutVersion", Json::text(std::to_string(layoutVersion)));
+    // The theme is the TV's, not a profile's. The catalogue is what the client keeps asking for, so
+    // a change made from the phone or the dashboard reaches an open client through it.
+    const Json settings = currentConfigDocument();
+    response.set("tvTheme", Json::text(tvThemeId(settings)));
+    if (suggestTvTheme(settings))
+        response.set("suggestTvTheme", Json::flag(true));
     return response;
 }
 
@@ -17980,8 +18031,10 @@ void HttpFrontDoor::dispatch(HttpExchange &exchange) const {
         return;
     }
     if (request.uri == "/api/caps") {
-        const Json caps = nativeCapabilities(config_, version_, dataRoot_, request.remoteAddress,
-                                             localIpv4Address());
+        Json caps = nativeCapabilities(config_, version_, dataRoot_, request.remoteAddress,
+                                       localIpv4Address());
+        // The client draws its first frame in this theme, before the catalogue has answered.
+        caps.set("tvTheme", Json::text(tvThemeId(currentConfigDocument())));
         (void)exchange.respond(200,
                                {{"Content-Type", "application/json"},
                                 {"Cache-Control", "no-store"},
@@ -18562,7 +18615,8 @@ void HttpFrontDoor::dispatch(HttpExchange &exchange) const {
     }
     if (request.uri == "/api/setup" && request.method == "GET") {
         (void)setupRead(exchange, config_, dataRoot_, luna_, proxy_, activeHandoffUrl(),
-                        statsCollector() ? statsCollector()->deviceModel() : std::string());
+                        statsCollector() ? statsCollector()->deviceModel() : std::string(),
+                        tvThemeId(currentConfigDocument()));
         return;
     }
     if (request.uri == "/api/setup" && request.method == "POST") {

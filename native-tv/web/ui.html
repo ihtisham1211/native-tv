@@ -2699,6 +2699,27 @@
                 </select>
               </div>
             </div>
+            <div class="prot-row" id="tvtheme-row" hidden>
+              <div class="prot-main">
+                <div class="prot-title" data-t="server.tvTheme.title">
+                  TV theme
+                </div>
+                <div class="prot-desc" data-t="server.tvTheme.desc">
+                  How the screens on the TV look. Every feature stays the same in
+                  every theme.
+                </div>
+                <div class="prot-desc" id="tvtheme-summary"></div>
+              </div>
+              <div class="prot-status">
+                <select
+                  class="pill-sel"
+                  id="tvtheme-sel"
+                  aria-label="TV theme"
+                  data-t-aria-label="server.tvTheme.group"
+                  onchange="chooseTvTheme()"
+                ></select>
+              </div>
+            </div>
             <div class="prot-row">
               <div class="prot-main">
                 <div class="prot-title" data-t="server.watch.title">

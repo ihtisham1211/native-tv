@@ -10,9 +10,10 @@ constexpr Color white = {1, 1, 1, 1};
 constexpr Color clear = {0, 0, 0, 0};
 // The avatar initial and the focused-row ink on a light fill have no token of their own.
 constexpr TypeStyle avatarStyle = {32, 40, 600, 0};
-constexpr Color onFocusFaint = {19 / 255.0f, 17 / 255.0f, 24 / 255.0f, .12f};
-constexpr Color onFocusRing = {19 / 255.0f, 17 / 255.0f, 24 / 255.0f, .55f};
-constexpr Color onFocusKnob = {19 / 255.0f, 17 / 255.0f, 24 / 255.0f, .6f};
+// The ink of a focused row (the theme's onFocus) at the alphas the toggle and its well use.
+Color onFocusAt(float alpha) {
+    return focus::withAlpha(color::onFocus, alpha);
+}
 // Anti-aliasing is half a pixel either side of an edge, so a fill pulled in by more than a pixel
 // lies wholly under the opaque part of a picture drawn over it.
 constexpr float rimTuck = 1.5f;
@@ -210,6 +211,14 @@ void tabPill(Paint paint, float left, float right, float alphaFactor) {
     if (right - left < 1 || alphaFactor <= .002f)
         return;
     Rect area = geometry::pill(left, right);
+    if (look::ringFocus) {
+        // The selected tab is underlined, the width of its word; the ring, while the bar has focus,
+        // is drawn by topBar.
+        paint.scene.shape({area.x + layout::tabPad, area.y + area.h - 10,
+                           area.w - 2 * layout::tabPad, 4},
+                          faded(color::onSurface, alphaFactor), 2);
+        return;
+    }
     paint.scene.shape(area, faded(color::focusFill, alphaFactor), roundRadius(area));
 }
 void roundButton(Paint paint, const RoundButton &button) {
@@ -221,11 +230,15 @@ void roundButton(Paint paint, const RoundButton &button) {
     Group group(scene, button.enter, look.scale != 1 ? &scale : nullptr);
     float rounding = button.rest.h / 2;
     Node &base = scene.shape(button.rest, button.fill, rounding);
-    if (button.avatar)
+    if (button.avatar && look::ringFocus)
+        // Not a lit disc: the avatar keeps its colour as a ring at 62% brightness.
+        base.ring = {0, 3, focus::mix({0, 0, 0, 1}, rgb(0xB05E8A), .62f)};
+    else if (button.avatar)
         base.gradient =
             gradient(135, {{rgb(0xF2B27A), 0}, {rgb(0xB05E8A), .55f}, {rgb(0x5C5AA8), 1}});
     if (button.focus > 0)
         scene.shape(button.rest, faded(color::focusFill, focus::clamp01(button.focus)), rounding);
+    focus::ringOnFocus(scene, button.rest, rounding, button.focus);
     Color ink = focus::inkAt(button.ink, color::onFocus, button.focus);
     // The icon is half the button: 40 px in the top bar's 80 px buttons.
     paint.glyphs.icon(scene, centreOf(button.rest, button.rest.h / 2), button.icon, ink);
@@ -241,6 +254,10 @@ void topBar(Paint paint, const TopBar &bar) {
     Scene &scene = paint.scene;
     Group group(scene, bar.enter);
     tabPill(paint, bar.pillLeft, bar.pillRight, bar.pillAlpha);
+    if (bar.barFocused && bar.pillRight - bar.pillLeft >= 1) {
+        Rect area = geometry::pill(bar.pillLeft, bar.pillRight);
+        focus::ringOnFocus(scene, area, roundRadius(area), bar.pillAlpha);
+    }
 
     RoundButton avatar;
     avatar.rest = geometry::avatar();
@@ -253,7 +270,9 @@ void topBar(Paint paint, const TopBar &bar) {
     std::vector<Rect> tabs = tabRects(paint.glyphs, bar.tabs);
     for (size_t i = 0; i < tabs.size(); ++i) {
         // The selected tab is a light pill with dark ink, whether or not focus is on the bar.
-        Color ink = static_cast<int>(i) == bar.selected ? color::onFocus : color::onSurface2;
+        Color ink = static_cast<int>(i) == bar.selected
+                        ? (look::ringFocus ? color::onSurface : color::onFocus)
+                        : color::onSurface2;
         text(paint,
              {tabs[i].x, layout::navTop + (layout::navH - type::nav.line) / 2, tabs[i].w,
               type::nav.line},
@@ -287,7 +306,7 @@ void heroWall(Paint paint, const Hero &hero) {
             // The art grows past the screen while it pushes in.
             scene.pushClip(screen);
             for (const HeroSlot &slot : hero.slot) {
-                if (slot.opacity <= .002f)
+                if (slot.opacity <= .002f || !look::pictures)
                     continue;
                 float grow = 1 + .09f * focus::clamp01(slot.kenBurns);
                 scene.pushOpacity(slot.opacity);
@@ -330,6 +349,7 @@ void heroWall(Paint paint, const Hero &hero) {
         scene.shape(screen, faded(alpha::scrimStrong, parallax.scrimOpacity));
 }
 void ambientWall(Paint paint, float amount, Color tint) {
+    amount *= look::wall; // a theme can have no wash behind its screens
     if (amount <= .002f)
         return;
     Scene &scene = paint.scene;
@@ -446,23 +466,34 @@ void card(Paint paint, const PosterCard &poster) {
     Scene &scene = paint.scene;
     Transform scale = focus::transformAt(poster.rest, look.scale);
     Group group(scene, poster.enter, look.scale != 1 ? &scale : nullptr);
-    applyFocus(scene.shape(poster.rest, color::surface2, radius::md), look);
-    if (!poster.image.empty())
+    // A theme without pictures draws the card as a tile: its title on a dark surface that lifts on
+    // focus, with no art and so no veil.
+    const bool art = look::pictures;
+    applyFocus(scene.shape(poster.rest,
+                           art ? color::surface2
+                               : focus::mix(color::surface1, color::surface3,
+                                            focus::clamp01(poster.focus)),
+                           radius::md),
+               look);
+    if (art && !poster.image.empty())
         scene.picture(poster.rest, 0, radius::md).value = poster.image;
     if (!poster.title.empty()) {
         // The title sits on a veil over the lower part of the art; on focus it rises to make
         // room for the facts line under it.
         float amount = focus::clamp01(poster.focus);
-        Rect lower = {poster.rest.x, poster.rest.y + poster.rest.h * .4f, poster.rest.w,
-                      poster.rest.h * .6f};
-        Node &veil = scene.shape(lower, clear);
-        veil.corners = {0, 0, radius::md, radius::md};
-        veil.gradient = gradient(180, {{{0, 0, 0, 0}, 0}, {{0, 0, 0, .78f}, 1}});
+        if (art) {
+            Rect lower = {poster.rest.x, poster.rest.y + poster.rest.h * .4f, poster.rest.w,
+                          poster.rest.h * .6f};
+            Node &veil = scene.shape(lower, clear);
+            veil.corners = {0, 0, radius::md, radius::md};
+            veil.gradient = gradient(180, {{{0, 0, 0, 0}, 0}, {{0, 0, 0, .78f}, 1}});
+        }
         float bottom = poster.rest.y + poster.rest.h - 10, left = poster.rest.x + 16,
               width = poster.rest.w - 32;
         float factsHeight = poster.subtitle.empty() ? 0 : type::labelM.line * amount;
         text(paint, {left, bottom - factsHeight - type::cardTitle.line, width, type::cardTitle.line},
-             poster.title, type::cardTitle, white);
+             poster.title, type::cardTitle,
+             art ? white : focus::inkAt(color::onSurface2, color::onSurface, amount));
         if (factsHeight > 0)
             factsText(paint, {left, bottom - type::labelM.line, width, type::labelM.line},
                       poster.subtitle, type::labelM, faded(color::onSurface2, amount));
@@ -484,6 +515,11 @@ void appCircle(Paint paint, const AppCircle &circle) {
     // The fill and the picture share one anti-aliased edge, so a fill in the app's colour shows
     // through the picture's rim as a light outline (LG gives Netflix, YouTube and Alexa white).
     // Under a picture the fill stops short of the edge, which then comes from the picture alone.
+    // A theme can let apps rest dimmer than the one in focus; over black, opacity is brightness.
+    const float shine = focus::mix(look::restBrightness, 1, focus::clamp01(circle.focus));
+    const bool dimmed = shine < .999f;
+    if (dimmed)
+        scene.pushOpacity(shine);
     const float tuck = circle.image.empty() ? 0 : rimTuck;
     Rect fill = {circle.rest.x + tuck, circle.rest.y + tuck, circle.rest.w - 2 * tuck,
                  circle.rest.h - 2 * tuck};
@@ -496,6 +532,8 @@ void appCircle(Paint paint, const AppCircle &circle) {
         scene.picture(circle.rest, 0, rounding).value = circle.image;
     else
         paint.glyphs.icon(scene, centreOf(circle.rest, 52), circle.icon, white);
+    if (dimmed)
+        scene.popOpacity();
     // The name appears under the focused circle, rising into place; a named circle keeps it,
     // and only brightens it on focus.
     if (circle.named || circle.focus > .004f) {
@@ -679,10 +717,10 @@ void toggle(Paint paint, Rect rect, float on, float rowFocus) {
     on = focus::clamp01(on);
     float rounding = rect.h / 2;
     Node &ring = scene.shape(rect, clear, rounding);
-    ring.ring = {layout::toggleRing, 0, focus::inkAt(color::onSurface3, onFocusRing, rowFocus)};
+    ring.ring = {layout::toggleRing, 0, focus::inkAt(color::onSurface3, onFocusAt(.55f), rowFocus)};
     if (on > 0)
         scene.shape(rect, faded(color::accent, on), rounding);
-    Color off = focus::inkAt(color::onSurface3, onFocusKnob, rowFocus);
+    Color off = focus::inkAt(color::onSurface3, onFocusAt(.6f), rowFocus);
     Color knobInk = focus::mix(off, color::onAccent, on);
     float grow = 1 + .18f * on;
     Rect knob = {rect.x + layout::toggleInset + layout::toggleTravel * on,
@@ -697,13 +735,15 @@ void settingsRow(Paint paint, const SettingsRow &item) {
     Transform scale = focus::transformAt(item.rest, look.scale, focus::leftCentre);
     Group group(scene, item.enter, look.scale != 1 ? &scale : nullptr);
     Rect box = item.rest;
-    scene.shape(box, color::surface1, radius::lg);
+    if (look::restFill > .002f)
+        scene.shape(box, faded(color::surface1, look::restFill), radius::lg);
     if (item.focus > 0)
         scene.shape(box, faded(color::focusFill, focus::clamp01(item.focus)), radius::lg);
+    focus::ringOnFocus(scene, box, radius::lg, item.focus);
 
     Rect well = {box.x + layout::srowPadLeft, box.y + (box.h - layout::srowWell) / 2,
                  layout::srowWell, layout::srowWell};
-    scene.shape(well, focus::mix(color::surface3, onFocusFaint, item.focus), layout::srowWell / 2);
+    scene.shape(well, focus::mix(color::surface3, onFocusAt(.12f), item.focus), layout::srowWell / 2);
     paint.glyphs.icon(scene, centreOf(well, 26), item.icon,
                       focus::inkAt(color::onSurface, color::onFocus, item.focus));
     float titleX = well.x + well.w + layout::srowWellGap;
@@ -837,6 +877,7 @@ void keyCap(Paint paint, const KeyCap &key) {
         scene.shape(key.rest, alpha::accentDim, radius::key);
     if (key.focus > 0)
         scene.shape(key.rest, faded(color::focusFill, focus::clamp01(key.focus)), radius::key);
+    focus::ringOnFocus(scene, key.rest, radius::key, key.focus);
     Color ink =
         focus::inkAt(key.accent ? color::onAccent : color::onSurface, color::onFocus, key.focus);
     const TypeStyle &style = key.hint ? type::labelM : type::key;

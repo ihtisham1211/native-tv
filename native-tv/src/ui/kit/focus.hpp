@@ -61,6 +61,16 @@ constexpr Look lookAt(Rect rest, float target, float focus, Pivot pivot = centre
             shadow.alpha * amount};
 }
 
+// A theme with look::ringFocus marks focus with a ring over the fill, so a dark fill cannot be
+// missed. `amount` is the focus 0..1; a theme without it draws nothing here.
+inline void ringOnFocus(Scene &scene, Rect area, float rounding, float amount) {
+    amount = clamp01(amount);
+    if (!look::ringFocus || amount <= .004f)
+        return;
+    Node &overlay = scene.shape(area, {0, 0, 0, 0}, rounding);
+    overlay.ring = {0, elevation::focusRingWidth, withAlpha(elevation::focusRingColor, amount)};
+}
+
 // Rest and focused inks cross-fade: tab labels, round-button glyphs, keys.
 constexpr Color inkAt(Color rest, Color focused, float focus) {
     return mix(rest, focused, clamp01(focus));

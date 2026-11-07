@@ -5,8 +5,11 @@ namespace nativetv {
 namespace kit {
 namespace {
 constexpr Color clear = {0, 0, 0, 0};
-constexpr Color onFocusRing = {19 / 255.0f, 17 / 255.0f, 24 / 255.0f, .55f};
 constexpr float pillScale = 1.06f;
+// The ink of a focused row (the theme's onFocus) at the alpha the toggle's ring uses.
+Color onFocusRing() {
+    return focus::withAlpha(color::onFocus, .55f);
+}
 
 // The entrance and the focus scale, applied to every node added while it lives.
 class Group {
@@ -76,7 +79,7 @@ void radio(Paint paint, Rect box, float on, float rowFocus) {
     Scene &scene = paint.scene;
     on = focus::clamp01(on);
     Node &ring = scene.shape(box, clear, box.h / 2);
-    ring.ring = {2.5f, 0, focus::inkAt(color::onSurface3, onFocusRing, rowFocus)};
+    ring.ring = {2.5f, 0, focus::inkAt(color::onSurface3, onFocusRing(), rowFocus)};
     if (on > 0) {
         float dot = box.h * .5f;
         scene.shape({box.x + (box.w - dot) / 2, box.y + (box.h - dot) / 2, dot, dot},

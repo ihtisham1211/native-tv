@@ -10984,6 +10984,30 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertFalse(control("setReleaseCheck", False)[1]["releaseCheck"])
                 self.assertEqual(saved()["update"], {"check": False})
 
+                # TV theme: the default until one is chosen; only a theme that exists is saved, and the
+                # client's first frame (caps) and its settings row (setup) name the saved one.
+                fresh = control("setReleaseCheck", False)[1]
+                self.assertEqual(fresh["tvTheme"], "n-google-tv")
+                self.assertEqual([theme["id"] for theme in fresh["tvThemes"]], ["n-google-tv", "n-oled-care"])
+                self.assertEqual(fresh["tvThemes"][1]["name"], "OLED Care")
+                for bad in ("n-nope", "", 7, None):
+                    self.assertEqual(control("setTvTheme", bad)[1]["error"], "That theme does not exist")
+                self.assertNotIn("tvTheme", saved())
+                result = control("setTvTheme", "n-oled-care")[1]
+                self.assertTrue(result["ok"])
+                self.assertEqual(result["tvTheme"], "n-oled-care")
+                self.assertEqual(saved()["tvTheme"], {"id": "n-oled-care", "suggested": True})  # choosing ends the one-time suggestion
+                self.assertEqual(saved()["mqtt"], {"host": "keep.example"})
+                with urlopen(Request("http://127.0.0.1:%d/api/caps" % publicPort), timeout=5) as reply:
+                    self.assertEqual(json.loads(reply.read())["tvTheme"], "n-oled-care")
+                # A name the file holds but no theme has falls back to the default, not to nothing.
+                broken = saved()
+                broken["tvTheme"]["id"] = "n-gone"
+                config.write_text(json.dumps(broken))
+                self.assertEqual(control("setReleaseCheck", False)[1]["tvTheme"], "n-google-tv")
+                self.assertEqual(control("setTvTheme", "n-google-tv")[1]["tvTheme"], "n-google-tv")
+                self.assertEqual(saved()["tvTheme"]["id"], "n-google-tv")
+
                 result = control("setBackupDaily", True)[1]
                 self.assertEqual(result["backupDaily"], {"enabled": True})
                 self.assertEqual(saved()["backup"], {"daily": True})

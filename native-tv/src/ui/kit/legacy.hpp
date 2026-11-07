@@ -6,12 +6,15 @@
 namespace nativetv {
 namespace kit {
 namespace color {
-constexpr Color background = ink, surface = surface1, container = surface2, high = surface3;
-constexpr Color top = surface3, variant = pillRest;
-constexpr Color foreground = onSurface, secondary = onSurface2, outline = onSurface3;
-constexpr Color focus = focusFill, focusText = onFocus, listFocusText = onFocus;
-constexpr Color primary = accent, primaryContainer = rgb(0x0842a0);
-constexpr Color white = rgb(0xffffff), keyAlternate = surface3;
+// The names that follow the theme are references, like the tokens they alias.
+static const Color &background = ink, &surface = surface1, &container = surface2, &high = surface3;
+static const Color &top = surface3, &variant = pillRest;
+static const Color &foreground = onSurface, &secondary = onSurface2, &outline = onSurface3;
+static const Color &focus = focusFill, &focusText = onFocus, &listFocusText = onFocus;
+static const Color &primary = accent;
+constexpr Color primaryContainer = rgb(0x0842a0);
+constexpr Color white = rgb(0xffffff);
+static const Color &keyAlternate = surface3;
 constexpr Color selectedContainer = rgb(0x004a77, .4f), selectedForeground = rgb(0xc2e7ff);
 constexpr Color selectedTrail = rgb(0x7fcfff), lightSelectedContainer = rgb(0xc2e7ff);
 constexpr Color lightSelectedForeground = rgb(0x001d35);

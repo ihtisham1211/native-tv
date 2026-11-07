@@ -63,6 +63,7 @@ struct TopBar {
     float pillAlpha = 1; // fades out while Settings or Setup is showing
     float avatarFocus = 0, settingsFocus = 0;
     bool settingsSelected = false;
+    bool barFocused = false; // focus is on a tab: a ring theme draws it around the selected one
     std::string clock;
     Enter enter;
 };

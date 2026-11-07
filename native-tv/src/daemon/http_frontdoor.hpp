@@ -282,6 +282,10 @@ class HttpFrontDoor {
     // config.json as it is now. config_ is read once at start, so settings
     // written since (by this daemon or by hand) show only through this.
     Json currentConfigDocument() const;
+    // The TV theme in `document`: its `tvTheme` when that names a theme, else the default.
+    static std::string tvThemeId(const Json &document);
+    // Whether to offer OLED Care once: an OLED panel, still on the default theme, never asked.
+    bool suggestTvTheme(const Json &document) const;
     void sendOledCare(HttpExchange &exchange) const;
     void sendPrivacyProjection(HttpExchange &exchange) const;
     void setSshKeys(HttpExchange &exchange) const;

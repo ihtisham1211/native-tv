@@ -406,7 +406,7 @@ void backdrop(kit::Paint paint, const Json &item) {
     if (art.empty())
         kit::ambientWall(paint, 1, home::hsl(static_cast<float>(home::hashOf(item["id"].string()) % 360),
                                              .45f, .115f));
-    else
+    else if (kit::look::pictures)
         scene.picture(screen, 0).value = art;
     Color shade = kit::color::ink;
     Node &fade = scene.shape(screen, {0, 0, 0, 0});

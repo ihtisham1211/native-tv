@@ -865,7 +865,8 @@ if(NATIVETV_BUILD_CLIENT)
   add_library(nanosvg STATIC third_party/nanosvg/implementation.cpp)
   target_include_directories(nanosvg PUBLIC third_party/nanosvg)
   add_library(nativetv_presentation
-    src/ui/scene.cpp src/ui/kit/components.cpp src/ui/kit/widgets.cpp src/ui/kit/gallery.cpp
+    src/ui/scene.cpp src/ui/kit/palette.cpp src/ui/kit/components.cpp src/ui/kit/widgets.cpp
+    src/ui/kit/gallery.cpp
     src/ui/application.cpp src/ui/navigation.cpp src/ui/input.cpp
     src/ui/menu_controller.cpp src/ui/data_controller.cpp
     src/ui/home_view.cpp src/ui/menu_view.cpp
@@ -876,7 +877,8 @@ if(NATIVETV_BUILD_CLIENT)
     src/ui/dashboard_screens.cpp src/ui/live_screen.cpp src/ui/settings_list.cpp
     src/ui/settings_screen.cpp src/ui/catalog_screen.cpp
     src/ui/kit/overlay.cpp src/ui/quick_screen.cpp src/ui/profiles_screen.cpp
-    src/ui/details_screen.cpp src/ui/editor_screen.cpp src/ui/pin_screen.cpp)
+    src/ui/details_screen.cpp src/ui/editor_screen.cpp src/ui/pin_screen.cpp
+    src/ui/theme_screen.cpp)
   target_link_libraries(nativetv_presentation PUBLIC nativetv_models nativetv_motion nativetv_say qrcodegen)
   target_compile_options(nativetv_presentation PRIVATE -Wall -Wextra -Werror)
   add_library(nativetv_http src/adapters/http_services.cpp src/adapters/legacy_routes.cpp)
@@ -945,6 +947,10 @@ if(NATIVETV_BUILD_CLIENT)
     target_link_libraries(native-overlay-screen-tests PRIVATE nativetv_presentation)
     target_compile_options(native-overlay-screen-tests PRIVATE -Wall -Wextra -Werror)
     add_test(NAME native-overlay-screens COMMAND native-overlay-screen-tests)
+    add_executable(native-theme-screen-tests tests/theme_screen.cpp)
+    target_link_libraries(native-theme-screen-tests PRIVATE nativetv_presentation)
+    target_compile_options(native-theme-screen-tests PRIVATE -Wall -Wextra -Werror)
+    add_test(NAME native-theme-screen COMMAND native-theme-screen-tests)
     add_executable(native-navigation-walk-tests tests/navigation_walk.cpp)
     target_link_libraries(native-navigation-walk-tests PRIVATE nativetv_presentation)
     target_compile_definitions(native-navigation-walk-tests PRIVATE NATIVETV_FIXTURES="${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures")
@@ -1045,6 +1051,7 @@ if(NATIVETV_BUILD_CLIENT)
     # These run the client itself; they skip when the machine has no GL to give it.
     add_test(NAME native-client-platform COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/client_platform.py" "$<TARGET_FILE:nativetv-tv>")
     add_test(NAME native-golden-compare COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/test_golden.py")
+    add_test(NAME native-oled-budget COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/oled_budget.py")
     add_test(NAME native-golden COMMAND "${Python3_EXECUTABLE}" "${CMAKE_CURRENT_SOURCE_DIR}/tests/golden/golden.py" check --client "$<TARGET_FILE:nativetv-tv>")
     # 188 s of the 465 s test phase on a 4-core CI runner under the sanitizers. CTest starts the
     # costliest tests first, so this one runs beside the others instead of alone at the end.

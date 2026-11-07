@@ -956,13 +956,17 @@ void SetupScreen::drawChoices(ScreenHost &host, kit::Paint paint) {
         Transform scale = kit::focus::transformAt(rest, look.scale, kit::focus::leftCentre);
         kit::Layer layer(scene, enterOf(host, Content + static_cast<int>(i)),
                          look.scale != 1 ? &scale : nullptr);
-        scene.shape(rest, kit::color::surface1, kit::radius::lg);
+        if (kit::look::restFill > .002f)
+            scene.shape(rest, kit::focus::withAlpha(kit::color::surface1, kit::look::restFill),
+                        kit::radius::lg);
         if (focus > 0)
             scene.shape(rest, kit::focus::withAlpha(kit::color::focusFill, kit::focus::clamp01(focus)),
                         kit::radius::lg);
+        kit::focus::ringOnFocus(scene, rest, kit::radius::lg, focus);
         const Rect well = {rest.x + kit::layout::srowPadLeft, rest.y + (rest.h - 48) / 2, 48, 48};
         scene.shape(well,
-                    kit::focus::mix(kit::color::surface3, {19 / 255.0f, 17 / 255.0f, 24 / 255.0f, .12f}, focus),
+                    kit::focus::mix(kit::color::surface3,
+                                    kit::focus::withAlpha(kit::color::onFocus, .12f), focus),
                     24);
         paint.glyphs.icon(scene, {well.x + 11, well.y + 11, 26, 26}, row.icon,
                           kit::focus::inkAt(kit::color::onSurface, kit::color::onFocus, focus));

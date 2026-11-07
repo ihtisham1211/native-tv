@@ -35,15 +35,18 @@ struct HeroText {
 };
 // What a page without art washes in: the Apps page uses it rather than the last hero's tint, which
 // made the same page olive or red depending on the title seen before it.
-constexpr Color neutralWash = {0.07f, 0.19f, 0.24f, 1};
+// It is the theme's: teal for n-google-tv, black for n-oled-care.
+inline Color neutralWash() {
+    return kit::color::wash;
+}
 struct HeroArt {
     std::string image[2];
     float artAlpha[2] = {1, 1}; // a focused app keeps the pick's picture, dimmed, under its tint
-    Color tint[2] = {neutralWash, neutralWash};
+    Color tint[2] = {neutralWash(), neutralWash()};
     int newest = 0;       // the layer that took the latest picture
     std::string shownId;  // card the layers are showing
     HeroText text;        // the lines on screen; changes after the old ones have left
-    Color wallTint = neutralWash; // what pages without art wash in
+    Color wallTint = neutralWash(); // what pages without art wash in
 };
 struct HomeState {
     size_t tab = 0, row = 0, column = 0, nav = 0;
@@ -116,6 +119,9 @@ class Application : private ScreenHost {
     // question is asked again every two seconds, and the client's own first frames stay behind the
     // ink cover for at most 2.5 s so the page that is about to be replaced is not seen.
     bool capsAnswered_ = false, holdForCaps_ = false;
+    // The one-time offer of OLED Care was opened this run; the server stops sending it once answered.
+    bool themeOffered_ = false;
+    const char *shownTheme_ = nullptr; // the theme the Home art's wash was last reset for
     uint32_t capsAt_ = 0;
     std::string initial_;
     unsigned recentSnapshot_ = 0;
@@ -202,6 +208,9 @@ class Application : private ScreenHost {
     void resolvePictures();
     void buildFrame();
     void askCaps();
+    // Shows the theme the server names (caps, then every catalogue answer), unless a change of the
+    // person's is still being saved, and opens the one-time offer of OLED Care when the server sends it.
+    void followTheme(const Json &data);
     bool coveredForCaps() const;
     void rebuildHome();
     void rebuildMenu();
