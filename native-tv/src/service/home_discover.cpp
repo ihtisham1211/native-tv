@@ -243,7 +243,12 @@ HomeDiscover::HomeDiscover(std::string dataRoot, Fetcher fetcher, Clock clock)
 }
 
 HomeDiscover::~HomeDiscover() {
-    stopping_.store(true);
+    // Set under the mutex the worker waits with: stored outside it, the flag and the notify can both land
+    // between the worker's check and its wait, and the join below never returns.
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        stopping_.store(true);
+    }
     changed_.notify_all();
     if (worker_.joinable()) worker_.join();
 }
