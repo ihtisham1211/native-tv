@@ -127,6 +127,7 @@ class Application : private ScreenHost {
     // The one-time offer of OLED Care was opened this run; the server stops sending it once answered.
     bool themeOffered_ = false;
     const char *shownTheme_ = nullptr; // the theme the Home art's wash was last reset for
+    const char *refreshedTheme_ = nullptr; // the theme Home's data was last asked for under
     uint32_t capsAt_ = 0;
     std::string initial_;
     unsigned recentSnapshot_ = 0;

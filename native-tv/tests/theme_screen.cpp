@@ -183,6 +183,26 @@ void compactHomeChecks() {
     kit::useTheme("n-google-tv");
 }
 
+// A client that opened in Google TV and is told OLED Care before its first frame (a server that
+// answers quickly) must still ask for the panel's figures, not wait for the next refresh.
+void lateThemeChecks() {
+    kit::useTheme("n-google-tv");
+    FakeTransport transport;
+    Application app(transport);
+    Response caps;
+    caps.channel = "caps";
+    caps.status = 200;
+    caps.bytes = R"({"ok":true,"tvTheme":"n-oled-care"})";
+    caps.generation = transport.revisions["caps"];
+    app.response(caps);
+    check(themeNow() == "n-oled-care", "caps name OLED Care before the first frame");
+    const size_t statsBefore = transport.count("stats");
+    run(app, 0, 600);
+    check(transport.count("stats") > statsBefore,
+          "a theme that arrives before the first frame asks for the panel's figures at once");
+    kit::useTheme("n-google-tv");
+}
+
 void offerChecks() {
     kit::useTheme("n-google-tv");
     {
@@ -237,6 +257,7 @@ int main() {
         refusedSaveChecks();
         followServerChecks();
         compactHomeChecks();
+        lateThemeChecks();
         offerChecks();
         std::printf("%d native theme-screen checks passed\n", checkCount());
         return 0;

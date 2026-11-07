@@ -36,7 +36,9 @@ std::vector<CardRow> Application::homeRowsFor(const std::string &tab) const {
     return homeRows(tab, state_.catalogue, state_.discover, state_.guide);
 }
 void Application::themeChanged() {
-    const bool first = shownTheme_ == nullptr; // the theme the client started in: nothing to redo
+    // The theme the client started in has nothing to redo, unless Home's data was already asked for under
+    // another one: a server that names the theme before the first frame.
+    const bool first = shownTheme_ == nullptr && (refreshedTheme_ == nullptr || refreshedTheme_ == kit::themeId());
     shownTheme_ = kit::themeId();
     // The wash the Home art falls back to is the theme's.
     state_.home.art.wallTint = neutralWash();
@@ -82,6 +84,7 @@ void Application::refresh() {
     } else {
         services_.read("catalogue", Operation::HomeCatalogue);
         if (state_.screen == Screen::Home) {
+            refreshedTheme_ = kit::themeId();
             // A theme without a feed asks neither TMDB nor YouTube for one; it asks for the panel.
             if (kit::look::discover) {
                 services_.read("discover", Operation::HomeDiscover);
