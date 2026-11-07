@@ -622,10 +622,10 @@ change nothing on a TV that has others (`E2E-119` expects the test B3's own leve
 `withSession` sends it back, which `E2E-104` uses to unlock; `save {name: "path"}` keeps a field of a reply and a body value `"$name"` is that field in
 a later step, which `E2E-113` uses for a saved page's id. A path name picks an array item by any value, dots included (`preload[id=com.webos.app.browser].off`). `E2E-103` is a client run, not an api case, with the same permission:
 it presses OK on a number row of the Game settings and goes round its range.
-`E2E-120` is a client run that changes the server: with the apps sorted by kind, a long press on a row of the Apps tab lifts it, Down
-moves it and OK saves the kinds' order, then it is moved back and Back cancels. A run case may carry a `before` flow of api steps
+`E2E-120` is a client run that changes the server: a long press on a row of the Apps tab lifts it as a card, Move kind picks the card up,
+Down moves it, and Back saves the kinds' order; then it is moved back and saved again. A run case may carry a `before` flow of api steps
 (POSTs need `control`), which the runner sends before the client starts, and a `cleanup` flow, which it sends even when the run
-failed, so `E2E-120` starts with the apps by kind and ends with them in Your order and the kinds in their default order. The script's
+failed, so `E2E-120` starts and ends with the kinds in their default order. The script's
 `longPress` step is the client's hold of OK and `longBack` its hold of Back (650 ms on a real remote), and a Home checkpoint
 reports the client's snapshot: `tab`, `row`, `rowGroup` (the kind of the focused row), `arranging`, `editing`, `editHide`,
 `focusCard` (the id of the focused card) and `rowHead` (the first three card ids of the focused row). `E2E-178` is a client run
@@ -671,7 +671,7 @@ the texture memory, the checkpoints the script took and the size of the capture.
 | E2E-105 | The Home Assistant settings refuse a URL or a space as the broker and markup as the device name (`api`, `control`) | |
 | E2E-106, 107 | LG rows round-trip: the ad switches, sound mode, balance, automatic volume and Bluetooth speaker mode (106); the Game Optimizer rows (107). Each is set, read back from the TV's settings service and put back (`api`, `control`) | |
 | E2E-110 to 119 | The rest of the settings, each set through the server, read back and put back: privacy switches and the ad blocker (110); screen saver and brightness (111); OLED protections, screen shift, logo dimming and the service menu lock (112); app preload and saved web pages, with the id the add gives (113); watch time and screen-time limits (114); NTP server (115); a damaged backup refused (116); an SSH key added and removed, the TV's own keys untouched (117); a 22 KB catalogue app installed and uninstalled (118); volume, mute, brightness, picture mode, energy saving and the sleep timer, from the test B3's own levels (119) (`api`, `control`) | |
-| E2E-120 | Arranging the kinds on the Apps tab: with the apps by kind, a long press lifts a row, Down moves it and OK saves, a second long press and Up move it back, Back cancels; the order is reset after (`control`, `before`, `cleanup`) | `home` |
+| E2E-120 | Arranging the kinds on the Apps tab: a long press lifts a row as a card, Move kind and Down move it, Back saves, a second long press, Move kind and Up move it back and Back saves; the order is reset after (`control`, `before`, `cleanup`) | `home` |
 | E2E-178 | Editing the apps on the Apps tab: a long press starts it, the Hide from Apps button hides an app, and the grid and the server's `hidden.appsTab` list lose it while Home's `hidden.app` stays as it was; the order and both hidden lists are put back after, on the B3's six hidden apps (`control`, `before`, `cleanup`) | `home` |
 | E2E-121, 122 | A TMDB key that is not 32 hex digits (a word, 20 digits, a number) is refused; `kind: title` is no longer a way to open a feed title (`api`, `control`) | |
 | E2E-125 | OK on Dark room mode in the TV's Game settings steps it Off, Level 1, Level 2, Off through the server and leaves it off (`control`, `cleanup`) | `dashboard:game` |

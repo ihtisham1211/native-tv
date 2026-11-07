@@ -13,9 +13,7 @@ Json homeCatalogueApps(const Json &launchPointsReply,
 Json homeCatalogueDevices(const Json &deviceReply);
 Json homeCatalogue(const Json &document, const Json &apps, const Json &devices,
                    const Json &channels, bool channelsRequested,
-                   const Json &recent, const Json &historyTotals,
-                   bool historyEnabled);
-Json readHomeRecent(const std::string &dataRoot);
+                   const Json &historyTotals, bool historyEnabled);
 
 } // namespace service
 } // namespace nativetv

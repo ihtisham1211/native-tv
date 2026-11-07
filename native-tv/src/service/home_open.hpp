@@ -36,15 +36,5 @@ HomeOpenPlan planHomeOpen(const std::string &kind, const std::string &id,
 // HomeContent service returns the same P1874 link data as the public endpoint.
 void resolveHomeNetflixOpen(HomeOpenPlan &plan, const Json &lookup);
 
-// An opened row is recorded only while Native Tv Home is on and the row sorts
-// by Last opened.
-bool homeOpenStampWanted(const Json &document, const std::string &row);
-
-// A device tile opened its input; the input arriving in front within this
-// window is that tile, not the remote, so its port stamp is skipped.
-int64_t homeTileOpenWindowMilliseconds();
-
-bool homeTileInputFresh(int64_t now, int64_t tileAt);
-
 } // namespace service
 } // namespace nativetv

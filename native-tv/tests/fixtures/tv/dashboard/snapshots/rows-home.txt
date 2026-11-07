@@ -12,7 +12,7 @@ choice  Clock format = 12-hour -> Change {2 values} <clock>
 link    Profile -> Open <access>
 action  Reset the layout -> Reset (confirms) <refresh>
 ## Apps
-choice  Order = Your order -> Change {3 values} <home>
+link    Kinds -> Open <home>
 == On Native Tv Home
 toggle  Streamline = Shown [on] -> Turn off <home>
 toggle  Tunes = Shown [on] -> Turn off <home>
@@ -24,7 +24,6 @@ toggle  Tunes = Shown [on] -> Turn off <home>
 toggle  Arcade = Shown [on] -> Turn off <home>
 toggle  Lens = Shown [on] -> Turn off <home>
 ## Inputs
-choice  Order = Your order -> Change {2 values} <home>
 toggle  Game Console = Shown [on] -> Turn off <game>
 ## Channels
 link    Add channels = Browse -> Open <home>

@@ -597,23 +597,25 @@ void settings() {
               std::fabs(home.animation().value("set:sy") - scrolled) < .5,
           "Down on the last row stays on it");
 
-    // Inputs has its own Order row, with the title the Apps page's has: it stays itself.
+    // An app is listed twice on the Apps subsection, for Native Tv Home and for the Apps tab, under the
+    // same title: the second keeps its own focus.
     FakeTransport twin;
     Application order(twin, "dashboard:home");
     reply(order, "settings:data:home", section("home"));
     t = run(order, 16, 700);
     order.key(Key::Up);
-    for (int i = 0; i < 3; ++i)
+    for (int i = 0; i < 2; ++i)
         order.key(Key::Right);
-    check(order.snapshot()["page"].string() == "Inputs", "The Inputs subsection");
-    order.key(Key::Down);
-    check(order.snapshot()["focusId"].string() == "Order#1",
-          "Its Order row is the second of that title");
+    check(order.snapshot()["page"].string() == "Apps", "The Apps subsection");
+    for (int i = 0; i < 6; ++i)
+        order.key(Key::Down);
+    check(order.snapshot()["focusId"].string() == "Streamline#1",
+          "The Apps tab's Streamline is the second of that title");
     reply(order, "settings:data:home", section("home"));
     run(order, t, 600);
-    check(order.snapshot()["focusId"].string() == "Order#1" &&
-              order.snapshot()["page"].string() == "Inputs",
-          "A refresh leaves the focus on the Order it was on, not the first one");
+    check(order.snapshot()["focusId"].string() == "Streamline#1" &&
+              order.snapshot()["page"].string() == "Apps",
+          "A refresh leaves the focus on the Streamline it was on, not the first one");
 }
 
 // Every change shows at once, goes through the layer, and is taken back with a message when the

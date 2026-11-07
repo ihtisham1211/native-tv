@@ -153,7 +153,7 @@ def search(query):
     return {"ok": True, "enabled": True, "items": found}
 
 
-def catalogue(profiles=1, sort="custom"):
+def catalogue(profiles=1):
     apps = [{"id": a, "title": t, "icon": "/icon/%s" % a, "color": c, "kind": KINDS.get(a, "other")}
             for a, t, c in APPS]
     devices = [{"id": "hdmi%d" % n, "name": name, "port": n, "unused": unused}
@@ -163,7 +163,6 @@ def catalogue(profiles=1, sort="custom"):
             "kinds": [{"key": key, "label": label} for key, label in KIND_LABELS],
             "order": {"app": [a for a, _, _ in APPS] + ["lg-home"], "dev": [d["id"] for d in devices], "ch": []},
             "layout": {"rows": ["app", "dev"], "hidden": {}, "showInputs": True, "showLive": False,
-                       "sort": {"app": sort, "dev": "custom", "ch": "custom"},
                        "kinds": [key for key, _ in KIND_LABELS],
                        "showLgHome": True, "appNames": True, "clockFormat": "12h", "picture": False},
             "sources": {"channels": 0},
@@ -183,7 +182,6 @@ class Handler(http.server.BaseHTTPRequestHandler):
     art = None
     beats = 0
     profiles = 1
-    sort = "custom" # the apps row's order: custom, recent or kind
 
     def log_message(self, *_):
         pass
@@ -219,7 +217,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if url.path == "/api/caps":
             self.json({"ok": True})
         elif url.path == "/api/home/catalogue":
-            self.json(catalogue(self.profiles, self.sort))
+            self.json(catalogue(self.profiles))
         elif url.path == "/api/home/discover":
             self.json(discover())
         elif url.path == "/api/home/guide":
@@ -268,12 +266,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
 
 
 @contextlib.contextmanager
-def serve(art=None, port=0, profiles=1, sort="custom"):
+def serve(art=None, port=0, profiles=1):
     SETTINGS.update(volume=24, muted=False, backlight=70, sleepTimer="off", pictureMode="cinema",
                     soundOutput="tv_speaker")
     Handler.art = art
     Handler.profiles = profiles
-    Handler.sort = sort
     server = http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

@@ -1,5 +1,5 @@
 """Exercise the native Home open route: tile launches, channel tuning,
-recent-history stamps and the forwarded Node kinds."""
+the refused launches and the forwarded Node kinds."""
 import json
 import os
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -141,10 +141,7 @@ def main():
     node_port = fake_node.server_address[1]
     threading.Thread(target=fake_node.serve_forever, daemon=True).start()
 
-    home = {
-        "enabled": True,
-        "sort": {"app": "recent", "dev": "recent", "ch": "recent"}
-    }
+    home = {"enabled": True}
 
     with tempfile.TemporaryDirectory(prefix="nativetv-home-open-") as folder:
         root = Path(folder)
@@ -152,7 +149,7 @@ def main():
         process, recent_path, details = start_daemon(
             binary, fake_luna, root, token, port, node_port, "home-open", home)
         try:
-            # An app tile launches its launch point and stamps it as opened.
+            # An app tile launches its launch point.
             status, headers, body = post(
                 port, token, {"kind": "app", "id": "com.webos.app.netflix"})
             assert status == 200 and json.loads(body.decode("utf-8")) == {"ok": True}
@@ -161,9 +158,6 @@ def main():
             opened = [call for call in calls(details)
                       if call["uri"] == "com.webos.applicationManager/launch"]
             assert opened and opened[-1]["payload"] == {"id": "com.webos.app.netflix"}
-            stamped = open_recent(recent_path)
-            assert "com.webos.app.netflix" in stamped["app"]
-            assert stamped["app"]["com.webos.app.netflix"] > 0
 
             # Only what the catalogue lists can be opened.
             status, _, body = post(
@@ -172,23 +166,19 @@ def main():
             assert json.loads(body.decode("utf-8")) == {
                 "ok": False, "error": "that is not on Native Tv Home"}
 
-            # A device opens its HDMI input, stamping the tile's own id.
+            # A device opens its HDMI input.
             status, _, body = post(
                 port, token, {"kind": "dev", "id": "hdmi2:game-console"})
             assert status == 200 and json.loads(body.decode("utf-8")) == {"ok": True}
             opened = [call for call in calls(details)
                       if call["uri"] == "com.webos.applicationManager/launch"]
             assert opened[-1]["payload"] == {"id": "com.webos.app.hdmi2"}
-            stamped = open_recent(recent_path)
-            assert "hdmi2:game-console" in stamped["dev"]
 
             status, _, body = post(port, token, {"kind": "dev", "id": "hdmi1"})
             assert status == 200 and json.loads(body.decode("utf-8")) == {"ok": True}
             opened = [call for call in calls(details)
                       if call["uri"] == "com.webos.applicationManager/launch"]
             assert opened[-1]["payload"] == {"id": "com.webos.app.hdmi1"}
-            stamped = open_recent(recent_path)
-            assert "hdmi1" in stamped["dev"]
 
             status, _, body = post(port, token, {"kind": "dev", "id": "hdmi3"})
             assert status == 400
@@ -201,8 +191,8 @@ def main():
             tunes = [call for call in calls(details)
                      if call["uri"] == "com.webos.service.apiadapter/tv/openChannel"]
             assert tunes and tunes[-1]["payload"] == {"channelId": "channel-1"}
-            stamped = open_recent(recent_path)
-            assert "channel-1" in stamped["ch"]
+            # Nothing is recorded: the rows have one order, the owner's.
+            assert open_recent(recent_path) == {"app": {}, "dev": {}, "ch": {}}
 
             # A feed title has no deep link of its own: only YouTube and Netflix do.
             before = len([call for call in calls(details)
@@ -263,14 +253,6 @@ def main():
                 {"Origin": "http://attacker.example"})
             assert status == 403
 
-            # A row sorting by Last opened only records while Home is on.
-            home["enabled"] = False
-            (root / "home.json").write_text(json.dumps(home))
-            recent_path.write_text(json.dumps({"app": {}, "dev": {}, "ch": {}}))
-            status, _, body = post(
-                port, token, {"kind": "app", "id": "com.webos.app.netflix"})
-            assert status == 200 and json.loads(body.decode("utf-8")) == {"ok": True}
-            assert open_recent(recent_path)["app"] == {}
         finally:
             process.terminate()
             try:
@@ -286,7 +268,7 @@ def main():
             binary, fake_luna, root, token, port, node_port,
             "home-open-refused", home)
         try:
-            # A refused launch keeps the card's stamp off and answers like Node.
+            # A refused launch answers like Node.
             status, _, body = post(
                 port, token, {"kind": "dev", "id": "hdmi2:game-console"})
             assert status == 400

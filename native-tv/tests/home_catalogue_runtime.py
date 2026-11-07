@@ -63,15 +63,10 @@ def main():
         home_file.write_text(json.dumps({
             "enabled": True, "showLive": False,
             "channels": ["channel-1"],
-            "sort": {"app": "recent", "dev": "recent", "ch": "custom"},
             "profiles": [{"id": "p1", "name": "Kids", "color": "#f2b8b5"}],
             "profile": "p1"
         }))
         original_home = home_file.read_text()
-        (root / "home-recent.json").write_text(json.dumps({
-            "app": {"com.webos.app.netflix": 100, "com.webos.app.youtube": 200},
-            "dev": {"hdmi2": 1, "hdmi2:game-console": 2}
-        }))
         details = root / "luna-details.jsonl"
         heartbeat = root / "tvweb.beat"
         environment = os.environ.copy()
@@ -111,10 +106,11 @@ def main():
             assert [device["id"] for device in catalogue["devices"]] == [
                 "hdmi1", "hdmi2:av-receiver", "hdmi2:game-console"]
             assert catalogue["order"]["app"][:3] == [
-                "com.webos.app.youtube", "com.webos.app.netflix",
+                "com.webos.app.netflix", "com.webos.app.youtube",
                 "com.webos.app.notificationcenter"]
             assert catalogue["order"]["dev"] == [
-                "hdmi2:game-console", "hdmi2:av-receiver", "hdmi1"]
+                "hdmi1", "hdmi2:av-receiver", "hdmi2:game-console"]
+            assert len(catalogue["kinds"]) == 7 and "sort" not in catalogue["layout"]
             assert catalogue["channels"] == []
             assert catalogue["sources"] == {
                 "apps": True, "devices": True, "channels": None}

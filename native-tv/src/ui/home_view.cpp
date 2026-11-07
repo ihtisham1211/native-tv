@@ -286,46 +286,6 @@ void hintBand(kit::Paint paint, const std::vector<kit::Hint> &hints) {
     kit::hintBar(paint, {kit::canvas::safeX, 998, 0, 30}, hints);
 }
 
-// The Apps page: the same circles as Home's apps row, larger, with their names, six to a row.
-// It has no head: the first row starts under the bar.
-void grid(kit::Paint paint, const Frame &frame) {
-    const HomeState &home = frame.state.home;
-    const Motion &motion = frame.motion;
-    if (home.rows.empty())
-        return;
-    const CardRow &row = home.rows[0];
-    const float lift = kEditLift * static_cast<float>(motion.value("lift"));
-    const float scroll = static_cast<float>(motion.value("gy")) + lift;
-    // Rows that scroll away disappear under the bar rather than over it.
-    const float clipTop = kit::layout::appsTop + lift - 16;
-    bool clipped = scroll - lift < -.5f;
-    if (clipped)
-        paint.scene.pushClip({0, clipTop, kit::canvas::width, kit::canvas::height});
-    for (size_t i = 0; i < row.cards.size(); ++i) {
-        Rect rest = kit::geometry::appTile(static_cast<int>(i));
-        rest.y += scroll;
-        if (rest.y > kit::canvas::height + 40 || rest.y + rest.h < clipTop - 44)
-            continue;
-        const Card &card = row.cards[i];
-        kit::AppCircle circle;
-        circle.rest = rest;
-        circle.id = home::hit(0, i);
-        circle.name = card.title;
-        circle.icon = card.id == "lg-home" ? "home" : "apps";
-        circle.image = card.image;
-        circle.color = appColor(card);
-        circle.named = true;
-        circle.nameWidth = layout::tilePitchX - 40;
-        circle.focus = static_cast<float>(motion.value(home::id("f", 0, i)));
-        circle.enter = enterOf(motion, home::id("EC", 0, i));
-        if (card.hidden) // hidden from the Apps page: listed only while its apps are edited
-            circle.enter.alpha *= .4f;
-        kit::appCircle(paint, circle);
-    }
-    if (clipped)
-        paint.scene.popClip();
-}
-
 // The Apps page with its apps grouped by kind: rows as on Home from under the bar, which pass
 // under it once they scroll.
 void appRows(kit::Paint paint, const Frame &frame) {
@@ -392,10 +352,7 @@ void drawHome(kit::Paint paint, const Frame &frame) {
         kit::Hero none = heroOf(frame);
         none.wallAlpha = wall;
         kit::heroWall(paint, none);
-        if (home.grid)
-            grid(paint, frame);
-        else
-            appRows(paint, frame);
+        appRows(paint, frame);
     } else {
         kit::Hero hero = heroOf(frame);
         kit::heroWall(paint, hero);

@@ -1688,46 +1688,9 @@ Json stampHomeRecentHistoryFile(HomeRecentHistoryState &history,
     return recent;
 }
 
-void clearHomeRecentHistoryRows(HomeRecentHistoryState &history,
-                                const Json &rows) {
-    if (!rows.isArray() || rows.size() == 0) return;
-    std::lock_guard<std::mutex> lock(history.mutex);
-    JsonFile file(history.path, 512 * 1024);
-    const JsonFileResult stored = file.load();
-    if (!stored.error.empty() && !stored.found) return;
-    const Json current = stored.found ? stored.value : Json::object();
-    const Json cleared = service::mergeHomeRecentHistory(
-        current, Json::object(), rows);
-    std::string error;
-    (void)file.save(cleared, &error);
-}
-
 bool homeReservedApp(const std::string &appId) {
     return appId.empty() || appId == "com.tvweb.home" ||
            appId == kHomeClientApp || appId == "com.webos.app.home";
-}
-
-bool homeInputApp(const std::string &appId) {
-    if (appId == "com.webos.app.livetv") return true;
-    const char *prefixes[] = {"com.webos.app.hdmi", "com.webos.app.av",
-                              "com.webos.app.comp"};
-    for (const char *prefix : prefixes) {
-        const std::string value(prefix);
-        if (appId.size() == value.size() + 1 &&
-            appId.compare(0, value.size(), value) == 0 &&
-            appId[value.size()] >= '0' && appId[value.size()] <= '9')
-            return true;
-    }
-    return false;
-}
-
-std::string homeDeviceRecentId(const std::string &appId) {
-    static const std::string prefix = "com.webos.app.hdmi";
-    if (appId.size() != prefix.size() + 1 ||
-        appId.compare(0, prefix.size(), prefix) != 0 ||
-        appId[prefix.size()] < '0' || appId[prefix.size()] > '9')
-        return std::string();
-    return "hdmi" + appId.substr(prefix.size());
 }
 
 int64_t homeNowMilliseconds() {
@@ -1822,20 +1785,12 @@ HttpFrontDoor::HttpFrontDoor(ServerConfig config, std::string version, std::stri
     homeNowState_.reset(new HomeNowTrackingState());
     homeRecentHistoryState_.reset(new HomeRecentHistoryState());
     homeRecentHistoryState_->path = dataFilePath(dataRoot_, "home-recent.json");
-    homeTileInputState_.reset(new HomeTileInputState());
     homeEscapeActive_.reset(new std::atomic<bool>(false));
     homeEscapeReturnPending_.reset(new std::atomic<bool>(false));
     if (stateSubscriptions_) {
         const std::weak_ptr<HomeNowTrackingState> weakNowState = homeNowState_;
-        const std::shared_ptr<HomeRecentHistoryState> recentState =
-            homeRecentHistoryState_;
-        const std::shared_ptr<HomeTileInputState> tileState =
-            homeTileInputState_;
-        const std::string homeConfigPath = dataFilePath(dataRoot_, "home.json");
-        LunaClient *const luna = &luna_;
         stateSubscriptions_->cache().onChange(
-            [this, weakNowState, recentState, tileState,
-             homeConfigPath, luna](const state::Event &event) {
+            [this, weakNowState](const state::Event &event) {
             if (event.group != "application" || event.key != "app_id" ||
                 !event.value.isString())
                 return;
@@ -1845,73 +1800,13 @@ HttpFrontDoor::HttpFrontDoor(ServerConfig config, std::string version, std::stri
                 queueHomeForegroundReturn(appId);
             const std::shared_ptr<HomeNowTrackingState> nowState = weakNowState.lock();
             if (!nowState) return;
-            std::string previousAppId;
             {
                 std::lock_guard<std::mutex> lock(nowState->mutex);
-                previousAppId = nowState->observedAppId;
                 nowState->observedAppId = appId;
                 if (!homeReservedApp(appId)) {
                     nowState->appId = appId;
                     nowState->since = event.sourceTime;
                 }
-            }
-
-            std::string row;
-            std::string id;
-            const std::string deviceId = homeDeviceRecentId(appId);
-            if (!homeReservedApp(appId) && !deviceId.empty()) {
-                row = "dev";
-                id = deviceId;
-            } else if (!homeReservedApp(appId) && !homeInputApp(appId)) {
-                row = "app";
-                id = appId;
-            }
-            const bool leftLiveTv = previousAppId == "com.webos.app.livetv" &&
-                                    appId != "com.webos.app.livetv";
-            if (row.empty() && !leftLiveTv) return;
-
-            std::ifstream homeFile(homeConfigPath.c_str(),
-                                   std::ios::in | std::ios::binary);
-            std::string homeContents;
-            if (homeFile) {
-                const size_t maximumBytes = 8 * 1024 * 1024;
-                char buffer[4096];
-                while (homeFile) {
-                    homeFile.read(buffer, sizeof(buffer));
-                    const std::streamsize count = homeFile.gcount();
-                    if (count <= 0) break;
-                    if (homeContents.size() + static_cast<size_t>(count) > maximumBytes) {
-                        homeContents.clear();
-                        break;
-                    }
-                    homeContents.append(buffer, static_cast<size_t>(count));
-                }
-            }
-            const Json home = service::normalizeHomeDocument(
-                homeContents.empty() ? Json() : Json::parse(homeContents));
-            if (!home["enabled"].boolean()) return;
-            bool fromTile = false;
-            if (row == "dev") {
-                std::lock_guard<std::mutex> tileLock(tileState->mutex);
-                fromTile = tileState->appId == appId &&
-                           service::homeTileInputFresh(homeNowMilliseconds(),
-                                                       tileState->at);
-                tileState->appId.clear();
-                tileState->at = 0;
-            }
-            if (!fromTile && !row.empty() &&
-                home["sort"][row].string() == "recent")
-                (void)stampHomeRecentHistoryFile(*recentState, row, id,
-                                                 event.sourceTime);
-            if (leftLiveTv && home["sort"]["ch"].string() == "recent") {
-                (void)luna->call(
-                    "com.webos.service.utp.boot/getLastChannelId", Json::object(),
-                    [recentState](const LunaReply &reply) {
-                        const std::string channelId = reply.response["channelId"].string();
-                        if (!channelId.empty())
-                            (void)stampHomeRecentHistoryFile(
-                                *recentState, "ch", channelId, homeNowMilliseconds());
-                    });
             }
         });
     }
@@ -7535,7 +7430,6 @@ void HttpFrontDoor::handleHomeLayoutPost(HttpExchange &exchange) const {
     }
 
     Json response;
-    Json replaceRows = Json::array();
     std::string saveError;
     bool saved = false;
     {
@@ -7552,11 +7446,7 @@ void HttpFrontDoor::handleHomeLayoutPost(HttpExchange &exchange) const {
             response = update.response;
             if (response["ok"].boolean()) {
                 saved = file.save(update.document, &saveError);
-                if (saved) {
-                    for (const char *row : {"app", "dev", "ch"})
-                        if (update.document["sort"][row].string() != "recent")
-                            replaceRows.add(Json::text(row));
-                }
+
             }
         }
     }
@@ -7586,8 +7476,6 @@ void HttpFrontDoor::handleHomeLayoutPost(HttpExchange &exchange) const {
     }
     response.set("layoutVersion", Json::text(std::to_string(layoutVersion)));
     ensureHomePictureTracking();
-    if (homeRecentHistoryState_)
-        clearHomeRecentHistoryRows(*homeRecentHistoryState_, replaceRows);
     respond(200, response);
 }
 
@@ -15923,7 +15811,6 @@ Json HttpFrontDoor::homeCatalogueDevicesSnapshot() const {
 }
 
 Json HttpFrontDoor::homeCatalogueResponse(bool view) const {
-    std::string liveChannelToRecord;
     Json rawHome;
     std::ifstream homeFile(dataFilePath(dataRoot_, "home.json").c_str(),
                            std::ios::in | std::ios::binary);
@@ -15946,24 +15833,6 @@ Json HttpFrontDoor::homeCatalogueResponse(bool view) const {
     }
     const Json document = service::normalizeHomeDocument(rawHome);
     const bool channelsRequested = !view || document["showLive"].boolean();
-    if (channelsRequested && document["enabled"].boolean() &&
-        document["sort"]["ch"].string() == "recent") {
-        std::string foreground = stateSubscriptions_
-            ? stateSubscriptions_->snapshot()["application"]["app_id"].string()
-            : std::string();
-        if (foreground.empty()) {
-            LunaReply current;
-            if (waitForLuna(luna_, "com.webos.applicationManager/getForegroundAppInfo",
-                            Json::object(), current))
-                foreground = current.response["appId"].string();
-        }
-        if (foreground == "com.webos.app.livetv") {
-            LunaReply lastChannel;
-            if (waitForLuna(luna_, "com.webos.service.utp.boot/getLastChannelId",
-                            Json::object(), lastChannel))
-                liveChannelToRecord = lastChannel.response["channelId"].string();
-        }
-    }
 
     const Json apps = homeCatalogueAppsSnapshot();
     const Json devices = homeCatalogueDevicesSnapshot();
@@ -15982,11 +15851,8 @@ Json HttpFrontDoor::homeCatalogueResponse(bool view) const {
     bool tunerAvailable = false;
     const Json channels = channelsRequested
         ? homeChannelSnapshot(tunerAvailable) : Json::parse("null");
-    const Json recent = liveChannelToRecord.empty()
-        ? service::readHomeRecent(dataRoot_)
-        : recordHomeRecent("ch", liveChannelToRecord);
     const Json catalogue = service::homeCatalogue(
-        document, apps, devices, channels, channelsRequested, recent,
+        document, apps, devices, channels, channelsRequested,
         historyTotals, historyEnabled);
     Json response = catalogue;
     response.set("ok", Json::flag(true));
@@ -17339,15 +17205,6 @@ void HttpFrontDoor::handleHomeOpenPost(HttpExchange &exchange) const {
         return;
     }
 
-    // A device tile marks its input first: the input arriving in front is the
-    // tile, not the remote, and a refused tile must not consume the next
-    // input switch from the remote.
-    const bool deviceTile = resolved.action == "launch" && resolved.row == "dev";
-    if (deviceTile) {
-        std::lock_guard<std::mutex> lock(homeTileInputState_->mutex);
-        homeTileInputState_->appId = resolved.appId;
-        homeTileInputState_->at = homeNowMilliseconds();
-    }
     if (resolved.action == "launch") {
         Json launchPayload = Json::object();
         launchPayload.set("id", Json::text(resolved.appId));
@@ -17357,11 +17214,6 @@ void HttpFrontDoor::handleHomeOpenPost(HttpExchange &exchange) const {
         if (!waitForLuna(luna_, "com.webos.applicationManager/launch",
                          launchPayload, launchReply) ||
             !service::javascriptTruthy(launchReply.response["returnValue"])) {
-            if (deviceTile) {
-                std::lock_guard<std::mutex> lock(homeTileInputState_->mutex);
-                homeTileInputState_->appId.clear();
-                homeTileInputState_->at = 0;
-            }
             fail(say::msg("srv.home.launchRefused", "the TV would not open it"));
             return;
         }
@@ -17376,14 +17228,6 @@ void HttpFrontDoor::handleHomeOpenPost(HttpExchange &exchange) const {
             return;
         }
     }
-
-    // Recorded only for a row set to Last opened, and only while Native Tv
-    // Home is on.
-    JsonFile homeFile(dataFilePath(dataRoot_, "home.json"));
-    const Json document =
-        service::normalizeHomeDocument(homeFile.load().value);
-    if (service::homeOpenStampWanted(document, resolved.row))
-        (void)recordHomeRecent(resolved.row, resolved.rowId);
 
     Json success = Json::object();
     success.set("ok", Json::flag(true));

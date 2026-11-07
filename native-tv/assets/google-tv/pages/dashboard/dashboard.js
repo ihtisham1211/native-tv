@@ -734,19 +734,10 @@ function homeRows(d) {
     // One section per row, in the rows' order. Apps and inputs come from the TV, so they are hidden or shown;
     // channels are added, so they are removed.
     var hasChannels = !!(d.channels && d.channels.length);
-    var sortRow = function (kind) {
-      var recent = !!(lay.sort && lay.sort[kind] === 'recent');
-      return { label: t('home.sort', 'Order'), value: recent ? t('home.sortRecent', 'Last opened') : t('home.sortCustom', 'Your order'),
-               cls: 'act', act: can ? 'homeSort' : null, key: kind, on: recent,
-               press: recent ? t('tv.home.sort.custom', 'Press OK for your own order') : t('tv.home.sort.recent', 'Press OK to put the tile opened last first'),
-               hint: recent ? t('home.sortRecentDesc', 'The tile opened last comes first, whether it was opened from Native Tv Home or not. Tiles not yet opened follow in this row\u2019s own order.')
-                            : t('tv.home.sort.hint', 'As arranged on the browser dashboard’s Home tab.') };
-    };
     lay.rows.forEach(function (kind) {
       var order = c.order[kind] || [];
       if (kind === 'ch') {
         r.push(head(names.ch));
-        r.push(sortRow('ch'));
         order.forEach(function (id) {
           var title = homeItemTitle('ch', id);
           if (title === null) return;
@@ -762,7 +753,6 @@ function homeRows(d) {
       }
       if (!order.length) return;
       r.push(head(names[kind]));
-      r.push(sortRow(kind));
       order.forEach(function (id) {
         var title = homeItemTitle(kind, id);
         if (title === null) return;
@@ -2421,10 +2411,6 @@ function activate() {
       return homeLayout({ colours: r.key.id === homeData.colourPresets[0].id ? null : { text: r.key.text, accent: r.key.accent } });
     case 'homeOpen':
       return send({ action: 'launchApp', value: 'com.webos.app.home' });
-    case 'homeSort':
-      var sortNow = {};
-      sortNow[r.key] = r.on ? 'custom' : 'recent';
-      return homeLayout({ sort: sortNow }, r.on ? t('home.sortCustom', 'Your order') : t('home.sortRecent', 'Last opened'));
     case 'homeTile':
       var hiddenNow = {};
       hiddenNow[r.kind] = homeData.layout.hidden[r.kind].filter(function (id) { return id !== r.key; });

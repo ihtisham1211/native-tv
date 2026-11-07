@@ -139,17 +139,5 @@ void resolveHomeNetflixOpen(HomeOpenPlan &plan, const Json &lookup) {
                    "&source_type=4"));
 }
 
-bool homeOpenStampWanted(const Json &document, const std::string &row) {
-    return document["enabled"].boolean() &&
-           document["sort"][row].string() == "recent";
-}
-
-int64_t homeTileOpenWindowMilliseconds() { return 15000; }
-
-bool homeTileInputFresh(int64_t now, int64_t tileAt) {
-    return tileAt > 0 && now >= tileAt &&
-           now - tileAt < homeTileOpenWindowMilliseconds();
-}
-
 } // namespace service
 } // namespace nativetv

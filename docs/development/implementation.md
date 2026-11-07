@@ -1654,34 +1654,23 @@ takes the other's, and the view's next heartbeat brings the new `layoutVersion`.
 keys, so profiles cannot nest; there are at most five, with names of up to 20 characters and colours from the kit's six.
 `/api/home` and `/api/home/catalogue` carry `profiles` and `profile`.
 
-A row set to Last opened (`sort` in `home.json`) is ordered by
-`home-recent.json`, the time each tile id was last opened. sam's foreground
-app gives apps and HDMI inputs, an input as `hdmiN`, which counts for every
-device on it; a device's own tile records that device and keeps the input
-switch it causes from counting for the others. Live TV's channel is read from
-`utp.boot/getLastChannelId` when Live TV leaves the foreground, since changing
-channel within it changes nothing in front, and when the catalogue is asked
-for while Live TV is still in front: on a G3 the view asks about 0.2 s before
-sam names it. The catalogue waits for that read. Only rows set to Last opened are
-recorded, and a row going back to its own order is forgotten.
-
-The apps row's third order, By kind (`sort.app: "kind"`), groups the apps by a
-table in `service/app_kinds.cpp`: an app's id, then its title keyed as the icon
+The apps are always grouped by kind (the layout has no `sort`: a document or a body that still carries one is read without
+it, and nothing is recorded of what was opened last). The grouping uses a table in `service/app_kinds.cpp`: an app's id, then its title keyed as the icon
 pack keys titles, then LG's own id prefixes, else `other`. The catalogue gives
 each app its `kind` and lists `kinds` (key and label) in the layout's `kinds`
 order, which `/api/home/layout` saves after dropping unknown keys and appending
 missing ones; the TV client builds one row per non-empty kind from them, and a
 long press on a row of the Apps screen moves it, posting the new `kinds`.
 
-Editing the apps (a long press on an app of Home's apps row or the Apps grid) saves in one `/api/home/layout` request: `order.app`
-(`orderAfterMove` in `domain/home.cpp`, which leaves the hidden apps where they were), `sort.app: "custom"` unless the apps are by
-kind, and `hidden.app` (Home's row) or `hidden.appsTab` (the Apps page) when one was hidden or shown. The two lists are independent:
+Editing the apps (a long press on an app of Home's apps row, or on the Apps page when it has one kind) saves in one `/api/home/layout` request: `order.app`
+(`orderAfterMove` in `domain/home.cpp`, which leaves the hidden apps where they were), and `hidden.app` (Home's row) or
+`hidden.appsTab` (the Apps page) when one was hidden or shown. The two lists are independent:
 `home_profiles.cpp` keeps `hidden.appsTab` next to `hidden.app`, seeds it from `hidden.app` the first time a layout without it is
 normalised (so what was hidden, LG's promotions included, stays hidden on the Apps page), and gives a reset and a new profile the
 same defaults in both. The client's `catalogueRow` leaves out the list that applies (`hiddenIds`: `app`, `dev`, `ch` or
 `appsTab`; a catalogue with no `appsTab` falls back to `app`, as the seed does). `appsRow(…, withHidden, list)` lists the hidden
-apps of that list, flagged, last, and is used while editing, Home's row with `app` and the Apps page with `appsTab`. The order and
-the sort are shared by both. An app hidden under Hide home screen system apps is dropped from the catalogue itself
+apps of that list, flagged, last, and is used while editing, Home's row with `app` and the Apps page with `appsTab`. The order
+is shared by both. An app hidden under Hide home screen system apps is dropped from the catalogue itself
 (`homeCatalogueApps` skips launch points that are not visible), so it is on neither list's page whatever the lists say. The client
 applies the saved values to its copy of the catalogue at once, and the next read replaces them.
 

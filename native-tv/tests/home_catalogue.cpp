@@ -1,31 +1,7 @@
 #include "service/home_catalogue.hpp"
 #include "service/home_profiles.hpp"
 #include <cassert>
-#include <cstdlib>
-#include <fstream>
 #include <string>
-#include <sys/stat.h>
-#include <unistd.h>
-
-namespace {
-class TemporaryDirectory {
-  public:
-    TemporaryDirectory() {
-        char pattern[] = "/tmp/nativetv-home-catalogue-XXXXXX";
-        char *created = mkdtemp(pattern);
-        assert(created);
-        path_ = created;
-    }
-    ~TemporaryDirectory() {
-        (void)unlink((path_ + "/home-recent.json").c_str());
-        (void)rmdir(path_.c_str());
-    }
-    const std::string &path() const { return path_; }
-
-  private:
-    std::string path_;
-};
-} // namespace
 
 int main() {
     using namespace nativetv;
@@ -73,7 +49,6 @@ int main() {
 
     const Json rawDocument = Json::parse(
         R"({"channels":["channel-1","channel-2"],
-           "sort":{"app":"recent","dev":"recent","ch":"recent"},
            "order":{"app":["com.webos.app.netflix"],"dev":["hdmi1"]},
            "profiles":[{"id":"p1","name":"Kids","color":"#F2B8B5"}],"profile":"p1"})");
     const Json document = service::normalizeHomeDocument(rawDocument);
@@ -81,18 +56,14 @@ int main() {
         R"([{"id":"channel-1","number":"1","name":"One","radio":false},
             {"id":"unselected","number":"2","name":"Other","radio":false},
             {"id":"channel-2","number":"3","name":"Two","radio":true}])");
-    const Json recent = Json::parse(
-        R"({"app":{"com.webos.app.netflix":5,"com.webos.app.youtube":1},
-           "dev":{"hdmi2":4,"hdmi2:game-console":10},
-           "ch":{"channel-1":9,"channel-2":1}})");
     const Json totals = Json::parse(R"({"netflix":10,"youtube":80})");
     const Json catalogue = service::homeCatalogue(document, apps, devices, channels,
-                                                   true, recent, totals, true);
+                                                   true, totals, true);
     assert(catalogue["apps"][0]["id"].string() == "com.webos.app.youtube");
     assert(catalogue["order"]["app"][0].string() == "com.webos.app.netflix");
     assert(catalogue["order"]["app"][1].string() == "com.webos.app.youtube");
     assert(catalogue["order"]["app"][3].string() == "lg-home");
-    assert(catalogue["order"]["dev"][0].string() == "hdmi2:game-console");
+    assert(catalogue["order"]["dev"][0].string() == "hdmi1");
     assert(catalogue["order"]["dev"][1].string() == "hdmi2:av-receiver");
     assert(catalogue["order"]["ch"][0].string() == "channel-1");
     assert(catalogue["order"]["ch"][1].string() == "channel-2");
@@ -108,14 +79,9 @@ int main() {
            catalogue["kinds"][6]["key"].string() == "other");
 
     const Json withoutChannels = service::homeCatalogue(
-        document, apps, devices, Json::parse("null"), false, recent, totals, false);
+        document, apps, devices, Json::parse("null"), false, totals, false);
     assert(withoutChannels["channels"].size() == 0);
     assert(!withoutChannels["sources"]["channels"].valid());
 
-    TemporaryDirectory root;
-    std::ofstream recentFile((root.path() + "/home-recent.json").c_str());
-    recentFile << R"({"app":{"com.webos.app.netflix":20}})";
-    recentFile.close();
-    assert(service::readHomeRecent(root.path())["app"]["com.webos.app.netflix"].number() == 20);
     return 0;
 }

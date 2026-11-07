@@ -48,7 +48,6 @@ struct HeroArt {
 struct HomeState {
     size_t tab = 0, row = 0, column = 0, nav = 0;
     bool navigation = false;
-    bool grid = false; // the Apps tab as one grid; false while its apps are grouped in rows by kind
     bool arranging = false; // a kind's row is lifted as a card: its apps are edited, the card moved
     bool carrying = false;     // ... and the focused app on it is picked up: Left and Right move it
     bool carryingKind = false; // ... or the card is picked up: Up and Down move it

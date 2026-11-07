@@ -80,14 +80,14 @@ int main() {
               "An app hidden on the Apps page is still on Home's row");
         Json hiddenGrid = hiddenByKind;
         hiddenGrid.set("layout", Json::parse(
-            R"({"rows":["app"],"hidden":{"app":["c"],"appsTab":["a"]},"sort":{"app":"custom"},"showLgHome":false})"));
+            R"({"rows":["app"],"hidden":{"app":["c"],"appsTab":["a"]},"showLgHome":false})"));
         auto gridRows = homeRows("apps", hiddenGrid, Json(), Json());
-        check(gridRows.size() == 1 && gridRows[0].cards.size() == 2 &&
-                  gridRows[0].cards[0].id == "b" && gridRows[0].cards[1].id == "c",
-              "The Apps grid leaves out what the Apps page hides, and keeps what only Home hides");
+        check(gridRows.size() == 2 && gridRows[0].cards.size() == 1 && gridRows[1].cards.size() == 1 &&
+                  gridRows[0].cards[0].id == "b" && gridRows[1].cards[0].id == "c",
+              "The Apps page leaves out what it hides, and keeps what only Home hides");
         homeApps = homeRows("home", hiddenGrid, Json(), Json());
-        check(homeApps[0].cards.size() == 2 && homeApps[0].cards[0].id == "a" &&
-                  homeApps[0].cards[1].id == "b",
+        check(homeApps[0].cards.size() == 2 && homeApps[0].cards[0].id == "b" &&
+                  homeApps[0].cards[1].id == "a",
               "Home's row leaves out what Home hides, and keeps what only the Apps page hides");
         CardRow pageShown = appsRow(hiddenGrid, Json(), false, "appsTab"),
                 pageListed = appsRow(hiddenGrid, Json(), true, "appsTab"),
@@ -100,7 +100,7 @@ int main() {
         // A catalogue from before the Apps page had a list hides there what Home hides.
         Json oldCatalogue = hiddenByKind;
         oldCatalogue.set("layout", Json::parse(
-            R"({"rows":["app"],"hidden":{"app":["b"]},"sort":{"app":"custom"},"showLgHome":false})"));
+            R"({"rows":["app"],"hidden":{"app":["b"]},"showLgHome":false})"));
         check(homeRows("apps", oldCatalogue, Json(), Json())[0].cards.size() == 2,
               "Without an Apps page list the page hides what Home hides");
         Json movedOrder = Json::parse(R"(["a","h","b","c"])");

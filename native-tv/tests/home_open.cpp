@@ -142,30 +142,6 @@ int main() {
     plan = planHomeOpen("ch", "channel-1", apps, devices, Json());
     assert(plan.handled && !plan.ok);
 
-    // An opened row is recorded only while Native Tv Home is on and the row
-    // sorts by Last opened.
-    Json document = Json::object();
-    document.set("enabled", Json::flag(true));
-    Json sort = Json::object();
-    sort.set("app", Json::text("recent"));
-    sort.set("dev", Json::text("manual"));
-    sort.set("ch", Json::text("recent"));
-    document.set("sort", sort);
-    assert(homeOpenStampWanted(document, "app"));
-    assert(!homeOpenStampWanted(document, "dev"));
-    assert(homeOpenStampWanted(document, "ch"));
-    document.set("enabled", Json::flag(false));
-    assert(!homeOpenStampWanted(document, "app"));
-
-    // The input arriving in front within the window is a device tile, not the
-    // remote.
-    const int64_t window = homeTileOpenWindowMilliseconds();
-    assert(homeTileInputFresh(5000, 0) == false);
-    assert(homeTileInputFresh(5000, 5000));
-    assert(homeTileInputFresh(5000 + window - 1, 5000));
-    assert(!homeTileInputFresh(5000 + window, 5000));
-    assert(!homeTileInputFresh(4000, 5000));
-
     std::cout << "Native Home open passed.\n";
     return 0;
 }

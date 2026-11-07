@@ -12,7 +12,7 @@ namespace {
 const char *kRows[] = {"app", "dev", "ch"};
 const char *kColors[] = {"#a8c7fa", "#f2b8b5", "#6dd58c", "#ffb74d",
                          "#7fcfff", "#d0bcff"};
-const char *kLayoutKeys[] = {"rows", "order", "sort", "hidden", "kinds", "channels",
+const char *kLayoutKeys[] = {"rows", "order", "hidden", "kinds", "channels",
                              "picture", "appNames", "clockFormat", "showInputs",
                              "showLgHome", "showLive", "colours"};
 const char *kPromoApps[] = {"com.webos.app.lgchannels",
@@ -145,12 +145,10 @@ Json defaultDocument() {
     document.set("restorePending", Json::flag(false));
     Json rows = Json::array();
     Json order = Json::object();
-    Json sort = Json::object();
     Json hidden = Json::object();
     for (size_t i = 0; i < kRowCount; ++i) {
         rows.add(Json::text(kRows[i]));
         order.set(kRows[i], Json::array());
-        sort.set(kRows[i], Json::text("custom"));
         hidden.set(kRows[i], Json::array());
     }
     Json hiddenApps = Json::array();
@@ -161,7 +159,6 @@ Json defaultDocument() {
     hidden.set("appsTab", hiddenApps);
     document.set("rows", rows);
     document.set("order", order);
-    document.set("sort", sort);
     document.set("hidden", hidden);
     document.set("channels", Json::array());
     document.set("picture", Json::flag(false));
@@ -299,15 +296,10 @@ Json normalizeHomeDocument(const Json &raw) {
     result.set("rows", strings(validRows));
 
     Json order = Json::object();
-    Json sort = Json::object();
     Json hidden = Json::object();
     for (size_t i = 0; i < kRowCount; ++i) {
         const std::string row = kRows[i];
         order.set(row, strings(rowValues(raw["order"], row)));
-        const std::string sortValue = raw["sort"][row].string();
-        // Only the apps have kinds to group by.
-        const bool byKind = row == "app" && sortValue == "kind";
-        sort.set(row, Json::text(sortValue == "recent" ? "recent" : byKind ? "kind" : "custom"));
         std::vector<std::string> hiddenValues = rowValues(raw["hidden"], row);
         if (row == "app") {
             hiddenValues.erase(std::remove(hiddenValues.begin(), hiddenValues.end(), kHomeTile),
@@ -336,7 +328,6 @@ Json normalizeHomeDocument(const Json &raw) {
     order.set("ch", Json::array());
     hidden.set("ch", Json::array());
     result.set("order", order);
-    result.set("sort", sort);
     result.set("hidden", hidden);
     result.set("kinds", strings(kindOrder(raw["kinds"])));
     result.set("channels", strings(channels));
@@ -437,21 +428,17 @@ HomeDocumentUpdate updateHomeLayout(const Json &input, const Json &body) {
         if (current.has(key)) proposed.set(key, current[key]);
     proposed.set("rows", body.has("rows") ? body["rows"] : current["rows"]);
     Json nextOrder = Json::object();
-    Json nextSort = Json::object();
     Json nextHidden = Json::object();
     for (const char *row : kRows) {
         const std::string name = row;
         nextOrder.set(name, body["order"].isObject() && body["order"].has(name)
             ? body["order"][name] : current["order"][name]);
-        nextSort.set(name, body["sort"].isObject() && body["sort"].has(name)
-            ? body["sort"][name] : current["sort"][name]);
         nextHidden.set(name, body["hidden"].isObject() && body["hidden"].has(name)
             ? body["hidden"][name] : current["hidden"][name]);
     }
     nextHidden.set("appsTab", body["hidden"].isObject() && body["hidden"].has("appsTab")
         ? body["hidden"]["appsTab"] : current["hidden"]["appsTab"]);
     proposed.set("order", nextOrder);
-    proposed.set("sort", nextSort);
     proposed.set("hidden", nextHidden);
     proposed.set("kinds", body.has("kinds") ? body["kinds"] : current["kinds"]);
     const Json channelOrder = body["order"].isObject() && body["order"]["ch"].isArray()
@@ -469,7 +456,7 @@ HomeDocumentUpdate updateHomeLayout(const Json &input, const Json &body) {
     Json next = normalizeHomeDocument(proposed);
     if (body["reset"].boolean()) {
         const Json defaults = defaultDocument();
-        const char *resetKeys[] = {"rows", "order", "sort", "hidden", "showInputs",
+        const char *resetKeys[] = {"rows", "order", "hidden", "showInputs",
                                    "showLgHome", "showLive"};
         for (const char *key : resetKeys) next.set(key, defaults[key]);
         next.set("kinds", strings(kindOrder(Json())));

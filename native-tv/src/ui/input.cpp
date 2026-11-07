@@ -61,21 +61,14 @@ void Application::key(Key key) {
             if (key == Key::Up)
                 home.navigation = true; // nothing to move on: Up reaches the bar
         } else {
-            bool grid = home.grid;
             if (key == Key::Up) {
-                if (grid && home.column >= 6)
-                    home.column -= 6;
-                else if (home.row)
+                if (home.row)
                     --home.row;
                 else
                     home.navigation = true;
             }
-            if (key == Key::Down) {
-                if (grid && home.column + 6 < home.rows[home.row].cards.size())
-                    home.column += 6;
-                else if (!grid && home.row + 1 < home.rows.size())
-                    ++home.row;
-            }
+            if (key == Key::Down && home.row + 1 < home.rows.size())
+                ++home.row;
             if (key == Key::Left && home.column)
                 --home.column;
             if (key == Key::Right && home.column + 1 < home.rows[home.row].cards.size())
@@ -256,7 +249,7 @@ void Application::longPress() {
     // On the Apps tab with the apps sorted by kind, holding OK lifts the focused row as a card whose
     // apps are edited and which can be moved among the kinds; on any other app it starts editing the
     // apps; anywhere else it does nothing (the recent apps are Back held).
-    if (!home.grid && !home.navigation && !home.tabs.empty() &&
+    if (!home.navigation && !home.tabs.empty() &&
         home.tabs[home.tab].key == "apps" && home.rows.size() > 1) {
         homeKindEditStart();
         return;
@@ -302,7 +295,6 @@ void Application::homeEditKey(Key key) {
         return;
     }
     auto &cards = home.rows[home.row].cards;
-    const long columns = static_cast<long>(home::kGridColumns);
     if (key == Key::Red || key == Key::Delete) {
         homeEditDone(true);
         return;
@@ -321,7 +313,7 @@ void Application::homeEditKey(Key key) {
         homeEditDone(cards[home.column].hidden);
         return;
     }
-    if (key == Key::Up && (!home.grid || home.column < static_cast<size_t>(columns))) {
+    if (key == Key::Up) {
         home.editHide = true;
         return;
     }
@@ -330,18 +322,13 @@ void Application::homeEditKey(Key key) {
         target -= 1;
     else if (key == Key::Right)
         target += 1;
-    else if (home.grid && key == Key::Up)
-        target -= columns;
-    else if (home.grid && key == Key::Down)
-        target += columns;
     if (target < 0 || target >= static_cast<long>(cards.size()) ||
         target == static_cast<long>(home.column))
         return;
-    // Hidden apps only take the focus, and so do apps of another kind while the apps are sorted
-    // by kind (an app stays among its kind); the others swap places.
+    // Hidden apps only take the focus, and so do apps of another kind (an app stays among its kind);
+    // the others swap places.
     const Card &from = cards[home.column], &to = cards[static_cast<size_t>(target)];
-    const bool byKind = state_.catalogue["layout"]["sort"]["app"].string() == "kind";
-    if (!from.hidden && !to.hidden && !(byKind && kindOf(from) != kindOf(to)))
+    if (!from.hidden && !to.hidden && kindOf(from) == kindOf(to))
         std::swap(cards[home.column], cards[static_cast<size_t>(target)]);
     home.column = static_cast<size_t>(target);
 }
@@ -397,28 +384,17 @@ void Application::saveApps(const std::string &list, const std::vector<std::strin
     Json order = Json::array();
     for (const auto &id : orderAfterMove(state_.catalogue["order"]["app"], shown))
         order.add(Json::text(id));
-    const bool byKind = state_.catalogue["layout"]["sort"]["app"].string() == "kind";
     Json body = Json::object();
-    if (moved) {
-        // A move among the apps of a kind keeps the apps sorted by kind; any other makes the
-        // order the person's own.
+    if (moved)
         body.set("order", fields({{"app", order}}));
-        if (!byKind)
-            body.set("sort", fields({{"app", Json::text("custom")}}));
-    }
     if (hiddenChanged)
         body.set("hidden", fields({{list, hiddenNow}}));
     if (kinds.isArray())
         body.set("kinds", kinds);
     auto object = [](const Json &value) { return value.isObject() ? value : Json::object(); };
     Json orderAll = object(state_.catalogue["order"]), layout = object(state_.catalogue["layout"]);
-    if (moved) {
+    if (moved)
         orderAll.set("app", order);
-        Json sort = object(layout["sort"]);
-        if (!byKind)
-            sort.set("app", Json::text("custom"));
-        layout.set("sort", sort);
-    }
     if (hiddenChanged) {
         Json hiddenAll = object(layout["hidden"]);
         if (!hiddenAll["appsTab"].isArray()) // the server's migration: the Apps page starts as Home's

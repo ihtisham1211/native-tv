@@ -87,14 +87,15 @@ int main() {
     assert(fresh["hidden"]["app"].size() == 5 && fresh["hidden"]["appsTab"].dump() ==
                                                     fresh["hidden"]["app"].dump());
 
-    // The apps row can be grouped by kind (the other rows cannot); the kinds keep the owner's
-    // order, an unknown kind drops out and the missing ones follow in their default order.
+    // The apps are always grouped by kind and the layout has no sort: a document or a body that still
+    // carries one is read without it. The kinds keep the owner's order, an unknown kind drops out and
+    // the missing ones follow in their default order.
     assert(document["kinds"].size() == 7 && document["kinds"][0].string() == "video" &&
            document["kinds"][6].string() == "other");
+    assert(!document["sort"].valid());
     Json kindLayout = Json::object();
     Json kindSort = Json::object();
-    kindSort.set("app", Json::text("kind"));
-    kindSort.set("dev", Json::text("kind"));
+    kindSort.set("app", Json::text("recent"));
     kindLayout.set("sort", kindSort);
     Json kinds = Json::array();
     kinds.add(Json::text("games"));
@@ -103,8 +104,7 @@ int main() {
     kindLayout.set("kinds", kinds);
     HomeDocumentUpdate byKind = updateHomeLayout(document, kindLayout);
     assert(byKind.response["ok"].boolean() && byKind.changed);
-    assert(byKind.document["sort"]["app"].string() == "kind");
-    assert(byKind.document["sort"]["dev"].string() == "custom");
+    assert(!byKind.document["sort"].valid() && !byKind.response["layout"]["sort"].valid());
     assert(byKind.document["kinds"].size() == 7 && byKind.document["kinds"][0].string() == "games" &&
            byKind.document["kinds"][1].string() == "video" &&
            byKind.document["kinds"][2].string() == "music");
@@ -112,8 +112,7 @@ int main() {
     Json resetBody = Json::object();
     resetBody.set("reset", Json::flag(true));
     HomeDocumentUpdate afterReset = updateHomeLayout(byKind.document, resetBody);
-    assert(afterReset.document["sort"]["app"].string() == "custom" &&
-           afterReset.document["kinds"][0].string() == "video");
+    assert(!afterReset.document["sort"].valid() && afterReset.document["kinds"][0].string() == "video");
     HomeDocumentUpdate resetPage = updateHomeLayout(savedPage.document, resetBody);
     assert(resetPage.document["hidden"]["app"].size() == 5 &&
            resetPage.document["hidden"]["appsTab"].dump() == resetPage.document["hidden"]["app"].dump());

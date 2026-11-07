@@ -174,23 +174,23 @@ CardRow catalogueRow(const std::string &kind, const Json &catalogue, const Json 
     row.cards.insert(row.cards.end(), hiddenCards.begin(), hiddenCards.end());
     return row;
 }
-// The apps as one row or, with the apps sorted by kind, one row per kind in the owner's order.
+// The apps as one row per kind, in the owner's order of the kinds.
 // `list` names the hidden apps that are left out: Home's ("app") or the Apps tab's ("appsTab").
 std::vector<CardRow> appRows(const Json &catalogue, const Json &guide, const std::string &list) {
     CardRow all = catalogueRow("app", catalogue, guide, false, list);
     std::vector<CardRow> rows;
-    if (catalogue["layout"]["sort"]["app"].string() == "kind")
-        for (const auto &kind : catalogue["kinds"].items()) {
-            CardRow row;
-            row.key = "app";
-            row.group = kind["key"].string();
-            row.title = kind["label"].string(row.group);
-            for (const Card &card : all.cards)
-                if (kindOf(card) == row.group)
-                    row.cards.push_back(card);
-            if (!row.cards.empty())
-                rows.push_back(row);
-        }
+    for (const auto &kind : catalogue["kinds"].items()) {
+        CardRow row;
+        row.key = "app";
+        row.group = kind["key"].string();
+        row.title = kind["label"].string(row.group);
+        for (const Card &card : all.cards)
+            if (kindOf(card) == row.group)
+                row.cards.push_back(card);
+        if (!row.cards.empty())
+            rows.push_back(row);
+    }
+    // A catalogue with no kinds (an older daemon's) shows the apps as one row.
     if (rows.empty())
         rows.push_back(all);
     return rows;

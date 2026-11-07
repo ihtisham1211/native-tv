@@ -240,7 +240,6 @@
       "name": "apps-kinds",
       "time": 3200,
       "fixture": "home",
-      "sort": "kind",
       "args": [
         "--screen",
         "home"
@@ -272,7 +271,6 @@
       "name": "apps-arrange",
       "time": 3400,
       "fixture": "home",
-      "sort": "kind",
       "args": [
         "--screen",
         "home"

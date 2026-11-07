@@ -4985,21 +4985,18 @@
     {
       "id": "E2E-120",
       "title": "Arranging the kinds on the Apps tab",
-      "purpose": "With the apps sorted by kind, the Apps tab is one row per kind. A long press on a row lifts it, Down moves it under the next row with the focus travelling along, OK saves the kinds' order to the server (the focused row keeps its place after the catalogue is read again), a second long press and Up move it back, and Back puts the server's order back without saving. The case sets the apps' order to By kind first and ends with it at Your order and the kinds in their default order, which is how a TV that never chose it stores them. The B3's first kind is Movies & TV (LG Channels, Netflix, YouTube, Peacock); a TV with no app of that kind does not pass.",
+      "purpose": "The Apps tab is one row per kind. A long press on a row lifts it as a card; Up reaches its buttons, Move kind picks the card up, Down moves it under the next row with the focus travelling along, OK puts it down and Back finishes and saves the kinds' order to the server (the focused row keeps its place after the catalogue is read again); a second long press, Move kind and Up move it back, and Back saves that. The case sets the kinds to their default order first and ends with them there, which is how a TV that never moved them stores them. The B3's first kind is Movies & TV (LG Channels, Netflix, YouTube, Peacock); a TV with no app of that kind does not pass.",
       "kind": "run",
       "requires": [
         "control"
       ],
       "screen": "home",
       "script": "home-arrange.json",
-      "durationMs": 16500,
+      "durationMs": 20500,
       "before": [
         {
           "api": "POST /api/home/layout",
           "body": {
-            "sort": {
-              "app": "kind"
-            },
             "kinds": [
               "video",
               "music",
@@ -5019,9 +5016,6 @@
         {
           "api": "POST /api/home/layout",
           "body": {
-            "sort": {
-              "app": "custom"
-            },
             "kinds": [
               "video",
               "music",
@@ -5040,10 +5034,10 @@
       "steps": [
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
         "Read the server's port from the TV, as deploy.py does (the access token is never read).",
-        "POST /api/home/layout with the apps sorted by kind and the kinds in their default order.",
-        "Send the script over ssh and run the client for 16.5 s through the app's jailer: Up twice and Right reach the Apps tab, OK opens it on the first kind's row; a long press lifts the row, Down moves it under the next one, OK saves; a second long press and Up move it back up, and Back puts the server's order back.",
+        "POST /api/home/layout with the kinds in their default order.",
+        "Send the script over ssh and run the client for 20.5 s through the app's jailer: Up twice and Right reach the Apps tab, OK opens it on the first kind's row; a long press lifts the row, Up and Right reach Move kind, OK picks the card up, Down moves it under the next one, OK puts it down and Back saves; a second long press, Move kind and Up move it back up, and Back saves that.",
         "Read the report and judge the checkpoints.",
-        "Always, even after a failure: POST /api/home/layout with the apps back in Your order and the kinds in their default order; delete the script and the lock folder."
+        "Always, even after a failure: POST /api/home/layout with the kinds in their default order; delete the script and the lock folder."
       ],
       "criteria": {
         "exitCode": 0,
@@ -5110,17 +5104,17 @@
             "equals": "video"
           },
           {
-            "name": "cancelled",
+            "name": "restored",
             "path": "arranging",
             "equals": false
           },
           {
-            "name": "cancelled",
+            "name": "restored",
             "path": "row",
-            "equals": 1
+            "equals": 0
           },
           {
-            "name": "cancelled",
+            "name": "restored",
             "path": "rowGroup",
             "equals": "video"
           }
@@ -5240,8 +5234,7 @@
             "enabled": true,
             "active": true,
             "nativeHome.halted": false,
-            "nativeHome.crashes.recentExits": 0,
-            "layout.sort.app": "custom"
+            "nativeHome.crashes.recentExits": 0
           }
         },
         {
@@ -5816,11 +5809,6 @@
                 "com.webos.app.lifeonscreen"
               ],
               "dev": []
-            },
-            "sort": {
-              "app": "custom",
-              "dev": "custom",
-              "ch": "custom"
             }
           },
           "expect": {
@@ -6825,9 +6813,6 @@
         {
           "api": "POST /api/home/layout",
           "body": {
-            "sort": {
-              "app": "custom"
-            },
             "order": {
               "app": []
             },

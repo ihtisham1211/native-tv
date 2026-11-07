@@ -20,8 +20,6 @@ const char *kHomeApp = "com.tvweb.home";
 const char *kLgHomeApp = "com.webos.app.home";
 const char *kHomeTile = "lg-home";
 const char *kSidebarApps[] = {"com.webos.app.notificationcenter", "com.webos.app.voice"};
-const char *kRows[] = {"app", "dev", "ch"};
-const size_t kMaximumRecentBytes = 1024 * 1024;
 
 bool truthy(const Json &value) {
     if (!value.valid()) return false;
@@ -248,55 +246,6 @@ Json jsonStrings(const std::vector<std::string> &values) {
     return result;
 }
 
-Json recentOrder(const std::string &row, const std::vector<std::string> &ids,
-                 const Json &recent) {
-    const Json times = recent[row];
-    std::vector<std::pair<std::string, double>> ranked;
-    for (const std::string &id : ids) {
-        if (id == kHomeTile) continue;
-        double stamp = times[id].number();
-        if (row == "dev") {
-            const size_t colon = id.find(':');
-            if (colon != std::string::npos)
-                stamp = std::max(stamp, times[id.substr(0, colon)].number());
-        }
-        ranked.emplace_back(id, stamp);
-    }
-    std::stable_sort(ranked.begin(), ranked.end(), [](const auto &left, const auto &right) {
-        return left.second > right.second;
-    });
-    std::vector<std::string> result;
-    for (const auto &entry : ranked) result.push_back(entry.first);
-    if (contains(ids, kHomeTile)) result.push_back(kHomeTile);
-    return jsonStrings(result);
-}
-
-bool readBounded(const std::string &path, std::string &contents) {
-    const int descriptor = open(path.c_str(), O_RDONLY | O_CLOEXEC | O_NOFOLLOW);
-    if (descriptor < 0) return false;
-    struct stat info = {};
-    bool ok = fstat(descriptor, &info) == 0 && S_ISREG(info.st_mode) &&
-              info.st_size >= 0 &&
-              static_cast<unsigned long long>(info.st_size) <= kMaximumRecentBytes;
-    contents.clear();
-    if (ok) {
-        char buffer[4096];
-        for (;;) {
-            const ssize_t count = read(descriptor, buffer, sizeof(buffer));
-            if (count < 0 && errno == EINTR) continue;
-            if (count < 0 || static_cast<size_t>(count) > kMaximumRecentBytes ||
-                contents.size() > kMaximumRecentBytes - static_cast<size_t>(count)) {
-                ok = false;
-                break;
-            }
-            if (count == 0) break;
-            contents.append(buffer, static_cast<size_t>(count));
-        }
-    }
-    close(descriptor);
-    if (!ok) contents.clear();
-    return ok;
-}
 } // namespace
 
 Json homeCatalogueApps(const Json &launchPointsReply, const Json &sidebarInfoReplies) {
@@ -414,8 +363,7 @@ Json homeCatalogueDevices(const Json &deviceReply) {
 
 Json homeCatalogue(const Json &document, const Json &apps, const Json &devices,
                    const Json &channels, bool channelsRequested,
-                   const Json &recent, const Json &historyTotals,
-                   bool historyEnabled) {
+                   const Json &historyTotals, bool historyEnabled) {
     std::vector<Json> appItems = apps.items();
     if (historyEnabled) {
         std::stable_sort(appItems.begin(), appItems.end(), [&historyTotals](const Json &left,
@@ -467,14 +415,10 @@ Json homeCatalogue(const Json &document, const Json &apps, const Json &devices,
     order.set("app", jsonStrings(ordered(savedOrder["app"], appIds)));
     order.set("dev", jsonStrings(ordered(savedOrder["dev"], deviceIds)));
     order.set("ch", jsonStrings(pickedIds));
-    const Json sort = document["sort"];
-    for (const char *row : kRows)
-        if (sort[row].string() == "recent")
-            order.set(row, recentOrder(row, strings(order[row]), recent));
 
     Json channelItems = Json::array();
     for (const Json &channel : pickedChannels) channelItems.add(channel);
-    // The kinds the apps group by when the row is sorted by kind, in the owner's order.
+    // The kinds the apps are grouped by, in the owner's order.
     Json kinds = Json::array();
     for (const Json &key : document["kinds"].items()) {
         Json kind = Json::object();
@@ -496,15 +440,6 @@ Json homeCatalogue(const Json &document, const Json &apps, const Json &devices,
                                  : Json::parse("null"));
     response.set("sources", sources);
     return response;
-}
-
-Json readHomeRecent(const std::string &dataRoot) {
-    const std::string root = dataRoot.empty() ? "/var/lib/tvweb" : dataRoot;
-    const std::string path = root + (root.back() == '/' ? "" : "/") + "home-recent.json";
-    std::string contents;
-    if (!readBounded(path, contents)) return Json::object();
-    const Json parsed = Json::parse(contents);
-    return parsed.isObject() ? parsed : Json::object();
 }
 
 } // namespace service

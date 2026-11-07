@@ -280,9 +280,7 @@ function renderHomeRows() {
   const filter = q('home-ch-filter') ? q('home-ch-filter').value : '';
   box.innerHTML = homeLayout.rows.map(kind => {
     const order = homeCat.order[kind] || [];
-    // A Last opened row is in the order the server sends; moving a tile means choosing Your order first.
-    const recent = homeSort(kind) === 'recent';
-    const movable = usable && !recent;
+    const movable = usable;
     const tiles = order.map((id, i) => {
       const it = homeItem(kind, id);
       if (!it) return '';
@@ -307,36 +305,14 @@ function renderHomeRows() {
     }).join('');
     return `<details class="home-row" data-kind="${kind}"${open.includes(kind) ? ' open' : ''}>
       <summary><span class="prot-title">${esc(HOME_ROWS[kind]())}</span></summary>
-      <div class="prot-table">${homeSortRow(kind, usable)}${kind === 'app' && homeSort('app') === 'kind' ? homeKindsRows(usable) : ''}${tiles || `<div class="sub">${esc(kind === 'ch' ? t('home.ch.empty', 'No channels yet. Add them below.') : t('home.rowEmpty', 'Nothing to show in this row yet.'))}</div>`}</div>
+      <div class="prot-table">${kind === 'app' ? homeKindsRows(usable) : ''}${tiles || `<div class="sub">${esc(kind === 'ch' ? t('home.ch.empty', 'No channels yet. Add them below.') : t('home.rowEmpty', 'Nothing to show in this row yet.'))}</div>`}</div>
       ${kind === 'ch' ? homeChannelPicker() : ''}
     </details>`;
   }).join('');
   if (q('home-ch-filter')) q('home-ch-filter').value = filter;
 }
 
-// A row's order: custom, recent, or (the apps only) kind.
-function homeSort(kind) {
-  const value = homeLayout.sort && homeLayout.sort[kind];
-  return value === 'recent' || (value === 'kind' && kind === 'app') ? value : 'custom';
-}
-
-function homeSortRow(kind, usable) {
-  const sort = homeSort(kind);
-  return `<div class="prot-row">
-    <div class="prot-main"><div class="prot-title"><label for="home-sort-${kind}">${esc(t('home.sort', 'Order'))}</label></div>
-      <div class="prot-desc">${esc(sort === 'recent'
-        ? t('home.sortRecentDesc', 'The tile opened last comes first, whether it was opened from Native Tv Home or not. Tiles not yet opened follow in this row’s own order.')
-        : sort === 'kind'
-          ? t('home.sortKindDesc', 'Rows by kind on the Apps screen, in the order under Kinds. Tiles keep their order within a kind.')
-          : t('home.sortCustomDesc', 'As arranged here.'))}</div></div>
-    <div class="prot-status"><select id="home-sort-${kind}" class="pill-sel" ${usable ? '' : 'disabled'} onchange="homeSetSort('${kind}', this.value)">
-      <option value="custom"${sort === 'custom' ? ' selected' : ''}>${esc(t('home.sortCustom', 'Your order'))}</option>
-      <option value="recent"${sort === 'recent' ? ' selected' : ''}>${esc(t('home.sortRecent', 'Last opened'))}</option>
-      ${kind === 'app' ? `<option value="kind"${sort === 'kind' ? ' selected' : ''}>${esc(t('home.sortKind', 'By kind'))}</option>` : ''}
-    </select></div></div>`;
-}
-
-// The kinds in their order, each with Earlier and Later, while the apps are sorted by kind.
+// The kinds in their order, each with Earlier and Later: the rows of the Apps screen.
 function homeKindsRows(usable) {
   const kinds = homeCat.kinds || [];
   return `<div class="prot-row"><div class="prot-main"><div class="prot-title">${esc(t('home.kinds', 'Kinds'))}</div>
@@ -356,11 +332,6 @@ function homeMoveKind(i, d) {
   if (j < 0 || j >= order.length) return;
   [order[i], order[j]] = [order[j], order[i]];
   homeSaveLayout({ kinds: order });
-}
-
-function homeSetSort(kind, value) {
-  if (value === homeSort(kind)) return;
-  homeSaveLayout({ sort: { [kind]: value } });
 }
 
 async function homeSaveLayout(patch) {

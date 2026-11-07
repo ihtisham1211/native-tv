@@ -121,8 +121,7 @@ size_t shownOf(const CardRow &row, bool named) {
 }
 // Whether the icons of the apps on the first screen of a page of `rows` have arrived (or can
 // not). Asking is also what starts their fetch, at the size the circles draw them at.
-bool iconsReady(Pictures *pictures, const std::vector<CardRow> &rows, bool grid, bool named,
-                double now) {
+bool iconsReady(Pictures *pictures, const std::vector<CardRow> &rows, bool named, double now) {
     if (!pictures)
         return true;
     bool ready = true;
@@ -130,8 +129,8 @@ bool iconsReady(Pictures *pictures, const std::vector<CardRow> &rows, bool grid,
         const CardRow &row = rows[r];
         if (!home::isApps(row))
             continue;
-        size_t shown = grid ? std::min(row.cards.size(), home::kGridColumns * 3) : shownOf(row, named);
-        int texels = pictureTexels(grid ? kit::layout::tileW : kit::layout::appD);
+        size_t shown = shownOf(row, named);
+        int texels = pictureTexels(kit::layout::appD);
         for (size_t c = 0; c < shown; ++c) {
             if (row.cards[c].image.empty())
                 continue;
@@ -250,8 +249,7 @@ void Application::homeData() {
         const bool homeTab = home.tabs[home.tab].key == "home";
         const bool feed = !homeTab || state_.discover.valid() || due(now_, flow_.waitFrom + 600);
         const bool icons = flow_.rowsEntered ||
-                           iconsReady(pictures_, home.rows, home.grid,
-                                      home.tabs[home.tab].key == "apps", now_) ||
+                           iconsReady(pictures_, home.rows, home.tabs[home.tab].key == "apps", now_) ||
                            due(now_, flow_.waitFrom + kIconWaitMs);
         if (feed && icons) {
             flow_.entered = true;
@@ -280,28 +278,18 @@ void Application::homePlayEntrance(size_t firstRow, size_t endRow) {
     Timeline timeline;
     Tween rise(1, 0, ms::base, easing(ease::out));
     motion_.set("pgx", 0); // the page was held hidden until now
-    if (home.grid) {
-        size_t count = home.rows.empty() ? 0 : home.rows[0].cards.size();
-        for (size_t i = 0; i < count && i < 30; ++i) // every tile that can be on screen
-            timeline.add(home::id("EC", 0, i),
-                         rise.delayedBy(stagger::pageBase +
-                                        stagger::pageItem *
-                                            std::min(static_cast<int>(i), stagger::pageItemMax)));
-        flow_.rowsEntered = home.rows.size();
-    } else {
-        const bool named = home::namesShown(home.tabs[home.tab].key, state_.catalogue["layout"]);
-        endRow = std::min(endRow, home.rows.size());
-        for (size_t r = firstRow; r < endRow && r < 3; ++r) {
-            double rowDelay = stagger::homeBase + stagger::homeRow * static_cast<double>(r);
-            timeline.add(home::id("ER", r), rise.delayedBy(rowDelay));
-            for (size_t c = 0; c < shownOf(home.rows[r], named); ++c)
-                timeline.add(home::id("EC", r, c),
-                             rise.delayedBy(rowDelay +
-                                            stagger::homeCell *
-                                                std::min(static_cast<int>(c), stagger::homeCellMax)));
-        }
-        flow_.rowsEntered = endRow;
+    const bool named = home::namesShown(home.tabs[home.tab].key, state_.catalogue["layout"]);
+    endRow = std::min(endRow, home.rows.size());
+    for (size_t r = firstRow; r < endRow && r < 3; ++r) {
+        double rowDelay = stagger::homeBase + stagger::homeRow * static_cast<double>(r);
+        timeline.add(home::id("ER", r), rise.delayedBy(rowDelay));
+        for (size_t c = 0; c < shownOf(home.rows[r], named); ++c)
+            timeline.add(home::id("EC", r, c),
+                         rise.delayedBy(rowDelay +
+                                        stagger::homeCell *
+                                            std::min(static_cast<int>(c), stagger::homeCellMax)));
     }
+    flow_.rowsEntered = endRow;
     timeline.play(motion_);
 }
 
@@ -365,32 +353,23 @@ void Application::homeFocus(bool jump) {
             glide(now, 1);
         flow_.focusId = now;
     }
-    bool grid = home.grid;
     for (size_t r = 0; r < home.rows.size(); ++r)
         glide(home::id("rd", r), !home.navigation && r != home.row ? 1 : 0);
     if (!home.navigation && home.row < home.rows.size()) {
         const CardRow &row = home.rows[home.row];
-        if (grid) {
-            double target = home::gridScrollTarget(home.column, row.cards.size());
-            if (jump)
-                motion_.set("gy", target);
-            else
-                motion_.spring("gy", target, springParams(kit::motion::spring::list));
-        } else {
-            std::string name = home::id("rx", home.row);
-            bool named = home::namesShown(home.tabs[home.tab].key, state_.catalogue["layout"]);
-            double target = kit::geometry::rowScrollTarget(
-                static_cast<int>(home.column), static_cast<int>(row.cards.size()),
-                home::itemWidth(row), home::itemGap(row, named));
-            if (jump)
-                motion_.set(name, target);
-            else
-                motion_.spring(name, target, springParams(kit::motion::spring::row));
-        }
+        std::string name = home::id("rx", home.row);
+        bool named = home::namesShown(home.tabs[home.tab].key, state_.catalogue["layout"]);
+        double target = kit::geometry::rowScrollTarget(
+            static_cast<int>(home.column), static_cast<int>(row.cards.size()),
+            home::itemWidth(row), home::itemGap(row, named));
+        if (jump)
+            motion_.set(name, target);
+        else
+            motion_.spring(name, target, springParams(kit::motion::spring::row));
     }
     // The apps row and the top picks share the hero's screen; the stack rises from the picks on.
-    const bool kindRows = home.tabs[home.tab].key == "apps" && !grid;
-    double stack = home.navigation || grid ? 0
+    const bool kindRows = home.tabs[home.tab].key == "apps";
+    double stack = home.navigation ? 0
                    : kindRows ? home::kindStackTarget(home.row, home.rows.size())
                               : kit::geometry::stackTarget(static_cast<int>(home.row) -
                                                            static_cast<int>(anchorRow(home)));
@@ -542,12 +521,11 @@ void Application::homeSelectTab(size_t tab) {
         return;
     flow_.pendingTab = static_cast<int>(tab);
     flow_.swapAt = now_ + kPageSwapMs;
-    // The Apps page's icons (a larger size than Home's) are asked for while the old page leaves,
-    // so its entrance does not wait for them.
+    // The Apps page's icons are asked for while the old page leaves, so its entrance does not wait
+    // for them.
     if (home.tabs[tab].key == "apps")
-        iconsReady(pictures_,
-                   homeRows("apps", state_.catalogue, state_.discover, state_.guide),
-                   state_.catalogue["layout"]["sort"]["app"].string() != "kind", true, now_);
+        iconsReady(pictures_, homeRows("apps", state_.catalogue, state_.discover, state_.guide), true,
+                   now_);
     motion_.tween("pgx", 1, ms::pageOut, easing(ease::out));
     motion_.tween("wall", showsHeroArt(home.tabs[tab].key) ? 1 : 0, ms::page, easing(ease::out));
     dirty_ = true;
