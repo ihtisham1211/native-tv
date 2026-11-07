@@ -344,7 +344,6 @@ class HttpFrontDoor {
     void persistHomeRecent(HttpExchange &exchange) const;
     void syncHomeAutoLaunch(HttpExchange &exchange) const;
     Json synchronizeHomeAutoLaunch(bool escaped) const;
-    Json recordHomeRecent(const std::string &row, const std::string &id) const;
     service::HomeRecentApps queryHomeRecentApps() const;
     Json homeChannelSnapshot(bool &tunerAvailable) const;
     void setNativeHomeScreen(HttpExchange &exchange) const;

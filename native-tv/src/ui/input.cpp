@@ -185,15 +185,17 @@ void Application::click(float x, float y) {
                                    : "dashboard");
             } else if (type == "arrange") {
                 if (state_.home.arranging) {
-                    if (argument == "hide")
-                        homeArrangeHide();
-                    else if (argument == "move") {
-                        state_.home.carrying = false;
-                        state_.home.carryingKind = true;
-                        state_.home.arrangeFocus = 2;
-                        homeFocus();
-                    } else
+                    if (argument == "done")
                         homeArrangeDone();
+                    else if (!state_.home.carrying) { // as with the keys, these wait until an app is put down
+                        if (argument == "hide")
+                            homeArrangeHide();
+                        else if (argument == "move") {
+                            state_.home.carryingKind = true;
+                            state_.home.arrangeFocus = 2;
+                            homeFocus();
+                        }
+                    }
                 }
             } else if (type == "edit") {
                 if (state_.home.editing)

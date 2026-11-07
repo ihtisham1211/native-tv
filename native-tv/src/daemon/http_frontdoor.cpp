@@ -1673,30 +1673,11 @@ bool containsJavascriptSuffix(const std::string &path) {
     return path.size() >= 3 && path.compare(path.size() - 3, 3, ".js") == 0;
 }
 
-Json stampHomeRecentHistoryFile(HomeRecentHistoryState &history,
-                                const std::string &row, const std::string &id,
-                                int64_t timestamp) {
-    std::lock_guard<std::mutex> lock(history.mutex);
-    JsonFile file(history.path, 512 * 1024);
-    const JsonFileResult stored = file.load();
-    if (!stored.error.empty() && !stored.found)
-        return stored.value.isObject() ? stored.value : Json::object();
-    const Json current = stored.found ? stored.value : Json::object();
-    const Json recent = service::stampHomeRecentHistory(current, row, id, timestamp);
-    std::string error;
-    if (!file.save(recent, &error)) return current;
-    return recent;
-}
-
 bool homeReservedApp(const std::string &appId) {
     return appId.empty() || appId == "com.tvweb.home" ||
            appId == kHomeClientApp || appId == "com.webos.app.home";
 }
 
-int64_t homeNowMilliseconds() {
-    return std::chrono::duration_cast<std::chrono::milliseconds>(
-        std::chrono::system_clock::now().time_since_epoch()).count();
-}
 } // namespace
 
 HttpFrontDoor::HttpFrontDoor(ServerConfig config, std::string version, std::string dataRoot,
@@ -7444,10 +7425,8 @@ void HttpFrontDoor::handleHomeLayoutPost(HttpExchange &exchange) const {
             const service::HomeDocumentUpdate update =
                 service::updateHomeLayout(current, body);
             response = update.response;
-            if (response["ok"].boolean()) {
+            if (response["ok"].boolean())
                 saved = file.save(update.document, &saveError);
-
-            }
         }
     }
     if (!saveError.empty() || (!response.valid() && !saved)) {
@@ -12763,13 +12742,6 @@ void HttpFrontDoor::setControl(HttpExchange &exchange) const {
                             {"Cache-Control", "no-store"},
                             {"X-Content-Type-Options", "nosniff"}},
                            response.dump());
-}
-
-Json HttpFrontDoor::recordHomeRecent(const std::string &row,
-                                     const std::string &id) const {
-    if (!homeRecentHistoryState_) return Json::object();
-    return stampHomeRecentHistoryFile(*homeRecentHistoryState_, row, id,
-                                      homeNowMilliseconds());
 }
 
 void HttpFrontDoor::clearAdCookiesControl(HttpExchange &exchange) const {
