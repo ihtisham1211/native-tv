@@ -493,8 +493,7 @@ int main() {
         home.key(Key::Up);
         check(home.snapshot()["navigation"].boolean(), "Up from the apps row focuses the bar");
         clockMs = run(home, clockMs, 900);
-        check(std::fabs(motion.value("sy")) < .5 && motion.value("pill:hot") == 1,
-              "The bar returns the stack to the top and turns the pill hot");
+        check(std::fabs(motion.value("sy")) < .5, "The bar returns the stack to the top");
 
         // The bar: the pill leads with the focus, the page follows after the focus rests.
         kit::LegacyGlyphs glyphs;

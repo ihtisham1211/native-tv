@@ -460,22 +460,19 @@ void barAndHero() {
           "The top bar offers the avatar, each tab and the settings button");
     const Node *pill = &bar.scene.nodes[0];
     check(sameRect(pill->rect, {tabs[0].x, 60, tabs[0].w, 72}) && pill->radius == 36 &&
-              sameColor(pill->color, kit::color::pillRest),
-          "The pill rests on the selected tab in the opaque rest colour");
+              sameColor(pill->color, kit::color::focusFill),
+          "The pill is the light focus fill on the selected tab");
     check(textAt(bar.scene, "10:11") &&
               sameRect(textAt(bar.scene, "10:11")->rect, kit::metrics::home::clock) &&
               textAt(bar.scene, "10:11")->align == Node::Align::Right &&
-              sameColor(textAt(bar.scene, "Home")->color, kit::color::onSurface) &&
+              textAt(bar.scene, "Native Tv") &&
+              sameRect(textAt(bar.scene, "Native Tv")->rect, kit::metrics::home::brand) &&
+              sameColor(textAt(bar.scene, "Home")->color, kit::color::onFocus) &&
               sameColor(textAt(bar.scene, "Apps")->color, kit::color::onSurface2),
-          "The clock is right-aligned at 1840; the selected tab reads brighter");
+          "The clock is right-aligned before the brand name at the margin; the selected tab reads dark on the pill");
     Fixture hot;
-    top.pillHot = 1;
     top.avatarFocus = 1;
     kit::topBar(hot.paint(), top);
-    check(sameColor(hot.scene.nodes[0].color, kit::color::focusFill) &&
-              sameColor(textAt(hot.scene, "Home")->color, kit::color::onFocus) &&
-              sameColor(textAt(hot.scene, "Apps")->color, kit::color::onSurface2),
-          "With focus on the bar the pill turns light and the selected tab dark");
     check(near(hot.scene.nodes[1].group.sx, 1.12f, 1e-5f), "A focused round button grows 12%");
     Fixture gone;
     top.pillAlpha = 0;

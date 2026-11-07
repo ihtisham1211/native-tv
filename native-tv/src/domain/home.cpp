@@ -96,8 +96,10 @@ std::string pictureLabel(const Json &picture) {
 }
 std::vector<Tab> homeTabs(const Json &catalogue) {
     std::vector<Tab> tabs = {{"home", "Home", Operation::None}};
+    // The tab needs channels: the TV's count when it gave one, else the channels added to Home. A count
+    // that did not come (null) is not a count of zero channels, nor a promise of any.
     if (catalogue["layout"]["showLive"].boolean() &&
-        catalogue["sources"]["channels"].number(-1) != 0)
+        (catalogue["sources"]["channels"].number(0) > 0 || catalogue["channels"].size() > 0))
         tabs.push_back({"live", "Live", Operation::None});
     tabs.push_back({"apps", "Apps", Operation::None});
     if (catalogue["layout"]["showInputs"].boolean(true) && catalogue["devices"].size())

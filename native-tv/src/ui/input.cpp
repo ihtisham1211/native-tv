@@ -190,6 +190,18 @@ void Application::click(float x, float y) {
                       : index == 1 ? "quick"
                       : index == 2 ? "search"
                                    : "dashboard");
+            } else if (type == "arrange") {
+                if (state_.home.arranging) {
+                    if (argument == "hide")
+                        homeArrangeHide();
+                    else if (argument == "move") {
+                        state_.home.carrying = false;
+                        state_.home.carryingKind = true;
+                        state_.home.arrangeFocus = 2;
+                        homeFocus();
+                    } else
+                        homeArrangeDone();
+                }
             } else if (type == "edit") {
                 if (state_.home.editing)
                     homeEditDone(true);
@@ -241,14 +253,12 @@ void Application::longPress() {
         homeEditDone(false); // the hold that started the edit is not a second request for it
         return;
     }
-    // On the Apps tab with the apps sorted by kind, holding OK lifts the focused row to be moved
-    // among the kinds; on any other app it starts editing the apps; anywhere else it does nothing
-    // (the recent apps are Back held).
+    // On the Apps tab with the apps sorted by kind, holding OK lifts the focused row as a card whose
+    // apps are edited and which can be moved among the kinds; on any other app it starts editing the
+    // apps; anywhere else it does nothing (the recent apps are Back held).
     if (!home.grid && !home.navigation && !home.tabs.empty() &&
         home.tabs[home.tab].key == "apps" && home.rows.size() > 1) {
-        home.arranging = true;
-        homeFocus();
-        dirty_ = true;
+        homeKindEditStart();
         return;
     }
     if (!home.navigation && home.row < home.rows.size() && home::isApps(home.rows[home.row]) &&
@@ -377,6 +387,13 @@ void Application::homeEditDone(bool toggle) {
             hiddenNow.add(id);
     if (toggle && !focusedHidden)
         hiddenNow.add(Json::text(focused));
+    saveApps(list, shown, moved, toggle, hiddenNow, Json());
+}
+// Saves the apps' order (`shown`: every app on the list in its new order), the hidden apps and, when
+// given, the kinds' order, in one request. The catalogue shows the save at once; the server's answer
+// replaces it on the next read.
+void Application::saveApps(const std::string &list, const std::vector<std::string> &shown, bool moved,
+                           bool hiddenChanged, const Json &hiddenNow, const Json &kinds) {
     Json order = Json::array();
     for (const auto &id : orderAfterMove(state_.catalogue["order"]["app"], shown))
         order.add(Json::text(id));
@@ -389,9 +406,10 @@ void Application::homeEditDone(bool toggle) {
         if (!byKind)
             body.set("sort", fields({{"app", Json::text("custom")}}));
     }
-    if (toggle)
+    if (hiddenChanged)
         body.set("hidden", fields({{list, hiddenNow}}));
-    // The catalogue shows the save at once; the server's answer replaces it on the next read.
+    if (kinds.isArray())
+        body.set("kinds", kinds);
     auto object = [](const Json &value) { return value.isObject() ? value : Json::object(); };
     Json orderAll = object(state_.catalogue["order"]), layout = object(state_.catalogue["layout"]);
     if (moved) {
@@ -401,16 +419,118 @@ void Application::homeEditDone(bool toggle) {
             sort.set("app", Json::text("custom"));
         layout.set("sort", sort);
     }
-    if (toggle) {
+    if (hiddenChanged) {
         Json hiddenAll = object(layout["hidden"]);
         if (!hiddenAll["appsTab"].isArray()) // the server's migration: the Apps page starts as Home's
             hiddenAll.set("appsTab", hiddenAll["app"].isArray() ? hiddenAll["app"] : Json::array());
         hiddenAll.set(list, hiddenNow);
         layout.set("hidden", hiddenAll);
     }
+    if (kinds.isArray()) {
+        layout.set("kinds", kinds);
+        Json ordered = Json::array();
+        for (const Json &key : kinds.items())
+            for (const Json &kind : state_.catalogue["kinds"].items())
+                if (kind["key"].string() == key.string())
+                    ordered.add(kind);
+        state_.catalogue.set("kinds", ordered);
+    }
     state_.catalogue.set("order", orderAll);
     state_.catalogue.set("layout", layout);
     rebuildHome();
     execute(post(Operation::SetHomeLayout, body));
+}
+
+// ---- Editing a kind's card on the Apps page -------------------------------------------------------
+
+// Holding OK on an app of the Apps page sorted by kind lifts its kind's row as a card: the kind's apps
+// (the hidden ones last, dimmed, to be shown again) are edited on it and Up and Down move the card.
+void Application::homeKindEditStart() {
+    auto &home = state_.home;
+    CardRow &row = home.rows[home.row];
+    const std::string focused = row.cards[home.column].id;
+    row.cards.clear();
+    for (const Card &card : appsRow(state_.catalogue, state_.guide, true, editedList()).cards)
+        if (kindOf(card) == row.group)
+            row.cards.push_back(card);
+    home.column = 0;
+    for (size_t i = 0; i < row.cards.size(); ++i)
+        if (row.cards[i].id == focused)
+            home.column = i;
+    home.arranging = true;
+    home.carrying = home.carryingKind = false;
+    home.arrangeFocus = 0;
+    homeFocus();
+    dirty_ = true;
+}
+// Ends the card's editing: the kinds' order, this kind's apps in their order and the ones hidden or
+// shown are saved in one request, if any changed.
+void Application::homeArrangeDone() {
+    auto &home = state_.home;
+    home.arranging = home.carrying = home.carryingKind = false;
+    home.arrangeFocus = 0;
+    dirty_ = true;
+    if (home.row >= home.rows.size()) {
+        rebuildHome();
+        return;
+    }
+    auto contains = [](const std::vector<std::string> &ids, const std::string &id) {
+        return std::find(ids.begin(), ids.end(), id) != ids.end();
+    };
+    const std::string list = editedList();
+    std::vector<std::string> hiddenBefore;
+    for (const auto &id : hiddenIds(state_.catalogue, list).items())
+        hiddenBefore.push_back(id.string());
+    // The kind's apps still shown keep the order they have on the card; the others are the changes.
+    std::vector<std::string> kept, newlyShown, newlyHidden;
+    for (const Card &card : home.rows[home.row].cards) {
+        const bool was = contains(hiddenBefore, card.id);
+        if (card.hidden && !was)
+            newlyHidden.push_back(card.id);
+        else if (!card.hidden && was)
+            newlyShown.push_back(card.id);
+        else if (!card.hidden)
+            kept.push_back(card.id);
+    }
+    // Every app on the list in its saved order: the kind's apps take the places the kind has, those
+    // hidden now leave and those shown now join last.
+    std::vector<std::string> shown, expected;
+    size_t next = 0;
+    for (const Card &card : appsRow(state_.catalogue, state_.guide, false, list).cards) {
+        if (contains(newlyHidden, card.id))
+            continue;
+        expected.push_back(card.id);
+        shown.push_back(contains(kept, card.id) ? kept[next++] : card.id);
+    }
+    for (const std::string &id : newlyShown) {
+        shown.push_back(id);
+        expected.push_back(id);
+    }
+    Json hiddenNow = Json::array();
+    for (const std::string &id : hiddenBefore)
+        if (!contains(newlyShown, id))
+            hiddenNow.add(Json::text(id));
+    for (const std::string &id : newlyHidden)
+        hiddenNow.add(Json::text(id));
+    // The server keeps every kind: one with no app has no row here and holds its place, the rows on
+    // screen take the order they were left in.
+    Json kinds = Json::array();
+    size_t nextRow = 0;
+    bool kindsMoved = false;
+    for (const Json &kind : state_.catalogue["kinds"].items()) {
+        bool onScreen = false;
+        for (const CardRow &other : home.rows)
+            onScreen = onScreen || other.group == kind["key"].string();
+        const std::string key =
+            onScreen && nextRow < home.rows.size() ? home.rows[nextRow++].group : kind["key"].string();
+        kindsMoved = kindsMoved || key != kind["key"].string();
+        kinds.add(Json::text(key));
+    }
+    const bool changed = !newlyShown.empty() || !newlyHidden.empty();
+    if (shown == expected && !changed && !kindsMoved) {
+        rebuildHome();
+        return;
+    }
+    saveApps(list, shown, shown != expected, changed, hiddenNow, kindsMoved ? kinds : Json());
 }
 } // namespace nativetv

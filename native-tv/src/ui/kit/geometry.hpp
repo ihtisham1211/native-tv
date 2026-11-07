@@ -39,8 +39,13 @@ inline std::vector<Rect> tabRects(const std::vector<float> &textWidths) {
 constexpr Rect pill(float left, float right) {
     return {left, layout::navTop, right - left, layout::navH};
 }
+constexpr Rect brand() {
+    return {canvas::width - canvas::safeX - layout::brandW,
+            layout::navTop + (layout::navH - type::labelL.line) / 2, layout::brandW,
+            type::labelL.line};
+}
 constexpr Rect clock() {
-    return {canvas::width - canvas::safeX - layout::clockW,
+    return {brand().x - layout::brandGap - layout::clockW,
             layout::navTop + (layout::navH - type::clock.line) / 2, layout::clockW,
             type::clock.line};
 }

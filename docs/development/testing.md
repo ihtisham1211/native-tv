@@ -875,6 +875,34 @@ The arrow keys, Enter, Esc (Back), F1 (red) and Page Up and Down stand in for th
 
 The emulated TV has eight apps installed under their webOS ids (YouTube, Netflix, Prime Video, Disney+, Apple TV, Spotify, Plex and the browser), listed in `APPS` in `scripts/emulate-tv.js`. The script writes each one's `appinfo.json` as a TV has it and passes the list to the stand-in `luna-send` (`NATIVETV_FAKE_LUNA_MODE=emulator`); the client takes each brand icon from the pack by id, then by the title in `appinfo.json`. The Home is otherwise empty, with no feed or catalogue: `tests/home_fixture.py` serves those.
 
+## Testing in a webOS OSE virtual machine
+
+webOS Open Source Edition 2.28.0 (the `qemux86-64` devel image of build-webos v2.28.0) runs under QEMU on a Mac. It gives the daemon a real webOS to run on (Luna, systemd, the web runtime) and the native client a real backend, which the emulator above only fakes. It is not a TV: it has no `com.webos.service.tv.*` services, no ACR or EULA files, no Homebrew Channel and no LG apps, and its settings service rejects the consent writes, so LG settings, channels, now-playing and recents are empty. A change that depends on LG's services still needs a TV.
+
+Requirements:
+
+- A Mac with QEMU (`brew install qemu`; 11.1.3 tried). x86-64 runs without acceleration (TCG), so the guest is slow: it boots in about 15 s and has 4 GB of RAM.
+- Docker with amd64 containers (Rosetta on Apple Silicon), which builds the x86-64 daemon in Debian bookworm and runs the host tests there.
+- For the client window: `brew install cmake ninja sdl2 sdl2_image sdl2_ttf freetype json-c`. The client draws through the Mac's GPU; drawn inside the VM it needs minutes to its first frame, so the VM is its backend only.
+- The OSE image from the build-webos v2.28.0 release, set up once with an ssh key and the guest's dropbear socket enabled.
+- Python 3.
+
+The scripts that drive it are not in the repository; they live in `~/webos-ose` on the maintainer's Mac. From there, for the tree in `REPO`:
+
+```bash
+CPU=Haswell SMP=6 ./run.sh &   # boots the VM; HEADLESS=1 opens no QEMU window
+./up.sh                        # waits for ssh, stops the webOS compositor, starts the daemon
+REPO=<tree> ./build.sh         # x86-64 daemon and service; the host tests run in the container
+./deploy-vm.sh                 # lays /var/lib/tvweb out as deploy.sh does and restarts the daemon
+python3 smoke.py               # GETs every parameterless route in contract/routes.json
+./tv.sh                        # the TV client in a window on the Mac, the VM as its backend
+MAC=1 python3 remote.py        # the on-screen remote at http://127.0.0.1:9000
+```
+
+The dashboard is at `http://127.0.0.1:18080` with the token in `~/webos-ose/token` as a Bearer header. `tv.sh` runs `~/webos-ose/client-mac/nativetv-tv`: build the client as under Local TV emulation and copy it there with `native-tv/assets` beside it. The client reaches the daemon through an ssh tunnel on port 18081, so its requests arrive from the guest's own loopback, as on a TV (a plain port forward gets 401).
+
+In the client window the arrow keys, Enter, Esc (Back), F1 (red) and Page Up and Down are the remote. The remote page sends the same keys: with `MAC=1` to the client window, which needs the terminal allowed under System Settings > Privacy & Security > Accessibility (without it System Events refuses with error 1002 and the buttons do nothing); without `MAC=1` to the VM's own screen through the QEMU monitor, for the client running inside the VM.
+
 ## Route and Home controller tests
 
 Production route tests require the retired gallery URLs to return 404, and retirement

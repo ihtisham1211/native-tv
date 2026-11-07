@@ -60,7 +60,6 @@ struct TopBar {
     int selected = 0;
     // The pill's two edges are animated separately so it stretches toward its target.
     float pillLeft = 0, pillRight = 0;
-    float pillHot = 0;   // 0..1: focus is on the bar, so the pill turns from rest to focus fill
     float pillAlpha = 1; // fades out while Settings or Setup is showing
     float avatarFocus = 0, settingsFocus = 0;
     bool settingsSelected = false;
@@ -71,7 +70,7 @@ struct TopBar {
 std::vector<Rect> tabRects(const Glyphs &glyphs, const std::vector<std::string> &tabs);
 // Hits are "nav:avatar", "nav:tab:<i>" and "nav:settings".
 void topBar(Paint paint, const TopBar &bar);
-void tabPill(Paint paint, float left, float right, float hot, float alpha = 1);
+void tabPill(Paint paint, float left, float right, float alpha = 1);
 
 struct RoundButton {
     Rect rest;
@@ -79,7 +78,7 @@ struct RoundButton {
     std::string icon;    // Material icon, or
     std::string text;    // a letter (the avatar)
     bool avatar = false; // gradient fill instead of `fill`
-    Color fill = color::surface3; // opaque: the icon keeps its contrast over bright art
+    Color fill = color::navButton; // opaque: the icon keeps its contrast over bright art
     Color ink = color::onSurface;
     float focus = 0; // fill fades to focus fill, ink to on-focus, scale to 1.12
     Enter enter;

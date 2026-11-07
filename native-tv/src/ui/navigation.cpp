@@ -169,9 +169,14 @@ void Application::back() {
         flow_.tabPending = false;
         // A tap of Back only goes back: out of moving, to the first tab from any other, up the
         // first tab to its top row and its bar, where it stops. The recent apps are Back held.
-        if (state_.home.arranging)
-            homeArrangeCancel();
-        else if (state_.home.editing)
+        if (state_.home.arranging) {
+            if (state_.home.carrying || state_.home.carryingKind) {
+                state_.home.carrying = state_.home.carryingKind = false; // Back puts it down; another finishes
+                homeFocus();
+                dirty_ = true;
+            } else
+                homeArrangeDone();
+        } else if (state_.home.editing)
             homeEditDone(false);
         else if (state_.home.tab != 0 || flow_.pendingTab > 0) {
             state_.home.navigation = false;

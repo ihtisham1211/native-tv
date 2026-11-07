@@ -206,12 +206,11 @@ std::vector<Rect> tabRects(const Glyphs &glyphs, const std::vector<std::string> 
         widths.push_back(glyphs.measure(tab, type::nav));
     return geometry::tabRects(widths);
 }
-void tabPill(Paint paint, float left, float right, float hot, float alphaFactor) {
+void tabPill(Paint paint, float left, float right, float alphaFactor) {
     if (right - left < 1 || alphaFactor <= .002f)
         return;
     Rect area = geometry::pill(left, right);
-    paint.scene.shape(area, faded(focus::mix(color::pillRest, color::focusFill, hot), alphaFactor),
-                      roundRadius(area));
+    paint.scene.shape(area, faded(color::focusFill, alphaFactor), roundRadius(area));
 }
 void roundButton(Paint paint, const RoundButton &button) {
     if (invisible(button.enter) || offCanvas(button.rest))
@@ -241,7 +240,7 @@ void topBar(Paint paint, const TopBar &bar) {
         return;
     Scene &scene = paint.scene;
     Group group(scene, bar.enter);
-    tabPill(paint, bar.pillLeft, bar.pillRight, bar.pillHot, bar.pillAlpha);
+    tabPill(paint, bar.pillLeft, bar.pillRight, bar.pillAlpha);
 
     RoundButton avatar;
     avatar.rest = geometry::avatar();
@@ -253,10 +252,8 @@ void topBar(Paint paint, const TopBar &bar) {
 
     std::vector<Rect> tabs = tabRects(paint.glyphs, bar.tabs);
     for (size_t i = 0; i < tabs.size(); ++i) {
-        // Selected: on-surface at rest, on-focus once the pill turns to focus fill.
-        Color ink = static_cast<int>(i) == bar.selected
-                        ? focus::inkAt(color::onSurface, color::onFocus, bar.pillHot)
-                        : color::onSurface2;
+        // The selected tab is a light pill with dark ink, whether or not focus is on the bar.
+        Color ink = static_cast<int>(i) == bar.selected ? color::onFocus : color::onSurface2;
         text(paint,
              {tabs[i].x, layout::navTop + (layout::navH - type::nav.line) / 2, tabs[i].w,
               type::nav.line},
@@ -268,12 +265,13 @@ void topBar(Paint paint, const TopBar &bar) {
     settings.rest = geometry::settingsButton();
     settings.id = "nav:settings";
     settings.icon = "settings";
-    settings.fill = bar.settingsSelected ? alpha::accentDim : color::surface3;
+    settings.fill = bar.settingsSelected ? alpha::accentDim : color::navButton;
     settings.ink = bar.settingsSelected ? color::accent : color::onSurface;
     settings.focus = bar.settingsFocus;
     roundButton(paint, settings);
 
     text(paint, geometry::clock(), bar.clock, type::clock, color::onSurface, Node::Align::Right);
+    text(paint, geometry::brand(), "Native Tv", type::labelL, color::onSurface2, Node::Align::Right);
 }
 
 // ---- Hero and pagination -----------------------------------------------------------------------
@@ -436,9 +434,9 @@ void row(Paint paint, const Row &row) {
     if (invisible(row.enter))
         return;
     Group group(paint.scene, row.enter);
-    // Title Large in on-surface: at Title Medium in on-surface-2 the labels read small and faint
-    // from the sofa (a B3 at 3 m).
-    text(paint, geometry::rowLabel(row.index), row.label, type::rowTitle,
+    // Title Small in on-surface: in on-surface-2 the labels read faint from the sofa (a B3 at 3 m),
+    // and at Title Medium or Large they towered over the rows.
+    text(paint, geometry::rowLabel(row.index), row.label, type::labelL,
          faded(color::onSurface, focus::dimmedRowAlpha(row.dim)));
 }
 void card(Paint paint, const PosterCard &poster) {

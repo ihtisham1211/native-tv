@@ -34,6 +34,11 @@ bool isTitle(const Card &card) {
 std::string artOf(const Card &card) {
     return isTitle(card) ? (card.backdrop.empty() ? card.image : card.backdrop) : "";
 }
+// The tabs whose page sits on the hero's picture: Home, and Live, whose channels have none of their own,
+// so the pick on show stays behind them dimmed (see homeRetargetHero).
+bool showsHeroArt(const std::string &tabKey) {
+    return tabKey == "home" || tabKey == "live";
+}
 // A deep, quiet colour per card: the prototype tints the wall with the artwork's darkest tone,
 // and the server sends no palette, so the tone comes from the app's colour or the title. An app
 // has no picture of its own behind its lines, so its tint is stronger.
@@ -163,7 +168,7 @@ void Application::homeStart() {
     home.hero = Card();
     home.spotlight.clear();
     home.spotIndex = 0;
-    bool hero = !home.tabs.empty() && home.tabs[home.tab].key == "home";
+    bool hero = !home.tabs.empty() && showsHeroArt(home.tabs[home.tab].key);
     motion_.set("wall", hero ? 1 : 0);
     motion_.set("dots", 1);
     for (const char *name : {"hk:0", "hk:1", "hp"}) {
@@ -182,7 +187,20 @@ void Application::homeData() {
     // carries the rest, so the same titles are not shown twice, one above the other. The rows
     // come whole from rebuildHome, which clears `picksTaken`; the other callers find them split.
     size_t trending = rowIndex(home.rows, "trending");
-    if (home.tabs[home.tab].key != "home") {
+    if (home.tabs[home.tab].key == "live") {
+        // Live has no top picks row: its channels sit in front of the same carousel as Home's, and
+        // the picks stay in Home's row.
+        if (!home.picksTaken) {
+            home.spotlight.clear();
+            const std::vector<CardRow> picks =
+                homeRows("home", state_.catalogue, state_.discover, state_.guide);
+            const size_t at = rowIndex(picks, "trending");
+            if (at < picks.size())
+                for (const Card &card : picks[at].cards)
+                    if (home.spotlight.size() < home::kSpotlightMax && isTitle(card))
+                        home.spotlight.push_back(card);
+        }
+    } else if (home.tabs[home.tab].key != "home") {
         home.spotlight.clear();
     } else if (!home.picksTaken && trending < home.rows.size()) {
         home.spotlight.clear();
@@ -313,7 +331,6 @@ void Application::homeRetargetPill(bool jump) {
                                                   : kit::motion::spring::pillLead));
         }
     }
-    motion_.tween("pill:hot", onTab ? 1 : 0, ms::fast, easing(ease::out));
 }
 // Retargets every value that follows the focus: ring and lift, row scroll, stack, dim, the pill
 // and the bar's buttons. A held key only moves targets, so each value glides on from where it is.
@@ -337,6 +354,8 @@ void Application::homeFocus(bool jump) {
             now = "f:sr";
     } else if (home.editing && home.editHide)
         now = "f:eh"; // the Hide from Home button above the page
+    else if (home.arranging && home.arrangeFocus)
+        now = home.arrangeFocus == 1 ? "f:ah" : home.arrangeFocus == 2 ? "f:am" : "f:ad"; // the card's buttons
     else if (home.row < home.rows.size() && flow_.pendingTab < 0)
         now = home::id("f", home.row, home.column);
     if (now != flow_.focusId) {
@@ -393,68 +412,124 @@ void Application::homeKeyMoved(Key key) {
     homeFocus();
 }
 
-// ---- Arranging the kinds ----------------------------------------------------------------------
+// ---- A kind's card on the Apps page -------------------------------------------------------------
 
-// While a row is lifted, Up and Down move it past its neighbours (the focus and the row's scroll
-// travel with it), OK saves the kinds' order, Left and Right do nothing.
+// A lifted card edits one kind's apps. Left and Right move the focus along them; OK picks the focused
+// app up, and while it is carried Left and Right move it among the others until OK puts it down. Up
+// reaches the buttons above the apps: Hide (or Show) for the focused app, Move kind, which picks the
+// card up so that Up and Down move it among the kinds, and Done. Red hides or shows at once. Back puts
+// down what is carried, or finishes the card.
 void Application::homeArrange(Key key) {
     auto &home = state_.home;
-    if (key == Key::Up || key == Key::Down) {
-        if ((key == Key::Up && home.row == 0) || (key == Key::Down && home.row + 1 >= home.rows.size()))
-            return;
-        size_t to = key == Key::Up ? home.row - 1 : home.row + 1;
-        std::swap(home.rows[home.row], home.rows[to]);
-        double fromScroll = motion_.value(home::id("rx", home.row)),
-               toScroll = motion_.value(home::id("rx", to));
-        motion_.set(home::id("rx", home.row), toScroll);
-        motion_.set(home::id("rx", to), fromScroll);
-        home.row = to;
-        // The ring stays on the same card at its new index; the stack slides one pitch.
-        double stack = motion_.value("sy");
-        homeFocus(true);
-        motion_.set("sy", stack);
-        homeFocus();
+    if (home.row >= home.rows.size()) {
+        homeArrangeDone();
         return;
     }
-    if (key == Key::Ok) {
-        // The server keeps every kind: one with no app has no row here and holds its place, the
-        // rows on screen take the order they were left in.
-        Json kinds = Json::array();
-        size_t next = 0;
-        for (const Json &kind : state_.catalogue["kinds"].items()) {
-            bool shown = false;
-            for (const CardRow &row : home.rows)
-                shown = shown || row.group == kind["key"].string();
-            kinds.add(Json::text(shown && next < home.rows.size() ? home.rows[next++].group
-                                                                  : kind["key"].string()));
+    if (home.carryingKind) {
+        if (key == Key::Up || key == Key::Down)
+            homeArrangeMoveKind(key);
+        else if (key == Key::Ok) {
+            home.carryingKind = false;
+            homeFocus();
         }
-        if (!kinds.size())
-            for (const CardRow &row : home.rows)
-                kinds.add(Json::text(row.group));
-        home.arranging = false;
-        execute(post(Operation::SetHomeLayout, fields({{"kinds", kinds}})));
+        return;
+    }
+    if (home.arrangeFocus) {
+        homeArrangeButtons(key);
+        return;
+    }
+    auto &cards = home.rows[home.row].cards;
+    home.column = clampIndex(home.column, cards.size());
+    if (key == Key::Ok) {
+        // A hidden app is not moved: it is shown again with its button or Red.
+        if (!cards.empty() && !cards[home.column].hidden)
+            home.carrying = !home.carrying;
+        homeFocus();
+    } else if (key == Key::Red || key == Key::Delete) {
+        if (!home.carrying)
+            homeArrangeHide();
+    } else if (key == Key::Up) {
+        if (!home.carrying) {
+            home.arrangeFocus = 1;
+            homeFocus();
+        }
+    } else if (key == Key::Left || key == Key::Right) {
+        long target = static_cast<long>(home.column) + (key == Key::Left ? -1 : 1);
+        if (target < 0 || target >= static_cast<long>(cards.size()))
+            return;
+        // A carried app swaps with the shown apps only; the hidden ones stay last.
+        if (home.carrying) {
+            if (cards[static_cast<size_t>(target)].hidden)
+                return;
+            std::swap(cards[home.column], cards[static_cast<size_t>(target)]);
+        }
+        home.column = static_cast<size_t>(target);
         homeFocus();
     }
 }
-// Back while arranging: the rows return to the saved order, the focus with the lifted row.
-void Application::homeArrangeCancel() {
+// On the buttons: Left and Right choose, Down goes back to the apps, OK presses.
+void Application::homeArrangeButtons(Key key) {
     auto &home = state_.home;
-    std::string lifted = home.row < home.rows.size() ? home.rows[home.row].group : "";
-    const size_t column = home.column; // the rebuild clamps it against the row now at this index
-    std::map<std::string, double> scrolls;
-    for (size_t i = 0; i < home.rows.size(); ++i)
-        scrolls[home.rows[i].group] = motion_.value(home::id("rx", i));
-    home.arranging = false;
-    rebuildHome();
-    for (size_t i = 0; i < home.rows.size(); ++i) {
-        if (home.rows[i].group == lifted) {
-            home.row = i;
-            home.column = clampIndex(column, home.rows[i].cards.size());
+    if (key == Key::Left)
+        home.arrangeFocus = std::max(1, home.arrangeFocus - 1);
+    else if (key == Key::Right)
+        home.arrangeFocus = std::min(3, home.arrangeFocus + 1);
+    else if (key == Key::Down)
+        home.arrangeFocus = 0;
+    else if (key == Key::Red || key == Key::Delete) {
+        homeArrangeHide();
+        home.arrangeFocus = 0;
+    } else if (key == Key::Ok) {
+        if (home.arrangeFocus == 1) {
+            homeArrangeHide();
+            home.arrangeFocus = 0; // on the next app, which has taken this one's place
+        } else if (home.arrangeFocus == 2)
+            home.carryingKind = true;
+        else {
+            homeArrangeDone();
+            return;
         }
-        if (scrolls.count(home.rows[i].group))
-            motion_.set(home::id("rx", i), scrolls[home.rows[i].group]);
     }
     homeFocus();
+}
+// Moves the card past its neighbour: the focus and the row's scroll travel with it.
+void Application::homeArrangeMoveKind(Key key) {
+    auto &home = state_.home;
+    if ((key == Key::Up && home.row == 0) || (key == Key::Down && home.row + 1 >= home.rows.size()))
+        return;
+    size_t to = key == Key::Up ? home.row - 1 : home.row + 1;
+    std::swap(home.rows[home.row], home.rows[to]);
+    double fromScroll = motion_.value(home::id("rx", home.row)),
+           toScroll = motion_.value(home::id("rx", to));
+    motion_.set(home::id("rx", home.row), toScroll);
+    motion_.set(home::id("rx", to), fromScroll);
+    home.row = to;
+    // The ring stays on the same card at its new index; the stack slides one pitch.
+    double stack = motion_.value("sy");
+    homeFocus(true);
+    motion_.set("sy", stack);
+    homeFocus();
+}
+// Hides the focused app, or shows it again when it was one of the hidden. A hidden app goes to the
+// start of the hidden ones, last on the card; one shown goes after the last shown app. The focus keeps
+// its place, so Red on the next app hides it too.
+void Application::homeArrangeHide() {
+    auto &home = state_.home;
+    auto &cards = home.rows[home.row].cards;
+    if (home.column >= cards.size())
+        return;
+    Card card = cards[home.column];
+    if (!card.hidden && card.id == "lg-home") {
+        toast("LG Home is switched off with Show LG Home in the Home settings.");
+        return;
+    }
+    cards.erase(cards.begin() + static_cast<long>(home.column));
+    card.hidden = !card.hidden;
+    const long shown = std::count_if(cards.begin(), cards.end(), [](const Card &other) { return !other.hidden; });
+    cards.insert(cards.begin() + shown, card);
+    home.column = clampIndex(home.column, cards.size());
+    homeFocus();
+    dirty_ = true;
 }
 
 // ---- Tabs and pages ---------------------------------------------------------------------------
@@ -474,7 +549,7 @@ void Application::homeSelectTab(size_t tab) {
                    homeRows("apps", state_.catalogue, state_.discover, state_.guide),
                    state_.catalogue["layout"]["sort"]["app"].string() != "kind", true, now_);
     motion_.tween("pgx", 1, ms::pageOut, easing(ease::out));
-    motion_.tween("wall", home.tabs[tab].key == "home" ? 1 : 0, ms::page, easing(ease::out));
+    motion_.tween("wall", showsHeroArt(home.tabs[tab].key) ? 1 : 0, ms::page, easing(ease::out));
     dirty_ = true;
 }
 
