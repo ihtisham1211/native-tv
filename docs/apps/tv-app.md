@@ -43,6 +43,21 @@ The **Live** tab is the TV's own readings as cards: the processor's load with a 
 
 A change shows the moment OK is pressed: the switch has already slid and a faint dot says it is on its way. It is sent to the same server routes as the browser dashboard behind the page, and the section is read again afterwards. A refusal puts the old value back and says why. Metrics and System refresh every ten seconds while open; a refresh keeps the focused row, the subsection and the scroll where they were. The first read of a section shows a thin turning arc where its rows will be. Opening or closing the web dashboard to the network restarts the server: the row reads "Switching…" and the page waits until the server answers again.
 
+### TV theme
+
+**Settings, TV theme** (in the Settings section) opens the picker: a card for each theme, drawn from that theme's own colours, with the one in use marked. A theme changes how the screens look and nothing else: every screen has the same content, rows and keys in every theme.
+
+* **Google TV** (`n-google-tv`) is the default: ambient artwork behind Home and the filled white focus pill.
+* **OLED Care** (`n-oled-care`) is for OLED panels. The canvas is `#000000`, so pixels that are off do not wear. App icons rest at 62% brightness and the focused one is at full. Home's cards are tiles with their titles, and the artwork is not drawn or downloaded. Focus is a thin ring, the selected tab an underline, and Settings rows have no background until focused. The whole screen moves a few pixels as the minutes pass: up to 8 px sideways and 6 px up or down, in whole pixels, at most 3 px between two minutes. The [design notes](../development/material-3-expressive.md#n-oled-care) give each value and its reason.
+
+The idle behaviour is the same in every theme: the dim after 30 seconds and the screen saver's start time in Settings are not the theme's.
+
+**OK** on a theme shows it at once and saves it, and a sheet asks **Keep OLED Care?**. **Keep** ends it. **Go back**, Back, or ten seconds without a key put the previous theme back, and so does a save the TV refuses. A change made from the phone's [Server tab](../dashboard/server.md) reaches the open app with Home's next ten-second refresh.
+
+An OLED panel still on the default theme is offered OLED Care once, on Home: **Use it** or **Not now** (Back is Not now). Either answer ends the offer.
+
+The setting is the `tvTheme` section of `config.json` (`id`, and `suggested` once the offer has been answered). [Settings backup](../dashboard/server.md) carries `id`.
+
 ### First-run setup wizard
 
 Opening the TV app on a fresh install starts an on-screen setup wizard to configure the TV in a few quick steps with the remote. Whatever the app is opened on (its tile, Home, or a Settings page), it first asks the server whether first-run setup is done, as the browser dashboard always did, and opens the wizard's welcome page when it is not; the first frames wait behind the dark cover for the answer, and a server that is still starting is asked again every two seconds.

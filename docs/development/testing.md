@@ -222,6 +222,8 @@ what is shown. `native-optimistic-guard` (`tests/optimistic_guard.py`) fails whe
 `src/ui` calls the raw `services().write` instead of `host.optimistic()`; the pages that
 still do are listed in `tests/optimistic_guard.json`, and the counts only go down.
 
+`native-theme-screen` (`tests/theme_screen.cpp`) drives the TV theme picker as the remote does: a choice shows at once and is saved through `/api/control`, the Keep sheet (kept, refused with Back, timed out after ten seconds), a save the server refuses, the client following the theme the server names in caps and the catalogue, and the one-time offer of OLED Care. `native-oled-budget` (`tests/golden/oled_budget.py`, no GL) reads the `oled-*` goldens and fails when one passes the light budget the [design notes](material-3-expressive.md#n-oled-care) give; the `tvtheme-*` goldens show the Settings row, the picker, the Keep sheet and the offer.
+
 The client's parts have their own tests. `native-motion` checks the springs
 against a reference integrator, velocity kept on retarget, the bezier curves and
 the stagger on a fake clock. `native-kit` holds every component's geometry to the

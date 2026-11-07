@@ -28,6 +28,15 @@ A theme for OLED panels: the screens should never be what wears the panel. Its d
 | `focusRingColor` | #CFCFCF | #F1EEF4 | |
 | `alpha::outline` | 0 | 0.12 | A static hairline is the classic burn-in shape. |
 | `wash` and `look.wall` | black, 0 | teal, 1 | The accent glow and the tint wash behind a screen light every pixel. |
+| `look.pictures` | false | true | The Home hero, the picks' pictures and the Details backdrop are not drawn or downloaded: artwork is the largest lit region on Home. Cards become tiles with their titles. App icons are icons and stay. |
+| `look.ringFocus` | true | false | Focus is a ring over the fill and the selected tab an underline. A dark fill alone is 1.3:1 on black, too faint to find from the sofa. |
+| `look.restFill` | 0 | 1 | Settings rows have no background until focused: spacing groups them, and a static fill is lit all day. |
+| `look.restBrightness` | 0.62 | 1 | App icons rest dimmer than the focused one. Over black, opacity is brightness. |
+| `look.driftX`, `look.driftY` | 8, 6 | 0, 0 | The scene, and the pointer hits with it, move in whole pixels from the minute of the day, on axes with periods of 20 and 13 minutes, so no edge rests on one pixel row. At most 3 px between two minutes; 99 positions in a day. |
+
+The idle dim after 30 seconds and the screen saver's start time are not part of a theme.
+
+`tests/golden/oled_budget.py` keeps the `oled-*` goldens inside a light budget: at most 1.6% light output (the mean linear luminance as a share of full white) and 1.0% of pixels above 80% luma. Google TV's Home is at 4.3% and 2.3%; the OLED Care goldens are at 0.85 to 1.46% and 0.3 to 0.9%.
 
 ## Typography
 

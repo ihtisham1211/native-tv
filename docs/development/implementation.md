@@ -1484,6 +1484,14 @@ overlay and the layout is one recognised from #612's dumps, and only once
 feature off, or `tvwebctl restore-home` before uninstalling, deletes the webOS
 9 file or takes the webOS 10 overlay away, and restarts the home app.
 
+## TV themes
+
+A theme is a palette plus `look` values (`native-tv/design/themes/<id>.json` over `tokens.json`); `tools/gen_tokens.py` writes them as `Palette` structs and the references `color::`, `alpha::` and `look::` that every screen reads, so a screen's code does not know the theme. `kit::useTheme(id)` copies a palette into the one in use. It also writes `core/themes.hpp`, the list of ids and names that the daemon and the client's Settings share.
+
+The daemon keeps the theme in `config.json` as `tvTheme: {id, suggested}` and changes it with `/api/control` `setTvTheme` (an id the list does not have is refused). It is read fresh from the config file, not from the copy loaded at start, and appears in `/api/update` (with the list, for the phone's Server tab), `/api/caps` (for the client's first frame), the Home catalogue (the read an open client repeats, so a change from the phone arrives) and the setup state (the TV's Settings row). `suggestTvTheme` is added to the catalogue, until answered, when the panel is OLED (the config's `panel`, the panel type marker, or the model the stats collector read) and the theme is still the default.
+
+The client applies the theme in `Application::followTheme`, from caps and from every catalogue answer, through the optimistic layer so a choice still being saved is not undone by a read made before it. The picker (`ui/theme_screen.cpp`) saves with `optimistic().set` and puts the old theme back on a refused save or an unconfirmed Keep sheet. The drift moves the scene in `Application::buildFrame`, with the pointer hits.
+
 ## Native Tv Home
 
 `home_orchestrator` and the `home_*_manager` modules run a home screen of Native Tv's own in place of LG's, opt-in

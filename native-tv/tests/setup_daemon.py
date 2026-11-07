@@ -133,6 +133,15 @@ def main():
 
             run(flow, origin, "finish")
             assert not os.path.exists(os.path.join(data, ".setup-pending")), "Open dashboard marks setup done"
+            # The TV is an OLED65B3PUA still on the default theme, so the first Home after setup opens the
+            # one-time offer of OLED Care; once it is answered Home opens as itself.
+            launches(flow, origin, [("dashboard", "!setup:"), ("home", "tvtheme:suggest"),
+                                    ("setup:handoff", "setup:handoff")])
+            request = urllib.request.Request(origin + "/api/control", method="POST",
+                                             data=json.dumps({"action": "dismissTvThemeSuggestion"}).encode(),
+                                             headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(request, timeout=10) as response:
+                assert json.loads(response.read())["ok"] is True, "no thanks to the offer is accepted"
             launches(flow, origin, [("dashboard", "!setup:"), ("home", "home"), ("setup:handoff", "setup:handoff")])
         finally:
             if process.poll() is None:

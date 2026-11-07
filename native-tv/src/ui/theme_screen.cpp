@@ -301,15 +301,15 @@ void ThemeScreen::build(ScreenHost &host, kit::Paint paint) {
                           kit::type::labelL, kit::color::accent);
         paint.glyphs.text(scene, kit::metrics::setup::title, msg("tv.theme.offer.title", "Use OLED Care?"),
                           kit::type::setupTitle, kit::color::onSurface, Node::Align::Left, 2);
-        paint.glyphs.text(scene, {80, 382, 900, kit::type::body.line * 6},
+        paint.glyphs.text(scene, {80, 330, 900, kit::type::body.line * 6},
                           msg("tv.theme.offer.body",
                               "This TV has an OLED panel. OLED Care keeps the screens black and dim, "
                               "and they move a little, so they wear the panel less. Every feature "
                               "stays the same, and Settings, TV theme changes it back."),
                           kit::type::body, kit::color::onSurface2, Node::Align::Left, 6);
         if (sheet_ == Sheet::Suggest) {
-            button(host, paint, {80, 640, 280, 84}, msg("tv.theme.offer.use", "Use it"), 0);
-            button(host, paint, {392, 640, 280, 84}, msg("tv.theme.offer.no", "Not now"), 1);
+            button(host, paint, {80, 560, 280, 84}, msg("tv.theme.offer.use", "Use it"), 0);
+            button(host, paint, {392, 560, 280, 84}, msg("tv.theme.offer.no", "Not now"), 1);
         }
     } else {
         paint.glyphs.text(scene, {80, 159, 1760, kit::type::headline.line}, msg("tv.theme.title", "TV theme"),
