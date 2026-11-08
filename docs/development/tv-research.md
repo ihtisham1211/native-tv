@@ -1202,7 +1202,7 @@ Measured on 21 October 2026, seconds after power-on, from bootd's "is foreground
   gave it inputcommon's process (`appType` `native_qml`, no `qml-runner`
   running): the screen was black and stayed so, as the QML app's own close
   after 100 s never ran.
-- **The relaunch 0.5 s after the input** (`lib/remotekeys.js`), not 1.5 s,
+- **The relaunch 0.5 s after the input**, not 1.5 s,
   left the input in front 0.05-0.18 s, and delayed WebAppMgr by 10 s: after
   `firstapp-launched` bootd waits up to 15 s for `banner-ready` before
   `SIGNAL_init-boot-done`, and `webapp-mgr.service` (wanted by

@@ -68,8 +68,7 @@ plus the two `RUN_SERIAL` tests, which run alone.
 The legacy `test/` suites that tested the Node release are gone.
 `native-tv/contract/test-migration.json` records, for each of them, the native
 test that took it over or the reason it was retired, and `check-test-matrix.js`
-keeps that record whole. Where this page says a native test "ports"
-`test-xxx.js`, that is the suite it replaced.
+keeps that record whole.
 
 `native-tv/tests/contract/node-free-probe.py BUILD/nativetv-daemon` starts the daemon with no upstream
 and requests every route in `native-tv/contract/routes.json`. It lists the method/path pairs that still
@@ -271,14 +270,12 @@ captures the handoff page and compares every module of the code on it with qrcod
 budget, and `native-woff-to-ttf` that a WOFF packed from each bundled Google Sans Flex TTF unpacks
 to the same bytes.
 
-The daemon's answers were held to the Node release's by `parity.js`, which ran both on one fixture TV and
-compared 45 read-only requests and refusals, the backup restores and `/api/stats` on the B8, C2, C3, G4, C4
-and CX profiles; all matched, and the check went with the Node release. What it compared lives on as
-recorded goldens (`ha-golden.json`, `prometheus-golden.json`, `mqtt-publish.json`, `stats-fields.json`).
+What the Node release answered is held as recorded goldens (`ha-golden.json`, `prometheus-golden.json`,
+`mqtt-publish.json`, `stats-fields.json` in `native-tv/tests/fixtures/`).
 
 `native-mqtt-publish` holds the daemon's telemetry payload (`daemon/mqtt_publish_payload`: the whole stats read
 with LG's settings, the switched-off flag, the watch summary and PicCap's power, the last app standing in while
-the TV is off) to what the Node release's `mqtt-state.js` `publishPayload` made of all seven captured `/api/stats` responses in
+the TV is off) to the payloads recorded for all seven captured `/api/stats` responses in
 three states (21 cases, held in `tests/fixtures/mqtt-publish.json`).
 `test_native_mqtt_production_uses_live_identity_topics_and_status` also checks the discovery device record carries the
 model and firmware the TV reports, that the daemon's media snapshot is no state topic and `<prefix>/update` is cleared,
@@ -318,9 +315,7 @@ CTest from starting unrelated suites. Use a separate `--out` tree with
 need their own build directory.
 
 Metrics fixtures cover page size, names with parentheses, malformed/disappearing
-processes, CPU deltas, counter resets and recycled PIDs. `test-native-metrics.js`
-checks the transitional adapter's coalescing, fixed arguments, output protocol,
-execution limits, explicit errors and failure backoff without launching a TV process.
+processes, CPU deltas, counter resets and recycled PIDs.
 `system_metrics.py` exercises native memory/swap, temperature sources/units,
 clock formats, eMMC regions, CPU modes and boot time, online/present core ranges,
 LG load slots, uptime/load-average parsing, interface ranking, MAC validation,
@@ -331,62 +326,58 @@ publish baseline are covered by the stats collector tests against synthetic nati
 stats tests hold the native reply, then verify partial data, timeout ownership
 and late-reply rejection. `native-tv/tests/stats_collector.cpp` runs the native
 `/api/stats` collector against a scripted TV: the always-on, input-key, live-read,
-play-state, power, hostname, sound/volume, HDMI, apps and device cases of
-`test-telemetry.js` and its sibling suites, the 0.4 s reuse, the early (`fast=1`)
+play-state, power, hostname, sound/volume, HDMI, apps and device cases,
+the 0.4 s reuse, the early (`fast=1`)
 read, and how expire, clear, forget and the volume refusal are taken. `native-tv/tests/retired_files.cpp` runs the start-up removal of files earlier releases
-installed (`test-retired.js`'s two cases on temporary folders).
+installed (two cases on temporary folders).
 
-`native-services-keeper` (`tests/services_keeper.cpp`) runs what `services.js` does besides the toggle, on a
-fake root with scripted programs: at start, dropping the retired ids, removing the old init script, lifting the
+`native-services-keeper` (`tests/services_keeper.cpp`) runs what the daemon does for switched-off background services besides
+the toggle, on a fake root with scripted programs: at start, dropping the retired ids, removing the old init script, lifting the
 masks, binding the stubs and rewriting the boot hook, and the five-minute stop of a switched-off service found
-running (unit, job and the delayed signal). The hook text is held to `services.js`'s own for five lists of
-services with every program present (`tests/fixtures/boot-scripts.json`, from `tests/tools/gen-boot-scripts.js`;
-run it again after changing the hook). `test_native_services_keeper_runs_at_start_only_when_switched_on` starts
-the daemon with and without `TVWEB_NATIVE_SERVICES=1`. `test-services.js` also checks that the native owner leaves
-the list, the hook and the enforcement to the daemon. The Alexa key on JavaScript-filter firmware is part of
+running (unit, job and the delayed signal). The hook text is held to the boot hook text of the earlier release for five lists of
+services with every program present (`tests/fixtures/boot-scripts.json`, a recording that is kept as it is and not
+regenerated). `test_native_services_keeper_runs_at_start_only_when_switched_on` starts
+the daemon with and without `TVWEB_NATIVE_SERVICES=1`. The Alexa key on JavaScript-filter firmware is part of
 `test_native_apps_list_projection_and_context_fallback` (saved and written to configd like Netflix, no app block).
 
-`native-mqtt-client` (`tests/mqtt_client.cpp`) also runs `test-mqtt.js`'s cases against a scripted broker, one thread
+`native-mqtt-client` (`tests/mqtt_client.cpp`) also runs its cases against a scripted broker, one thread
 per connection: CONNACK 4 and 5 are reported as "bad username or password" and "not authorized", a PINGRESP replaces the
 connect time as the latency, a broker that never answers a ping is dropped and the client connects again, and a broker
-that leaves its end open after DISCONNECT does not hold up the reconnect. `test-mqtt-ca.js` is held by `native-mqtt-tls`
-(a custom CA is trusted when given, an untrusted one is refused) and `test-mqtt-remote.js` by
-`native-mqtt-command-router` (a remote key asks for no telemetry read, other commands do). `test-power-state.js` is
-`native-names` (the full state table: which states have the screen on, and that an unknown or missing state is off) and
-`native-mqtt-state` (a screen reported on while the system is off stays OFF). `native-hdmi-inputs` adds an input the map
-marks `none` and a TV with no map to `test-hdmi-map.js`'s cases; `native-history` the screen-off and screen-saver
-splits of `test-history.js`; `native-mqtt-telemetry` the 1.5 s gap and the coalescing of `test-state-push.js`;
+that leaves its end open after DISCONNECT does not hold up the reconnect. `native-mqtt-tls`
+holds that a custom CA is trusted when given and an untrusted one is refused, and
+`native-mqtt-command-router` that a remote key asks for no telemetry read and other commands do. `native-names` holds
+the full state table (which states have the screen on, and that an unknown or missing state is off) and
+`native-mqtt-state` that a screen reported on while the system is off stays OFF. `native-hdmi-inputs` covers an input the map
+marks `none` and a TV with no map; `native-history` the screen-off and screen-saver
+splits; `native-mqtt-telemetry` the 1.5 s gap and the coalescing of state pushes;
 `native-syslog-forwarder` a destination given as IPv6 (skipped where the host has no IPv6 loopback);
-`native-devtools-firewall` (`tests/devtools_firewall.cpp`) the twelve firewall cases of `test-devtools.js` with fake
-iptables and ip6tables in a fake root; `test_native_game_without_the_service_is_not_asked_again` a TV that has no Game
+`test_native_game_without_the_service_is_not_asked_again` a TV that has no Game
 Optimizer pipeline being asked once. `native-piccap` checks the start-up migration of an old `piccap.enabled`
-(`test-piccap-gate.js`: false becomes PicCap unticked in `mqtt.entities.disabled`, the key and an empty section go) and
-`test_native_start_migrates_the_old_piccap_enabled_key` that the daemon saves it at start, as Node's migration is gone
-with Node.
+(false becomes PicCap unticked in `mqtt.entities.disabled`, the key and an empty section go) and
+`test_native_start_migrates_the_old_piccap_enabled_key` that the daemon saves it at start.
 
-`native-lg-settings` (`tests/lg_settings.cpp`) ports `test-lgsettings.js`: only the rows the TV
+`native-lg-settings` (`tests/lg_settings.cpp`) covers only the rows the TV
 reports, the stored value of a switch, choice or number and which values a row takes, choices and ranges
 from the TV's description (numbers kept as text written as text), a value outside the list shown by its
 own name, a per-port row giving way to the one setting, the greyable rows, rows outside the table refused,
 the sound output names, the value a row shows being the one the TV's dimension names when it differs from the stored one
 (the sound output on a speaker, stored as HDMI ARC), and the backup restore of each kind of row. `native-sam-rescan-manager`
 (`tests/sam_rescan_manager.cpp`, with `tests/sam_fake_tv.py` as `luna-send` and a stand-in `/bin/sh` in a fake
-root) ports `test-samrescan.js`: the blocked-list nudge put back exactly and serialized, a failed restore
+root) covers the blocked-list nudge put back exactly and serialized, a failed restore
 retried, one app reread with a block and a release (refused, lost and repeated releases), the waits for sam,
 and the restart that follows when sam does not catch up. `native-home-screen-manager`
-(`tests/home_screen_manager.cpp`) ports `test-homescreen.js` and `test-homescreen-webos10.js` for what the
+(`tests/home_screen_manager.cpp`) covers what the
 manager owns: the webOS 9 parts written as a marked layout, the last part kept, the Native Tv Home
 layout left alone, restore removing only what was written here, the empty starting layout, the recorded input
 tiles, the webOS 10 overlay behind the experimental switch with its row heights, a reapply after a TV
 restart, and the home app found by its arguments on a restart (children of the test). The input tiles'
 launch points are the front door's and are covered by the Home screen runtime tests. The lost and dropped
-screen saver cases of `test-screensaver-lost.js` and `test-screensaver-dropped.js` are in
-`native-screensaver-control`. `launcherNeedsRefresh` (`daemon/apps_state`, in `native-apps-state`) ports
-`test-launcher-refresh.js`: sam is read again after an install or uninstall only when tiles are hidden (not on
+screen saver cases are in
+`native-screensaver-control`. `native-apps-state` covers `launcherNeedsRefresh` (`daemon/apps_state`): sam is read again after an install or uninstall only when tiles are hidden (not on
 a Homebrew Channel install) or sam was restarted since start, and never where tile hiding is not allowed; the
 front door runs it after both.
 
-`native-launcher-sync` (`tests/launcher_sync.cpp`) ports the port and appinfo halves of `test-dashboard-port.js`:
+`native-launcher-sync` (`tests/launcher_sync.cpp`) covers the port and the appinfo of the installed launcher pages:
 the `var PORT = n; // tvweb:port` line of each installed launcher page follows the dashboard port, idempotently,
 skipping absent or unmarked pages and ports outside 1-65535, `appinfo.json` gets `resolution` 1920x1080, and the
 pages that ship (the Home app's and the Homebrew Channel app's; the dashboard tile is a native app with no page)
@@ -396,59 +387,54 @@ and the start-up refresh covers the tile and then the splash. `native-install-ap
 real `install-app.sh` against a stand-in `luna-send` that unpacks the package it builds: a native app is installed
 whole (executable bit, fonts, icons, libraries, licences) and not offered without its executable, a refresh leaves a
 current app alone, replaces a stale one and waits while the app is open, and a web app keeps its port line. The port refusals are in
-`test_native_server_tab_controls`. `native-devtools-firewall` (`tests/devtools_firewall.cpp`, scripted `iptables`/`ip6tables`)
-ports `test-devtools.js`: the rule per family, `closed`, `open`, `unsupported` and `off`, the tools found in
-`/sbin`, and `allowNetworkDebugger` taking a rule out; the Node bridge cases die with Node.
-`native-game-frame-rate` (`tests/game_frame_rate.cpp`, a scripted `luna-send` following feed files) ports
-`test-game.js`: the stats' one-shot read cached on the bound pipeline, the Game tab's stream sharing the bind
+`test_native_server_tab_controls`. `native-devtools-firewall` (`tests/devtools_firewall.cpp`, scripted `iptables`/`ip6tables` in a fake root)
+covers the rule per family, `closed`, `open`, `unsupported` and `off`, the tools found in
+`/sbin`, and `allowNetworkDebugger` taking a rule out.
+`native-game-frame-rate` (`tests/game_frame_rate.cpp`, a scripted `luna-send` following feed files)
+covers the stats' one-shot read cached on the bound pipeline, the Game tab's stream sharing the bind
 and serving the stats, a dead pipeline rebound afresh, webOS 5's sublist strings, a bind that never answers,
 and a TV without the service not asked again (the 15 s and 300 s timers are not waited out). `native-hdmi-inputs`
-reads a C4's and a C9's real receiver status files for `test-hdmi-map.js`: the signal follows the receiver the
+reads a C4's and a C9's real receiver status files: the signal follows the receiver the
 map gives each input, the base table, a C9 without a map, an input marked none, and the pixel clocks;
 `test_native_hdmi_receiver_map_is_asked_until_configd_answers` that no answer is asked again and a refusal is final.
-`native-history` gained the opt-in, hour split, restart and time zone cases of `test-history.js` (titles by
-`appTitle` are Node's). `native-hostname-cache` (`tests/hostname_cache.cpp`) ports `test-hostname.js`: a name
+`native-history` also covers the opt-in, hour split, restart and time zone cases.
+`native-hostname-cache` (`tests/hostname_cache.cpp`) covers a name
 or none kept an hour per address, a stale name kept while it is redone, a timeout is none and its late answer
 is dropped, a new address asked at once, and the caller never waits. `native-static-assets`
-(`tests/http_static_assets.cpp`) ports `test-lazy-ui.js`: the TV pages never load the phone page, which is
+(`tests/http_static_assets.cpp`) holds that the TV pages never load the phone page, which is
 assembled once on its first request, compressed, with missing parts reported and not retried.
 
 `native-ha-config-example` (`tests/ha_config_example.py`) renders the Home Assistant configuration the MQTT tab
 generates (`haConfigText` in `web/ui/mqtt.js`) with Node and compares it, parsed, with the YAML in
 [Home Assistant](../integrations/home-assistant.md), so the card and the page cannot drift; it is skipped without
 Node or PyYAML. `native-ha-golden` (`tests/ha_golden.py`) and `native-prometheus-golden` (`tests/prometheus_golden.py`) hold
-the entity catalogue, the capability filter, the discovery payloads and the Prometheus text to what `ha.js` and
-`prometheus.js` answered when recorded (`tests/fixtures/ha-golden.json`, `prometheus-golden.json`; the recording
-went with the Node server), so they need no Node. The Prometheus golden carries the `nativetv_` names. `test-timers.js` is
-`test_native_power_timer_writes` (the days bitmask, a timer that is off only stored, one that is on switched off, changed and on
+the entity catalogue, the capability filter, the discovery payloads and the Prometheus text to answers recorded from the
+earlier Node release (`tests/fixtures/ha-golden.json`, `prometheus-golden.json`), so they need no Node. The Prometheus golden carries the `nativetv_` names. `test_native_power_timer_writes`
+holds the power timers (the days bitmask, a timer that is off only stored, one that is on switched off, changed and on
 again, the Live TV no-channel switch to Home and its absence on webOS 3-5, bad times and days refused); the stored
 settings come from the file in `NATIVETV_FAKE_TIME_SETTINGS_FILE` and a Home app missing from the marker named by
-`NATIVETV_FAKE_NO_HOME_APP`. `test-routes.js` is in `test_native_json_body_guards` (content type, origin and JSON
+`NATIVETV_FAKE_NO_HOME_APP`. The settings routes and the config file are held by `test_native_json_body_guards` (content type, origin and JSON
 shape before any action), `native-config-settings` (the defaults, an empty form's two errors, a broker address with a scheme, path or space and a device name with `<`, `>` or a control character refused, the icon switch) and `native-config`
-(a writer behind a live config lock is waited for, its update kept). `test-apps.js` adds the protected ids
-(`native-app-list`; an empty id is protected) and `test_native_tile_hiding_flag_and_hidden_list` (the flag file, a hidden list
-with no flag, an explicit 0, protected ids dropped from the list). `test-privacy.js` adds the built-in tables to
-`native-adblock` (both address families for every host, the common ad networks, unique hosts under 24 KiB, the
-playback and platform hosts left reachable) and the SDP grace period to `native-adblock-manager`
-(`tests/adblock_manager.cpp`: a valid clock at restart, a cold boot waiting for SDP, webOS 4 without `timeValid`; the
-120 s wait for a time from another source is not run). `test-oled-protections.js` is in `native-oled-care` through
+(a writer behind a live config lock is waited for, its update kept). The protected ids are held by
+`native-app-list` (an empty id is protected) and `test_native_tile_hiding_flag_and_hidden_list` (the flag file, a hidden list
+with no flag, an explicit 0, protected ids dropped from the list). `native-adblock` holds the built-in tables (both address families for every host, the common ad networks, unique hosts under 24 KiB, the
+playback and platform hosts left reachable) and `native-adblock-manager`
+(`tests/adblock_manager.cpp`) the SDP grace period (a valid clock at restart, a cold boot waiting for SDP, webOS 4 without `timeValid`; the
+120 s wait for a time from another source is not run). `native-oled-care` covers the OLED protections through
 `oledStatsObject`. Nine targets that check with `assert()` are built with `-UNDEBUG`, as a Release build otherwise
 compiles every check away.
 
-`native-mqtt-state` also ports `test-window-state.js` (an empty focus that lasts under 200 ms is not
+`native-mqtt-state` also covers the window state (an empty focus that lasts under 200 ms is not
 published, whatever other window event arrives meanwhile; standby releases the remote at once; a reconnect
-republishes) and the window-less TV of `test-state-push.js` (no `control_app_id`). `native-state-subscriptions`
+republishes) and the window-less TV (no `control_app_id`). `native-state-subscriptions`
 checks that a window group refused as an unknown method is not asked again and a busy one is, and `native-luna`
 that an indented reply split across writes, with a brace inside a string, is read whole. `native-apps-state`
-holds the tile-hiding carry-over of `test-tile-hiding-gate.js` (the daemon saves `allowTileHiding` at start
+holds the tile-hiding carry-over (the daemon saves `allowTileHiding` at start
 where an install has it running, except on webOS 10 and later without the experimental switch). The runtime
-suite adds the version shown with matching build metadata only (`test-version.js`) and a restart that waits for
-an install started after the settings save (`test-restart-wait.js`). The debounce and publish-gap timing of
-`test-state-push.js` belongs to the Home Assistant publication, which is the daemon's now. The suites
-`test-dashboard-nav.js`, `test-dashboard-search.js`, `test-dashboard-view.js`, `test-mqtt-save-ui.js`,
-`test-i18n.js` runs the string loader (`ui/i18n.js`) against a stand-in page, address bar, storage and network: the language is picked from `?lang=`, then the stored choice, then the browser's; the dictionary is read once, synchronously; English that no longer matches an entry's `from` is shown as it is; `data-t` text and attributes are translated in place; the `X-Native-Tv-Lang` header goes on requests to the TV and not to other sites; and the Server tab's list stores a choice and drops `?lang=` before reloading. `test-token-url.js`, `test-admin-session.js`, `test-release-card.js` and `test-home-boot.js` load the shipped sources (`native-tv/web/ui/`,
+suite adds the version shown with matching build metadata only and a restart that waits for
+an install started after the settings save. The suites `test-dashboard-nav.js`, `test-dashboard-search.js`, `test-dashboard-view.js`, `test-mqtt-save-ui.js`, `test-i18n.js`, `test-token-url.js`, `test-admin-session.js`, `test-release-card.js` and `test-home-boot.js` load the shipped sources (`native-tv/web/ui/`,
 `native-tv/assets/google-tv/` and `native-tv/lifecycle/50-tvweb.sh`) and run on the host with
-`node native-tv/tests/ui/run.js`. `test-admin-session.js` runs the fetch wrapper of `ui/core.js` against a stand-in network: the admin session goes out with API requests only, a 403 that says `pin:true` raises the unlock prompt and retries once, a cancelled prompt leaves the refusal, and a 401 raises the passcode screen. `test-dashboard-nav.js` holds the phone dashboard's sections and tabs
+`node native-tv/tests/ui/run.js`. `test-i18n.js` runs the string loader (`ui/i18n.js`) against a stand-in page, address bar, storage and network: the language is picked from `?lang=`, then the stored choice, then the browser's; the dictionary is read once, synchronously; English that no longer matches an entry's `from` is shown as it is; `data-t` text and attributes are translated in place; the `X-Native-Tv-Lang` header goes on requests to the TV and not to other sites; and the Server tab's list stores a choice and drops `?lang=` before reloading. `test-admin-session.js` runs the fetch wrapper of `ui/core.js` against a stand-in network: the admin session goes out with API requests only, a 403 that says `pin:true` raises the unlock prompt and retries once, a cancelled prompt leaves the refusal, and a 401 raises the passcode screen. `test-dashboard-nav.js` holds the phone dashboard's sections and tabs
 against `ui.html` (the 13 panels, five sections, the tab buttons the scripts reveal), the Android wrapper's
 `navState` call, and the `?theme=` and `data-theme` behaviour. `test-hdmi-grid.js` runs `hdmiTable()` from `ui/lgsettings.js` and holds that no column of the HDMI inputs
 table keeps a minimum width: three of them once did (150, 130 and 130 px), which pushed the Audio format column off a 390 px phone. `test-release-card.js` runs `renderRelease()` from `ui/server.js` against the shapes the server sends for the Updates card: a newer release, none, a failed check (beside the last good answer or alone), a build from a git checkout, a check under way, and no release check at all. `test-pwa.js` holds the install contract: `ui.html` links a manifest with a name, the start URL `/`, standalone display, the page's theme colour and 192, 512 and maskable icons that are PNGs of the size they claim, and the service worker (`assets/pwa/sw.js`) answers page navigations only, with an offline page when the TV is unreachable, and never caches.
@@ -466,10 +452,9 @@ offering volume control on that output.
 downloads, inspections, previews and installs: 37 scenarios held in
 `tests/fixtures/install-jobs.json` (states, final snapshot and wording), then a held download cancelled, the busy refusal, an expiring preview,
 recovery of an interrupted job and failing job-record writes. The runtime suite uploads a package,
-previews, confirms with root, installs and cancels a second upload with no request reaching Node's
-installer.
+previews, confirms with root, installs and cancels a second upload.
 
-`native-home-orchestrator` runs what the Node release's `home.js` still did around the daemon's Home routes
+`native-home-orchestrator` runs the sequences around the daemon's Home routes
 (`TVWEB_NATIVE_HOME_ORCH=1`): the start-up sequence, the wake from standby that opens Native Tv Home
 over the input LG put in front, and LG's auto launch following the screen. 43 scenarios held in
 `tests/fixtures/home-orchestrator.json`, run on a virtual clock (the calls made to the
@@ -534,7 +519,7 @@ The end-to-end cases (`native-tv/tests/e2e`, run against a real TV with `NATIVET
 app. Four flow cases (`E2E-080` to `E2E-083`, `requires: ["takeover"]`, so only with `--allow takeover`) switch Home on,
 send the Home key from an HDMI input and check the Native Tv app is in front within 5 s and stays, send Back and Home on the
 native Home and check it holds, and switch Home off and close the client Home started (one left running refuses every case
-that starts one). They run `scripts/home-flow.js` under the TV's Node, which calls the
+that starts one). They run `native-tv/tests/e2e/scripts/home-flow.js` under the TV's Node, which calls the
 server on loopback (no token) and reads the app in front from the app manager; the steps are a closed vocabulary that
 `run.py --check` enforces, and the flow script itself runs on the host against a stand-in server and `luna-send` in
 `test_runner.py`.
@@ -643,7 +628,7 @@ back what was set (Native Tv Home, the TMDB key, the privacy and screen saver va
 
 The sweep cases (`E2E-130` to `E2E-149`, and `E2E-146`, `E2E-148`, `E2E-160` to `E2E-166`) walk each group of the TV's own Settings screen with the remote's keys, row by row and page by page, in one client run: on every row the screen calls a switch or a choice the client presses OK, waits for the write to come back, checks the row shows another value, and presses OK until it shows the first one again (a switch in two presses, a choice after one lap of its values; a row that asks to press OK again to confirm, such as switching off a burn-in protection, is confirmed only where the script names it). The script step is `{"sweep": {"skip": [...], "only": [...], "confirm": [...], "act": [...], "maxRows": n, "startAfter": n, "withinMs": n, "press": false}}` (`withinMs` starts no new row after that long, so a run is not cut off with a row in the other state; `act` names action rows that are pressed once, which `E2E-143` and `E2E-144` use for Reset the layout and Cancel a scheduled refresher, the criterion `actedMin` counting them: what they prove is that the press is handled and the app stays up), implemented in `src/platform/row_sweep.hpp`, and the report holds one entry per row for the criterion `{"sweep": {"pressedMin": n}}`, which fails on a pressed row that did not change, did not come back, or whose write did not return. A sweep waits seconds for each write, so its run may last up to 5 minutes, and a long group is cut in slices with `maxRows` and `startAfter`; the client ends the run 1.5 s after the sweep has gone through every row, so `durationMs` is only the most a case may take. It presses the timers and IP control too, each back within seconds. The rows it leaves alone are Power off, Reboot, the installs, Open EZ Adjust and Open In Start (they can change panel calibration), the web dashboard's own switch (it stops the server the TV talks to), and the pixel refresher's rows, which the B3 refuses (`E2E-150`); Native Tv Home's takeover is pressed from the TV by `E2E-147` (two OKs, then read back through the server), each screen saver by its own case (`E2E-160` to `E2E-166`, read back from the server), the service menu lock by `E2E-146`, and Reset the advertising ID and Reset the layout by `E2E-148` and `E2E-143`. The two stabilizers are covered by `E2E-103` and `E2E-131`. A run case may also carry an `after` flow of GET steps, read back through the server once the client has run and judged by `flowOk`. `press: false` only lists the rows, which is how a TV's rows are found before a case is written. The sweeps found three faults that no earlier case reached: the OLED protections read as off for a moment when a client started and the server held that reading for its 30 s cache (see tv-research.md; a sweep then turned the real setting off, which showed as E2E-112 failing at its first step in a full run), and two in the TV app: OK on Privacy's Screen content recognition ended the app (the section heading and the switch shared an id, so the press found the heading and its empty command), and the LG Promotions & Tips Popups row went back to Active because that service takes 12.3 s to switch and a write was given 8 s; a write may now carry its own time limit.
 
-`scripts/dashboard-controls.js` is the same round trip through the browser dashboard, for the controls a person clicks (it is not run by `run.py`, which has no browser): open the TV's dashboard, paste the file into the console, and read `window.__rt` once `__rt.done` is true. It changes each switch, drop-down, slider and colour chip of the Apps, Home screen, Native Tv Home, OLED Care, Screen savers, Game, Privacy, Advanced and Service menu tabs, shows another tab and comes back so the state is read again from the TV, checks the change held, puts the original back the same way and checks that. A run on the B3 changed 90 controls and restored them all with no error message from the page; a switch that hides a tile moves it in the list, so a control is found again by its label, and a group of chips is restored by selecting the original chip. Its recipes cover the Server tab's switches (watch time, daily backup, Prometheus), the MQTT tab's (the icons, a category and an entity, each saved with Save & restart, which waits for the server to restart) and the Tools tab's log viewer switches, whose state belongs to the view and is checked without leaving it; the time server is entered, saved and switched off, and its saved server cleared through the page's own command, because the form cannot save an empty server (Save on an empty field only focuses it), so a server that was switched off stays saved; the experimental tile hiding and Home layout switches are answered yes and switched back, and with the Home layout on, LG's Home screen tiles (HDMI 1 to 4, side icons, quick cards, recommended) are switched one by one. It skips what powers, installs, deletes or restores, the timers, and the experimental Home layout and screen saver switches, and it answers yes only to the OLED protection question; `window.__tabs` and `window.__only` narrow a run.
+`native-tv/tests/e2e/scripts/dashboard-controls.js` is the same round trip through the browser dashboard, for the controls a person clicks (it is not run by `run.py`, which has no browser): open the TV's dashboard, paste the file into the console, and read `window.__rt` once `__rt.done` is true. It changes each switch, drop-down, slider and colour chip of the Apps, Home screen, Native Tv Home, OLED Care, Screen savers, Game, Privacy, Advanced and Service menu tabs, shows another tab and comes back so the state is read again from the TV, checks the change held, puts the original back the same way and checks that. A run on the B3 changed 90 controls and restored them all with no error message from the page; a switch that hides a tile moves it in the list, so a control is found again by its label, and a group of chips is restored by selecting the original chip. Its recipes cover the Server tab's switches (watch time, daily backup, Prometheus), the MQTT tab's (the icons, a category and an entity, each saved with Save & restart, which waits for the server to restart) and the Tools tab's log viewer switches, whose state belongs to the view and is checked without leaving it; the time server is entered, saved and switched off, and its saved server cleared through the page's own command, because the form cannot save an empty server (Save on an empty field only focuses it), so a server that was switched off stays saved; the experimental tile hiding and Home layout switches are answered yes and switched back, and with the Home layout on, LG's Home screen tiles (HDMI 1 to 4, side icons, quick cards, recommended) are switched one by one. It skips what powers, installs, deletes or restores, the timers, and the experimental Home layout and screen saver switches, and it answers yes only to the OLED protection question; `window.__tabs` and `window.__only` narrow a run.
 
 A client case needs the TV to itself: while someone has the Native Tv app open (launched from LG's Home) every client case ends with "a nativetv-tv is already running on the TV", and a case that ends that way still runs its `cleanup`. A full run on the B3 takes about an hour, three quarters of it the Settings sweeps (each press waits for a real write to the TV, and LG's promotions service alone takes 12 s). `run.py --all --quick` leaves out the sweeps and the client runs over 45 s (76 of the 103 cases, about 15 minutes), which is what a change needs between releases; the full run is for a release.
 
@@ -842,7 +827,7 @@ node scripts/check-dashboards.js
 With Chrome installed, CI's way skips the Chromium download:
 `npm install --no-save playwright-core && BROWSER_CHANNEL=chrome node scripts/check-dashboards.js`.
 
-Scripts that talk to a TV or to GitHub rather than to the tree, and need no change when a release changes: `soak.js` (a soak test against a real TV, with an optional MQTT broker; it carries its own small MQTT client), `footprint.sh` (the daemon's CPU and memory on the TV), `tv-wakeups.sh` (context switches a second for each thread of the daemon, over SSH), `tv-client-run.sh` (a client build that is not installed, run once on the TV with its report and perf summary printed), `tv-memory-soak.sh` (the server's memory, threads and open files over hours, over SSH), `tvmon.py` with `probe_defs.py` and `tvstats.sh` (live SoC and load readings over telnet), and `run-prometheus.sh`. Retired with Node: `check-es5.py` for the server, `check-module-calls.py`, `check-upgrade.js`, `discovery-configs.js` and the two `check-native-ha-*.py` comparisons, which the `native-ha-golden` test replaced.
+Scripts that talk to a TV or to GitHub rather than to the tree, and need no change when a release changes: `soak.js` (a soak test against a real TV, with an optional MQTT broker; it carries its own small MQTT client), `footprint.sh` (the daemon's CPU and memory on the TV), `tv-wakeups.sh` (context switches a second for each thread of the daemon, over SSH), `tv-client-run.sh` (a client build that is not installed, run once on the TV with its report and perf summary printed), `tv-memory-soak.sh` (the server's memory, threads and open files over hours, over SSH), `tvmon.py` with `probe_defs.py` and `tvstats.sh` (live SoC and load readings over telnet), and `run-prometheus.sh`.
 
 The Home Assistant check needs Python 3.13 and the `homeassistant` package. CI runs it when
 the discovery code changes and weekly, so it is needed locally only for that code:

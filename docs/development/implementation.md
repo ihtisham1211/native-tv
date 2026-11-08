@@ -525,12 +525,12 @@ Two further details from that file:
 The remap therefore catches the key earlier: `systemUi.js` runs before
 `appLaunch.js`, so a `case WebOS.Key_webOS_<Name>:` added to
 `handleSystemKeys()` that returns `KeyPolicy.Accepted` launches the chosen app
-and the CP-hotkey handler never sees the press. `shortcut-key.sh` bind-mounts a
+and the CP-hotkey handler never sees the press. The prototype bind-mounted a
 patched copy, rebuilt each time from a pristine original so cases cannot
-compound, and refuses to mount anything `node --check` rejects - a key filter
+compound, and refused to mount anything `node --check` rejected - a key filter
 that does not parse takes the compositor down with it. The mount does not
 survive a reboot, so a power cycle is always the way back; the boot hook
-re-applies it, before the compositor starts where it can, which saves a restart.
+re-applied it, before the compositor starts where it can, which saves a restart.
 
 Two traps when working on it: validate the staged copy under a name ending
 `.js`, since `node --check` refuses an unknown extension like `.tmp` and the
@@ -1772,7 +1772,7 @@ The debloating engine (`background_services`, kept by `services_keeper`) switche
 
 * **Symptom When Disabled**: On an OLED65C4PUA (webOS 10.3.1, firmware 33.31.68), the native Plex app showed video stretched vertically. Switching the service back on and rebooting restored the aspect ratio (#374).
 * **Why Disabling Offers No Benefit**: It saves about 3 MB of RAM. The Always Ready screen itself is switched off with the **Always Ready** setting under **Advanced &rarr; Power** (`lifeOnScreenMode`), which leaves the daemon in place.
-* **Migration**: `services.init()` drops both retired IDs (`RETIRED`) from `disabled_services.json`, removes their masks under `/run/systemd/transient`, starts them and rewrites the boot hook. The reported Plex fault cleared only after a reboot with the service running.
+* **Migration**: at start the services keeper drops both retired IDs from `disabled_services.json`, removes their masks under `/run/systemd/transient`, starts them and rewrites the boot hook. The reported Plex fault cleared only after a reboot with the service running.
 ---
 
 ## Screensaver Staging & Boot Persistence
@@ -1780,8 +1780,8 @@ The debloating engine (`background_services`, kept by `services_keeper`) switche
 Custom QML screensavers are staged in `/var/lib/tvweb/screensaver` and bind-mounted over `/usr/palm/applications/com.webos.app.screensaver`.
 
 * **Cold Boot vs Quick Start+**: On Quick Start+ suspend-to-RAM, active bind-mounts persist in memory. On a cold boot (such as after the 4-hour OLED Pixel Cleaning cycle or extended standby on webOS 9 and 10), `/var/lib/webosbrew/init.d/50-tvweb` re-applies the bind-mount if `/var/lib/tvweb/screensaver/.tvweb-screensaver` is present.
-* **Making sam read the new manifest**: sam reads an `appinfo.json` only when it scans, and where LG's screen saver is Flutter (webOS 10 and later) ours changes the app's `type`, so sam has to read it again or the launch goes to the wrong runner. `ScreensaverControl` (`screensaver_control`) and the boot hook try two things in turn: `applicationManager/blockSystemApp` followed by `releaseBlockSystemApp` for the one app (`samrescan.rereadApp`; the block adds `"forceBlockSystemApp": false` where the TV's `applicationManager.blockSystemApp.schema` names it, as webOS 11.2 requires; on a C5 on webOS 10.3.1 sam reported the new type within the second and kept its pid), then the configd nudge below (webOS 9). They never restart sam, the restart behind the black-picture reports in #366, which they used to fall back to. A switch to one of ours that sam has not taken is undone (unmounted, staged files cleared) and answered with an error, and a switch back to LG's is answered as taking effect from the next restart; the boot hook unmounts ours likewise. A running screen saver is relaunched after either, since neither stops it. The release goes out even when the block got no answer, which may still have been a block sam made, and on a TV whose stock screen saver is not QML the boot hook releases it once at every boot, so a run cut short between the two calls cannot leave it blocked. Custom screen savers are on by default on webOS 10 and 11 (#768) and stay held back on webOS 12 and later unless `allowExperimentalScreensavers` is set; the version is read from `/etc/issue`.
-* **Reverting to Stock**: When the user selects "LG default" (`stock`), `screensavers.setScreensaver('stock')` unmounts the live overlay and deletes `.tvweb-screensaver` along with all staged files. Without this cleanup, the boot hook would see the stale marker file on cold boot and re-mount the previously staged screensaver. `screensavers.init()` also auto-heals any orphaned marker files if the live screensaver is currently stock.
+* **Making sam read the new manifest**: sam reads an `appinfo.json` only when it scans, and where LG's screen saver is Flutter (webOS 10 and later) ours changes the app's `type`, so sam has to read it again or the launch goes to the wrong runner. `ScreensaverControl` (`screensaver_control`) and the boot hook try two things in turn: `applicationManager/blockSystemApp` followed by `releaseBlockSystemApp` for the one app (`SamRescanManager::rereadApp`; the block adds `"forceBlockSystemApp": false` where the TV's `applicationManager.blockSystemApp.schema` names it, as webOS 11.2 requires; on a C5 on webOS 10.3.1 sam reported the new type within the second and kept its pid), then the configd nudge below (webOS 9). They never restart sam, the restart behind the black-picture reports in #366, which they used to fall back to. A switch to one of ours that sam has not taken is undone (unmounted, staged files cleared) and answered with an error, and a switch back to LG's is answered as taking effect from the next restart; the boot hook unmounts ours likewise. A running screen saver is relaunched after either, since neither stops it. The release goes out even when the block got no answer, which may still have been a block sam made, and on a TV whose stock screen saver is not QML the boot hook releases it once at every boot, so a run cut short between the two calls cannot leave it blocked. Custom screen savers are on by default on webOS 10 and 11 (#768) and stay held back on webOS 12 and later unless `allowExperimentalScreensavers` is set; the version is read from `/etc/issue`.
+* **Reverting to Stock**: When the user selects "LG default" (`stock`), `ScreensaverManager::restoreStock()` unmounts the live overlay and deletes `.tvweb-screensaver` along with all staged files. Without this cleanup, the boot hook would see the stale marker file on cold boot and re-mount the previously staged screensaver. `ScreensaverManager::reconcileStartup()` also clears any orphaned staged files at start if the live screensaver is stock.
 
 ---
 
@@ -1803,8 +1803,8 @@ order, at most 16, asked once each (the lookup is the one details uses, and is
 kept for then).
 
 `GET /api/home/details?type=movie|tv&id=…` and
-`GET /api/home/search?q=…` delegate through `home.js` to `home-content.js`.
-The transport is the existing server `getJson`; details append
+`GET /api/home/search?q=…` are answered by `HomeContent`
+(`native-tv/src/service/home_content.cpp`), which fetches over libcurl; details append
 `credits,videos,similar,external_ids`. TV runtime uses episode runtime.
 YouTube trailers require an eleven-character video ID. Queries are 2–80
 characters; IDs and types are validated before transport.
