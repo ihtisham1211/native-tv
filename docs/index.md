@@ -28,10 +28,11 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
 [Install](getting-started/install.md){ .md-button .md-button--primary } [See the dashboard](dashboard/index.md){ .md-button } [Buy me a coffee](support.md){ .md-button }
 
 <p align="center">
-  <a href="screenshots/dashboard.png"><img src="screenshots/dashboard.png" alt="Native Tv dashboard in the dark theme: what the TV is showing, quick controls, processor, temperature, memory and network readings" width="440"></a>
+  <a href="screenshots/tv-home-google-tv.jpg"><img src="screenshots/tv-home-google-tv.jpg" alt="The Native Tv app's Home in the default Google TV theme: a featured title, the apps and top picks" width="440"></a>
   &nbsp;
-  <a href="screenshots/privacy.png"><img src="screenshots/privacy.png" alt="Native Tv Privacy tab: what LG can collect, the ad and telemetry blocker and the advertising identifier" width="440"></a>
+  <a href="screenshots/tv-home-oled-care.jpg"><img src="screenshots/tv-home-oled-care.jpg" alt="The Native Tv app's Home in the OLED Care theme: true black, the apps, the HDMI inputs and the panel's hours" width="440"></a>
 </p>
+<p align="center"><sub>The TV app in its two themes: Google TV, the default, and OLED Care, for OLED panels. Rendered by the TV app against a webOS emulator, not photographed on a TV; the HDMI inputs and the panel figures are sample values.</sub></p>
 
 ## What it does
 
