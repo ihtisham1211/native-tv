@@ -28,10 +28,11 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
 [Install](getting-started/install.md){ .md-button .md-button--primary } [See the dashboard](dashboard/index.md){ .md-button } [Buy me a coffee](support.md){ .md-button }
 
 <p align="center">
-  <a href="screenshots/dashboard.png"><img src="screenshots/dashboard.png" alt="Native Tv dashboard in the dark theme: what the TV is showing, quick controls, processor, temperature, memory and network readings" width="440"></a>
+  <a href="screenshots/tv-home-google-tv.jpg"><img src="screenshots/tv-home-google-tv.jpg" alt="The Native Tv app's Home in the default Google TV theme: a featured title, the apps and top picks" width="440"></a>
   &nbsp;
-  <a href="screenshots/privacy.png"><img src="screenshots/privacy.png" alt="Native Tv Privacy tab: what LG can collect, the ad and telemetry blocker and the advertising identifier" width="440"></a>
+  <a href="screenshots/tv-home-oled-care.jpg"><img src="screenshots/tv-home-oled-care.jpg" alt="The Native Tv app's Home in the OLED Care theme: true black, the apps, the HDMI inputs and the panel's hours" width="440"></a>
 </p>
+<p align="center"><sub>The TV app in its two themes: Google TV, the default, and OLED Care, for OLED panels. Rendered by the TV app against a webOS emulator, not photographed on a TV; the HDMI inputs and the panel figures are sample values.</sub></p>
 
 ## What it does
 
@@ -61,7 +62,7 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
 ## Compatibility
 
 * **webOS**: 4 and later. The native server is verified on one TV, an LG B3 on webOS 10.3.2; reports from 48 TVs on earlier releases are in [Tested TVs](getting-started/tested-tvs.md). LG names its versions two ways: [webOS version numbers](getting-started/tested-tvs.md#webos-version-numbers).
-* **Panels**: OLED (panel wear telemetry and burn-in controls) and LCD (the OLED Care tab hides itself).
+* **Panels**: OLED (panel wear telemetry, burn-in controls and the OLED Care TV theme) and LCD (the OLED Care tab hides itself; the theme can still be chosen).
 * **Access**: rooted with the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel), over SSH or telnet. The TV needs no internet access.
 
 Native Tv running on a model that is not listed? A [TV report](https://github.com/ihtisham1211/native-tv/issues/new?template=tv_report.md) with the model and webOS version adds it to the table.
