@@ -128,7 +128,10 @@ class RuntimeTests(unittest.TestCase):
         probe = script[start:script.index("\n}\n", start) + 3]
         with tempfile.TemporaryDirectory() as folder, socket.socket() as listener:
             listener.bind(("127.0.0.1", 0))
-            listener.listen(1)
+            # Nobody accepts, so every probe's connection waits in the queue. A queue one deep
+            # refused a later connection about one run in twelve on macOS, and the check that
+            # follows nc's no then reported the port closed.
+            listener.listen(8)
             openPort = listener.getsockname()[1]
             with socket.socket() as spare:
                 spare.bind(("127.0.0.1", 0))

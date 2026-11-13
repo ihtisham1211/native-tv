@@ -17,6 +17,64 @@ std::recursive_mutex &objectLock() {
     static std::recursive_mutex *const lock = new std::recursive_mutex;
     return *lock;
 }
+// json-c 0.18 compares each byte of a string, as a signed char, with 0x1f in strict mode, so every
+// byte from 0x80 up reads as a control character and any non-ASCII text is refused (fixed in 0.19;
+// Ubuntu 26.04 ships 0.18). Inside a string, each valid UTF-8 sequence is rewritten as the \u escape
+// of the same character, which parses to the same text. Anything else, an invalid sequence included,
+// is left as it is.
+bool hasHighByte(const std::string &text) {
+    for (unsigned char c : text)
+        if (c >= 0x80)
+            return true;
+    return false;
+}
+std::string escapeNonAscii(const std::string &text) {
+    std::string out;
+    out.reserve(text.size() + text.size() / 4);
+    bool inString = false, afterBackslash = false;
+    for (size_t i = 0; i < text.size();) {
+        const unsigned char c = static_cast<unsigned char>(text[i]);
+        if (inString && c >= 0xC2 && c < 0xF5) {
+            const size_t length = c >= 0xF0 ? 4 : c >= 0xE0 ? 3 : 2;
+            unsigned long point = length == 4 ? c & 7 : length == 3 ? c & 15 : c & 31;
+            bool valid = i + length <= text.size();
+            for (size_t k = 1; valid && k < length; ++k) {
+                const unsigned char next = static_cast<unsigned char>(text[i + k]);
+                valid = (next & 0xC0) == 0x80;
+                point = (point << 6) | (next & 0x3F);
+            }
+            valid = valid && point >= (length == 2 ? 0x80ul : length == 3 ? 0x800ul : 0x10000ul) &&
+                    point <= 0x10FFFF && !(point >= 0xD800 && point <= 0xDFFF);
+            if (valid) {
+                char escape[32];
+                if (point < 0x10000) {
+                    std::snprintf(escape, sizeof escape, "\\u%04x", static_cast<unsigned>(point));
+                } else {
+                    point -= 0x10000;
+                    std::snprintf(escape, sizeof escape, "\\u%04x\\u%04x",
+                                  static_cast<unsigned>(0xD800 + (point >> 10)),
+                                  static_cast<unsigned>(0xDC00 + (point & 0x3FF)));
+                }
+                out += escape;
+                i += length;
+                continue;
+            }
+        }
+        out += static_cast<char>(c);
+        if (inString) {
+            if (afterBackslash)
+                afterBackslash = false;
+            else if (c == '\\')
+                afterBackslash = true;
+            else if (c == '"')
+                inString = false;
+        } else if (c == '"') {
+            inString = true;
+        }
+        ++i;
+    }
+    return out;
+}
 } // namespace
 
 Json::Json() : value_(nullptr) {}
@@ -40,9 +98,11 @@ Json::~Json() {
         json_object_put(value_);
     }
 }
-Json Json::parse(const std::string &text) {
-    if (text.empty() || text.size() > 8 * 1024 * 1024)
+Json Json::parse(const std::string &original) {
+    if (original.empty() || original.size() > 8 * 1024 * 1024)
         return Json();
+    const std::string escaped = hasHighByte(original) ? escapeNonAscii(original) : std::string();
+    const std::string &text = escaped.empty() ? original : escaped;
     json_tokener *tokener = json_tokener_new_ex(48);
     if (!tokener)
         return Json();
