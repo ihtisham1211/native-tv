@@ -9,6 +9,12 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
+# GCC 15's -Wdangling-pointer reads the temporary header list handed to HttpExchange::respond
+# (tests/http_server.cpp, http_static_assets.cpp) as a pointer that outlives it; respond copies it, so
+# the code is right. The warning stays on and no longer fails the -Werror targets.
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 15)
+  add_compile_options($<$<COMPILE_LANGUAGE:CXX>:-Wno-error=dangling-pointer>)
+endif()
 option(NATIVETV_SANITIZE "Enable host address and undefined-behavior sanitizers" OFF)
 option(NATIVETV_BUILD_CLIENT "Build the SDL/OpenGL TV client" ON)
 option(NATIVETV_STATIC_JSON "Embed json-c in TV executables" ${CMAKE_CROSSCOMPILING})
