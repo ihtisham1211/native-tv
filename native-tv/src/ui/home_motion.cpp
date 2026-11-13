@@ -130,11 +130,13 @@ bool iconsReady(Pictures *pictures, const std::vector<CardRow> &rows, bool named
         if (!home::isApps(row))
             continue;
         size_t shown = shownOf(row, named);
-        int texels = pictureTexels(kit::layout::appD);
+        const bool wide = kit::look::appW > kit::look::appH * 1.2f;
+        int texelsW = pictureTexels(kit::look::appW), texelsH = pictureTexels(kit::look::appH);
         for (size_t c = 0; c < shown; ++c) {
             if (row.cards[c].image.empty())
                 continue;
-            ImageView view = pictures->view(row.cards[c].image, texels, texels, ImageFit::Cover, now);
+            ImageView view = pictures->view(row.cards[c].image, texelsW, texelsH,
+                                            wide ? ImageFit::Extend : ImageFit::Cover, now);
             ready = ready && (view.texture != 0 || view.failed);
         }
     }

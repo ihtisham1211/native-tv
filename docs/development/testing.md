@@ -131,7 +131,9 @@ and SIGTERM. `native-frame-loop` covers the statistics and the clock.
 with `--time` and compares each with its PNG, per pixel with a tolerance,
 writing `<name>.actual.png` and `<name>.diff.png` when one fails;
 `golden.py update` rewrites the PNGs after an intended change. The `oled-*` cases
-repeat Home, Apps by kind and Settings with `--theme n-oled-care`; every other case
+repeat Home, Apps by kind and Settings with `--theme n-oled-care`, and the `apple-*` cases
+repeat Home, a focused pick, Apps by kind, Settings, Live, Quick settings, Details, the
+profiles and the TV theme picker with `--theme n-apple-tv`; every other case
 is `n-google-tv`, so a theme change that touches it shows as a changed golden. A case may name
 `"fixture": "home"`, which serves the stand-in daemon in `tests/home_fixture.py`
 (an invented catalogue, feed and generated artwork), and a `"script"` of timed

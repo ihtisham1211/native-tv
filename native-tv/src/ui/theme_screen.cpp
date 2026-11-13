@@ -59,10 +59,15 @@ void preview(kit::Paint paint, Rect box, const kit::Palette &p) {
     const float x = box.x, y = box.y;
     scene.shape({x + 24, y + 22, 28, 28}, p.navButton, 14);
     const float tabWidth[] = {44, 36, 44};
-    float tabX = x + 72;
+    // A centred bar puts the tabs in one glass capsule at the middle.
+    float tabX = p.barCentred ? x + (box.w - 180) / 2 : x + 72;
+    if (p.barCentred)
+        scene.shape({tabX - 20, y + 16, 220, 38}, p.glass, 19).ring = {1, 0, p.outline};
     for (int i = 0; i < 3; ++i) {
         if (i == 0) {
-            if (p.ringFocus)
+            if (p.barCentred)
+                scene.shape({tabX - 10, y + 20, tabWidth[i] + 20, 30}, p.glassStrong, 15);
+            else if (p.ringFocus)
                 scene.shape({tabX, y + 46, tabWidth[i], 3}, p.onSurface, 1.5f);
             else
                 scene.shape({tabX - 10, y + 20, tabWidth[i] + 20, 30}, p.focusFill, 15);
@@ -74,8 +79,17 @@ void preview(kit::Paint paint, Rect box, const kit::Palette &p) {
     }
     const Color apps[] = {kit::rgb(0xC0392B), kit::rgb(0x12805C), kit::rgb(0x6C3483),
                           kit::rgb(0x1F618D), kit::rgb(0xB9651B)};
+    const bool wide = p.appW > p.appH * 1.2f;
     auto circles = [&](float top) {
         for (int i = 0; i < 5; ++i) {
+            if (wide) {
+                // Landscape tiles; the first one lifted.
+                const Rect tile = i == 0 ? Rect{x + 20, y + top - 3, 64, 39}
+                                         : Rect{x + 24 + 64.0f * i + 6, y + top, 54, 33};
+                scene.shape(tile, dimmed(apps[i]), 7).shadow = {
+                    0, i == 0 ? 8.0f : 2.0f, i == 0 ? 18.0f : 6.0f, 0, {0, 0, 0, i == 0 ? .6f : .3f}};
+                continue;
+            }
             const Rect circle = {x + 24 + 44.0f * i, y + top, 32, 32};
             scene.shape(circle, i == 0 ? apps[i] : dimmed(apps[i]), 16);
             if (i == 0)
@@ -343,7 +357,14 @@ void ThemeScreen::build(ScreenHost &host, kit::Paint paint) {
             const ThemeChoice &choice = kThemeChoices[i];
             const float x = kCardX + kCardPitch * i, focus = static_cast<float>(host.motion().value(cardId(i)));
             const Rect card = {x, kCardY, kCardW, kCardH};
+            // As an app icon does, a preview rests at the theme's own brightness and rises to full
+            // when focused: on OLED Care, a card nobody is on is not a lit block.
+            const float shine = kit::focus::mix(kit::look::restBrightness, 1, kit::focus::clamp01(focus));
+            if (shine < .999f)
+                scene.pushOpacity(shine);
             preview(paint, card, *paletteOf(choice.id));
+            if (shine < .999f)
+                scene.popOpacity();
             if (sheet_ == Sheet::None && focus > .004f)
                 scene.shape(card, kClear, 16).ring = {3, 0, kit::focus::withAlpha(kit::elevation::focusRingColor, focus)};
             paint.glyphs.text(scene, {x, 652, kCardW - 170, kit::type::title.line}, choice.name, kit::type::title,

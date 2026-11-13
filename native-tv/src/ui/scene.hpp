@@ -139,6 +139,9 @@ struct Node {
     Align align = Align::Left;
     float radius = 0;
     bool contain = false;
+    // An icon on a wide tile: fitted to the tile's height with its edge colour carried to the sides
+    // (ImageFit::Extend).
+    bool extend = false;
     bool stretch = false;
     // A fill drawn under a picture (the next node) for the time it has none or is see-through:
     // Application::resolvePictures hides it once an opaque picture is on show, where it would

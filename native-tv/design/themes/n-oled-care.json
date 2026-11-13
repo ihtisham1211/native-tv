@@ -2,6 +2,7 @@
  "id": "n-oled-care",
  "name": "OLED Care",
  "summary": "True black, dimmed controls and a layout that drifts. Made for OLED panels.",
+ "order": 1,
  "color": {
   "ink": "#000000",
   "surface1": "#0E0E0E",

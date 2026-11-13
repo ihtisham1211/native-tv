@@ -18,8 +18,9 @@ void pill(kit::Paint paint, Rect rest, const std::string &label, const std::stri
     Node &base = scene.shape(rest, kit::focus::mix(kit::color::surface2, kit::color::focusFill, focus),
                              rest.h / 2);
     if (focus > 0) {
-        base.ring = {0, kit::elevation::focusRingWidth,
-                     kit::focus::withAlpha(kit::elevation::focusRingColor, focus * .6f)};
+        if (!kit::look::liftFocus)
+            base.ring = {0, kit::elevation::focusRingWidth,
+                         kit::focus::withAlpha(kit::elevation::focusRingColor, focus * .6f)};
         base.shadow = {0, look.shadowDy, look.shadowBlur, 0, {0, 0, 0, look.shadowAlpha}};
     }
     paint.glyphs.text(scene, {rest.x, rest.y + (rest.h - kit::type::labelL.line) / 2, rest.w,

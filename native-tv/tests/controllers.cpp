@@ -705,13 +705,13 @@ int main() {
             check(std::fabs(fiveMotion.value("sy")) < .5, "The first two kind rows stay where they are");
             five.key(Key::Down);
             fiveMs = run(five, fiveMs, 800);
-            check(std::fabs(fiveMotion.value("sy") + kit::layout::rowPitch) < .5,
+            check(std::fabs(fiveMotion.value("sy") + kit::look::rowPitch) < .5,
                   "On the third row the page moves up one row so the next one shows");
             for (int i = 0; i < 2; ++i)
                 five.key(Key::Down);
             fiveMs = run(five, fiveMs, 800);
             check(five.snapshot()["row"].number() == 4 &&
-                      std::fabs(fiveMotion.value("sy") + 2 * kit::layout::rowPitch) < .5,
+                      std::fabs(fiveMotion.value("sy") + 2 * kit::look::rowPitch) < .5,
                   "The last rows end flush with the screen: three stay in view");
         }
 

@@ -110,6 +110,33 @@ void tokens() {
     check(kit::useTheme("n-google-tv") && sameColor(kit::color::ink, kit::rgb(0x0C0B0E)) &&
               kit::look::pictures,
           "A theme can be switched back");
+    // Apple TV: a centred glass bar, landscape app tiles and its own radii. What a theme sets does not
+    // stick: back on the default, the left-aligned bar, the circles and the radii return.
+    {
+        const std::vector<float> widths = {60, 40, 60};
+        const auto defaultTabs = kit::geometry::tabRects(widths);
+        const float defaultAvatar = kit::geometry::avatar().w, defaultRadius = kit::radius::md;
+        const bool defaults = near(defaultTabs.front().x, kit::geometry::tabsLeft(), 1e-3f) &&
+                              defaultAvatar == 80 && kit::geometry::appCircle(0, 0).w == 112 &&
+                              kit::geometry::appCircle(0, 0).h == 112 && defaultRadius == 12;
+        check(kit::useTheme("n-apple-tv") && sameColor(kit::color::accent, kit::rgb(0x27B45E)) &&
+                  kit::look::barCentred && kit::look::liftFocus && kit::look::pictures &&
+                  kit::look::discover && kit::radius::md == 18 && kit::radius::lg == 26,
+              "n-apple-tv is green, centred, lifts focus, keeps pictures and the feed, and rounds corners");
+        const auto tabs = kit::geometry::tabRects(widths);
+        check(near(tabs.front().x + tabs.back().x + tabs.back().w, kit::canvas::width, 1e-3f) &&
+                  tabs.front().y == 46 && tabs.front().h == 68 && kit::geometry::avatar().w == 68,
+              "On a centred bar the tabs sit in the middle of the screen, 46 px from the top");
+        const auto tile = kit::geometry::appCircle(0, 0);
+        check(tile.w == 260 && tile.h == 156 && kit::look::appRadius == 18 &&
+                  kit::look::rowPitch == 300,
+              "An app is a 260x156 tile on a 300 px row pitch");
+        check(kit::useTheme("n-google-tv") && defaults && kit::radius::md == defaultRadius &&
+                  near(kit::geometry::tabRects(widths).front().x, defaultTabs.front().x, 1e-3f) &&
+                  kit::geometry::avatar().w == defaultAvatar && kit::look::rowPitch == 252 &&
+                  !kit::look::barCentred && !kit::look::liftFocus && kit::look::appRadius < 0,
+              "Back on the default theme, the left-aligned bar, the circles and the radii return");
+    }
     {
         bool same = kit::themeCount == kThemeChoiceCount;
         for (int i = 0; same && i < kit::themeCount; ++i)
@@ -149,9 +176,9 @@ void tokens() {
               near(kit::motion::scale::card, 1.1f, 1e-6f) &&
               near(kit::motion::ease::out.x1, .23f, 1e-6f) && kit::motion::ease::linear.x2 == 1,
           "Motion tokens keep durations, springs, scales and curves");
-    check(kit::elevation::focusRingWidth == 3 && kit::elevation::focusShadow.dy == 22 &&
-              kit::elevation::focusShadow.blur == 56 &&
-              near(kit::elevation::focusShadow.alpha, .62f),
+    check(kit::elevation::focusRingWidth == 3 && kit::look::shadowDy == 22 &&
+              kit::look::shadowBlur == 56 &&
+              near(kit::look::shadowAlpha, .62f),
           "Elevation tokens keep the ring and the focus shadow");
 }
 

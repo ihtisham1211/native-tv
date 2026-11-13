@@ -28,44 +28,49 @@ inline Drift driftAt(int minuteOfDay, float radiusX, float radiusY) {
             static_cast<float>(std::round(radiusY * std::sin(turn * minuteOfDay / 13.0)))};
 }
 
-// Top bar.
-constexpr Rect avatar() {
-    return {canvas::safeX, layout::navTop + (layout::navH - layout::circle) / 2, layout::circle,
-            layout::circle};
+// Top bar. A theme sets its height, top and the size of its round buttons; with look::barCentred
+// the tabs sit in a capsule at the middle of the bar instead of after the avatar.
+inline Rect avatar() {
+    return {canvas::safeX, look::barTop + (look::barH - look::barButton) / 2, look::barButton,
+            look::barButton};
 }
-constexpr float tabsLeft() {
-    return canvas::safeX + layout::circle + layout::avatarGap;
+inline float tabsLeft() {
+    return canvas::safeX + look::barButton + layout::avatarGap;
 }
 constexpr float tabWidth(float textWidth) {
     return textWidth + 2 * layout::tabPad;
 }
-// Tabs touch; each is its text plus the pad on both sides.
+// Tabs touch; each is its text plus the pad on both sides. Centred, they are centred as a group.
 inline std::vector<Rect> tabRects(const std::vector<float> &textWidths) {
     std::vector<Rect> rects;
     float x = tabsLeft();
+    if (look::barCentred) {
+        float total = 0;
+        for (float width : textWidths)
+            total += tabWidth(width);
+        x = (canvas::width - total) / 2;
+    }
     for (float width : textWidths) {
-        rects.push_back({x, layout::navTop, tabWidth(width), layout::navH});
+        rects.push_back({x, look::barTop, tabWidth(width), look::barH});
         x += tabWidth(width);
     }
     return rects;
 }
 // The pill spans two independently animated edges.
-constexpr Rect pill(float left, float right) {
-    return {left, layout::navTop, right - left, layout::navH};
+inline Rect pill(float left, float right) {
+    return {left, look::barTop, right - left, look::barH};
 }
-constexpr Rect brand() {
+inline Rect brand() {
     return {canvas::width - canvas::safeX - layout::brandW,
-            layout::navTop + (layout::navH - type::labelL.line) / 2, layout::brandW,
-            type::labelL.line};
+            look::barTop + (look::barH - type::labelL.line) / 2, layout::brandW, type::labelL.line};
 }
-constexpr Rect clock() {
+inline Rect clock() {
     return {brand().x - layout::brandGap - layout::clockW,
-            layout::navTop + (layout::navH - type::clock.line) / 2, layout::clockW,
-            type::clock.line};
+            look::barTop + (look::barH - type::clock.line) / 2, layout::clockW, type::clock.line};
 }
-constexpr Rect settingsButton() {
-    return {clock().x - layout::clockGap - layout::circle,
-            layout::navTop + (layout::navH - layout::circle) / 2, layout::circle, layout::circle};
+inline Rect settingsButton() {
+    return {clock().x - layout::clockGap - look::barButton,
+            look::barTop + (look::barH - look::barButton) / 2, look::barButton, look::barButton};
 }
 
 // Hero block, bottom-left of Home.
@@ -95,7 +100,7 @@ constexpr Rect dotSlot(int index, int count = layout::dotSlots) {
 // The first row sits at the theme's look::homeTop: under the hero (layout::rowsTop) for a theme with
 // a feed, near the top for one without.
 inline float rowLabelY(int row) {
-    return look::homeTop + layout::rowPitch * row;
+    return look::homeTop + look::rowPitch * row;
 }
 inline float rowItemsY(int row) {
     return rowLabelY(row) + layout::rowLabelH + layout::rowLabelGap;
@@ -111,8 +116,8 @@ inline Rect inputTile(int row, int index) {
     return card(row, index);
 }
 inline Rect appCircle(int row, int index) {
-    return {canvas::safeX + index * (layout::appD + layout::appGap), rowItemsY(row), layout::appD,
-            layout::appD};
+    return {canvas::safeX + index * (look::appW + layout::appGap), rowItemsY(row), look::appW,
+            look::appH};
 }
 // Width of a row's content, without the trailing gap.
 constexpr float rowContentWidth(int count, float itemWidth, float gap) {
@@ -126,8 +131,8 @@ inline float rowScrollTarget(int focus, int count, float itemWidth, float gap) {
     return -clamp((focus - keep) * pitch, 0, room);
 }
 // Vertical snap: the whole stack moves one row pitch per content row; the bar keeps it at 0.
-constexpr float stackTarget(int contentRow) {
-    return contentRow <= 0 ? 0 : -layout::rowPitch * contentRow;
+inline float stackTarget(int contentRow) {
+    return contentRow <= 0 ? 0 : -look::rowPitch * contentRow;
 }
 // Everything the stack offset `y` (<= 0) drives while the rows scroll over the hero.
 // scrimOpacity multiplies alpha::scrimStrong, so the veil tops out at .86 * .84.
@@ -135,9 +140,9 @@ struct HeroParallax {
     float textY, textAlpha, artY, scrimOpacity;
 };
 constexpr float scrimMaxOpacity = .84f;
-constexpr HeroParallax heroParallax(float y) {
+inline HeroParallax heroParallax(float y) {
     return {y * .5f, 1 - focus::clamp01(-y / 150), y * .12f,
-            focus::clamp01(-y / layout::rowPitch) * scrimMaxOpacity};
+            focus::clamp01(-y / look::rowPitch) * scrimMaxOpacity};
 }
 
 // Page heads (Live, Settings, the catalogue). The Apps page has none: it starts at layout::appsTop.

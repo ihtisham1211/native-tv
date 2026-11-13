@@ -55,8 +55,9 @@ void pillButton(Paint paint, const PillButton &button) {
     Node &base = scene.shape(button.rest, focus::mix(rest, color::focusFill, button.focus),
                              button.rest.h / 2);
     if (look.ringAlpha > 0) {
-        base.ring = {0, look.ringWidth,
-                     focus::withAlpha(elevation::focusRingColor, look.ringAlpha * .6f)};
+        if (!look::liftFocus)
+            base.ring = {0, look.ringWidth,
+                         focus::withAlpha(elevation::focusRingColor, look.ringAlpha * .6f)};
         base.shadow = {0, look.shadowDy, look.shadowBlur, 0, {0, 0, 0, look.shadowAlpha}};
     }
     Color ink = focus::inkAt(button.primary ? color::onAccent : color::onSurface, color::onFocus,

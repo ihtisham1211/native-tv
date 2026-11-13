@@ -12,7 +12,7 @@ A TV screen takes its type, colour, shape, spacing and motion from the tokens, n
 
 ## Themes
 
-`tokens.json` is the theme `n-google-tv`. Each file in `native-tv/design/themes/` is another theme, and names only what differs from it: colours (`color`, `colorFloat`, `colorAlpha`, `focusRingColor`) and `look`, the values that are not colours. `gen_tokens.py` writes one `Palette` per theme into `tokens.hpp` and `palette.cpp`. `kit::useTheme(id)` switches the palette in use, and `color::name`, `alpha::name` and `look::name` read it, so a screen's code does not change with the theme. `nativetv-tv --theme ID` starts the client in a theme; the `oled-*` golden cases use it. Type, shape, spacing, layout and motion are the same in every theme.
+`tokens.json` is the theme `n-google-tv`. Each file in `native-tv/design/themes/` is another theme, and names only what differs from it: colours (`color`, `colorFloat`, `colorAlpha`, `focusRingColor`), `radius` (the corner radii) and `look`, the values that are not colours: where a theme draws the top bar, how big its app tiles are, how far apart its rows sit, how a focused item lifts. An optional `order` puts the theme in the picker (themes without one come last, by name). `gen_tokens.py` writes one `Palette` per theme into `tokens.hpp` and `palette.cpp`. `kit::useTheme(id)` switches the palette in use, and `color::name`, `alpha::name`, `radius::name` and `look::name` read it, so a screen's code does not change with the theme. `nativetv-tv --theme ID` starts the client in a theme; the `oled-*` and `apple-*` golden cases use it. Type, spacing and motion are the same in every theme.
 
 ### n-oled-care
 
@@ -39,6 +39,32 @@ A theme for OLED panels: the screens should never be what wears the panel. Its d
 The idle dim after 30 seconds and the screen saver's start time are not part of a theme.
 
 `tests/golden/oled_budget.py` keeps the `oled-*` goldens inside a light budget: at most 1.6% light output (the mean linear luminance as a share of full white) and 1.0% of pixels above 80% luma. Google TV's Home is at 4.3% and 2.3%; the OLED Care goldens are at 0.85 to 1.46% and 0.3 to 0.9%.
+
+### n-apple-tv
+
+A theme in the manner of tvOS, after Apple's Human Interface Guidelines: a glass bar, landscape app tiles that lift when focused, and a white focus fill. It changes how the screens look and where Home draws its bar and apps, and no feature: rows, keys and data are the same code as in the other themes. Its departures from `n-google-tv`:
+
+| Token | n-apple-tv | n-google-tv | Reason |
+|---|---|---|---|
+| `ink` | #08080A | #0C0B0E | A neutral near-black, without the blue-violet cast. |
+| `surface1` to `surface3` | #17171B, #202026, #2B2B32 | #16151A, #201F26, #2C2B34 | Neutral greys. |
+| `onSurface` to `onSurface3` | #FFFFFF, #A2A2AA, #7A7A82 | #F1EEF4, #B9B4C2, #8A8495 | tvOS labels step down in opacity from white. #7A7A82 is 4.7:1 on `ink`. |
+| `accent` | #27B45E | #A8C7FA | The brand green, as in `n-oled-care`. |
+| `focusFill` / `onFocus` | #F5F5F7 / #111113 | #F1EEF4 / #131118 | A focused control is a light fill with black text; Apple's focus page describes an opaque white fill. |
+| `alpha::glass`, `glassStrong` | white at 10%, 18% | white at 10%, 16% (unused) | The bar's capsule and the selected tab inside it: tvOS draws navigation as translucent glass over the wall. The client has no backdrop blur, so this is a translucent fill. |
+| `radius::sm`, `md`, `lg`, `xl` | 10, 18, 26, 44 | 8, 12, 20, 28 | Rounder corners on tiles and cards (`md`), rows and stat cards (`lg`) and panels (`xl`). |
+| `look.barCentred` | true | false | The tabs sit in one glass capsule at the middle of the bar. The selected tab is lighter glass with light ink, and the focus fill while the bar has focus. |
+| `look.barTop`, `barH`, `barButton` | 46, 68, 68 | 60, 72, 80 | The tab bar is 68 pt high and 46 pt from the top in tvOS, and Apple does not let an app change either. |
+| `look.appW`, `appH`, `appRadius` | 260, 156, 18 | 112, 112, circle | A landscape 5:3 tile, 260 px wide: the unfocused width of one column in tvOS's six-column grid. The icon fills the tile: it is fitted to the tile's height and each row's edge colour is carried out to the sides (`ImageFit::Extend`), so a logo is never cropped and the tile is one piece. A circle crops the square icon to its middle. |
+| `look.appGapNamed` | 40 | 60 | The 40 px between columns of tvOS's grids. |
+| `look.rowPitch` | 300 | 252 | A taller app row. Apple asks for at least 100 px between rows, which the Apps page's names under every tile cannot keep; three kinds of apps still fit. |
+| `look.liftFocus` | true | false | A focused item has no ring: it grows and rises on a shadow. |
+| `look.sheen` | 0.3 | 0 | A diagonal light across a focused tile or card, white at 30% fading out by the middle. |
+| `look.shadowDy`, `shadowBlur`, `shadowAlpha` | 36, 90, 0.62 | 22, 56, 0.62 | A farther, softer shadow under the lifted item. |
+
+Everything else (the hero, the picks, the Settings, Live, Details and Quick settings layouts, the type) is `n-google-tv`'s, in the new colours.
+
+The goldens `apple-*` show the screens. The Native Tv remote may have no touch surface, so tvOS's tilt and layered-icon parallax are not drawn: the renderer scales in 2D only.
 
 ## Typography
 

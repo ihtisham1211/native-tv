@@ -69,13 +69,14 @@ void packed(Scene &scene, Rect area, Color fill) {
 void applyFocus(Node &node, const focus::Look &look) {
     if (look.ringAlpha <= 0)
         return;
-    node.ring = {0, look.ringWidth, faded(elevation::focusRingColor, look.ringAlpha)};
+    if (!look::liftFocus)
+        node.ring = {0, look.ringWidth, faded(elevation::focusRingColor, look.ringAlpha)};
     node.shadow = {0, look.shadowDy, look.shadowBlur, 0, {0, 0, 0, look.shadowAlpha}};
 }
 // For a node that already carries its resting outline: the ring goes on a clear overlay, so the
 // shadow stays under the opaque fill.
 void focusRing(Scene &scene, Rect area, float rounding, float amount) {
-    if (amount <= 0)
+    if (amount <= 0 || look::liftFocus)
         return;
     Node &overlay = scene.shape(area, clear, rounding);
     overlay.ring = {0, elevation::focusRingWidth, faded(elevation::focusRingColor, amount)};
@@ -107,6 +108,14 @@ Gradient gradient(float angle, std::initializer_list<Stop> stops) {
         previous = &stop;
     }
     return result;
+}
+// A theme's diagonal light across a focused item (look::sheen), over its picture.
+void sheen(Scene &scene, Rect area, float rounding, float amount) {
+    float strength = look::sheen * focus::clamp01(amount);
+    if (strength <= .004f)
+        return;
+    scene.shape(area, clear, rounding).gradient =
+        gradient(115, {{{1, 1, 1, strength}, 0}, {{1, 1, 1, 0}, .52f}, {{1, 1, 1, 0}, 1}});
 }
 Color withByteAlpha(Color value, int alphaByte) {
     return faded(value, alphaByte / 255.0f);
@@ -207,10 +216,17 @@ std::vector<Rect> tabRects(const Glyphs &glyphs, const std::vector<std::string> 
         widths.push_back(glyphs.measure(tab, type::nav));
     return geometry::tabRects(widths);
 }
-void tabPill(Paint paint, float left, float right, float alphaFactor) {
+void tabPill(Paint paint, float left, float right, float alphaFactor, bool barFocused) {
     if (right - left < 1 || alphaFactor <= .002f)
         return;
     Rect area = geometry::pill(left, right);
+    if (look::barCentred) {
+        // Inside the capsule, 4 px in: lighter glass, and the focus fill while the bar has focus.
+        area = {area.x, area.y + 4, area.w, area.h - 8};
+        paint.scene.shape(area, faded(barFocused ? color::focusFill : alpha::glassStrong, alphaFactor),
+                          area.h / 2);
+        return;
+    }
     if (look::ringFocus) {
         // The selected tab is underlined, the width of its word; the ring, while the bar has focus,
         // is drawn by topBar.
@@ -253,8 +269,16 @@ void topBar(Paint paint, const TopBar &bar) {
         return;
     Scene &scene = paint.scene;
     Group group(scene, bar.enter);
-    tabPill(paint, bar.pillLeft, bar.pillRight, bar.pillAlpha);
-    if (bar.barFocused && bar.pillRight - bar.pillLeft >= 1) {
+    std::vector<Rect> tabs = tabRects(paint.glyphs, bar.tabs);
+    if (look::barCentred && !tabs.empty()) {
+        // The tabs sit in one glass capsule.
+        Rect capsule = {tabs.front().x - 4, look::barTop,
+                        tabs.back().x + tabs.back().w - tabs.front().x + 8, look::barH};
+        Node &glass = scene.shape(capsule, alpha::glass, capsule.h / 2);
+        glass.ring = {1, 0, alpha::outline};
+    }
+    tabPill(paint, bar.pillLeft, bar.pillRight, bar.pillAlpha, bar.barFocused);
+    if (bar.barFocused && !look::barCentred && bar.pillRight - bar.pillLeft >= 1) {
         Rect area = geometry::pill(bar.pillLeft, bar.pillRight);
         focus::ringOnFocus(scene, area, roundRadius(area), bar.pillAlpha);
     }
@@ -267,14 +291,16 @@ void topBar(Paint paint, const TopBar &bar) {
     avatar.focus = bar.avatarFocus;
     roundButton(paint, avatar);
 
-    std::vector<Rect> tabs = tabRects(paint.glyphs, bar.tabs);
     for (size_t i = 0; i < tabs.size(); ++i) {
-        // The selected tab is a light pill with dark ink, whether or not focus is on the bar.
+        // The selected tab is a light pill with dark ink, whether or not focus is on the bar. On a
+        // centred bar it is lighter glass with light ink, and the light pill only while focused.
         Color ink = static_cast<int>(i) == bar.selected
-                        ? (look::ringFocus ? color::onSurface : color::onFocus)
+                        ? (look::barCentred ? (bar.barFocused ? color::onFocus : color::onSurface)
+                           : look::ringFocus ? color::onSurface
+                                             : color::onFocus)
                         : color::onSurface2;
         text(paint,
-             {tabs[i].x, layout::navTop + (layout::navH - type::nav.line) / 2, tabs[i].w,
+             {tabs[i].x, look::barTop + (look::barH - type::nav.line) / 2, tabs[i].w,
               type::nav.line},
              bar.tabs[i], type::nav, ink, Node::Align::Center);
         hit(scene, tabs[i], "nav:tab:" + std::to_string(i));
@@ -477,6 +503,7 @@ void card(Paint paint, const PosterCard &poster) {
                look);
     if (art && !poster.image.empty())
         scene.picture(poster.rest, 0, radius::md).value = poster.image;
+    sheen(scene, poster.rest, radius::md, poster.focus);
     if (!poster.title.empty()) {
         // The title sits on a veil over the lower part of the art; on focus it rises to make
         // room for the facts line under it.
@@ -507,7 +534,7 @@ void appCircle(Paint paint, const AppCircle &circle) {
     Scene &scene = paint.scene;
     Transform scale = focus::transformAt(circle.rest, look.scale);
     Group group(scene, circle.enter, look.scale != 1 ? &scale : nullptr);
-    float rounding = circle.rest.h / 2;
+    float rounding = look::appRadius < 0 ? circle.rest.h / 2 : look::appRadius;
     // The ring and the shadow belong to the circle, not to its fill, which is hidden once an
     // opaque picture covers it (Node::backing).
     if (look.ringAlpha > 0)
@@ -528,10 +555,14 @@ void appCircle(Paint paint, const AppCircle &circle) {
                                    {withByteAlpha(circle.color, 0xcc), .55f},
                                    {{0, 0, 0, 0x55 / 255.0f}, 1.4f}});
     base.backing = !circle.image.empty();
-    if (!circle.image.empty())
-        scene.picture(circle.rest, 0, rounding).value = circle.image;
-    else
+    if (!circle.image.empty()) {
+        Node &art = scene.picture(circle.rest, 0, rounding);
+        art.value = circle.image;
+        // A wide tile takes the square icon whole and carries its edge colour to the sides.
+        art.extend = circle.rest.w > circle.rest.h * 1.2f;
+    } else
         paint.glyphs.icon(scene, centreOf(circle.rest, 52), circle.icon, white);
+    sheen(scene, circle.rest, rounding, circle.focus);
     if (dimmed)
         scene.popOpacity();
     // The name appears under the focused circle, rising into place; a named circle keeps it,
@@ -543,9 +574,8 @@ void appCircle(Paint paint, const AppCircle &circle) {
         float rise = circle.named ? 0 : focus::labelRise(amount);
         Color ink = circle.named ? focus::inkAt(color::onSurface2, color::onSurface, amount)
                                  : faded(color::onSurface, amount);
-        // The gap under the circle is the same at every size: appNameTop is measured for the
-        // 112 px circle, the Apps grid's are 156 px.
-        float nameTop = circle.rest.h + (layout::appNameTop - layout::appD);
+        // The gap under the circle is the same at every size.
+        float nameTop = circle.rest.h + layout::appNameGap;
         text(paint, {cx - width / 2, circle.rest.y + nameTop + rise, width, type::labelM.line},
              circle.name, type::labelM, ink, Node::Align::Center);
     }
