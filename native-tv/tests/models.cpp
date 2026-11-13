@@ -22,6 +22,13 @@ int main() {
     try {
         Json parsed = Json::parse("{\"title\":\"Café 🌿\",\"items\":[1,true,null]}");
         check(parsed["title"].string() == "Café 🌿", "JSON preserves Unicode");
+        // Strict mode, with text json-c 0.18 mistakes for control characters: every length of UTF-8
+        // sequence, an escaped quote and backslash before it, and an escape already there.
+        Json mixed = Json::parse("{\"a\":\"\\\"é\\\\ € 𝄞 \\u0041\",\"é\":2}");
+        check(mixed["a"].string() == "\"é\\ € 𝄞 A" && mixed["é"].number() == 2,
+              "Non-ASCII text parses whether it is in a string or a key, beside escapes");
+        check(!Json::parse("{\"a\":\"é\",}").isObject() && !Json::parse("{\"a\":\"é\"}/**/").isObject(),
+              "Strict mode still refuses a trailing comma and a comment beside non-ASCII text");
         check(parsed["items"].size() == 3, "JSON arrays remain bounded and indexable");
         check(!Json::parse("{broken").valid(), "Malformed JSON is rejected");
         check(!Json::parse(std::string(8 * 1024 * 1024 + 1, 'x')).valid(),
