@@ -49,8 +49,8 @@ struct Look {
     float ringWidth, ringAlpha;
     float shadowDy, shadowBlur, shadowAlpha;
 };
-constexpr Look lookAt(Rect rest, float target, float focus, Pivot pivot = centre,
-                      ShadowRecipe shadow = elevation::focusShadow) {
+inline Look lookAt(Rect rest, float target, float focus, Pivot pivot = centre,
+                   ShadowRecipe shadow = {look::shadowDy, look::shadowBlur, look::shadowAlpha}) {
     float amount = clamp01(focus), size = scaleAt(target, amount);
     return {scaledAbout(rest, size, pivot),
             size,

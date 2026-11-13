@@ -125,7 +125,7 @@ void drawTopBar(kit::Paint paint, const Frame &frame, int pageTab) {
     if (state.titleSearch()) {
         kit::RoundButton search;
         Rect gear = kit::geometry::settingsButton();
-        search.rest = {gear.x - layout::circle - 24, gear.y, layout::circle, layout::circle};
+        search.rest = {gear.x - kit::look::barButton - 24, gear.y, kit::look::barButton, kit::look::barButton};
         search.id = "tool:2";
         search.icon = "search";
         search.focus = static_cast<float>(motion.value("f:sr"));
@@ -160,13 +160,13 @@ void rows(kit::Paint paint, const Frame &frame, float top = 0) {
             float right = kit::canvas::width - kit::canvas::safeX + kPad / 2;
             if (!row.cards.empty()) {
                 const Rect last = home::item(row, ri, row.cards.size() - 1, namedApps);
-                const float overhang = namedApps ? (layout::appGapNamed - 8) / 2 : 0;
+                const float overhang = namedApps ? (kit::look::appGapNamed - 8) / 2 : 0;
                 right = std::min(right, last.x + last.w + overhang + kPad +
                                             static_cast<float>(motion.value(home::id("rx", ri))));
                 right = std::max(right, left + 800);
             }
             const float height = layout::rowLabelH + layout::rowLabelGap +
-                                 (home::isApps(row) ? layout::appD + 56 : layout::cardH + 12);
+                                 (home::isApps(row) ? kit::look::appH + 56 : layout::cardH + 12);
             Node &slab = paint.scene.shape({left, labelY - 12, right - left, height + 36},
                                            kit::color::surface2, kit::radius::lg);
             slab.ring = {1, 0, kit::alpha::outline};
@@ -230,7 +230,7 @@ void rows(kit::Paint paint, const Frame &frame, float top = 0) {
                 circle.color = appColor(card);
                 circle.named = namedApps;
                 if (namedApps)
-                    circle.nameWidth = layout::appD + layout::appGapNamed - 8;
+                    circle.nameWidth = kit::look::appW + kit::look::appGapNamed - 8;
                 circle.focus = focus;
                 circle.enter = enter;
                 if (card.hidden) // hidden from Home: listed only while the apps are edited

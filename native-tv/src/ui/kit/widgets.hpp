@@ -71,7 +71,7 @@ struct TopBar {
 std::vector<Rect> tabRects(const Glyphs &glyphs, const std::vector<std::string> &tabs);
 // Hits are "nav:avatar", "nav:tab:<i>" and "nav:settings".
 void topBar(Paint paint, const TopBar &bar);
-void tabPill(Paint paint, float left, float right, float alpha = 1);
+void tabPill(Paint paint, float left, float right, float alpha = 1, bool barFocused = false);
 
 struct RoundButton {
     Rect rest;

@@ -58,6 +58,38 @@ DecodedImage decodeImage(const std::string &bytes, int width, int height, ImageF
     if (bytes.empty() || bytes.size() > (16u << 20) || width <= 0 || height <= 0 || width > 4096 ||
         height > 4096)
         return result;
+    if (fit == ImageFit::Extend) {
+        DecodedImage inner = decodeImage(bytes, width, height, ImageFit::Contain);
+        // A picture as wide as the box, or one that cannot reach its height, has nothing to extend.
+        if (inner.rgba.empty() || inner.width >= width || inner.height != height)
+            return inner;
+        result.width = width;
+        result.height = height;
+        result.rgba.resize(static_cast<size_t>(width) * height * 4);
+        const int left = (width - inner.width) / 2, right = left + inner.width;
+        for (int y = 0; y < height; ++y) {
+            const uint8_t *row = &inner.rgba[static_cast<size_t>(y) * inner.width * 4];
+            // The edge colour is the first solid pixel in from each side, so the see-through corner
+            // of a rounded icon does not leave a notch in the band beside it.
+            auto edge = [&](bool fromLeft) {
+                const int reach = std::max(1, inner.width / 2);
+                for (int i = 0; i < reach; ++i) {
+                    const uint8_t *pixel = row + (fromLeft ? i : inner.width - 1 - i) * 4;
+                    if (pixel[3] >= 250)
+                        return pixel;
+                }
+                return row + (fromLeft ? 0 : inner.width - 1) * 4;
+            };
+            const uint8_t *leftEdge = edge(true), *rightEdge = edge(false);
+            uint8_t *out = &result.rgba[static_cast<size_t>(y) * width * 4];
+            for (int x = 0; x < width; ++x) {
+                const uint8_t *from = x < left ? leftEdge : x >= right ? rightEdge : row + (x - left) * 4;
+                std::copy(from, from + 4, out + x * 4);
+            }
+        }
+        result.opaque = inner.opaque;
+        return result;
+    }
     SDL_RWops *stream = SDL_RWFromConstMem(bytes.data(), static_cast<int>(bytes.size()));
     if (!stream)
         return result;

@@ -86,7 +86,7 @@ Options options(int argc, char **argv) {
             std::puts("nativetv-tv [--server http://127.0.0.1:PORT] [--font font.ttf] [--screen "
                       "splash|home|dashboard|setup:welcome|kit:keyboard] [--windowed] [--script "
                       "steps.json] [--capture image.ppm] [--duration-ms N] [--time=MS] "
-                      "[--perf=log.jsonl] [--report report.json] [--theme n-google-tv|n-oled-care] "
+                      "[--perf=log.jsonl] [--report report.json] [--theme n-google-tv|n-oled-care|n-apple-tv] "
                       "[--probe]");
             std::exit(0);
         } else if (inlineValue || i + 1 < argc) {

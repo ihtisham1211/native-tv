@@ -214,8 +214,9 @@ class ProfilesScreen final : public ScreenView {
             else
                 disc.ring = {3, 0, kit::alpha::outlineStrong};
             if (look.ringAlpha > 0) {
-                disc.ring = {0, look.ringWidth,
-                             kit::focus::withAlpha(kit::elevation::focusRingColor, look.ringAlpha)};
+                if (!kit::look::liftFocus) // a lift theme shows focus by the lift and the shadow
+                    disc.ring = {0, look.ringWidth,
+                                 kit::focus::withAlpha(kit::elevation::focusRingColor, look.ringAlpha)};
                 disc.shadow = {0, look.shadowDy, look.shadowBlur, 0, {0, 0, 0, look.shadowAlpha}};
             }
             if (add)

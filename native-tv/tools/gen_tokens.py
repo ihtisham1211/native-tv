@@ -89,7 +89,8 @@ def palette_slots(tokens):
              + [("colorFloat", key) for key in tokens["colorFloat"]]
              + [("colorAlpha", key) for key in tokens["colorAlpha"]]
              + [("focusRingColor", None)]
-             + [("look", key) for key in tokens["look"]])
+             + [("look", key) for key in tokens["look"]]
+             + [("radius", key) for key in tokens["radius"]])
     names = [slot_name(group, key) for group, key in slots]
     if len(set(names)) != len(names):
         sys.exit("tokens.json: two palette entries share a name")
@@ -101,6 +102,8 @@ def slot_name(group, key):
 
 
 def slot_type(tokens, group, key):
+    if group == "radius":
+        return "float"
     if group != "look":
         return "Color"
     return "bool" if isinstance(tokens["look"][key], bool) else "float"
@@ -113,10 +116,13 @@ def slot_literal(group, value):
         return colour(*value)
     if group == "look":
         return ("true" if value else "false") if isinstance(value, bool) else number(value)
+    if group == "radius":
+        return number(value)
     return colour(value)
 
 
-THEME_KEYS = {"id", "name", "summary", "color", "colorFloat", "colorAlpha", "focusRingColor", "look"}
+THEME_KEYS = {"id", "name", "summary", "color", "colorFloat", "colorAlpha", "focusRingColor", "look",
+              "radius", "order"}
 
 
 def load_themes(tokens, theme_dir):
@@ -127,15 +133,16 @@ def load_themes(tokens, theme_dir):
         if group != "focusRingColor":
             base[(group, key)] = tokens[group][key]
     themes = [dict(tokens["theme"], slots=base)]
-    for path in sorted(theme_dir.glob("*.json")):
-        theme = json.loads(path.read_text())
+    loaded = [(path, json.loads(path.read_text())) for path in sorted(theme_dir.glob("*.json"))]
+    # The picker lists themes by `order`, then by name; a theme without one comes last.
+    for path, theme in sorted(loaded, key=lambda item: (item[1].get("order", 1000), item[0].name)):
         extra = set(theme) - THEME_KEYS
         if extra:
             sys.exit("%s: unknown key %s" % (path.name, ", ".join(sorted(extra))))
         if not re.fullmatch(r"n-[a-z0-9]+(-[a-z0-9]+)*", theme["id"]) or theme["id"] != path.stem:
             sys.exit("%s: the id must be the file name, as n-name" % path.name)
         resolved = dict(base)
-        for group in ("color", "colorFloat", "colorAlpha", "look"):
+        for group in ("color", "colorFloat", "colorAlpha", "look", "radius"):
             for key, value in theme.get(group, {}).items():
                 if (group, key) not in resolved:
                     sys.exit("%s: %s.%s is not an entry of tokens.json" % (path.name, group, key))
@@ -208,7 +215,7 @@ def generate_palette_source(tokens, themes):
            "    return false;",
            "}"]
     for namespace, groups in (("color", ("color", "colorFloat")), ("alpha", ("colorAlpha",)),
-                              ("elevation", ("focusRingColor",)), ("look", ("look",))):
+                              ("elevation", ("focusRingColor",)), ("look", ("look",)), ("radius", ("radius",))):
         out.append("namespace %s {" % namespace)
         out += ["const %s &%s = active.%s;" % (slot_type(tokens, g, key), slot_name(g, key), slot_name(g, key))
                 for g, key in palette_slots(tokens) if g in groups]
@@ -269,8 +276,7 @@ def generate(tokens, metrics, themes):
 
     emit_namespace("space", out, ["constexpr float x%d = %d;" % (value, value)
                                   for value in tokens["space"]])
-    emit_namespace("radius", out, ["constexpr float %s = %s;" % (key, number(value))
-                                   for key, value in tokens["radius"].items()])
+    emit_namespace("radius", out, ["extern const float &%s;" % key for key in tokens["radius"]])
 
     elevation = tokens["elevation"]
     ring = elevation["focusRing"]

@@ -55,6 +55,8 @@ struct Palette {
     Color outlineStrong;
     Color accentDim;
     Color scrimStrong;
+    Color glass;
+    Color glassStrong;
     Color focusRingColor;
     float wall;
     bool pictures;
@@ -65,6 +67,26 @@ struct Palette {
     float restBrightness;
     float driftX;
     float driftY;
+    float barTop;
+    float barH;
+    float barButton;
+    float rowPitch;
+    float appW;
+    float appH;
+    bool barCentred;
+    float appRadius;
+    float sheen;
+    float shadowDy;
+    float shadowBlur;
+    float shadowAlpha;
+    float appGapNamed;
+    bool liftFocus;
+    float sm;
+    float md;
+    float lg;
+    float xl;
+    float pill;
+    float key;
 };
 constexpr Palette nGoogleTv = {
     rgb(0x0C0B0E),
@@ -87,6 +109,8 @@ constexpr Palette nGoogleTv = {
     rgb(0xF1EEF4, 0.24f),
     rgb(0xA8C7FA, 0.16f),
     rgb(0x0C0B0E, 0.86f),
+    rgb(0xFFFFFF, 0.1f),
+    rgb(0xFFFFFF, 0.16f),
     rgb(0xF1EEF4),
     1,
     true,
@@ -96,7 +120,27 @@ constexpr Palette nGoogleTv = {
     1,
     1,
     0,
-    0
+    0,
+    60,
+    72,
+    80,
+    252,
+    112,
+    112,
+    false,
+    -1,
+    0,
+    22,
+    56,
+    0.62f,
+    60,
+    false,
+    8,
+    12,
+    20,
+    28,
+    999,
+    18
 };
 constexpr Palette nOledCare = {
     rgb(0x000000),
@@ -119,6 +163,8 @@ constexpr Palette nOledCare = {
     rgb(0xD9D9D9, 0.24f),
     rgb(0x27B45E, 0.16f),
     rgb(0x000000, 0.86f),
+    rgb(0xFFFFFF, 0.1f),
+    rgb(0xFFFFFF, 0.16f),
     rgb(0xCFCFCF),
     0,
     false,
@@ -128,7 +174,81 @@ constexpr Palette nOledCare = {
     0,
     0.62f,
     8,
-    6
+    6,
+    60,
+    72,
+    80,
+    252,
+    112,
+    112,
+    false,
+    -1,
+    0,
+    22,
+    56,
+    0.62f,
+    60,
+    false,
+    8,
+    12,
+    20,
+    28,
+    999,
+    18
+};
+constexpr Palette nAppleTv = {
+    rgb(0x08080A),
+    rgb(0x17171B),
+    rgb(0x202026),
+    rgb(0x2B2B32),
+    rgb(0xFFFFFF),
+    rgb(0xA2A2AA),
+    rgb(0x7A7A82),
+    rgb(0x27B45E),
+    rgb(0x04210F),
+    rgb(0xF5F5F7),
+    rgb(0x111113),
+    rgb(0xFFB784),
+    rgb(0xFF8A80),
+    rgb(0x2B2B32),
+    rgb(0x3A3A40),
+    {0.12f, 0.13f, 0.16f, 1},
+    rgb(0xFFFFFF, 0.08f),
+    rgb(0xFFFFFF, 0.22f),
+    rgb(0x27B45E, 0.18f),
+    rgb(0x08080A, 0.86f),
+    rgb(0xFFFFFF, 0.1f),
+    rgb(0xFFFFFF, 0.18f),
+    rgb(0xFFFFFF),
+    1,
+    true,
+    true,
+    556,
+    false,
+    1,
+    1,
+    0,
+    0,
+    46,
+    68,
+    68,
+    300,
+    260,
+    156,
+    true,
+    18,
+    0.3f,
+    36,
+    90,
+    0.62f,
+    40,
+    true,
+    10,
+    18,
+    26,
+    44,
+    999,
+    18
 };
 struct ThemeInfo {
     const char *id, *name, *summary;
@@ -136,9 +256,10 @@ struct ThemeInfo {
 };
 constexpr ThemeInfo themes[] = {
     {"n-google-tv", "Google TV", "Ambient artwork and the white focus pill. The default.", &nGoogleTv},
-    {"n-oled-care", "OLED Care", "True black, dimmed controls and a layout that drifts. Made for OLED panels.", &nOledCare}
+    {"n-oled-care", "OLED Care", "True black, dimmed controls and a layout that drifts. Made for OLED panels.", &nOledCare},
+    {"n-apple-tv", "Apple TV", "A glass bar, landscape app tiles that lift, and a white focus fill.", &nAppleTv}
 };
-constexpr int themeCount = 2;
+constexpr int themeCount = 3;
 const Palette &palette();
 const char *themeId();
 // Switches to the theme with this id; false, and no change, when there is none.
@@ -166,6 +287,8 @@ extern const Color &outline;
 extern const Color &outlineStrong;
 extern const Color &accentDim;
 extern const Color &scrimStrong;
+extern const Color &glass;
+extern const Color &glassStrong;
 } // namespace alpha
 // What a theme changes besides colour.
 namespace look {
@@ -178,6 +301,20 @@ extern const float &restFill;
 extern const float &restBrightness;
 extern const float &driftX;
 extern const float &driftY;
+extern const float &barTop;
+extern const float &barH;
+extern const float &barButton;
+extern const float &rowPitch;
+extern const float &appW;
+extern const float &appH;
+extern const bool &barCentred;
+extern const float &appRadius;
+extern const float &sheen;
+extern const float &shadowDy;
+extern const float &shadowBlur;
+extern const float &shadowAlpha;
+extern const float &appGapNamed;
+extern const bool &liftFocus;
 } // namespace look
 namespace type {
 constexpr const char *family = "Google Sans Flex";
@@ -215,23 +352,19 @@ constexpr float x48 = 48;
 constexpr float x64 = 64;
 } // namespace space
 namespace radius {
-constexpr float sm = 8;
-constexpr float md = 12;
-constexpr float lg = 20;
-constexpr float xl = 28;
-constexpr float pill = 999;
-constexpr float key = 18;
+extern const float &sm;
+extern const float &md;
+extern const float &lg;
+extern const float &xl;
+extern const float &pill;
+extern const float &key;
 } // namespace radius
 namespace elevation {
 constexpr float focusRingWidth = 3;
 extern const Color &focusRingColor;
-constexpr ShadowRecipe focusShadow = {22, 56, 0.62f};
 constexpr ShadowRecipe raised = {14, 36, 0.5f};
 } // namespace elevation
 namespace layout {
-constexpr float navTop = 60;
-constexpr float navH = 72;
-constexpr float circle = 80;
 constexpr float avatarGap = 32;
 constexpr float tabPad = 32;
 constexpr float brandW = 160;
@@ -257,16 +390,12 @@ constexpr float dotSlotW = 28;
 constexpr float dotSlotH = 20;
 constexpr float dot = 8;
 constexpr float rowsTop = 556;
-constexpr float rowPitch = 252;
 constexpr float rowLabelH = 40;
 constexpr float rowLabelGap = 12;
 constexpr float cardW = 300;
 constexpr float cardH = 169;
 constexpr float cardGap = 24;
-constexpr float appD = 112;
 constexpr float appGap = 28;
-constexpr float appGapNamed = 60;
-constexpr float appNameTop = 124;
 constexpr float pageTitleTop = 160;
 constexpr float pageSubTop = 232;
 constexpr float gridTop = 320;
@@ -320,6 +449,7 @@ constexpr float keyGap = 10;
 constexpr float keyWide = 120;
 constexpr float keySpace = 450;
 constexpr float keyDone = 260;
+constexpr float appNameGap = 12;
 constexpr int dotSlots = 6;
 constexpr int tileCols = 6;
 constexpr int statCols = 4;

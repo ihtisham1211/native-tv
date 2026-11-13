@@ -1288,6 +1288,202 @@
         "--theme",
         "n-oled-care"
       ]
+    },
+    {
+      "name": "apple-home-rest",
+      "time": 3000,
+      "fixture": "home",
+      "args": [
+        "--screen",
+        "home",
+        "--theme",
+        "n-apple-tv"
+      ]
+    },
+    {
+      "name": "apple-home-row-snap",
+      "time": 3500,
+      "fixture": "home",
+      "args": [
+        "--screen",
+        "home",
+        "--theme",
+        "n-apple-tv"
+      ],
+      "script": [
+        {
+          "at": 1500,
+          "key": "down"
+        }
+      ]
+    },
+    {
+      "name": "apple-apps-kinds",
+      "time": 3200,
+      "fixture": "home",
+      "args": [
+        "--screen",
+        "home",
+        "--theme",
+        "n-apple-tv"
+      ],
+      "script": [
+        {
+          "at": 1450,
+          "key": "up"
+        },
+        {
+          "at": 1500,
+          "key": "up"
+        },
+        {
+          "at": 1510,
+          "key": "right"
+        },
+        {
+          "at": 1600,
+          "key": "ok"
+        },
+        {
+          "at": 2260,
+          "key": "right"
+        }
+      ]
+    },
+    {
+      "name": "apple-settings-groups",
+      "time": 3500,
+      "fixture": "dashboard",
+      "args": [
+        "--screen",
+        "dashboard",
+        "--theme",
+        "n-apple-tv"
+      ]
+    },
+    {
+      "name": "apple-live-focus",
+      "time": 15000,
+      "fixture": "dashboard",
+      "args": [
+        "--screen",
+        "live",
+        "--theme",
+        "n-apple-tv"
+      ],
+      "script": [
+        {
+          "at": 13000,
+          "key": "right"
+        }
+      ]
+    },
+    {
+      "name": "apple-quick-main",
+      "time": 3000,
+      "fixture": "home",
+      "args": [
+        "--screen",
+        "home",
+        "--theme",
+        "n-apple-tv"
+      ],
+      "script": [
+        {
+          "at": 1450,
+          "key": "up"
+        },
+        {
+          "at": 1500,
+          "key": "up"
+        },
+        {
+          "at": 1560,
+          "key": "right"
+        },
+        {
+          "at": 1620,
+          "key": "right"
+        },
+        {
+          "at": 1680,
+          "key": "right"
+        },
+        {
+          "at": 1710,
+          "key": "right"
+        },
+        {
+          "at": 1740,
+          "key": "right"
+        },
+        {
+          "at": 1800,
+          "key": "ok"
+        }
+      ]
+    },
+    {
+      "name": "apple-details",
+      "time": 3500,
+      "fixture": "home",
+      "args": [
+        "--screen",
+        "home",
+        "--theme",
+        "n-apple-tv"
+      ],
+      "script": [
+        {
+          "at": 1300,
+          "key": "down"
+        },
+        {
+          "at": 1500,
+          "key": "ok"
+        }
+      ]
+    },
+    {
+      "name": "apple-profiles",
+      "time": 3000,
+      "fixture": "home",
+      "args": [
+        "--screen",
+        "home",
+        "--theme",
+        "n-apple-tv"
+      ],
+      "script": [
+        {
+          "at": 1450,
+          "key": "up"
+        },
+        {
+          "at": 1500,
+          "key": "up"
+        },
+        {
+          "at": 1560,
+          "key": "left"
+        },
+        {
+          "at": 1620,
+          "key": "ok"
+        }
+      ],
+      "profiles": 3
+    },
+    {
+      "name": "apple-tvtheme-picker",
+      "time": 2400,
+      "fixture": "dashboard",
+      "args": [
+        "--screen",
+        "tvtheme",
+        "--theme",
+        "n-apple-tv"
+      ]
     }
   ]
 }

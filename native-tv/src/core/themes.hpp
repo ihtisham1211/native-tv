@@ -9,9 +9,10 @@ struct ThemeChoice {
 };
 constexpr ThemeChoice kThemeChoices[] = {
     {"n-google-tv", "Google TV", "Ambient artwork and the white focus pill. The default."},
-    {"n-oled-care", "OLED Care", "True black, dimmed controls and a layout that drifts. Made for OLED panels."}
+    {"n-oled-care", "OLED Care", "True black, dimmed controls and a layout that drifts. Made for OLED panels."},
+    {"n-apple-tv", "Apple TV", "A glass bar, landscape app tiles that lift, and a white focus fill."}
 };
-constexpr int kThemeChoiceCount = 2;
+constexpr int kThemeChoiceCount = 3;
 constexpr const char *kDefaultTheme = "n-google-tv";
 // The choice with this id, or null.
 inline const ThemeChoice *findTheme(const std::string &id) {

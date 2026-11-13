@@ -46,6 +46,8 @@ const Color &outline = active.outline;
 const Color &outlineStrong = active.outlineStrong;
 const Color &accentDim = active.accentDim;
 const Color &scrimStrong = active.scrimStrong;
+const Color &glass = active.glass;
+const Color &glassStrong = active.glassStrong;
 } // namespace alpha
 namespace elevation {
 const Color &focusRingColor = active.focusRingColor;
@@ -60,6 +62,28 @@ const float &restFill = active.restFill;
 const float &restBrightness = active.restBrightness;
 const float &driftX = active.driftX;
 const float &driftY = active.driftY;
+const float &barTop = active.barTop;
+const float &barH = active.barH;
+const float &barButton = active.barButton;
+const float &rowPitch = active.rowPitch;
+const float &appW = active.appW;
+const float &appH = active.appH;
+const bool &barCentred = active.barCentred;
+const float &appRadius = active.appRadius;
+const float &sheen = active.sheen;
+const float &shadowDy = active.shadowDy;
+const float &shadowBlur = active.shadowBlur;
+const float &shadowAlpha = active.shadowAlpha;
+const float &appGapNamed = active.appGapNamed;
+const bool &liftFocus = active.liftFocus;
 } // namespace look
+namespace radius {
+const float &sm = active.sm;
+const float &md = active.md;
+const float &lg = active.lg;
+const float &xl = active.xl;
+const float &pill = active.pill;
+const float &key = active.key;
+} // namespace radius
 } // namespace kit
 } // namespace nativetv

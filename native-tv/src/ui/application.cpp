@@ -304,7 +304,10 @@ void Application::resolvePictures() {
         int width = wide ? 1600 : pictureTexels(node.rect.w),
             height = wide ? 900 : pictureTexels(node.rect.h);
         ImageView view = pictures_->view(node.value, width, height,
-                                         node.contain ? ImageFit::Contain : ImageFit::Cover, now);
+                                         node.extend    ? ImageFit::Extend
+                                         : node.contain ? ImageFit::Contain
+                                                        : ImageFit::Cover,
+                                         now);
         node.value.clear();
         if (view.texture) {
             node.texture = view.texture;

@@ -1,0 +1,77 @@
+{
+ "id": "n-apple-tv",
+ "name": "Apple TV",
+ "summary": "A glass bar, landscape app tiles that lift, and a white focus fill.",
+ "order": 2,
+ "color": {
+  "ink": "#08080A",
+  "surface1": "#17171B",
+  "surface2": "#202026",
+  "surface3": "#2B2B32",
+  "onSurface": "#FFFFFF",
+  "onSurface2": "#A2A2AA",
+  "onSurface3": "#7A7A82",
+  "accent": "#27B45E",
+  "onAccent": "#04210F",
+  "focusFill": "#F5F5F7",
+  "onFocus": "#111113",
+  "pillRest": "#2B2B32",
+  "navButton": "#3A3A40"
+ },
+ "colorFloat": {
+  "wash": [
+   0.12,
+   0.13,
+   0.16
+  ]
+ },
+ "colorAlpha": {
+  "outline": [
+   "#FFFFFF",
+   0.08
+  ],
+  "outlineStrong": [
+   "#FFFFFF",
+   0.22
+  ],
+  "accentDim": [
+   "#27B45E",
+   0.18
+  ],
+  "scrimStrong": [
+   "#08080A",
+   0.86
+  ],
+  "glass": [
+   "#FFFFFF",
+   0.1
+  ],
+  "glassStrong": [
+   "#FFFFFF",
+   0.18
+  ]
+ },
+ "focusRingColor": "#FFFFFF",
+ "radius": {
+  "sm": 10,
+  "md": 18,
+  "lg": 26,
+  "xl": 44
+ },
+ "look": {
+  "barTop": 46,
+  "barH": 68,
+  "barButton": 68,
+  "barCentred": true,
+  "rowPitch": 300,
+  "appW": 260,
+  "appH": 156,
+  "appRadius": 18,
+  "appGapNamed": 40,
+  "sheen": 0.3,
+  "shadowDy": 36,
+  "shadowBlur": 90,
+  "shadowAlpha": 0.62,
+  "liftFocus": true
+ }
+}

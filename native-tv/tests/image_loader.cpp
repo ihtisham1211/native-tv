@@ -89,6 +89,25 @@ void testDecode() {
           "Cover crops the middle of the picture");
     DecodedImage contain = decodeImage(halves, 16, 16, ImageFit::Contain);
     check(contain.width == 16 && contain.height == 8, "Contain keeps the aspect ratio");
+    {
+        // Extend: a square icon on a wide tile keeps its height and every row's edge colour runs out
+        // to the sides, so nothing is cropped and the tile is one piece.
+        std::string square = encode(8, 8, true, [](int x, int y) {
+            if (x < 2 && y == 0)
+                return rgba(0, 0, 0, 0); // the see-through corner of a rounded icon
+            return x < 4 ? rgba(200, 20, 20) : rgba(20, 200, 20);
+        });
+        DecodedImage wide = decodeImage(square, 24, 8, ImageFit::Extend);
+        check(wide.width == 24 && wide.height == 8 && at(wide, 0, 3)[0] == 200 &&
+                  at(wide, 7, 3)[0] == 200 && at(wide, 8, 3)[0] == 200 && at(wide, 15, 3)[1] == 200 &&
+                  at(wide, 23, 3)[1] == 200 && at(wide, 16, 3)[1] == 200,
+              "Extend keeps the picture whole in the middle and carries its edge colour to the sides");
+        check(at(wide, 0, 0)[3] == 255 && at(wide, 0, 0)[0] == 200 && at(wide, 8, 0)[3] == 0,
+              "A see-through corner does not leave a notch in the band beside it");
+        DecodedImage tall = decodeImage(encode(16, 4, true, [](int, int) { return rgba(9, 9, 9); }), 8, 8,
+                                        ImageFit::Extend);
+        check(tall.width == 8 && tall.height == 2, "A picture as wide as the box is left as Contain leaves it");
+    }
     DecodedImage larger =
         decodeImage(encode(4, 4, true, [](int x, int y) { return rgba(x * 80, y * 80, 0); }), 16,
                     16, ImageFit::Cover);

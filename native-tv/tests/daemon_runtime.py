@@ -10988,7 +10988,8 @@ class DaemonRuntimeTests(unittest.TestCase):
                 # client's first frame (caps) and its settings row (setup) name the saved one.
                 fresh = control("setReleaseCheck", False)[1]
                 self.assertEqual(fresh["tvTheme"], "n-google-tv")
-                self.assertEqual([theme["id"] for theme in fresh["tvThemes"]], ["n-google-tv", "n-oled-care"])
+                self.assertEqual([theme["id"] for theme in fresh["tvThemes"]],
+                         ["n-google-tv", "n-oled-care", "n-apple-tv"])
                 self.assertEqual(fresh["tvThemes"][1]["name"], "OLED Care")
                 for bad in ("n-nope", "", 7, None):
                     self.assertEqual(control("setTvTheme", bad)[1]["error"], "That theme does not exist")

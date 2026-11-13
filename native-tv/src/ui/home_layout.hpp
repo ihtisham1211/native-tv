@@ -57,11 +57,11 @@ inline bool isPanel(const CardRow &row) {
     return row.key == "oled";
 }
 inline float itemWidth(const CardRow &row) {
-    return isApps(row) ? kit::layout::appD : isPanel(row) ? kPanelCardW : kit::layout::cardW;
+    return isApps(row) ? kit::look::appW : isPanel(row) ? kPanelCardW : kit::layout::cardW;
 }
 // `named`: a row of apps that carries every name (the Apps page), so the circles stand wider.
 inline float itemGap(const CardRow &row, bool named = false) {
-    return named && isApps(row) ? kit::layout::appGapNamed : kit::layout::cardGap;
+    return named && isApps(row) ? kit::look::appGapNamed : kit::layout::cardGap;
 }
 inline std::string id(const char *name, size_t row, size_t column) {
     return std::string(name) + ":" + std::to_string(row) + "." + std::to_string(column);
@@ -78,18 +78,19 @@ inline Rect item(const CardRow &row, size_t rowIndex, size_t column, bool named 
     float width = itemWidth(row), gap = itemGap(row, named);
     return {kit::canvas::safeX + static_cast<float>(column) * (width + gap),
             kit::geometry::rowItemsY(static_cast<int>(rowIndex)), width,
-            isApps(row) ? kit::layout::appD : isPanel(row) ? kPanelCardH : kit::layout::cardH};
+            isApps(row) ? kit::look::appH : isPanel(row) ? kPanelCardH : kit::layout::cardH};
 }
 // The Apps page by kind starts at layout::appsTop and holds this many rows whole.
-constexpr size_t kKindRowsVisible =
-    static_cast<size_t>((kit::canvas::height - kit::layout::appsTop) / kit::layout::rowPitch);
+inline size_t kindRowsVisible() {
+    return static_cast<size_t>((kit::canvas::height - kit::layout::appsTop) / kit::look::rowPitch);
+}
 // Its scroll target while focus is on kind row `row` of `rows`: the rows keep their place until
 // focus passes the second, then the page follows so the next row stays in view, and the last rows
 // end flush with the screen.
 inline float kindStackTarget(size_t row, size_t rows) {
-    size_t last = rows > kKindRowsVisible ? rows - kKindRowsVisible : 0;
+    size_t last = rows > kindRowsVisible() ? rows - kindRowsVisible() : 0;
     size_t first = row > 1 ? row - 1 : 0;
-    return -kit::layout::rowPitch * static_cast<float>(std::min(first, last));
+    return -kit::look::rowPitch * static_cast<float>(std::min(first, last));
 }
 } // namespace home
 } // namespace nativetv

@@ -14,7 +14,11 @@
 namespace nativetv {
 enum class ImageFit {
     Cover,  // fills the box exactly, cropping the middle of the picture
-    Contain // fits inside the box; the result is smaller in one direction
+    Contain, // fits inside the box; the result is smaller in one direction
+    // Fills the box exactly without cropping a picture narrower than it: the picture is fitted to
+    // the box's height and each row's edge colour is carried out to the sides, so a square icon
+    // becomes a wide tile that is one piece.
+    Extend
 };
 struct DecodedImage {
     int width = 0, height = 0;
