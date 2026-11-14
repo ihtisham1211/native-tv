@@ -67,24 +67,37 @@ DecodedImage decodeImage(const std::string &bytes, int width, int height, ImageF
         result.height = height;
         result.rgba.resize(static_cast<size_t>(width) * height * 4);
         const int left = (width - inner.width) / 2, right = left + inner.width;
+        // How far in from an edge a rounded icon's see-through corner can reach (a squircle's curve
+        // is up to a quarter of its width): a row that is solid only further in than this (a glyph
+        // on a clear background) has no edge to carry out.
+        const int corner = std::max(3, inner.width / 3), inset = inner.width / 40;
+        std::vector<uint8_t> line(static_cast<size_t>(inner.width) * 4);
         for (int y = 0; y < height; ++y) {
-            const uint8_t *row = &inner.rgba[static_cast<size_t>(y) * inner.width * 4];
-            // The edge colour is the first solid pixel in from each side, so the see-through corner
-            // of a rounded icon does not leave a notch in the band beside it.
-            auto edge = [&](bool fromLeft) {
-                const int reach = std::max(1, inner.width / 2);
-                for (int i = 0; i < reach; ++i) {
-                    const uint8_t *pixel = row + (fromLeft ? i : inner.width - 1 - i) * 4;
-                    if (pixel[3] >= 250)
-                        return pixel;
+            std::copy_n(&inner.rgba[static_cast<size_t>(y) * inner.width * 4], line.size(), line.begin());
+            // The edge colour is the first solid pixel in from a side, taken a few pixels further in:
+            // the outermost one is often a lighter rim or a resampling overshoot that, carried out,
+            // shows as a pale strip beside the icon (the Native Tv icon). The see-through corner
+            // before it is filled with that colour too, so it leaves no notch where the band meets
+            // the icon.
+            uint8_t colour[2][4];
+            for (int side = 0; side < 2; ++side) {
+                auto pixelAt = [&](int i) { return &line[(side == 0 ? i : inner.width - 1 - i) * 4]; };
+                int solid = 0;
+                while (solid < corner && pixelAt(solid)[3] < 250)
+                    ++solid;
+                if (solid == corner) {
+                    std::copy_n(pixelAt(0), 4, colour[side]); // nothing solid near the edge
+                    continue;
                 }
-                return row + (fromLeft ? 0 : inner.width - 1) * 4;
-            };
-            const uint8_t *leftEdge = edge(true), *rightEdge = edge(false);
+                const uint8_t *inside = pixelAt(std::min(solid + inset, corner - 1));
+                std::copy_n(inside[3] >= 250 ? inside : pixelAt(solid), 4, colour[side]);
+                for (int i = 0; i < solid; ++i)
+                    std::copy_n(colour[side], 4, pixelAt(i));
+            }
             uint8_t *out = &result.rgba[static_cast<size_t>(y) * width * 4];
             for (int x = 0; x < width; ++x) {
-                const uint8_t *from = x < left ? leftEdge : x >= right ? rightEdge : row + (x - left) * 4;
-                std::copy(from, from + 4, out + x * 4);
+                const uint8_t *from = x < left ? colour[0] : x >= right ? colour[1] : &line[(x - left) * 4];
+                std::copy_n(from, 4, out + x * 4);
             }
         }
         result.opaque = inner.opaque;

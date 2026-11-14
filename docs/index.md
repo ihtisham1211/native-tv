@@ -23,16 +23,18 @@ description: "Open-source dashboard, privacy controls and Home Assistant MQTT br
 
 Native Tv is a server that runs directly on a rooted LG webOS TV, with a live dashboard for any phone or computer browser and a native app on the TV itself.
 
-Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by Rory Gallagher and is now its own project: the server is a C++ daemon with no Node on the TV, and the TV has a native app in Google TV's design. It supports webOS 4 and later; Glasshouse covers webOS 2 and 3.
+Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by Rory Gallagher and is now its own project: the server is a C++ daemon with no Node on the TV, and the TV has a native app in Google TV's design, with Apple TV and OLED Care looks to choose from. It supports webOS 4 and later; Glasshouse covers webOS 2 and 3.
 
 [Install](getting-started/install.md){ .md-button .md-button--primary } [See the dashboard](dashboard/index.md){ .md-button } [Buy me a coffee](support.md){ .md-button }
 
 <p align="center">
-  <a href="screenshots/tv-home-google-tv.jpg"><img src="screenshots/tv-home-google-tv.jpg" alt="The Native Tv app's Home in the default Google TV theme: a featured title, the apps and top picks" width="440"></a>
+  <a href="screenshots/tv-home-google-tv.jpg"><img src="screenshots/tv-home-google-tv.jpg" alt="The Native Tv app's Home in the default Google TV theme: a featured title, the apps and top picks" width="290"></a>
   &nbsp;
-  <a href="screenshots/tv-home-oled-care.jpg"><img src="screenshots/tv-home-oled-care.jpg" alt="The Native Tv app's Home in the OLED Care theme: true black, the apps, the HDMI inputs and the panel's hours" width="440"></a>
+  <a href="screenshots/tv-home-oled-care.jpg"><img src="screenshots/tv-home-oled-care.jpg" alt="The Native Tv app's Home in the OLED Care theme: true black, the apps, the HDMI inputs and the panel's hours" width="290"></a>
+  &nbsp;
+  <a href="screenshots/tv-home-apple-tv.jpg"><img src="screenshots/tv-home-apple-tv.jpg" alt="The Native Tv app's Home in the Apple TV theme: a glass tab bar in the middle, landscape app tiles and a featured title" width="290"></a>
 </p>
-<p align="center"><sub>The TV app in its two themes: Google TV, the default, and OLED Care, for OLED panels. Rendered by the TV app against a webOS emulator, not photographed on a TV; the HDMI inputs and the panel figures are sample values.</sub></p>
+<p align="center"><sub>The TV app in its three themes: Google TV, the default, OLED Care, for OLED panels, and Apple TV. Rendered by the TV app against a webOS emulator, not photographed on a TV; the HDMI inputs and the panel figures are sample values.</sub></p>
 
 ## What it does
 
