@@ -102,8 +102,24 @@ void testDecode() {
                   at(wide, 7, 3)[0] == 200 && at(wide, 8, 3)[0] == 200 && at(wide, 15, 3)[1] == 200 &&
                   at(wide, 23, 3)[1] == 200 && at(wide, 16, 3)[1] == 200,
               "Extend keeps the picture whole in the middle and carries its edge colour to the sides");
-        check(at(wide, 0, 0)[3] == 255 && at(wide, 0, 0)[0] == 200 && at(wide, 8, 0)[3] == 0,
-              "A see-through corner does not leave a notch in the band beside it");
+        check(at(wide, 0, 0)[3] == 255 && at(wide, 0, 0)[0] == 200 && at(wide, 8, 0)[3] == 255 &&
+                  at(wide, 8, 0)[0] == 200,
+              "A see-through corner is filled with the edge colour, in the picture and in the band beside it");
+        // A lighter one-pixel rim (an anti-aliased edge) is not carried out as a pale band.
+        std::string rimmed = encode(80, 80, true, [](int x, int) {
+            return x == 0 || x == 79 ? rgba(250, 250, 250) : rgba(40, 200, 90);
+        });
+        DecodedImage banded = decodeImage(rimmed, 160, 80, ImageFit::Extend);
+        check(banded.width == 160 && at(banded, 0, 40)[0] == 40 && at(banded, 159, 40)[0] == 40 &&
+                  at(banded, 40, 40)[0] == 250 && at(banded, 41, 40)[0] == 40,
+              "Extend takes the band colour from just inside a lighter rim, not from the rim");
+        // A glyph on a clear background has no edge to carry out: its rows get no band.
+        std::string glyph = encode(80, 80, true, [](int x, int y) {
+            return y == 1 && x < 30 ? rgba(0, 0, 0, 0) : rgba(40, 200, 90);
+        });
+        DecodedImage clear = decodeImage(glyph, 160, 80, ImageFit::Extend);
+        check(at(clear, 0, 1)[3] == 0 && at(clear, 41, 1)[3] == 0 && at(clear, 0, 2)[3] == 255,
+              "A row solid only well inside the picture gets no band");
         DecodedImage tall = decodeImage(encode(16, 4, true, [](int, int) { return rgba(9, 9, 9); }), 8, 8,
                                         ImageFit::Extend);
         check(tall.width == 8 && tall.height == 2, "A picture as wide as the box is left as Contain leaves it");

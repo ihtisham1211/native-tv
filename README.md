@@ -26,13 +26,14 @@
 
 Use it to control an LG OLED or LCD TV without the cloud, see and switch off what LG's ACR (Live Plus), ad tracking and data agreements collect, block LG's ad and telemetry servers, debloat apps and background services, remap the remote's buttons, protect an OLED panel from burn-in with panel care and an OLED-friendly TV theme, and read the TV's hardware telemetry.
 
-Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by Rory Gallagher and is now its own project: the server is a C++ daemon with no Node on the TV, and the TV has a native app in Google TV's design. It supports webOS 4 and later; Glasshouse covers webOS 2 and 3.
+Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by Rory Gallagher and is now its own project: the server is a C++ daemon with no Node on the TV, and the TV has a native app in Google TV's design, with Apple TV and OLED Care looks to choose from. It supports webOS 4 and later; Glasshouse covers webOS 2 and 3.
 
 <p align="center">
-  <img src="docs/screenshots/tv-home-google-tv.jpg" alt="The Native Tv app's Home in the default Google TV theme: a featured title, the apps and top picks" width="49%">
-  <img src="docs/screenshots/tv-home-oled-care.jpg" alt="The Native Tv app's Home in the OLED Care theme: true black, the apps, the HDMI inputs and the panel's hours" width="49%">
+  <img src="docs/screenshots/tv-home-google-tv.jpg" alt="The Native Tv app's Home in the default Google TV theme: a featured title, the apps and top picks" width="32%">
+  <img src="docs/screenshots/tv-home-oled-care.jpg" alt="The Native Tv app's Home in the OLED Care theme: true black, the apps, the HDMI inputs and the panel's hours" width="32%">
+  <img src="docs/screenshots/tv-home-apple-tv.jpg" alt="The Native Tv app's Home in the Apple TV theme: a glass tab bar in the middle, landscape app tiles and a featured title" width="32%">
 </p>
-<p align="center"><sub>The TV app in its two themes: Google TV, the default, and OLED Care, for OLED panels. Rendered by the TV app against a webOS emulator, not photographed on a TV; the HDMI inputs and the panel figures are sample values.</sub></p>
+<p align="center"><sub>The TV app in its three themes: Google TV, the default, OLED Care, for OLED panels, and Apple TV. Rendered by the TV app against a webOS emulator, not photographed on a TV; the HDMI inputs and the panel figures are sample values.</sub></p>
 
 > [!NOTE]
 >
@@ -235,6 +236,9 @@ Yes. The dashboard, controls and telemetry work on LCD panels; the OLED Care tab
 
 **Is there an OLED-friendly theme, and does it prevent burn-in?**
 Yes: OLED Care, chosen in Settings, TV theme on the TV or on the dashboard's Server tab. It is true black with dimmed icons, a thin focus ring and a layout that moves a few pixels each minute, and its Home shows the apps, the inputs and the panel's hours with no film picks. Measured on the rendered screens, it puts about 70% less light on the panel than the default Google TV theme. That lowers the load on the panel, but it cannot promise there is no burn-in; the [OLED care tab](https://ihtisham1211.github.io/native-tv/dashboard/oled-care/) has the panel's own protections. [The TV theme](https://ihtisham1211.github.io/native-tv/apps/tv-app/#tv-theme) describes it. It has been checked in the client's tests and an emulator, not yet on a real TV.
+
+**Can the TV app look like Apple TV?**
+Yes: Apple TV, chosen in Settings, TV theme on the TV or on the dashboard's Server tab. The tabs sit in a glass capsule in the middle of the top bar, apps are landscape tiles filled by their icons, and the focused control lifts on a soft shadow or turns white. It changes how screens look and no feature. Settings, Live, Details and Quick settings keep the Google TV layouts, in Apple TV's colours. [The TV theme](https://ihtisham1211.github.io/native-tv/apps/tv-app/#tv-theme) describes it. It has been checked in the client's tests and a webOS emulator, not yet on a real TV.
 
 **Is the TV app smooth, or does it lag like a slow home screen?**
 It is a native OpenGL ES client, not a web page, and it draws at the display's 60 Hz. On an LG B3 with the processor busy (load average about 32) its frames arrive 15 to 18 ms apart, against 16.7 ms ideal. [How it stays smooth](https://ihtisham1211.github.io/native-tv/apps/tv-app/#how-smooth-it-is) lists the reasons and the measurement.

@@ -15807,8 +15807,16 @@ class DaemonRuntimeTests(unittest.TestCase):
                 # Switching it off stops it holding the volume.
                 status, body = request("/api/volumelimit", "POST", {"enabled": False})
                 self.assertEqual(status, 200, body)
-                time.sleep(0.3)
-                held = len(volumes())
+                # A correction sent just before it went off still lands, late on a busy machine
+                # (its luna-send starts late): wait until the count has held still for 0.6 s, then
+                # watch for more.
+                held, quiet_since = len(volumes()), time.monotonic()
+                settle_deadline = time.monotonic() + 8
+                while time.monotonic() - quiet_since < 0.6 and time.monotonic() < settle_deadline:
+                    time.sleep(0.05)
+                    now = len(volumes())
+                    if now != held:
+                        held, quiet_since = now, time.monotonic()
                 time.sleep(0.7)
                 self.assertEqual(len(volumes()), held, "a ceiling that is off sets nothing")
 
