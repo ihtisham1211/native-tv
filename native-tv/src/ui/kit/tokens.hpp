@@ -81,6 +81,14 @@ struct Palette {
     float shadowAlpha;
     float appGapNamed;
     bool liftFocus;
+    bool dock;
+    float dockTop;
+    float dockPitch;
+    float dockPad;
+    float dockRise;
+    float dockEditLift;
+    float heroTop;
+    float dotsTop;
     float sm;
     float md;
     float lg;
@@ -135,6 +143,14 @@ constexpr Palette nGoogleTv = {
     0.62f,
     60,
     false,
+    false,
+    790,
+    256,
+    54,
+    680,
+    240,
+    226,
+    488,
     8,
     12,
     20,
@@ -189,6 +205,14 @@ constexpr Palette nOledCare = {
     0.62f,
     60,
     false,
+    false,
+    790,
+    256,
+    54,
+    680,
+    240,
+    226,
+    488,
     8,
     12,
     20,
@@ -243,6 +267,14 @@ constexpr Palette nAppleTv = {
     0.62f,
     40,
     true,
+    true,
+    790,
+    256,
+    54,
+    680,
+    240,
+    150,
+    686,
     10,
     18,
     26,
@@ -315,6 +347,14 @@ extern const float &shadowBlur;
 extern const float &shadowAlpha;
 extern const float &appGapNamed;
 extern const bool &liftFocus;
+extern const bool &dock;
+extern const float &dockTop;
+extern const float &dockPitch;
+extern const float &dockPad;
+extern const float &dockRise;
+extern const float &dockEditLift;
+extern const float &heroTop;
+extern const float &dotsTop;
 } // namespace look
 namespace type {
 constexpr const char *family = "Google Sans Flex";

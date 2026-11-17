@@ -213,6 +213,46 @@ CardRow appsRow(const Json &catalogue, const Json &guide, bool withHidden, const
                 apps.cards.push_back(card);
     return apps;
 }
+std::vector<CardRow> dockRows(std::vector<CardRow> rows, bool search) {
+    constexpr size_t columns = 6;
+    size_t first = 0;
+    while (first < rows.size() && rows[first].key != "app")
+        ++first;
+    if (first == rows.size())
+        return rows;
+    CardRow apps = rows[first];
+    // They stand among the apps, as Settings does on Apple TV, and open what the bar's buttons do.
+    std::vector<Card> tools;
+    if (search) {
+        Card card;
+        card.id = "tool:search";
+        card.kind = "app";
+        card.title = "Search";
+        card.command = navigate("search");
+        tools.push_back(card);
+    }
+    Card settings;
+    settings.id = "tool:settings";
+    settings.kind = "app";
+    settings.title = "Settings";
+    settings.command = navigate("quick");
+    tools.push_back(settings);
+    const size_t at = std::min(apps.cards.size(), columns - tools.size());
+    apps.cards.insert(apps.cards.begin() + static_cast<std::ptrdiff_t>(at), tools.begin(), tools.end());
+    std::vector<CardRow> rowsOfSix;
+    for (size_t start = 0; start < apps.cards.size(); start += columns) {
+        CardRow row;
+        row.key = "app";
+        row.title = start ? "" : apps.title;
+        const size_t end = std::min(apps.cards.size(), start + columns);
+        row.cards.assign(apps.cards.begin() + static_cast<std::ptrdiff_t>(start),
+                         apps.cards.begin() + static_cast<std::ptrdiff_t>(end));
+        rowsOfSix.push_back(row);
+    }
+    rows.erase(rows.begin() + static_cast<std::ptrdiff_t>(first));
+    rows.insert(rows.begin() + static_cast<std::ptrdiff_t>(first), rowsOfSix.begin(), rowsOfSix.end());
+    return rows;
+}
 std::vector<std::string> orderAfterMove(const Json &order, const std::vector<std::string> &shown) {
     std::vector<std::string> result;
     size_t next = 0;

@@ -33,7 +33,10 @@ void Application::rebuildHome() {
 std::vector<CardRow> Application::homeRowsFor(const std::string &tab) const {
     if (tab == "home" && !kit::look::discover)
         return compactHomeRows(state_.catalogue, state_.guide, state_.stats);
-    return homeRows(tab, state_.catalogue, state_.discover, state_.guide);
+    std::vector<CardRow> rows = homeRows(tab, state_.catalogue, state_.discover, state_.guide);
+    if (tab == "home" && kit::look::dock)
+        rows = dockRows(std::move(rows), state_.titleSearch());
+    return rows;
 }
 void Application::themeChanged() {
     // The theme the client started in has nothing to redo, unless Home's data was already asked for under

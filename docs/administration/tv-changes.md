@@ -154,7 +154,7 @@ The Home tab's **Power-on screen** choice is saved as `openOnPowerOn` in
 Start+, and the boot hook and guarded wake handler open Native Tv Home even
 when the earlier LG setting was Recent Input. Quick Start+ is not changed.
 **Show app names** is saved as `appNames` in the same file and affects only the
-app tiles' visible labels; their accessible names are kept. **Show inputs** and
+app tiles' visible labels (not those of the Apple TV theme's Home, which names a tile only while it is focused); their accessible names are kept. **Show inputs** and
 **Show the LG Home tile** are saved as `showInputs` and `showLgHome` and only
 leave the Inputs tab and the LG Home tile out of the view.
 

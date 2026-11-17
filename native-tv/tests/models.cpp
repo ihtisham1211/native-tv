@@ -75,6 +75,32 @@ int main() {
         auto flat = homeRows("home", byKind, Json(), Json());
         check(flat.size() == 1 && flat[0].cards.size() == 3 && flat[0].cards[0].id == "b",
               "Home's apps row follows the kinds' order");
+        // A theme with a dock: Search and Settings take the last places of the first six, and the apps
+        // run six to a row.
+        Json nine = Json::parse(
+            R"({"apps":[{"id":"a1","title":"A1"},{"id":"a2","title":"A2"},{"id":"a3","title":"A3"},{"id":"a4","title":"A4"},{"id":"a5","title":"A5"},{"id":"a6","title":"A6"},{"id":"a7","title":"A7"},{"id":"a8","title":"A8"},{"id":"a9","title":"A9"}],"devices":[{"id":"hdmi1","name":"Console","port":1}],"channels":[],"order":{"app":["a1","a2","a3","a4","a5","a6","a7","a8","a9"],"dev":["hdmi1"],"ch":[]},"layout":{"rows":["app","dev"],"hidden":{"app":[]},"showLgHome":false},"sources":{"channels":0}})");
+        auto docked = dockRows(homeRows("home", nine, Json(), Json()), true);
+        check(docked.size() == 2 && docked[0].key == "app" && docked[0].title == "Your apps" &&
+                  docked[0].cards.size() == 6 && docked[0].cards[3].id == "a4" &&
+                  docked[0].cards[4].id == "tool:search" && docked[0].cards[5].id == "tool:settings" &&
+                  docked[1].key == "app" && docked[1].title.empty() && docked[1].cards.size() == 5 &&
+                  docked[1].cards[0].id == "a5" && docked[1].cards[4].id == "a9",
+              "A dock holds the first four apps, Search and Settings, and the apps run six to a row");
+        check(docked[0].cards[4].kind == "app" && docked[0].cards[4].command.route == "search" &&
+                  docked[0].cards[5].command.route == "quick",
+              "Search and Settings open what the bar's buttons open, and are focused like apps");
+        auto noSearch = dockRows(homeRows("home", nine, Json(), Json()), false);
+        check(noSearch[0].cards.size() == 6 && noSearch[0].cards[4].id == "a5" &&
+                  noSearch[0].cards[5].id == "tool:settings" && noSearch[1].cards[0].id == "a6",
+              "Without title search the dock holds five apps and Settings");
+        auto fewApps = dockRows(homeRows("home", catalogue, Json(), Json()), true);
+        check(fewApps.size() == 1 && fewApps[0].cards.size() == 3 && fewApps[0].cards[0].id == "a" &&
+                  fewApps[0].cards[1].id == "tool:search",
+              "With fewer apps than the dock holds, Search and Settings follow them");
+        std::vector<CardRow> noApps = {CardRow()};
+        noApps[0].key = "trending";
+        check(dockRows(noApps, true).size() == 1 && dockRows(noApps, true)[0].key == "trending",
+              "A Home with no apps row is left as it is");
         // The Apps page and Home's row have their own hidden apps (`hidden.appsTab` and `hidden.app`):
         // a kind whose apps are all hidden on the page loses its row there, and nothing carries over.
         Json hiddenByKind = Json::parse(

@@ -65,6 +65,10 @@ struct TopBar {
     bool settingsSelected = false;
     bool barFocused = false; // focus is on a tab: a ring theme draws it around the selected one
     std::string clock;
+    // A theme with a dock rests Home's bar as one glass pill, the clock and the profile; `reveal`
+    // (0..1) brings the whole bar in over it while focus is on the bar.
+    bool compact = false;
+    float reveal = 1;
     Enter enter;
 };
 // Tab boxes for the bar's tabs, so the view can aim the pill's springs at them.
@@ -72,6 +76,8 @@ std::vector<Rect> tabRects(const Glyphs &glyphs, const std::vector<std::string> 
 // Hits are "nav:avatar", "nav:tab:<i>" and "nav:settings".
 void topBar(Paint paint, const TopBar &bar);
 void tabPill(Paint paint, float left, float right, float alpha = 1, bool barFocused = false);
+// The glass the first row of a theme with a dock rests on (geometry::dockCapsule).
+void dockCapsule(Paint paint, const Enter &enter);
 
 struct RoundButton {
     Rect rest;

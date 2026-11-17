@@ -45,11 +45,23 @@ A change shows the moment OK is pressed: the switch has already slid and a faint
 
 ### TV theme
 
-**Settings, TV theme** (in the Settings section) opens the picker: a card for each theme, drawn from that theme's own colours and layout, with the one in use marked. A theme changes how the screens look. OLED Care also changes what Home shows and has no title search (below); everything else, every row and key, is the same in every theme.
+**Settings, TV theme** (in the Settings section) opens the picker: a card for each theme, drawn from that theme's own colours and layout, with the one in use marked. A theme changes how the screens look. Apple TV also lays Home out differently, and OLED Care changes what Home shows and has no title search (below); everything else, every row and key, is the same in every theme.
 
 * **Google TV** (`n-google-tv`) is the default: ambient artwork behind Home and the filled white focus pill.
 * **OLED Care** (`n-oled-care`) is for OLED panels. The canvas is `#000000`, so pixels that are off do not wear. App icons rest at 62% brightness and the focused one is at full. Focus is a thin ring, the selected tab an underline, and Settings rows have no background until focused. The whole screen moves a few pixels as the minutes pass: up to 8 px sideways and 6 px up or down, in whole pixels, at most 3 px between two minutes. Its Home is the apps, the inputs and two cards from the panel's own figures (its hours with the compensation cycle's progress, and the hours to the Pixel Refresher), and OK on a card opens OLED Care in Settings. It has no hero, no film or series picks and no YouTube row, so it asks neither TMDB nor YouTube for anything, and without TMDB there is no title search. The [design notes](../development/material-3-expressive.md#n-oled-care) give each value and its reason.
-* **Apple TV** (`n-apple-tv`) is in the manner of tvOS. The tabs sit in one glass capsule at the middle of the top bar. Apps are landscape tiles, six across, each filled by the app's icon with the logo whole; the focused one lifts on a soft shadow with a diagonal light across it, and its name appears under it. Corners are rounder and the accent is green. Home shows the same rows as Google TV, and Settings, Live, Details and Quick settings keep their layouts in the Apple TV colours. The [design notes](../development/material-3-expressive.md#n-apple-tv) give each value and its reason.
+* **Apple TV** (`n-apple-tv`) is in the manner of tvOS. Apps are landscape tiles, six across, each filled by the app's icon with the logo whole; the focused one lifts on a soft shadow with a diagonal light across it, and its name appears under it. Corners are rounder and the accent is green.
+  * **Home** is laid out as tvOS's Home. The current pick fills the screen, with its source line, title, facts and summary at the top left and its dots above the dock. The apps are one dark glass dock of six tiles at the bottom, with the next row showing under it. The dock's tiles carry no names, not even the focused one. Search (when title search is on) and Settings, which opens Quick settings, are tiles that take the dock's last places, so it holds the first four apps, Search and Settings, or the first five apps and Settings without search. Down from the dock raises the page until the dock is the top row of a grid: the rest of the apps six to a row, then Top picks and the feed's other rows with their titles. A tile below the dock shows its name only while it is focused, so **Show app names** has no effect on this Home.
+  * **The top bar** rests as one glass pill at the top right with the clock and the profile, and fades as the page rises. Up from the first row, or a click in the band at the top of the screen, brings the whole bar in: the profile, the tabs in one glass capsule at the middle, Search, Settings and the clock. Down takes it away.
+  * **Editing the apps** (holding OK on one) shows them as one row, lifted clear of the hint keys; Search and Settings leave it until the edit ends.
+  * **The other screens**: Apps, Inputs, Live, Settings, Details, Quick settings and the profile screen keep their layouts in the Apple TV colours, with the whole bar. The [design notes](../development/material-3-expressive.md#n-apple-tv) give each value and its reason.
+
+  ![Apple TV Home at rest: the featured title at the top left and the dock of apps](../screenshots/tv-home-apple-tv.jpg)
+
+  ![Apple TV Home scrolled: the dock as the first row of the app grid, the top picks under it](../screenshots/tv-home-apple-tv-grid.jpg)
+
+  ![Apple TV Home with the bar in: tabs, Search, Settings and the clock](../screenshots/tv-home-apple-tv-bar.jpg)
+
+  The pictures are from the Mac client against a webOS OSE VM's daemon with its apps and feed, not from a TV.
 
 The idle behaviour is the same in every theme: the dim after 30 seconds and the screen saver's start time in Settings are not the theme's.
 

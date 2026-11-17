@@ -46,6 +46,12 @@ inline unsigned hashOf(const std::string &text) {
 inline bool isApps(const CardRow &row) {
     return row.key == "app";
 }
+// A theme with a dock (look::dock) lays its Home tab out on it: the apps six to a row, the first row
+// on a glass capsule with no names, and the feed's rows under them. Other tabs are laid out as ever.
+constexpr size_t kDockColumns = 6;
+inline bool onDock(const std::string &tabKey) {
+    return kit::look::dock && tabKey == "home";
+}
 // Whether every app circle on the page carries its name: always on the Apps page, and on Home
 // while the layout's App names switch is on (its default).
 inline bool namesShown(const std::string &tabKey, const Json &layout) {
@@ -59,7 +65,8 @@ inline bool isPanel(const CardRow &row) {
 inline float itemWidth(const CardRow &row) {
     return isApps(row) ? kit::look::appW : isPanel(row) ? kPanelCardW : kit::layout::cardW;
 }
-// `named`: a row of apps that carries every name (the Apps page), so the circles stand wider.
+// `named`: a row of apps that carries every name (the Apps page), so the circles stand wider; the
+// dock's tiles stand as wide.
 inline float itemGap(const CardRow &row, bool named = false) {
     return named && isApps(row) ? kit::look::appGapNamed : kit::layout::cardGap;
 }
@@ -74,10 +81,13 @@ inline std::string hit(size_t row, size_t column) {
     return "card:" + std::to_string(row) + ":" + std::to_string(column);
 }
 // Row n's items on the shared canvas, before the row's own scroll and the stack's offset.
-inline Rect item(const CardRow &row, size_t rowIndex, size_t column, bool named = false) {
-    float width = itemWidth(row), gap = itemGap(row, named);
+inline Rect item(const CardRow &row, size_t rowIndex, size_t column, bool named = false,
+                  bool dock = false) {
+    float width = itemWidth(row), gap = itemGap(row, named || dock);
     return {kit::canvas::safeX + static_cast<float>(column) * (width + gap),
-            kit::geometry::rowItemsY(static_cast<int>(rowIndex)), width,
+            dock ? kit::geometry::dockItemsY(static_cast<int>(rowIndex))
+                 : kit::geometry::rowItemsY(static_cast<int>(rowIndex)),
+            width,
             isApps(row) ? kit::look::appH : isPanel(row) ? kPanelCardH : kit::layout::cardH};
 }
 // The Apps page by kind starts at layout::appsTop and holds this many rows whole.

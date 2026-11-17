@@ -76,6 +76,14 @@ const float &shadowBlur = active.shadowBlur;
 const float &shadowAlpha = active.shadowAlpha;
 const float &appGapNamed = active.appGapNamed;
 const bool &liftFocus = active.liftFocus;
+const bool &dock = active.dock;
+const float &dockTop = active.dockTop;
+const float &dockPitch = active.dockPitch;
+const float &dockPad = active.dockPad;
+const float &dockRise = active.dockRise;
+const float &dockEditLift = active.dockEditLift;
+const float &heroTop = active.heroTop;
+const float &dotsTop = active.dotsTop;
 } // namespace look
 namespace radius {
 const float &sm = active.sm;

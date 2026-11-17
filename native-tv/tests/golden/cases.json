@@ -1318,6 +1318,56 @@
       ]
     },
     {
+      "name": "apple-home-bar",
+      "time": 3000,
+      "fixture": "home",
+      "args": [
+        "--screen",
+        "home",
+        "--theme",
+        "n-apple-tv"
+      ],
+      "script": [
+        {
+          "at": 1500,
+          "key": "up"
+        }
+      ]
+    },
+    {
+      "name": "apple-home-picks",
+      "time": 4200,
+      "fixture": "home",
+      "args": [
+        "--screen",
+        "home",
+        "--theme",
+        "n-apple-tv"
+      ],
+      "script": [
+        {
+          "at": 1500,
+          "key": "down"
+        },
+        {
+          "at": 1700,
+          "key": "down"
+        },
+        {
+          "at": 1900,
+          "key": "down"
+        },
+        {
+          "at": 2100,
+          "key": "down"
+        },
+        {
+          "at": 2300,
+          "key": "down"
+        }
+      ]
+    },
+    {
       "name": "apple-apps-kinds",
       "time": 3200,
       "fixture": "home",
@@ -1425,7 +1475,7 @@
     },
     {
       "name": "apple-details",
-      "time": 3500,
+      "time": 4300,
       "fixture": "home",
       "args": [
         "--screen",
@@ -1439,7 +1489,23 @@
           "key": "down"
         },
         {
-          "at": 1500,
+          "at": 1450,
+          "key": "down"
+        },
+        {
+          "at": 1600,
+          "key": "down"
+        },
+        {
+          "at": 1750,
+          "key": "down"
+        },
+        {
+          "at": 1900,
+          "key": "down"
+        },
+        {
+          "at": 2200,
           "key": "ok"
         }
       ]

@@ -60,6 +60,10 @@ std::vector<CardRow> homeRows(const std::string &tab, const Json &catalogue, con
 // Home for a theme with no feed (no top picks, no hero): Your apps, the inputs, and the panel's
 // figures as cards when `stats` carries them (an OLED TV's). Nothing here asks TMDB or YouTube.
 std::vector<CardRow> compactHomeRows(const Json &catalogue, const Json &guide, const Json &stats);
+// Home's rows for a theme with a dock: Search (when `search`) and Settings take the last places of
+// the first six apps, and the apps then run six to a row, the first row being the dock. The rows
+// that follow them are unchanged.
+std::vector<CardRow> dockRows(std::vector<CardRow> rows, bool search);
 // The ids hidden from a list of the layout: "app" (Home's apps), "dev", "ch", or "appsTab" (the Apps
 // tab's own apps; a catalogue from before it had a list hides there what Home hides).
 Json hiddenIds(const Json &catalogue, const std::string &list);
