@@ -32,9 +32,17 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
   &nbsp;
   <a href="screenshots/tv-home-oled-care.jpg"><img src="screenshots/tv-home-oled-care.jpg" alt="The Native Tv app's Home in the OLED Care theme: true black, the apps, the HDMI inputs and the panel's hours" width="290"></a>
   &nbsp;
-  <a href="screenshots/tv-home-apple-tv.jpg"><img src="screenshots/tv-home-apple-tv.jpg" alt="The Native Tv app's Home in the Apple TV theme: a glass tab bar in the middle, landscape app tiles and a featured title" width="290"></a>
+  <a href="screenshots/tv-home-apple-tv.jpg"><img src="screenshots/tv-home-apple-tv.jpg" alt="The Native Tv app's Home in the Apple TV theme: the featured title at the top left and a dark glass dock of landscape app tiles" width="290"></a>
 </p>
 <p align="center"><sub>The TV app in its three themes: Google TV, the default, OLED Care, for OLED panels, and Apple TV. Rendered by the TV app against a webOS emulator, not photographed on a TV; the HDMI inputs and the panel figures are sample values.</sub></p>
+
+<p align="center">
+  <video controls preload="none" poster="media/native-tv-promo-poster.jpg" width="640">
+    <source src="media/native-tv-promo.mp4" type="video/mp4">
+    <a href="media/native-tv-promo.mp4">Watch the 54-second Native Tv overview video</a>
+  </video><br>
+  <sub>A 54-second overview, silent with captions. The TV footage is rendered by the TV app with stand-in data, not filmed on a TV.</sub>
+</p>
 
 ## What it does
 
@@ -50,7 +58,7 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
 * **[Volume ceiling](dashboard/advanced.md#volume-ceiling).** A maximum volume that holds whoever sets it, a lower limit at night and a start-up volume for when the TV comes on.
 * **[Switch the TV off when idle](dashboard/advanced.md#switch-off-when-idle).** After 15 minutes to eight hours with no key press, no change and nothing playing, with a toast a minute before; an HDMI input is never switched off.
 * **[Protect and monitor an OLED panel](dashboard/oled-care.md).** Panel hours, Pixel Refresher scheduling, and switches for screen shift, logo dimming, ASBL and Global Stress Reduction.
-* **[TV themes](apps/tv-app.md#tv-theme).** Google TV, Apple TV (a glass bar and landscape app tiles that lift), or OLED Care for OLED panels: true black, dimmed icons, a ring for focus and a layout that moves a few pixels. OLED Care's Home is the apps, the inputs and the panel's hours, with no film picks, and an OLED panel is offered it once.
+* **[TV themes](apps/tv-app.md#tv-theme).** Google TV, Apple TV (tvOS's Home: a glass dock of landscape app tiles that lift, under the featured title), or OLED Care for OLED panels: true black, dimmed icons, a ring for focus and a layout that moves a few pixels. OLED Care's Home is the apps, the inputs and the panel's hours, with no film picks, and an OLED panel is offered it once.
 * **[Check the game's frame rate](dashboard/game.md).** On TVs with LG's Game Optimizer, the frame rate in large type while the source uses VRR, beside the Optimizer's settings.
 * **[Monitor the hardware](dashboard/metrics.md).** SoC temperature, per-core CPU load, memory, swap, Wi-Fi signal and throughput.
 * **[Hear about updates](dashboard/server.md).** The Server tab says when a newer release is out, when asked or once a day if switched on, and opens the Homebrew Channel on the TV to install it. The TV contacts GitHub only on request.

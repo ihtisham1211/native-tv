@@ -31,9 +31,14 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
 <p align="center">
   <img src="docs/screenshots/tv-home-google-tv.jpg" alt="The Native Tv app's Home in the default Google TV theme: a featured title, the apps and top picks" width="32%">
   <img src="docs/screenshots/tv-home-oled-care.jpg" alt="The Native Tv app's Home in the OLED Care theme: true black, the apps, the HDMI inputs and the panel's hours" width="32%">
-  <img src="docs/screenshots/tv-home-apple-tv.jpg" alt="The Native Tv app's Home in the Apple TV theme: a glass tab bar in the middle, landscape app tiles and a featured title" width="32%">
+  <img src="docs/screenshots/tv-home-apple-tv.jpg" alt="The Native Tv app's Home in the Apple TV theme: the featured title at the top left and a dark glass dock of landscape app tiles" width="32%">
 </p>
 <p align="center"><sub>The TV app in its three themes: Google TV, the default, OLED Care, for OLED panels, and Apple TV. Rendered by the TV app against a webOS emulator, not photographed on a TV; the HDMI inputs and the panel figures are sample values.</sub></p>
+
+<p align="center">
+  <a href="docs/media/native-tv-promo.mp4"><img src="docs/media/native-tv-promo-poster.jpg" alt="Watch the 54-second Native Tv overview video" width="64%"></a><br>
+  <sub>▶ A 54-second overview, silent with captions. The TV footage is rendered by the TV app with stand-in data, not filmed on a TV.</sub>
+</p>
 
 > [!NOTE]
 >
@@ -65,7 +70,7 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
   * **[Switch off when idle](https://ihtisham1211.github.io/native-tv/dashboard/advanced/#switch-off-when-idle).** The TV switches itself off after 15 minutes to eight hours with no key press, no change and nothing playing, with a toast a minute before; an HDMI input is never switched off.
 * **On the TV**
   * **[A native TV app](https://ihtisham1211.github.io/native-tv/apps/tv-app/).** A C++ and OpenGL ES client after Google TV's design puts the same readings and controls on the TV, driven by the remote, and offers [Native Tv Home](https://ihtisham1211.github.io/native-tv/dashboard/home/) as a replacement home screen. It draws on the GPU at 60 frames a second with no browser behind it ([how smooth it is](https://ihtisham1211.github.io/native-tv/apps/tv-app/#how-smooth-it-is)).
-  * **[TV themes](https://ihtisham1211.github.io/native-tv/apps/tv-app/#tv-theme).** Google TV, Apple TV (a glass bar and landscape app tiles that lift), or OLED Care for OLED panels: true black, dimmed icons, a focus ring and a layout that moves a few pixels. OLED Care's Home shows the apps, the inputs and the panel's hours, with no film picks, and an OLED panel is offered it once.
+  * **[TV themes](https://ihtisham1211.github.io/native-tv/apps/tv-app/#tv-theme).** Google TV, Apple TV (tvOS's Home: a glass dock of landscape app tiles that lift, under the featured title), or OLED Care for OLED panels: true black, dimmed icons, a focus ring and a layout that moves a few pixels. OLED Care's Home shows the apps, the inputs and the panel's hours, with no film picks, and an OLED panel is offered it once.
   * **[Game mode](https://ihtisham1211.github.io/native-tv/dashboard/game/).** On TVs with LG's Game Optimizer, a game's frame rate in large type while the source uses VRR, beside the Optimizer's settings.
   * **[Screen savers](https://ihtisham1211.github.io/native-tv/dashboard/screen-savers/) and [the service menu](https://ihtisham1211.github.io/native-tv/dashboard/service-menu/).** A clock, starfield, fireworks or the TV's own readings in place of LG's screen saver; LG's engineering menu opened from a browser, with no service remote, and unlocked where newer firmware cuts it down.
 * **Monitoring and maintenance**
@@ -238,7 +243,12 @@ Yes. The dashboard, controls and telemetry work on LCD panels; the OLED Care tab
 Yes: OLED Care, chosen in Settings, TV theme on the TV or on the dashboard's Server tab. It is true black with dimmed icons, a thin focus ring and a layout that moves a few pixels each minute, and its Home shows the apps, the inputs and the panel's hours with no film picks. Measured on the rendered screens, it puts about 70% less light on the panel than the default Google TV theme. That lowers the load on the panel, but it cannot promise there is no burn-in; the [OLED care tab](https://ihtisham1211.github.io/native-tv/dashboard/oled-care/) has the panel's own protections. [The TV theme](https://ihtisham1211.github.io/native-tv/apps/tv-app/#tv-theme) describes it. It has been checked in the client's tests and an emulator, not yet on a real TV.
 
 **Can the TV app look like Apple TV?**
-Yes: Apple TV, chosen in Settings, TV theme on the TV or on the dashboard's Server tab. The tabs sit in a glass capsule in the middle of the top bar, apps are landscape tiles filled by their icons, and the focused control lifts on a soft shadow or turns white. It changes how screens look and no feature. Settings, Live, Details and Quick settings keep the Google TV layouts, in Apple TV's colours. [The TV theme](https://ihtisham1211.github.io/native-tv/apps/tv-app/#tv-theme) describes it. It has been checked in the client's tests and a webOS emulator, not yet on a real TV.
+Yes: Apple TV, chosen in Settings, TV theme on the TV or on the dashboard's Server tab. Home is laid out as tvOS's is: the current pick fills the screen with its title at the top left, the apps sit on a dark glass dock of six landscape tiles that carry no names, and the next row shows under it. Search and Settings are tiles in the dock. Down from the dock brings up the rest of the apps, six to a row, then the picks, and a tile shows its name only while it is focused. The top bar rests as a pill with the clock and the profile, and Up brings the whole bar in. The focused control lifts on a soft shadow or turns white. It changes how screens look and no feature. Apps, Inputs, Live, Settings, Details and Quick settings keep the Google TV layouts, in Apple TV's colours. [The TV theme](https://ihtisham1211.github.io/native-tv/apps/tv-app/#tv-theme) describes it. It has been checked in the client's tests and a webOS emulator, not yet on a real TV.
+
+<p align="center">
+  <img src="docs/screenshots/tv-home-apple-tv-grid.jpg" alt="The Apple TV theme's Home scrolled down: the dock is the first row of the app grid, with the top picks under it" width="48%">
+  <img src="docs/screenshots/tv-home-apple-tv-bar.jpg" alt="The Apple TV theme's Home with focus on the bar: the tabs, Search, Settings and the clock over the featured title" width="48%">
+</p>
 
 **Is the TV app smooth, or does it lag like a slow home screen?**
 It is a native OpenGL ES client, not a web page, and it draws at the display's 60 Hz. On an LG B3 with the processor busy (load average about 32) its frames arrive 15 to 18 ms apart, against 16.7 ms ideal. [How it stays smooth](https://ihtisham1211.github.io/native-tv/apps/tv-app/#how-smooth-it-is) lists the reasons and the measurement.

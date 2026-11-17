@@ -172,6 +172,7 @@ void Application::homeStart() {
     bool hero = !home.tabs.empty() && showsHeroArt(home.tabs[home.tab].key);
     motion_.set("wall", hero ? 1 : 0);
     motion_.set("dots", 1);
+    motion_.set("bar", 0);
     for (const char *name : {"hk:0", "hk:1", "hp"}) {
         motion_.set(name, 0);
         motion_.ambient(name);
@@ -251,7 +252,9 @@ void Application::homeData() {
         const bool homeTab = home.tabs[home.tab].key == "home";
         const bool feed = !homeTab || state_.discover.valid() || due(now_, flow_.waitFrom + 600);
         const bool icons = flow_.rowsEntered ||
-                           iconsReady(pictures_, home.rows, home.tabs[home.tab].key == "apps", now_) ||
+                           iconsReady(pictures_, home.rows,
+                                      home.tabs[home.tab].key == "apps" || home::onDock(home.tabs[home.tab].key),
+                                      now_) ||
                            due(now_, flow_.waitFrom + kIconWaitMs);
         if (feed && icons) {
             flow_.entered = true;
@@ -262,8 +265,12 @@ void Application::homeData() {
         } else if (icons && homeTab && !flow_.rowsEntered && home::isApps(home.rows[0])) {
             // The apps lead Home and the feed's rows follow them: they enter without the feed,
             // and the focus will not be on them, so their name is already dim.
-            homePlayEntrance(0, 1);
-            motion_.set(home::id("rd", 0), 1);
+            size_t end = 1;
+            while (end < home.rows.size() && home::isApps(home.rows[end])) // a dock's rows of six
+                ++end;
+            homePlayEntrance(0, end);
+            for (size_t r = 0; r < end; ++r)
+                motion_.set(home::id("rd", r), 1);
         }
     } else if (flow_.entered && flow_.pendingTab < 0) {
         // Rows that came late (a feed past its 600 ms) enter like the others.
@@ -280,7 +287,8 @@ void Application::homePlayEntrance(size_t firstRow, size_t endRow) {
     Timeline timeline;
     Tween rise(1, 0, ms::base, easing(ease::out));
     motion_.set("pgx", 0); // the page was held hidden until now
-    const bool named = home::namesShown(home.tabs[home.tab].key, state_.catalogue["layout"]);
+    const bool named = home::namesShown(home.tabs[home.tab].key, state_.catalogue["layout"]) ||
+                       home::onDock(home.tabs[home.tab].key);
     endRow = std::min(endRow, home.rows.size());
     for (size_t r = firstRow; r < endRow && r < 3; ++r) {
         double rowDelay = stagger::homeBase + stagger::homeRow * static_cast<double>(r);
@@ -360,7 +368,8 @@ void Application::homeFocus(bool jump) {
     if (!home.navigation && home.row < home.rows.size()) {
         const CardRow &row = home.rows[home.row];
         std::string name = home::id("rx", home.row);
-        bool named = home::namesShown(home.tabs[home.tab].key, state_.catalogue["layout"]);
+        bool named = home::namesShown(home.tabs[home.tab].key, state_.catalogue["layout"]) ||
+                     home::onDock(home.tabs[home.tab].key);
         double target = kit::geometry::rowScrollTarget(
             static_cast<int>(home.column), static_cast<int>(row.cards.size()),
             home::itemWidth(row), home::itemGap(row, named));
@@ -371,9 +380,13 @@ void Application::homeFocus(bool jump) {
     }
     // The apps row and the top picks share the hero's screen; the stack rises from the picks on.
     const bool kindRows = home.tabs[home.tab].key == "apps";
+    const bool dock = home::onDock(home.tabs[home.tab].key);
     // A Home with no feed has three rows that all fit, so its stack stays put.
     double stack = home.navigation ? 0
                    : kindRows ? home::kindStackTarget(home.row, home.rows.size())
+                   // Editing the dock's apps lifts the row clear of the hint keys under it.
+                   : dock && home.editing ? -kit::look::dockEditLift
+                   : dock     ? kit::geometry::dockStackTarget(static_cast<int>(home.row))
                    : !kit::look::discover ? 0
                               : kit::geometry::stackTarget(static_cast<int>(home.row) -
                                                            static_cast<int>(anchorRow(home)));
@@ -381,6 +394,9 @@ void Application::homeFocus(bool jump) {
         motion_.set("sy", stack);
     else
         motion_.spring("sy", stack, springParams(kit::motion::spring::page));
+    // A theme with a dock rests the bar as a pill; focus on the bar brings the whole bar in.
+    // It stays in while the page it leads to is being swapped in.
+    glide("bar", home.navigation || flow_.pendingTab >= 0 ? 1 : 0);
     homeRetargetPill(jump);
 }
 

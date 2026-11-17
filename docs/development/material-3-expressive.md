@@ -12,7 +12,7 @@ A TV screen takes its type, colour, shape, spacing and motion from the tokens, n
 
 ## Themes
 
-`tokens.json` is the theme `n-google-tv`. Each file in `native-tv/design/themes/` is another theme, and names only what differs from it: colours (`color`, `colorFloat`, `colorAlpha`, `focusRingColor`), `radius` (the corner radii) and `look`, the values that are not colours: where a theme draws the top bar, how big its app tiles are, how far apart its rows sit, how a focused item lifts. An optional `order` puts the theme in the picker (themes without one come last, by name). `gen_tokens.py` writes one `Palette` per theme into `tokens.hpp` and `palette.cpp`. `kit::useTheme(id)` switches the palette in use, and `color::name`, `alpha::name`, `radius::name` and `look::name` read it, so a screen's code does not change with the theme. `nativetv-tv --theme ID` starts the client in a theme; the `oled-*` and `apple-*` golden cases use it. Type, spacing and motion are the same in every theme.
+`tokens.json` is the theme `n-google-tv`. Each file in `native-tv/design/themes/` is another theme, and names only what differs from it: colours (`color`, `colorFloat`, `colorAlpha`, `focusRingColor`), `radius` (the corner radii) and `look`, the values that are not colours: where a theme draws the top bar, how big its app tiles are, how far apart its rows sit, how a focused item lifts, and whether it lays Home out on a dock. An optional `order` puts the theme in the picker (themes without one come last, by name). `gen_tokens.py` writes one `Palette` per theme into `tokens.hpp` and `palette.cpp`. `kit::useTheme(id)` switches the palette in use, and `color::name`, `alpha::name`, `radius::name` and `look::name` read it, so a screen's code does not change with the theme. `nativetv-tv --theme ID` starts the client in a theme; the `oled-*` and `apple-*` golden cases use it. Type, spacing and motion are the same in every theme.
 
 ### n-oled-care
 
@@ -42,7 +42,7 @@ The idle dim after 30 seconds and the screen saver's start time are not part of 
 
 ### n-apple-tv
 
-A theme in the manner of tvOS, after Apple's Human Interface Guidelines: a glass bar, landscape app tiles that lift when focused, and a white focus fill. It changes how the screens look and where Home draws its bar and apps, and no feature: rows, keys and data are the same code as in the other themes. Its departures from `n-google-tv`:
+A theme in the manner of tvOS, after Apple's Human Interface Guidelines and the tvOS Home screen itself: a dock of landscape app tiles that lift when focused, a glass bar and a white focus fill. It changes how the screens look and where Home draws its bar, hero and apps, and no feature: rows, keys and data are the same code as in the other themes, with Search and Settings as two more tiles among Home's apps. Its departures from `n-google-tv`:
 
 | Token | n-apple-tv | n-google-tv | Reason |
 |---|---|---|---|
@@ -59,12 +59,20 @@ A theme in the manner of tvOS, after Apple's Human Interface Guidelines: a glass
 | `look.appGapNamed` | 40 | 60 | The 40 px between columns of tvOS's grids. |
 | `look.rowPitch` | 300 | 252 | A taller app row. Apple asks for at least 100 px between rows, which the Apps page's names under every tile cannot keep; three kinds of apps still fit. |
 | `look.liftFocus` | true | false | A focused item has no ring: it grows and rises on a shadow. |
+| `look.dock` | true | false | Home is laid out as tvOS's Home is. Material 3 Expressive does not specify a home screen, so this follows Apple's: the current pick fills the screen, the apps are a dark glass dock of six tiles at the bottom and the rest of the apps follow six to a row. Home's first row is the dock (a capsule of `ink` at 60% with the outline hairline, so the art shows through), carries no title and no names, and the tiles of the rows below it name themselves only while focused, as tvOS's do, so the App names switch is ignored on Home. Search (when title search is on) and Settings take the last places of the first six. Hero text, dots, rows and bar rest differently, as the next rows say. The bar rests as a glass pill with the clock and the profile and the whole bar comes in while focus is on it; a theme without `dock` keeps its bar as it is. |
+| `look.dockTop` | 790 | 790 (unused) | The top of the dock's tiles: the capsule's 54 px of padding (`dockPad`) above them puts its top at 736 and its bottom at 1000, 80 px above the screen's bottom edge, and the next row's tiles at 1046 show 34 px under it. |
+| `look.dockPad` | 54 | 54 (unused) | The capsule's padding above and below its tiles; its sides are half the 80 px margin. |
+| `look.dockPitch` | 256 | 256 (unused) | The distance between Home's rows on a dock: a 156 px tile and the 100 px tvOS asks for between rows. Feed rows (cards of 169 px under a 52 px title) fit in it. The Apps page keeps `rowPitch`. |
+| `look.dockRise` | 680 | 680 (unused) | One row down from the dock raises the page by this much, so the dock becomes the top row of the grid (its tiles at 110 px) and the first row below it is at 366; each row after that raises it by `dockPitch`. The hero has faded out by then (it fades over the first 150 px). |
+| `look.dockEditLift` | 240 | 240 (unused) | While the apps are edited the page rises by this much, so the row clears the hint keys, which start at 900 px. |
+| `look.heroTop` | 150 | 226 | Where the hero's source line starts. Google TV's block sits above the rows at the bottom left; tvOS's Top Shelf title is at the top, so on the Home tab of a dock theme the block starts at 150 px, under the whole bar, which comes in over it on Up. The other tabs keep the block where it is. |
+| `look.dotsTop` | 686 | 488 | The carousel's dots on the Home tab of a dock theme, kept 50 px above the dock's capsule instead of beside the hero text. |
 | `look.sheen` | 0.3 | 0 | A diagonal light across a focused tile or card, white at 30% fading out by the middle. |
 | `look.shadowDy`, `shadowBlur`, `shadowAlpha` | 36, 90, 0.62 | 22, 56, 0.62 | A farther, softer shadow under the lifted item. |
 
-Everything else (the hero, the picks, the Settings, Live, Details and Quick settings layouts, the type) is `n-google-tv`'s, in the new colours.
+Everything else (the hero's content, the picks, the Apps, Inputs, Settings, Live, Details and Quick settings layouts, the type) is `n-google-tv`'s, in the new colours.
 
-The goldens `apple-*` show the screens. The Native Tv remote may have no touch surface, so tvOS's tilt and layered-icon parallax are not drawn: the renderer scales in 2D only.
+The goldens `apple-*` show the screens. The Native Tv remote may have no touch surface, so tvOS's tilt and layered-icon parallax are not drawn: the renderer scales in 2D only. It has no backdrop blur either, so the dock and the bar are translucent fills with a hairline, not frosted glass, and the Top Shelf is the feed's current pick as a still picture, not video.
 
 ## Typography
 

@@ -264,11 +264,53 @@ void roundButton(Paint paint, const RoundButton &button) {
          button.text, avatarStyle, ink, Node::Align::Center);
     hit(scene, look.rect, button.id);
 }
+// The bar of a theme with a dock, at rest: the clock and the profile in one glass pill at the
+// top right. The profile is the same button as the bar's, so it keeps its hit.
+void compactBar(Paint paint, const TopBar &bar, float alpha) {
+    Scene &scene = paint.scene;
+    constexpr float pad = 4, inset = 28, gap = 16;
+    const float size = look::barH - 2 * pad;
+    const float clockWidth = paint.glyphs.measure(bar.clock, type::clock);
+    const float width = inset + clockWidth + gap + size + pad;
+    Rect capsule = {canvas::width - canvas::safeX - width, look::barTop, width, look::barH};
+    Group group(scene, {alpha, 0});
+    Node &glass = scene.shape(capsule, faded(color::ink, .6f), capsule.h / 2);
+    glass.ring = {1, 0, alpha::outline};
+    text(paint, {capsule.x + inset, look::barTop + (look::barH - type::clock.line) / 2, clockWidth,
+                 type::clock.line},
+         bar.clock, type::clock, color::onSurface, Node::Align::Left);
+    RoundButton avatar;
+    avatar.rest = {capsule.x + capsule.w - pad - size, look::barTop + pad, size, size};
+    avatar.id = "nav:avatar";
+    avatar.text = bar.avatarInitial;
+    avatar.avatar = true;
+    avatar.focus = bar.avatarFocus;
+    roundButton(paint, avatar);
+}
+void dockCapsule(Paint paint, const Enter &enter) {
+    if (invisible(enter))
+        return;
+    Scene &scene = paint.scene;
+    Group group(scene, enter);
+    const Rect capsule = geometry::dockCapsule();
+    Node &glass = scene.shape(capsule, faded(color::ink, .6f), radius::xl + 20);
+    glass.ring = {1, 0, alpha::outline};
+}
 void topBar(Paint paint, const TopBar &bar) {
     if (invisible(bar.enter))
         return;
     Scene &scene = paint.scene;
-    Group group(scene, bar.enter);
+    if (bar.compact) {
+        const float reveal = focus::clamp01(bar.reveal);
+        if (reveal < .999f)
+            compactBar(paint, bar, bar.enter.alpha * (1 - reveal));
+        if (reveal <= .002f)
+            return;
+    }
+    Enter whole = bar.enter;
+    if (bar.compact)
+        whole.alpha *= focus::clamp01(bar.reveal);
+    Group group(scene, whole);
     std::vector<Rect> tabs = tabRects(paint.glyphs, bar.tabs);
     if (look::barCentred && !tabs.empty()) {
         // The tabs sit in one glass capsule.
@@ -359,10 +401,15 @@ void heroWall(Paint paint, const Hero &hero) {
         // Three static layers keep the text legible over any art.
         Color shade = color::ink;
         Node &bottom = scene.shape(screen, clear);
-        bottom.gradient = gradient(0, {{faded(shade, .97f), 0},
-                                       {faded(shade, .78f), .22f},
-                                       {faded(shade, .30f), .46f},
-                                       {faded(shade, 0), .64f}});
+        if (hero.dock)
+            bottom.gradient = gradient(0, {{faded(shade, .74f), 0},
+                                           {faded(shade, .34f), .22f},
+                                           {faded(shade, 0), .46f}});
+        else
+            bottom.gradient = gradient(0, {{faded(shade, .97f), 0},
+                                           {faded(shade, .78f), .22f},
+                                           {faded(shade, .30f), .46f},
+                                           {faded(shade, 0), .64f}});
         Node &left = scene.shape(screen, clear);
         left.gradient = gradient(90, {{faded(shade, .60f), 0}, {faded(shade, 0), .58f}});
         Node &top = scene.shape(screen, clear);
@@ -403,11 +450,11 @@ void heroText(Paint paint, const Hero &hero) {
         box.w -= dx;
         return box;
     };
-    Rect source = beside(geometry::heroSource());
+    Rect source = beside(geometry::heroSource(hero.dock));
     if (!hero.image.empty() && !invisible(hero.text[1])) {
         Group group(scene, hero.text[1]);
-        float top = geometry::heroSource().y,
-              bottom = geometry::heroSubtitle().y + layout::heroSubH;
+        float top = geometry::heroSource(hero.dock).y,
+              bottom = geometry::heroSubtitle(hero.dock).y + layout::heroSubH;
         Rect art = {canvas::safeX, top + (bottom - top - layout::heroArt) / 2, layout::heroArt,
                     layout::heroArt};
         Node &picture = scene.picture(art, 0, layout::heroArt / 2);
@@ -431,14 +478,15 @@ void heroText(Paint paint, const Hero &hero) {
     }
     if (!invisible(hero.text[1])) {
         Group group(scene, hero.text[1]);
-        text(paint, beside(geometry::heroTitle()), hero.title, type::display, color::onSurface);
+        text(paint, beside(geometry::heroTitle(hero.dock)), hero.title, type::display,
+             color::onSurface);
     }
     if (!invisible(hero.text[2])) {
         Group group(scene, hero.text[2]);
         if (!hero.facts.empty())
-            factsText(paint, beside(geometry::heroSubtitle()), hero.facts, type::labelL,
+            factsText(paint, beside(geometry::heroSubtitle(hero.dock)), hero.facts, type::labelL,
                       color::onSurface2);
-        Rect body = beside(geometry::heroDescription());
+        Rect body = beside(geometry::heroDescription(hero.dock));
         if (!hero.description.empty())
             text(paint, body, hero.description, type::bodyL, color::onSurface2, Node::Align::Left,
                  2);
@@ -453,7 +501,7 @@ void pagination(Paint paint, const Pagination &dots) {
     Group group(scene, {dots.alpha, dots.y});
     float progress = focus::clamp01(dots.progress);
     for (int i = 0; i < dots.count; ++i) {
-        Rect slot = geometry::dotSlot(i, dots.count);
+        Rect slot = geometry::dotSlot(i, dots.count, dots.dock);
         float current =
             i < static_cast<int>(dots.current.size()) ? focus::clamp01(dots.current[i]) : 0;
         float middle = slot.y + (slot.h - layout::dot) / 2;

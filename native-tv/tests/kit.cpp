@@ -131,11 +131,27 @@ void tokens() {
         check(tile.w == 260 && tile.h == 156 && kit::look::appRadius == 18 &&
                   kit::look::rowPitch == 300,
               "An app is a 260x156 tile on a 300 px row pitch");
+        check(kit::look::dock && kit::look::heroTop == 150 && kit::geometry::heroSource(true).y == 150 &&
+                  kit::geometry::dotSlot(0, kit::layout::dotSlots, true).y == 686 &&
+                  kit::geometry::heroSource().y == 226 && kit::geometry::dotSlot(0).y == 488 &&
+                  kit::geometry::dockItemsY(0) == 790 &&
+                  kit::geometry::dockItemsY(1) == 790 + 256 &&
+                  kit::geometry::dockLabelY(1) == 790 + 256 - kit::layout::rowLabelH - kit::layout::rowLabelGap &&
+                  kit::geometry::dockCapsule().w == 1840 && kit::geometry::dockCapsule().h == 264 &&
+                  kit::geometry::dockCapsule().y == 790 - 54,
+              "A dock rests its first row at 790 px on a 1840x264 capsule, with 256 px between rows, and the hero at the top of its own page only");
+        check(near(kit::geometry::dockStackTarget(0), 0, 1e-3f) &&
+                  near(kit::geometry::dockStackTarget(1), -680, 1e-3f) &&
+                  near(kit::geometry::dockStackTarget(3), -(680 + 2 * 256), 1e-3f),
+              "The page rises 680 px from the dock to the grid, then one row pitch per row");
         check(kit::useTheme("n-google-tv") && defaults && kit::radius::md == defaultRadius &&
                   near(kit::geometry::tabRects(widths).front().x, defaultTabs.front().x, 1e-3f) &&
                   kit::geometry::avatar().w == defaultAvatar && kit::look::rowPitch == 252 &&
                   !kit::look::barCentred && !kit::look::liftFocus && kit::look::appRadius < 0,
               "Back on the default theme, the left-aligned bar, the circles and the radii return");
+        check(!kit::look::dock && kit::geometry::heroSource().y == 226 && kit::geometry::dotSlot(0).y == 488 &&
+                  kit::useTheme("n-oled-care") && !kit::look::dock && kit::useTheme("n-google-tv"),
+              "Only Apple TV has a dock: the hero and its dots keep their places on the others");
     }
     {
         bool same = kit::themeCount == kThemeChoiceCount;

@@ -72,6 +72,9 @@
   "shadowDy": 36,
   "shadowBlur": 90,
   "shadowAlpha": 0.62,
-  "liftFocus": true
+  "liftFocus": true,
+  "dock": true,
+  "heroTop": 150,
+  "dotsTop": 686
  }
 }

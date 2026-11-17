@@ -1,5 +1,6 @@
 #include "ui/application.hpp"
 #include "ui/controller_helpers.hpp"
+#include "ui/home_layout.hpp"
 #include <algorithm>
 
 namespace nativetv {
@@ -24,6 +25,22 @@ void Application::rebuildHome() {
             if (cards[i].id == oldId)
                 home.column = i;
     }
+    // A dock's apps run six to a row, so an edit or a feed that adds Search can move the focused app to
+    // another of its rows: the focus follows it.
+    if (!oldId.empty() && home::onDock(home.tabs[home.tab].key)) {
+        bool held = false;
+        if (home.row < home.rows.size())
+            for (const Card &card : home.rows[home.row].cards)
+                held = held || card.id == oldId;
+        for (size_t r = 0; !held && r < home.rows.size(); ++r)
+            if (home::isApps(home.rows[r]))
+                for (size_t c = 0; !held && c < home.rows[r].cards.size(); ++c)
+                    if (home.rows[r].cards[c].id == oldId) {
+                        home.row = r;
+                        home.column = c;
+                        held = true;
+                    }
+    }
     auto stops = navigationStops(state_);
     if (std::find(stops.begin(), stops.end(), home.nav) == stops.end())
         home.nav = home.tab;
@@ -33,7 +50,10 @@ void Application::rebuildHome() {
 std::vector<CardRow> Application::homeRowsFor(const std::string &tab) const {
     if (tab == "home" && !kit::look::discover)
         return compactHomeRows(state_.catalogue, state_.guide, state_.stats);
-    return homeRows(tab, state_.catalogue, state_.discover, state_.guide);
+    std::vector<CardRow> rows = homeRows(tab, state_.catalogue, state_.discover, state_.guide);
+    if (tab == "home" && kit::look::dock)
+        rows = dockRows(std::move(rows), state_.titleSearch());
+    return rows;
 }
 void Application::themeChanged() {
     // The theme the client started in has nothing to redo, unless Home's data was already asked for under

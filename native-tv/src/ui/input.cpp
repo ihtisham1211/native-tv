@@ -226,6 +226,16 @@ void Application::click(float x, float y) {
             }
             return;
         }
+    // A theme with a dock rests Home's bar as a pill, so there are no tabs to click: a click in the
+    // bar's band brings the bar in, and the next click acts on it.
+    if (state_.screen == Screen::Home && !screen_ && !state_.home.tabs.empty() &&
+        home::onDock(state_.home.tabs[state_.home.tab].key) && !state_.home.navigation &&
+        !state_.home.editing && !state_.home.arranging && y < kit::look::barTop + kit::look::barH + 40) {
+        state_.home.navigation = true;
+        state_.home.nav = state_.home.tab;
+        homeFocus();
+        dirty_ = true;
+    }
 }
 bool Application::activate(const std::string &id) {
     for (const auto &hit : scene().hits) {
@@ -279,8 +289,20 @@ void Application::homeEditStart() {
     home.editHide = false;
     // The row also lists the apps hidden from it, last and dimmed, so that one can be shown again:
     // Home's row those hidden on Home, the Apps page those hidden on the Apps page.
+    const std::string focused = home.rows[home.row].cards[home.column].id;
+    if (home::onDock(home.tabs[home.tab].key)) {
+        // The dock's rows of six are edited as the one row they came from, with the apps hidden from
+        // Home after them; Search and Settings are not apps, so they leave it until the save.
+        size_t first = home.row, last = home.row;
+        while (first > 0 && home::isApps(home.rows[first - 1]))
+            --first;
+        while (last + 1 < home.rows.size() && home::isApps(home.rows[last + 1]))
+            ++last;
+        home.rows.erase(home.rows.begin() + static_cast<std::ptrdiff_t>(first) + 1,
+                        home.rows.begin() + static_cast<std::ptrdiff_t>(last) + 1);
+        home.row = first;
+    }
     CardRow &row = home.rows[home.row];
-    const std::string focused = row.cards[home.column].id;
     row.cards = appsRow(state_.catalogue, state_.guide, true, editedList()).cards;
     home.column = 0;
     for (size_t i = 0; i < row.cards.size(); ++i)

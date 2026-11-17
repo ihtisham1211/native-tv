@@ -73,27 +73,29 @@ inline Rect settingsButton() {
             look::barTop + (look::barH - look::barButton) / 2, look::barButton, look::barButton};
 }
 
-// Hero block, bottom-left of Home.
-constexpr Rect heroSource() {
-    return {canvas::safeX, layout::heroSourceTop, layout::heroW, layout::heroSourceH};
+// Hero block, bottom-left of Home. A page laid out on a dock (`dock`, home::onDock) puts it at the
+// theme's look::heroTop, near the top; the other pages of that theme keep it where it is.
+inline Rect heroSource(bool dock = false) {
+    return {canvas::safeX, dock ? look::heroTop : layout::heroSourceTop, layout::heroW,
+            layout::heroSourceH};
 }
-constexpr Rect heroTitle() {
-    return {canvas::safeX, heroSource().y + layout::heroSourceH + layout::heroTitleGap,
+inline Rect heroTitle(bool dock = false) {
+    return {canvas::safeX, heroSource(dock).y + layout::heroSourceH + layout::heroTitleGap,
             layout::heroW, layout::heroTitleH};
 }
-constexpr Rect heroSubtitle() {
-    return {canvas::safeX, heroTitle().y + layout::heroTitleH + layout::heroSubGap, layout::heroW,
-            layout::heroSubH};
+inline Rect heroSubtitle(bool dock = false) {
+    return {canvas::safeX, heroTitle(dock).y + layout::heroTitleH + layout::heroSubGap,
+            layout::heroW, layout::heroSubH};
 }
 // Two lines of description, or an app's key hint, under the facts.
-constexpr Rect heroDescription() {
-    return {canvas::safeX, heroSubtitle().y + layout::heroSubH + layout::heroDescGap,
+inline Rect heroDescription(bool dock = false) {
+    return {canvas::safeX, heroSubtitle(dock).y + layout::heroSubH + layout::heroDescGap,
             layout::heroDescW, layout::heroDescH};
 }
 // Pagination slots end at the right margin.
-constexpr Rect dotSlot(int index, int count = layout::dotSlots) {
+inline Rect dotSlot(int index, int count = layout::dotSlots, bool dock = false) {
     return {canvas::width - canvas::safeX - count * layout::dotSlotW + index * layout::dotSlotW,
-            layout::dotsTop, layout::dotSlotW, layout::dotSlotH};
+            dock ? look::dotsTop : layout::dotsTop, layout::dotSlotW, layout::dotSlotH};
 }
 
 // Home rows: label, then items 36 px below, 212 px per row.
@@ -107,6 +109,24 @@ inline float rowItemsY(int row) {
 }
 inline Rect rowLabel(int row) {
     return {canvas::safeX, rowLabelY(row), canvas::width - canvas::safeX, layout::rowLabelH};
+}
+// A theme with a dock (look::dock) sits Home's rows on look::dockTop, one look::dockPitch apart. The
+// first row, the dock itself, rests on a glass capsule; the rows after it carry no label unless they
+// are the feed's.
+inline float dockItemsY(int row) {
+    return look::dockTop + look::dockPitch * row;
+}
+inline float dockLabelY(int row) {
+    return dockItemsY(row) - layout::rowLabelH - layout::rowLabelGap;
+}
+inline Rect dockCapsule() {
+    return {canvas::safeX / 2, look::dockTop - look::dockPad, canvas::width - canvas::safeX,
+            look::appH + 2 * look::dockPad};
+}
+// The stack offset while focus is on `row`: the dock rests at 0; one row down the page rises by
+// look::dockRise, so the dock is the top row of the grid, and then by a pitch per row.
+inline float dockStackTarget(int row) {
+    return row <= 0 ? 0 : -(look::dockRise + look::dockPitch * (row - 1));
 }
 inline Rect card(int row, int index) {
     return {canvas::safeX + index * (layout::cardW + layout::cardGap), rowItemsY(row),

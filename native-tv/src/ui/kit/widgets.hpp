@@ -65,6 +65,10 @@ struct TopBar {
     bool settingsSelected = false;
     bool barFocused = false; // focus is on a tab: a ring theme draws it around the selected one
     std::string clock;
+    // A theme with a dock rests Home's bar as one glass pill, the clock and the profile; `reveal`
+    // (0..1) brings the whole bar in over it while focus is on the bar.
+    bool compact = false;
+    float reveal = 1;
     Enter enter;
 };
 // Tab boxes for the bar's tabs, so the view can aim the pill's springs at them.
@@ -72,6 +76,8 @@ std::vector<Rect> tabRects(const Glyphs &glyphs, const std::vector<std::string> 
 // Hits are "nav:avatar", "nav:tab:<i>" and "nav:settings".
 void topBar(Paint paint, const TopBar &bar);
 void tabPill(Paint paint, float left, float right, float alpha = 1, bool barFocused = false);
+// The glass the first row of a theme with a dock rests on (geometry::dockCapsule).
+void dockCapsule(Paint paint, const Enter &enter);
 
 struct RoundButton {
     Rect rest;
@@ -104,6 +110,7 @@ struct Hero {
     std::string source, title, facts, description, image, hint;
     // Source row, title and the lines under it enter one after another (spec 5.3).
     Enter text[3];
+    bool dock = false; // the page is laid out on a theme's dock: text at the top, a lighter shade
 };
 // The artwork, tints, legibility scrims and the veil that rises with the rows.
 void heroWall(Paint paint, const Hero &hero);
@@ -125,6 +132,7 @@ struct Pagination {
     std::vector<float> current; // per slot, 0..1: dot turns into the progress track
     float progress = 0;
     float alpha = 1, y = 0; // y: parallax offset
+    bool dock = false;      // the dots sit where the dock's page puts them
 };
 void pagination(Paint paint, const Pagination &dots);
 

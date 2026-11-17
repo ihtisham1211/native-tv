@@ -24,6 +24,8 @@ kit::Enter textEnter(const Motion &motion, int index) {
             static_cast<float>(value >= 0 ? 18 * value : 8 * value)};
 }
 Color appColor(const Card &card) {
+    if (card.id.compare(0, 5, "tool:") == 0) // Search and Settings on a dock: not an app's colour
+        return kit::rgb(0x34343C);
     std::string value = card.data["color"].string();
     if (!value.empty() && value[0] == '#')
         value.erase(0, 1);
@@ -88,6 +90,7 @@ kit::Hero heroOf(const Frame &frame) {
     }
     hero.wallAlpha = static_cast<float>(motion.value("wall"));
     hero.stackY = static_cast<float>(motion.value("sy"));
+    hero.dock = !home.tabs.empty() && home::onDock(home.tabs[home.tab].key);
     hero.source = home.art.text.source;
     hero.title = home.art.text.title;
     hero.facts = home.art.text.facts;
@@ -121,8 +124,16 @@ void drawTopBar(kit::Paint paint, const Frame &frame, int pageTab) {
     bar.avatarFocus = static_cast<float>(motion.value("f:av"));
     bar.settingsFocus = static_cast<float>(motion.value("f:gr"));
     bar.clock = clockText(state);
+    // A theme with a dock rests Home's bar as a pill and brings the bar in while focus is on it.
+    bar.compact = state.screen == Screen::Home && pageTab >= 0 && pageTab == static_cast<int>(home.tab) &&
+                  home.tab < home.tabs.size() && home::onDock(home.tabs[home.tab].key);
+    bar.reveal = bar.compact ? static_cast<float>(motion.value("bar")) : 1.0f;
+    // The pill goes with the page: it is not over the grid once the dock has risen to its top.
+    if (bar.compact)
+        bar.enter.alpha *= kit::focus::clamp01(1 + static_cast<float>(motion.value("sy")) / 150);
     kit::topBar(paint, bar);
-    if (state.titleSearch()) {
+    if (state.titleSearch() && bar.reveal > .002f) {
+        paint.scene.pushOpacity(bar.reveal);
         kit::RoundButton search;
         Rect gear = kit::geometry::settingsButton();
         search.rest = {gear.x - kit::look::barButton - 24, gear.y, kit::look::barButton, kit::look::barButton};
@@ -130,6 +141,7 @@ void drawTopBar(kit::Paint paint, const Frame &frame, int pageTab) {
         search.icon = "search";
         search.focus = static_cast<float>(motion.value("f:sr"));
         kit::roundButton(paint, search);
+        paint.scene.popOpacity();
     }
     if (state.catalogue["layout"]["picture"].boolean() && !home.editing)
         paint.glyphs.text(paint.scene, {800, 136, 1040, kit::type::labelM.line},
@@ -146,9 +158,14 @@ void rows(kit::Paint paint, const Frame &frame, float top = 0) {
     const float stack = static_cast<float>(motion.value("sy")) + top;
     // Every circle carries its name on the Apps page, and on Home while App names is on.
     const bool namedApps = home::namesShown(home.tabs[home.tab].key, state.catalogue["layout"]);
+    // A theme with a dock lays Home out on it (home_layout.hpp): its tiles name themselves on focus,
+    // and the first row, which rests on the glass capsule, never does.
+    const bool dock = home::onDock(home.tabs[home.tab].key);
     for (size_t ri = 0; ri < home.rows.size(); ++ri) {
         const CardRow &row = home.rows[ri];
-        float labelY = kit::geometry::rowLabelY(static_cast<int>(ri)) + stack;
+        float labelY = (dock ? kit::geometry::dockLabelY(static_cast<int>(ri))
+                             : kit::geometry::rowLabelY(static_cast<int>(ri))) + stack;
+        const bool dockRow = dock && ri == 0 && home::isApps(row) && !home.editing;
         // Rows well above the bar or below the screen are not drawn at all.
         if (labelY > kit::canvas::height + 40 || labelY + 260 < 100)
             continue;
@@ -159,7 +176,7 @@ void rows(kit::Paint paint, const Frame &frame, float top = 0) {
             const float left = kit::canvas::safeX - kPad;
             float right = kit::canvas::width - kit::canvas::safeX + kPad / 2;
             if (!row.cards.empty()) {
-                const Rect last = home::item(row, ri, row.cards.size() - 1, namedApps);
+                const Rect last = home::item(row, ri, row.cards.size() - 1, namedApps, dock);
                 const float overhang = namedApps ? (kit::look::appGapNamed - 8) / 2 : 0;
                 right = std::min(right, last.x + last.w + overhang + kPad +
                                             static_cast<float>(motion.value(home::id("rx", ri))));
@@ -196,6 +213,11 @@ void rows(kit::Paint paint, const Frame &frame, float top = 0) {
             kit::pillButton(paint, move);
             kit::pillButton(paint, done);
         }
+        if (dockRow) {
+            paint.scene.pushTransform(Transform::translate(0, stack));
+            kit::dockCapsule(paint, enterOf(motion, home::id("ER", ri)));
+            paint.scene.popTransform();
+        }
         kit::Row label;
         label.index = static_cast<int>(ri);
         label.label = home.editing && ri == home.row && home::isApps(row) ? "Moving apps" : row.title;
@@ -206,12 +228,19 @@ void rows(kit::Paint paint, const Frame &frame, float top = 0) {
         // The next row's name is not shown cut by the screen's edge: it fades in as it rises.
         label.enter.alpha *=
             kit::focus::clamp01((kit::canvas::height - 40 - labelY) / 48);
-        paint.scene.pushTransform(Transform::translate(0, stack));
-        kit::row(paint, label);
-        paint.scene.popTransform();
+        // The dock's rows of apps carry no title; the feed's rows keep theirs.
+        if (!(dock && home::isApps(row) && !home.editing)) {
+            // The label sits where the row's own pitch puts it, not where a Google TV row's would.
+            const float shift = dock ? kit::geometry::dockLabelY(static_cast<int>(ri)) -
+                                           kit::geometry::rowLabelY(static_cast<int>(ri))
+                                     : 0;
+            paint.scene.pushTransform(Transform::translate(0, stack + shift));
+            kit::row(paint, label);
+            paint.scene.popTransform();
+        }
         const float scroll = static_cast<float>(motion.value(home::id("rx", ri)));
         for (size_t ci = 0; ci < row.cards.size(); ++ci) {
-            Rect rest = home::item(row, ri, ci, namedApps);
+            Rect rest = home::item(row, ri, ci, namedApps, dock);
             rest.x += scroll;
             rest.y += stack;
             if (rest.x + rest.w < -140 || rest.x > kit::canvas::width + 140)
@@ -224,12 +253,15 @@ void rows(kit::Paint paint, const Frame &frame, float top = 0) {
                 kit::AppCircle circle;
                 circle.rest = rest;
                 circle.id = id;
-                circle.name = namedApps ? card.title : "";
-                circle.icon = card.id == "lg-home" ? "home" : "apps";
+                circle.name = dockRow ? "" : namedApps || dock ? card.title : "";
+                circle.icon = card.id == "lg-home"         ? "home"
+                              : card.id == "tool:search"   ? "search"
+                              : card.id == "tool:settings" ? "settings"
+                                                           : "apps";
                 circle.image = card.image;
                 circle.color = appColor(card);
-                circle.named = namedApps;
-                if (namedApps)
+                circle.named = namedApps && !dock;
+                if (namedApps && !dock)
                     circle.nameWidth = kit::look::appW + kit::look::appGapNamed - 8;
                 circle.focus = focus;
                 circle.enter = enter;
@@ -389,6 +421,7 @@ void drawHome(kit::Paint paint, const Frame &frame) {
             dots.alpha = hero.text[2].alpha * parallax.textAlpha *
                          static_cast<float>(motion.value("dots"));
             dots.y = parallax.textY;
+            dots.dock = hero.dock;
             kit::pagination(paint, dots);
         }
         rows(paint, frame);

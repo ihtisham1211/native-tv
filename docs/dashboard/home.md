@@ -102,7 +102,9 @@ browser runs, including behind overlays.
 **Show app names**, on both dashboards, shows names beneath the app icons by
 default. Switching it off leaves icons only. App names remain available to
 assistive technology. The choice
-takes effect on Native Tv Home within a few seconds.
+takes effect on Native Tv Home within a few seconds. The Apple TV [theme](../apps/tv-app.md#tv-theme)
+ignores it on Home: its dock carries no names and the tiles below it name
+themselves only while focused.
 
 **Clock format**, also on both dashboards, chooses **12-hour** time with AM/PM
 or **24-hour** time, the default. It applies to Home's clock and programme start

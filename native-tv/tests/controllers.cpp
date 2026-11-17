@@ -1182,6 +1182,99 @@ int main() {
         run(wallpaperHome, 300, 100);
         check(wallpaperHome.snapshot()["wallpaper"].string() == "transitioning",
               "The wallpaper fades in as soon as the loader has it");
+        // A theme with a dock lays Home out on it: the apps six to a row with Search and Settings among
+        // the first six, the page rising from the dock to the grid, the bar resting as a pill and
+        // coming in while focus is on it, and the apps edited as one row.
+        {
+            const char *dockCatalogue =
+                R"({"ok":true,"apps":[{"id":"a1","title":"A1"},{"id":"a2","title":"A2"},{"id":"a3","title":"A3"},{"id":"a4","title":"A4"},{"id":"a5","title":"A5"},{"id":"a6","title":"A6"},{"id":"a7","title":"A7"},{"id":"a8","title":"A8"},{"id":"a9","title":"A9"}],"devices":[{"id":"hdmi1","name":"Console","port":1}],"channels":[],"order":{"app":["a1","a2","a3","a4","a5","a6","a7","a8","a9"],"dev":["hdmi1"]},"layout":{"rows":["app","dev"],"hidden":{},"showInputs":true},"profiles":[{"id":"main","name":"Main","active":true}]})";
+            kit::useTheme("n-apple-tv");
+            FakeTransport dockTransport;
+            Application dock(dockTransport);
+            dock.update(0);
+            dock.wallClock(17, 5, 0, 25, 9);
+            reply(dock, "catalogue", dockCatalogue);
+            reply(dock, "discover", feed);
+            uint32_t dockMs = run(dock, 16, 1500);
+            Motion &dockMotion = dock.animation();
+            check(dock.snapshot()["rows"].number() == 3 && dock.snapshot()["rowCards"].number() == 6 &&
+                      dock.snapshot()["rowHead"].string() == "a1,a2,a3",
+                  "The dock is the first row of six, the other apps a second row, the top picks the third");
+            check(std::fabs(dockMotion.value("sy")) < .5 && dockMotion.value("bar") < .01,
+                  "At rest the page is down and the bar is a pill");
+            const Scene restScene = dock.scene();
+            const Node *restClock = textNode(restScene, "17:05");
+            check(restClock && restClock->rect.x > 1600,
+                  "The pill holds the clock at the right, not where the whole bar has it");
+            for (int i = 0; i < 4; ++i)
+                dock.key(Key::Right);
+            check(dock.snapshot()["focusCard"].string() == "tool:search", "Search is the fifth tile");
+            dock.key(Key::Ok);
+            check(dock.screenName() == "search", "OK on the Search tile opens Search");
+            dock.key(Key::Back);
+            check(dock.screenName() == "home" && dock.snapshot()["focusCard"].string() == "tool:search",
+                  "Back returns to the tile it came from");
+            dock.key(Key::Right);
+            dock.key(Key::Ok);
+            check(dock.screenName() == "quick", "OK on the Settings tile opens Quick settings");
+            dock.key(Key::Back);
+            dockMs = run(dock, dockMs + 16, 300);
+            dock.key(Key::Down);
+            dockMs = run(dock, dockMs + 16, 900);
+            check(dock.snapshot()["row"].number() == 1 &&
+                      std::fabs(dockMotion.value("sy") + kit::look::dockRise) < .5,
+                  "One row down the page has risen by the dock's rise, so the dock is the top row");
+            dock.key(Key::Down);
+            dockMs = run(dock, dockMs + 16, 900);
+            check(dock.snapshot()["row"].number() == 2 &&
+                      std::fabs(dockMotion.value("sy") + kit::look::dockRise + kit::look::dockPitch) < .5,
+                  "Each row after that moves the page by one pitch");
+            dock.key(Key::Up);
+            dock.key(Key::Up);
+            dock.key(Key::Up);
+            dockMs = run(dock, dockMs + 16, 900);
+            const Scene barScene = dock.scene();
+            const Node *barClock = textNode(barScene, "17:05");
+            check(dock.snapshot()["navigation"].boolean() && dockMotion.value("bar") > .99 &&
+                      std::fabs(dockMotion.value("sy")) < .5 && barClock && barClock->rect.x == 1556,
+                  "Up from the dock brings the whole bar in over the pill");
+            dock.key(Key::Down);
+            dockMs = run(dock, dockMs + 16, 900);
+            check(!dock.snapshot()["navigation"].boolean() && dockMotion.value("bar") < .01,
+                  "Down from the bar puts it back to a pill");
+            dock.click(900, 80);
+            dockMs = run(dock, dockMs + 16, 900);
+            check(dock.snapshot()["navigation"].boolean() && dockMotion.value("bar") > .99,
+                  "A click in the bar's band, where the tabs are hidden, brings the bar in");
+            dock.key(Key::Down);
+            dockMs = run(dock, dockMs + 16, 600);
+            dock.longPress();
+            check(dock.snapshot()["editing"].boolean() && dock.snapshot()["rows"].number() == 2 &&
+                      dock.snapshot()["rowCards"].number() == 9 && dock.snapshot()["focusCard"].string() == "a1",
+                  "Holding OK edits the apps as one row, without Search and Settings");
+            dockMs = run(dock, dockMs + 16, 900);
+            check(std::fabs(dockMotion.value("sy") + kit::look::dockEditLift) < .5,
+                  "The row is lifted clear of the hint keys while it is edited");
+            dock.key(Key::Back);
+            check(!dock.snapshot()["editing"].boolean() && dock.snapshot()["rows"].number() == 3 &&
+                      dock.snapshot()["rowCards"].number() == 6,
+                  "Finishing the edit puts the dock's rows of six back");
+            // An app of the second row of apps stays focused through an edit, as the rows of six are
+            // merged and split again around it.
+            dock.key(Key::Down);
+            for (int i = 0; i < 3; ++i)
+                dock.key(Key::Right);
+            check(dock.snapshot()["row"].number() == 1 && dock.snapshot()["focusCard"].string() == "a8",
+                  "The eighth app is the fourth tile of the second row");
+            dock.longPress();
+            check(dock.snapshot()["editing"].boolean() && dock.snapshot()["focusCard"].string() == "a8",
+                  "Editing starts on the app that was focused");
+            dock.key(Key::Ok);
+            check(!dock.snapshot()["editing"].boolean() && dock.snapshot()["row"].number() == 1 &&
+                      dock.snapshot()["focusCard"].string() == "a8",
+                  "After the edit the focus is on the same app, not on the dock");
+            kit::useTheme("n-google-tv");
+        }
         FakeTransport idleTransport;
         Application idle(idleTransport);
         idle.update(1000);
