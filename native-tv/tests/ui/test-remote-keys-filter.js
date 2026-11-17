@@ -14,12 +14,12 @@ console.log('Running test-remote-keys-filter.js ...');
 
 var source = fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'remotekeys-filter.js'), 'utf8');
 
-var NETFLIX = 1001, RED = 1002, GUIDE = 1003, OTHER = 4242;
+var NETFLIX = 1001, RED = 1002, GUIDE = 1003, VOICE = 1006, MOVIES = 1007, OTHER = 4242;
 
 function filter(keys) {
   var sent = [], launched = [], logs = [];
   var context = {
-    WebOS: { Key_webOS_Netflix: NETFLIX, Key_webOS_Red: RED, Key_webOS_TVGuide: GUIDE },
+    WebOS: { Key_webOS_Netflix: NETFLIX, Key_webOS_Red: RED, Key_webOS_TVGuide: GUIDE, Key_webOS_Voice: VOICE, Key_webOS_USP: MOVIES },
     Qt: { Key_Super_L: 1999, Key_Search: 1004, Key_Help: 1005 },
     KeyPolicy: { Accepted: 'accepted', NextPolicy: 'next' },
     lunaCall: {
@@ -85,6 +85,29 @@ assert.strictEqual(before.press(RED), 'accepted');
 assert.deepStrictEqual(before.sent, [{ service: 'com.webos.service.networkinput', method: '/test/sendKeyCode', payload: JSON.stringify({ keyCode: 207 }) }]);
 assert.strictEqual(before.press(OTHER), 'next', 'a key that is not set goes on to LG');
 console.log('  ok - an app and a media key still work, and a key that is not set is passed on');
+
+// Home Assistant: the key does nothing on the TV; its press reaches the daemon from the remote's
+// own input device. Not opened as an app, not sent anywhere, and no longer left to LG.
+var homeAssistant = filter({ voice: 'action:homeAssistant', netflix: 'action:homeAssistant' });
+assert.strictEqual(homeAssistant.press(VOICE), 'accepted', 'the microphone is kept from LG');
+assert.strictEqual(homeAssistant.press(VOICE, true, true), 'accepted', 'so is a hold');
+assert.strictEqual(homeAssistant.press(NETFLIX), 'accepted');
+assert.deepStrictEqual(homeAssistant.sent, [], 'nothing is called');
+assert.deepStrictEqual(homeAssistant.launched, [], 'nothing is opened');
+assert.ok(!homeAssistant.logs.some(function (line) { return /runs/.test(line); }), 'no action is run');
+console.log('  ok - a key set to Home Assistant does nothing on the TV and is kept from LG');
+
+// OK is KEY_ENTER, once per press and not while held; Movies and the microphone are keys a
+// target can be set on like any other.
+var ok = filter({ netflix: 'media:ok', movies: 'org.example.movies' });
+assert.strictEqual(ok.press(NETFLIX), 'accepted');
+assert.strictEqual(ok.press(NETFLIX, true, true), 'accepted');
+assert.strictEqual(ok.press(NETFLIX, false), 'accepted');
+assert.deepStrictEqual(ok.sent, [{ service: 'com.webos.service.networkinput', method: '/test/sendKeyCode', payload: JSON.stringify({ keyCode: 28 }) }]);
+assert.strictEqual(ok.press(MOVIES), 'accepted');
+assert.deepStrictEqual(ok.launched, [{ id: 'org.example.movies', params: '{}' }]);
+assert.strictEqual(filter({ voice: 'org.example.assistant' }).press(VOICE), 'accepted');
+console.log('  ok - a key set to OK sends the remote\'s OK once, and Movies and the microphone can be set');
 
 // An unset key with actions around it.
 var passed = filter({ netflix: 'action:screenOff' });

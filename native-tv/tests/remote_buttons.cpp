@@ -1,4 +1,7 @@
+#include "daemon/ha_discovery.hpp"
 #include "daemon/remote_buttons.hpp"
+#include "domain/names.hpp"
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <condition_variable>
@@ -85,7 +88,7 @@ int main() {
     assert(partial.empty());
     const std::vector<RemoteButtonEvent> completed = parser32.feed(red.data() + 9, 7);
     assert(completed.size() == 1);
-    assert(completed[0].type == RemoteButtonEventType::ColorButton);
+    assert(completed[0].type == RemoteButtonEventType::Button);
     assert(completed[0].button == "red" && completed[0].code == 398 &&
            completed[0].pressed);
 
@@ -99,6 +102,26 @@ int main() {
     assert(keys[0].type == RemoteButtonEventType::HomeKey && keys[0].pressed);
     assert(keys[1].type == RemoteButtonEventType::HomeKey && !keys[1].pressed);
     assert(keys[2].type == RemoteButtonEventType::Key && keys[2].code == 28);
+
+    // Every reported button arrives as a Button event under its name, from its evdev code.
+    const std::vector<std::pair<unsigned, std::string>> evdevButtons = {
+        {1037, "netflix"}, {1038, "amazon"}, {1042, "disneyplus"}, {1043, "lgchannels"},
+        {1044, "rakutentv"}, {1083, "movies"}, {1086, "alexa"}, {1117, "googleassistant"},
+        {428, "voice"}};
+    for (const auto &expected : evdevButtons) {
+        const std::vector<unsigned char> press = event(16, 1, expected.first, 1);
+        const std::vector<RemoteButtonEvent> found = parser32.feed(press.data(), press.size());
+        assert(found.size() == 1 && found[0].type == RemoteButtonEventType::Button &&
+               found[0].button == expected.second && found[0].code == expected.first &&
+               found[0].pressed);
+    }
+    // A code the table does not name is still an ordinary key, and a release is nothing.
+    const std::vector<unsigned char> unnamed = event(16, 1, 1039, 1);
+    const std::vector<RemoteButtonEvent> unnamedEvents =
+        parser32.feed(unnamed.data(), unnamed.size());
+    assert(unnamedEvents.size() == 1 && unnamedEvents[0].type == RemoteButtonEventType::Key);
+    const std::vector<unsigned char> release = event(16, 1, 1037, 0);
+    assert(parser32.feed(release.data(), release.size()).empty());
 
     RemoteButtonsParser parser64(24);
     const std::vector<unsigned char> yellow = event(24, 1, 400, 1);
@@ -117,17 +140,50 @@ int main() {
     assert(twoQt.size() == 2 && twoQt[0].button == "red" &&
            twoQt[1].button == "yellow");
 
+    // The same buttons from the Qt codes in LG's input log, whole numbers only.
+    const std::vector<std::pair<unsigned, std::string>> qtButtons = {
+        {18874408, "netflix"}, {18874409, "amazon"}, {18874396, "disneyplus"},
+        {18874397, "lgchannels"}, {18874426, "rakutentv"}, {18874413, "movies"},
+        {18874416, "alexa"}, {18874398, "googleassistant"}, {18874420, "voice"}};
+    for (const auto &expected : qtButtons) {
+        const std::vector<RemoteButtonEvent> found = parser64.parseQtLogLine(
+            "inputcommon: D_KEY_PRESS " + std::to_string(expected.first));
+        assert(found.size() == 1 && found[0].type == RemoteButtonEventType::Button &&
+               found[0].button == expected.second && found[0].code == expected.first);
+    }
+    assert(parser64.parseQtLogLine("D_KEY_PRESS 188744080").empty());
+    assert(parser64.parseQtLogLine("D_KEY_PRESS 118874408").empty());
+    // An evdev code is not looked for in a log line, where it would match inside any number.
+    assert(parser64.parseQtLogLine("D_KEY_PRESS 1037 at 10370").empty());
+
+    // Home Assistant's Remote Button entity declares every reported button as an event type,
+    // since Home Assistant drops an event type that discovery does not name.
+    {
+        std::vector<std::string> declared;
+        const nativetv::Json templates = haDiscoveryTemplates();
+        for (const nativetv::Json &entity : templates.items()) {
+            if (entity["id"].string() != "remote_button") continue;
+            for (const nativetv::Json &type : entity["conf"]["event_types"].items())
+                declared.push_back(type.string());
+        }
+        std::vector<std::string> reported = nativetv::names::remoteButtons();
+        std::sort(declared.begin(), declared.end());
+        std::sort(reported.begin(), reported.end());
+        assert(!declared.empty() && declared == reported);
+    }
+
     char root[] = "/tmp/nativetv-remote-buttons-XXXXXX";
     assert(mkdtemp(root) != nullptr);
     const std::string inputDirectory = std::string(root) + "/input";
     assert(mkdir(inputDirectory.c_str(), 0700) == 0);
     const std::string devicePath = inputDirectory + "/event1";
-    const std::vector<unsigned char> green =
+    std::vector<unsigned char> presses =
         event(RemoteButtonsParser::platformEventSize(), 1, 399, 1);
+    append(presses, event(RemoteButtonsParser::platformEventSize(), 1, 1037, 1));
     {
         std::ofstream device(devicePath, std::ios::binary);
-        device.write(reinterpret_cast<const char *>(green.data()),
-                     static_cast<std::streamsize>(green.size()));
+        device.write(reinterpret_cast<const char *>(presses.data()),
+                     static_cast<std::streamsize>(presses.size()));
         assert(device.good());
     }
     RemoteButtonsReaderOptions options;
@@ -138,11 +194,11 @@ int main() {
     options.pollTimeoutMilliseconds = 20;
     std::mutex mutex;
     std::condition_variable condition;
-    std::string observedButton;
+    std::vector<std::string> observedButtons;
     RemoteButtonsReader reader([&](const RemoteButtonEvent &received) {
         std::lock_guard<std::mutex> lock(mutex);
-        if (received.type == RemoteButtonEventType::ColorButton)
-            observedButton = received.button;
+        if (received.type == RemoteButtonEventType::Button)
+            observedButtons.push_back(received.button);
         condition.notify_all();
     }, options);
     assert(RemoteButtonsReader::isSupported(options));
@@ -150,8 +206,9 @@ int main() {
     {
         std::unique_lock<std::mutex> lock(mutex);
         assert(condition.wait_for(lock, std::chrono::seconds(2), [&] {
-            return observedButton == "green";
+            return observedButtons.size() == 2;
         }));
+        assert(observedButtons[0] == "green" && observedButtons[1] == "netflix");
     }
     reader.stop();
     assert(!reader.running());

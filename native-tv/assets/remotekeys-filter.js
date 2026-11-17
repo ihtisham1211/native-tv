@@ -11,7 +11,7 @@ var nativeTvEarlyDone = false;
 var nativeTvStartAnswered = false;
 var nativeTvSplash = false;
 var nativeTvSplashDone = false;
-var nativeTvMediaCodes = {"play":207,"pause":119,"stop":128,"rewind":168,"fastForward":208,"volumeUp":115,"volumeDown":114,"mute":113};
+var nativeTvMediaCodes = {"ok":28,"play":207,"pause":119,"stop":128,"rewind":168,"fastForward":208,"volumeUp":115,"volumeDown":114,"mute":113};
 var nativeTvMediaRepeats = {"volumeUp":true,"volumeDown":true};
 
 // Key code by name; a name this firmware lacks is left out.
@@ -22,12 +22,16 @@ function nativeTvKeyCodes() {
     try { codes["disneyplus"] = WebOS.Key_webOS_Disneyplus; } catch (e) {}
     try { codes["lgchannels"] = WebOS.Key_webOS_LGChannels; } catch (e) {}
     try { codes["rakutentv"] = WebOS.Key_webOS_RakutenTV; } catch (e) {}
+    try { codes["movies"] = WebOS.Key_webOS_USP; } catch (e) {}
     try { codes["hulu"] = WebOS.Key_webOS_Hulu; } catch (e) {}
     try { codes["iplayer"] = WebOS.Key_webOS_IPlayer; } catch (e) {}
     try { codes["freeviewplay"] = WebOS.Key_webOS_FreeviewPlay; } catch (e) {}
     try { codes["slingtv"] = WebOS.Key_webOS_SlingTV; } catch (e) {}
+    try { codes["globoplay"] = WebOS.Key_webOS_Globoplay; } catch (e) {}
+    try { codes["shahid"] = WebOS.Key_webOS_Shahid; } catch (e) {}
     try { codes["alexa"] = WebOS.Key_webOS_ALEXA; } catch (e) {}
     try { codes["googleassistant"] = WebOS.Key_webOS_GoogleVoice; } catch (e) {}
+    try { codes["voice"] = WebOS.Key_webOS_Voice; } catch (e) {}
     try { codes["apps"] = WebOS.Key_webOS_Apps; } catch (e) {}
     try { codes["guide"] = WebOS.Key_webOS_TVGuide; } catch (e) {}
     try { codes["input"] = WebOS.Key_webOS_InputSource; } catch (e) {}
@@ -210,6 +214,8 @@ function handleNativeTvKeys(key, pressed, autoRepeat) {
                 if (!autoRepeat) console.info("nativetv keyfilter: key", key, "sends", id);
                 nativeTvMedia(media);
             }
+        } else if (id === "action:homeAssistant") {
+            // Nothing on the TV: the daemon reads the press from the remote's own input device.
         } else if (id.indexOf("action:") === 0) {
             if (pressed && !autoRepeat) {
                 console.info("nativetv keyfilter: key", key, "runs", id);

@@ -13,7 +13,8 @@
 namespace nativetv {
 namespace daemon {
 
-enum class RemoteButtonEventType { ColorButton, HomeKey, Key };
+// Button is a key whose presses are reported as Remote Button events (domain/names.hpp).
+enum class RemoteButtonEventType { Button, HomeKey, Key };
 
 struct RemoteButtonEvent {
     RemoteButtonEventType type = RemoteButtonEventType::Key;

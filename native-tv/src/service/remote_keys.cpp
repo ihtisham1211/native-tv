@@ -35,6 +35,8 @@ struct KeyDefinition {
     const char *symbol;
     const char *title;
     const char *region;
+    // Only webOS 11's mapping_info names it: the filters have no symbol to look for.
+    bool nativeMapping = false;
 };
 
 const KeyDefinition kKeys[] = {
@@ -43,12 +45,25 @@ const KeyDefinition kKeys[] = {
     {"disneyplus", "WebOS.Key_webOS_Disneyplus", "Disney+", ""},
     {"lgchannels", "WebOS.Key_webOS_LGChannels", "LG Channels", ""},
     {"rakutentv", "WebOS.Key_webOS_RakutenTV", "Rakuten TV", ""},
+    // The Movies button of 2020 remotes; LG's filters open the region's film store from it.
+    {"movies", "WebOS.Key_webOS_USP", "Movies", ""},
     {"hulu", "WebOS.Key_webOS_Hulu", "Hulu", "us"},
     {"iplayer", "WebOS.Key_webOS_IPlayer", "BBC iPlayer", "gb"},
     {"freeviewplay", "WebOS.Key_webOS_FreeviewPlay", "Freeview Play", "gb"},
     {"slingtv", "WebOS.Key_webOS_SlingTV", "Sling TV", "us"},
+    {"globoplay", "WebOS.Key_webOS_Globoplay", "Globoplay", "br"},
+    {"shahid", "WebOS.Key_webOS_Shahid", "Shahid", "ae"},
+    // Seen in a C3's webOS 11 mapping_info by Glasshouse. The filters of older firmware have
+    // no symbol for them, so only webOS 11 offers them.
+    {"ivi", "", "Ivi", "", true},
+    {"okko", "", "Okko", "", true},
+    {"kinopoisk", "", "Kinopoisk", "", true},
+    {"shop", "", "LG Shop", "", true},
     {"alexa", "WebOS.Key_webOS_ALEXA", "Alexa", ""},
     {"googleassistant", "WebOS.Key_webOS_GoogleVoice", "Google Assistant", ""},
+    // The microphone drives LG's voice control; set to anything else, a press and a hold both
+    // do that instead (a CX on webOS 5.5, as Glasshouse measured it).
+    {"voice", "WebOS.Key_webOS_Voice", "Microphone", ""},
     {"apps", "WebOS.Key_webOS_Apps", "Apps", ""},
     {"homehub", "", "Home Hub", ""},
     {"ai", "", "AI", ""},
@@ -334,6 +349,8 @@ std::vector<Choice> inputChoices(const Json &devices) {
 std::vector<Choice> mediaChoices() {
     // Each English beside its say::msg() key, for scripts/check-strings.py.
     static const char *const actions[][3] = {
+        // KEY_ENTER, for a remote whose own OK is the scroll wheel's press.
+        {"ok", "srv.remoteKeys.ok", "OK"},
         {"play", "srv.remoteKeys.play", "Play"},
         {"pause", "srv.remoteKeys.pause", "Pause"},
         {"stop", "srv.remoteKeys.stop", "Stop"},
@@ -350,14 +367,26 @@ std::vector<Choice> mediaChoices() {
     return result;
 }
 
-// Screen off and Power off, which the filter does through the TV's power service.
+// Screen off and Power off, which the filter does through the TV's power service, and Home
+// Assistant, for which it does nothing: the press still reaches Home Assistant, as every
+// reported press does, because the remote's own input device delivers it whatever the filter
+// does (read by Glasshouse on a C2, webOS 9.2.2).
 std::vector<Choice> actionChoices(const RemoteKeysReadState &state) {
     std::vector<Choice> result;
-    if (!state.allowControl) return result;
-    result.push_back({"action:screenOff", say::msg("srv.remoteKeys.screenOff", "Screen off"), "action"});
-    if (state.allowPower)
-        result.push_back({"action:powerOff", say::msg("srv.remoteKeys.powerOff", "Power off"), "action"});
+    if (state.allowControl) {
+        result.push_back({"action:screenOff", say::msg("srv.remoteKeys.screenOff", "Screen off"), "action"});
+        if (state.allowPower)
+            result.push_back({"action:powerOff", say::msg("srv.remoteKeys.powerOff", "Power off"), "action"});
+    }
+    if (state.homeAssistant)
+        result.push_back({"action:homeAssistant", say::msg("srv.remoteKeys.homeAssistant", "Home Assistant"), "ha"});
     return result;
+}
+
+// Whether a key's presses reach Home Assistant, so that it can be set to send them there.
+bool reportedToHomeAssistant(const std::string &key) {
+    const std::vector<std::string> reported = names::remoteButtons();
+    return std::find(reported.begin(), reported.end(), key) != reported.end();
 }
 
 std::vector<Choice> appChoices(const Json &apps) {
@@ -493,7 +522,7 @@ bool isNativeMappingKey(const std::string &name) {
         name == "multikey" || name == "multikeyhold" || name == "guide")
         return false;
     for (const KeyDefinition &key : kKeys)
-        if (name == key.key) return key.symbol[0] != '\0';
+        if (name == key.key) return key.symbol[0] != '\0' || key.nativeMapping;
     return false;
 }
 
@@ -625,6 +654,10 @@ Json remoteKeysReadResponse(const RemoteKeysReadState &state) {
         row.set("opens", Json::text(id.empty() ? "" : (title == titles.end() ? id : title->second)));
         row.set("elsewhere", Json::flag(!region.empty() && definition->region[0] != '\0' &&
                                         region != definition->region));
+        if (state.homeAssistant && reportedToHomeAssistant(definition->key))
+            row.set("homeAssistant", Json::flag(true));
+        if (std::string(definition->key) == "voice")
+            row.set("replacesVoice", Json::flag(true));
         keyRows.add(row);
     }
 
@@ -692,6 +725,8 @@ Json nativeRemoteKeysReadResponse(const NativeRemoteKeysReadState &state) {
             row.set("noNothing", Json::flag(true));
         if (std::string(definition.key) == "ai")
             row.set("turnsOffVoice", Json::flag(true));
+        if (std::string(definition.key) == "voice")
+            row.set("replacesVoice", Json::flag(true));
         if (std::string(definition.key) == "alexa")
             row.set("blocksApp", Json::flag(true));
         keyRows.add(row);
