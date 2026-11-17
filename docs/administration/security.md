@@ -188,7 +188,37 @@ therefore put code on a TV that installs it, which is also true of the
 Homebrew Channel's own updates. The action is one of `/api/control`'s, with its
 token and its JSON and same-origin checks, so a page on another site cannot
 start it, and the dashboard names the version it asks about, which the server
-installs only while it is still the one the last check found.
+installs only while it is still the one the last check found. A message to the
+MQTT broker cannot start one: the command router drops `installRelease`, and so
+does the function that carries out an MQTT command, since without an admin PIN
+nothing else on that path asks for anything.
+
+The download is fetched over https only, a redirect may not leave https, and
+five are followed at most. The folder it waits in, `/media/developer/temp/nativetv-update`, has
+to be a real folder of the server's own user that nobody else can write to; a
+link there, or a folder others can write to, stops the update, and the server
+neither writes into it nor empties it. An update does not start while an app
+install is working or being uploaded, and an app install is not started or
+confirmed while an update works.
+
+What this does not cover, as known limits:
+
+- The TV's app installer reads the package by its path after the server has
+  checked it. The folder is closed to others, but the folder's parent,
+  `/media/developer/temp`, is the TV's, and someone who can replace the folder
+  there can still swap the package after the check.
+- The app's `install.sh` can be run before the TV has finished extracting the
+  package, and nothing checks the hashes `runtime.json` lists against the files
+  it copies; it only checks they are all there. The package as a whole is
+  checked by its SHA-256 before it is installed, which does not help a package
+  installed by hand.
+- Restarts of the server by other routes are refused only while the server that
+  started the update is running. The new server knows nothing of the update, so
+  a restart it is given while `install.sh` is still checking it (up to a minute
+  and 12 seconds) is not refused, and makes `install.sh` put the old server back.
+- Installing the package with the TV's app installer is not cut short by a
+  shutdown of the server, and the server's open descriptors are inherited by the
+  installer it starts.
 
 ## Moving from telnet to SSH
 

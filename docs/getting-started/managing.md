@@ -42,15 +42,23 @@ server then:
 3. has the TV's app installer replace the Native Tv app with it. The Native Tv
    app on the TV closes while its package is replaced;
 4. runs the new app's `payload/install.sh`, the script the app's launch page runs
-   too. It copies the files it is about to replace to `/var/lib/tvweb/.previous`,
-   moves the new ones in by rename, restarts the server through `tvwebctl` and
-   waits up to a minute for the new server's first heartbeat. If none comes, it
-   puts the copied files back and starts the old server again, and the card
-   says the update did not hold. Settings and data are not touched either way.
+   too. Only one run works at a time: a second, such as the launch page's while
+   an update is under way, is answered "an install is already running". It
+   keeps the files it is about to replace in `/var/lib/tvweb/.previous` (as hard
+   links, so they cost no room; copies where a link cannot be made), moves the
+   new ones in by rename and restarts the server through `tvwebctl`. The server
+   has up to a minute to write its first heartbeat, and then 12 seconds to still
+   be the same process with its heartbeat still there. If it is not, the script
+   puts the kept files back and starts the old server again, and the card says
+   the update did not hold. Settings and data are not touched either way.
 
-A failure before step 3 leaves the TV as it was. Between 3 and 4 the app is
-newer than the server, which the next opening of the app, or the next run of
-`install.sh`, settles. The package is checked against a checksum from the same
+An update that did not hold is not tried again by opening the app, which would
+cost that time on every opening; **Install** on the Server tab tries again, and a
+newer package is installed on opening the app as before.
+
+A failure before step 3 leaves the TV as it was. From step 3 the app is newer
+than the server; a run of `install.sh` that works settles that, and one that
+put the old server back leaves it so until **Install** is used again. The package is checked against a checksum from the same
 release, so it detects a damaged download, not a release published by someone
 else; see [Security](../administration/security.md#the-release-check).
 

@@ -450,7 +450,13 @@ normal calls waiting), a child killed before answering run once more and then gi
 timeout never retried, and calls logged at the debug level only, against a scripted `luna-send`.
 `native-control-command` holds the whole RCU navigation and media key tables. `native-backup` checks
 which daily backup is due (named by the UTC date; none while off or before 2026) and that a pruned
-or temporary one cannot be read. `native-release-check` holds the version comparison (numbers, not text; only x.y.z counts), refuses a manifest that is another app's, malformed or hashless, builds the release links from the version rather than from the manifest, reads a release's own manifest only when it names that release's package, and times the daily check (a day after an answer, an hour after a failure). `native-release-update` runs the update's state machine (`service/release_update`) against scripted steps: they run in order with the file removed before the app's installer, each failure stops the update there with its reason and nothing after it runs, a manifest that differs from the one the check saw stops it before the download, one update runs at a time, a failed one can be tried again, an installer that returns is a server that did not restart, a shutdown does not wait for the installer, and an update the app's installer put back is reported after the restart. `test_native_release_update_installs_only_a_verified_package` in the runtime suite runs the daemon with a release server on the same computer standing in for GitHub, a stand-in `luna-send` for the TV's app installer and a stand-in `install.sh`: no check yet, a version that is not the latest found, a `deploy.sh` install, a changed manifest, manifests naming another file, version or app, a missing package, a package that does not match the checksum, each leaving the TV as it was, with nothing downloaded left behind and the TV's app installer not called; then an app installer that refuses, one that says it installed what the app's files do not show (the app's `install.sh` is not run), an `install.sh` that refuses, one that returns and one that restarts the server, each with the download gone before `install.sh` ran and the TV given exactly the package that was checked, and an app install refused while the update runs. The runtime suite checks that a sound output change the audio
+or temporary one cannot be read. `native-release-check` holds the version comparison (numbers, not text; only x.y.z counts), refuses a manifest that is another app's, malformed or hashless, builds the release links from the version rather than from the manifest, reads a release's own manifest only when it names that release's package, and times the daily check (a day after an answer, an hour after a failure). `native-release-update` runs the update's state machine (`service/release_update`) against scripted steps: they run in order with the file removed before the app's installer, each failure stops the update there with its reason and nothing after it runs, a manifest that differs from the one the check saw stops it before the download, one update runs at a time, a failed one can be tried again, an installer that returns is a server that did not restart, a shutdown does not wait for the installer, and an update the app's installer put back is reported after the restart. `test_native_release_update_installs_only_a_verified_package` in the runtime suite runs the daemon with a release server on the same computer standing in for GitHub, a stand-in `luna-send` for the TV's app installer and a stand-in `install.sh`: no check yet, a version that is not the latest found, a `deploy.sh` install, a changed manifest, manifests naming another file, version or app, a missing package, a package that does not match the checksum, each leaving the TV as it was, with nothing downloaded left behind and the TV's app installer not called; then an app installer that refuses, one that says it installed what the app's files do not show (the app's `install.sh` is not run), an `install.sh` that refuses, one that returns and one that restarts the server, each with the download gone before `install.sh` ran and the TV given exactly the package that was checked, and an app install refused while the update runs, an update refused while an app install
+works and the confirmation of a waiting install refused while an update does, a staging
+folder that is a link (whose target is left alone and not emptied) or that others can write to,
+and the installer run with the argument `update`. `native-mqtt-command-router` checks that an
+`installRelease` command is not routed, and `native-app-package-fetcher` that
+`downloadHttps` refuses an address that is not https (or `127.0.0.1`) and a sixth redirect while
+the ordinary fetch follows them. The runtime suite checks that a sound output change the audio
 service never reports is answered after 4 s, and that a refused volume change stops `/api/stats`
 offering volume control on that output.
 
@@ -560,8 +566,14 @@ heartbeat unless the daemon is the broken one the test builds: an upgrade is
 reported once the new server has written it and keeps no copy afterwards; one
 whose server does not come up gets every replaced file back, the old server
 restarted and the reason recorded; one that cannot copy the files it replaces
-changes nothing and restarts nothing; and a new attempt forgets the last
-failure. Package fixtures
+changes nothing and restarts nothing; a new attempt forgets the last
+failure; a daemon that writes its heartbeat and then dies, is started again under
+another pid or stops writing it is not up either, and an upgrade is reported only
+after the settle time; two runs at once, a lock left by a gone pid or by a pid from
+another boot, and one held by a live run are each answered or taken over as they
+should be, and the lock goes when a run fails or is stopped by a signal; an update
+that was put back is not tried again by opening the app, only by `update` or a newer
+package; the old files are kept by hard link, and copied where `ln` fails. Package fixtures
 also require an ARM worker and reject missing builds before deployment, and
 `deploy.sh`'s telnet probe is run against a listening and a closed port, with a
 stand-in `nc` and without one: it believes `nc`'s yes, and tries bash's own

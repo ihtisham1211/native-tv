@@ -1348,7 +1348,7 @@ owner about; it is installed only while it is still what the last check found.
    (`<id>_<version>_all.ipk`, which is also the only name it is downloaded as) and
    the same SHA-256 the check showed.
 2. **Download.** To `/media/developer/temp/nativetv-update` (`TVWEB_UPDATE_STAGING`
-   moves it, for tests), through `AppPackageFetcher` with its size limit set from the free
+   moves it, for tests), through `AppPackageFetcher::downloadHttps` with its size limit set from the free
    space (a third of it, at most 256 MB). The progress is the bytes written.
 3. **Verify.** The file's SHA-256 against the manifest's. `AppInstallExecutor`
    then compares it again, before it calls `dev/install`.
@@ -1359,27 +1359,51 @@ owner about; it is installed only while it is still what the last check found.
    needs the room.
 5. **Apply.** After the app's `payload/tvweb/VERSION` is the new version (waited for
    up to 30 s, as `dev/install` can finish after luna-send gives up), the app's
-   `payload/install.sh`, found by `/var/lib/tvweb/.from-homebrew-channel`, is started in its own
+   `payload/install.sh`, found by `/var/lib/tvweb/.from-homebrew-channel`, is started with the argument `update`, in its own
    process group with its output in `update.log`. It restarts this server,
    so the step only returns when it did not: the installer's last line says why, and
    a server it left running reports that it did not restart. A shutdown stops the wait
    rather than holding the restart.
 
-`install.sh` is where the swap is made safe. Before it replaces anything it copies the
-files it is about to replace to `.previous`, and goes ahead only when all are
-copied. After the restart it waits for the heartbeat file (`/var/run/tvweb.beat`,
-which `tvwebctl` removes when it stops a server and the server writes when it has
-finished starting) for up to a minute; without one, or if the files did not take, it
-puts the copied files back by rename, restarts, and writes the reason to
-`.update-failed`, which the restored server reads at its next start and shows. It is
-the same script the app's launch page runs, so a package installed by hand is also
-undone when its server does not start. The data files (`config.json`, `home.json`
-and the rest) are never among the files it replaces. The new server may have
-started to change them before it failed, which is the one thing this does not
-undo.
+`install.sh` is where the swap is made safe.
 
-One update runs at a time, and while it works an app install and `restartServer` are
-refused. `update.log`, `.update-failed` and `.previous` are listed in
+- **One run at a time.** It takes `/var/lib/tvweb/.install.lock` first, a symlink made
+  with `ln -s`, which is atomic and whose target, `pid:boot_id`, says who holds it. A
+  lock whose pid is gone, or is from another boot (a power cut, or a pid since given to
+  something else), is taken over, and only the stale one is removed. A run that finds a
+  live holder answers `{"ok":false,"error":"an install is already running"}`. The traps
+  that release it are set before it is taken, so a signal cannot leave it behind.
+- **The old files are kept.** Before it replaces anything it links the files it is about
+  to replace into `.previous` (hard links, copies where a link cannot be made), which is
+  safe because the new ones go in by rename and leave the old inodes alone. It goes
+  ahead only when all are kept.
+- **Up means kept running.** After the restart it waits for the heartbeat file
+  (`/var/run/tvweb.beat`, which `tvwebctl` removes when it stops a server and the server
+  writes when it has finished starting) for up to a minute. Then, for
+  `TVWEB_UPDATE_SETTLE_SECONDS` (12), it needs the pid in `/var/run/tvweb.pid` to stay
+  the same and alive and the heartbeat to stay there: a daemon that reaches its event loop
+  and dies, or is started again by the watchdog under another pid, is not up.
+- **Putting back.** Without that, or if the files did not take, it puts the kept files
+  back by rename, restarts, and writes the reason to `.update-failed`, which the restored
+  server reads at its next start and shows. Opening the app afterwards does not try again
+  (the launch page runs it with no argument, and it leaves the old server running while
+  `.update-failed` names the version it carries); the server's update passes `update`
+  and does. It is the same script the app's launch page runs, so a package installed by
+  hand is also undone when its server does not start. The data files (`config.json`,
+  `home.json` and the rest) are never among the files it replaces. The new server may
+  have started to change them before it failed, which is the one thing this does not
+  undo.
+
+The staging folder is opened with `O_NOFOLLOW` and checked with `fstat` (the server's own
+user, no group or other write bits) before the package is made in it with `openat`, and
+the same check guards emptying it. The manifest and package come from
+`AppPackageFetcher::downloadHttps`: https only (http only to `127.0.0.1`, for the tests),
+redirects only to https, five at most.
+
+One update runs at a time. While it works an app install is not started or confirmed
+and `restartServer` is refused; an update is not started while an install works or an
+upload is held. An MQTT command cannot start one (`routeMqttControlTopic` and
+`executeMqttControl` both refuse it). `update.log`, `.update-failed` and `.previous` are listed in
 [What the dashboard changes](../administration/tv-changes.md).
 
 `update.check` in `config.json` (off by default; the key the backups already
