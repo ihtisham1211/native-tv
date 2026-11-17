@@ -75,7 +75,7 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
   * **[Backup and logs](https://ihtisham1211.github.io/native-tv/dashboard/server/).** LG's sound, device, HDMI and ad settings and Native Tv's own, saved to a file or once a day and restored on the same TV or another; the [System, Native Tv and kernel logs](https://ihtisham1211.github.io/native-tv/dashboard/tools/) in one searchable timeline in the browser, with no SSH, and private details hidden when copied or exported.
 * **The dashboard**
   * **[Install as an app](https://ihtisham1211.github.io/native-tv/dashboard/#install-as-an-app).** A web app manifest and icons let a phone or computer put the dashboard on the home screen or in the app list; where the browser allows one, a service worker shows a retry page when the TV is off.
-  * **[English and Spanish](https://ihtisham1211.github.io/native-tv/dashboard/server/).** The dashboard follows the browser's language, with a Language setting on the Server tab, and shows the TV's own messages in it too. The Spanish is [partly machine-translated](https://ihtisham1211.github.io/native-tv/development/strings/#spanish) and open to review by native speakers.
+  * **[Ten languages](https://ihtisham1211.github.io/native-tv/dashboard/server/).** English, Arabic, French, Hungarian, Italian, Polish, Portuguese, Brazilian Portuguese, Russian and Spanish. The dashboard follows the browser's language, with a Language setting on the Server tab, and shows the TV's own messages in it too. The Spanish is [partly machine-translated](https://ihtisham1211.github.io/native-tv/development/strings/#spanish), the other eight [came from Glasshouse](https://ihtisham1211.github.io/native-tv/development/strings/#the-other-languages) and cover about three quarters of the dashboard, and none has been read by a native speaker for Native Tv.
 
 ## Screenshots
 
@@ -243,8 +243,8 @@ Yes: Apple TV, chosen in Settings, TV theme on the TV or on the dashboard's Serv
 **Is the TV app smooth, or does it lag like a slow home screen?**
 It is a native OpenGL ES client, not a web page, and it draws at the display's 60 Hz. On an LG B3 with the processor busy (load average about 32) its frames arrive 15 to 18 ms apart, against 16.7 ms ideal. [How it stays smooth](https://ihtisham1211.github.io/native-tv/apps/tv-app/#how-smooth-it-is) lists the reasons and the measurement.
 
-**Is the dashboard available in Spanish?**
-Yes. It follows the browser's language, and the Language setting on the Server tab, or `/?lang=es`, changes it. The TV's messages the dashboard shows are translated too. The TV app and the pages the TV's own browser shows are English only for now. Much of the Spanish is machine-translated, and [corrections are welcome](https://ihtisham1211.github.io/native-tv/development/strings/#spanish).
+**Is the dashboard available in Spanish, French, Arabic, Portuguese and other languages?**
+Yes: Arabic, French, Hungarian, Italian, Polish, Portuguese (European and Brazilian), Russian and Spanish. It follows the browser's language, and the Language setting on the Server tab, or `/?lang=es` or `/?lang=pt-br`, changes it. Arabic is laid out right to left. The TV's messages the dashboard shows are translated too. The TV app and the pages the TV's own browser shows are English only for now. Much of the Spanish is machine-translated. The other eight came from [Glasshouse](https://github.com/rorygallagher2024/glasshouse), cover about three quarters of the dashboard (the rest shows in English), may be partly machine-made, and have not been read by a native speaker for Native Tv. [Corrections are welcome](https://ihtisham1211.github.io/native-tv/development/strings/#the-other-languages).
 
 **Can the dashboard be installed as an app on a phone?**
 Yes. It is an installable web app (PWA): add it to the home screen from the browser's menu. On the TV's plain `http://` address a browser skips the service worker, so the page has its manifest and icons only; behind HTTPS, Chrome offers a full install. [Install as an app](https://ihtisham1211.github.io/native-tv/dashboard/#install-as-an-app) has the details.
@@ -285,7 +285,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Credits
 
-Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by Rory Gallagher, released under the MIT licence; his copyright notice is kept in [LICENSE](LICENSE). The dashboard's Spanish reuses Glasshouse's translations, which are also MIT. Bundled third-party work, with its licence ([THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) has the texts):
+Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshouse) by Rory Gallagher, released under the MIT licence; his copyright notice is kept in [LICENSE](LICENSE). The dashboard's Spanish reuses Glasshouse's translations, which are also MIT, and so do its Arabic, French, Hungarian, Italian, Polish, Portuguese, Brazilian Portuguese and Russian, contributed there by [the translators](https://ihtisham1211.github.io/native-tv/development/strings/#the-other-languages). Bundled third-party work, with its licence ([THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md) has the texts):
 
 * [CivetWeb](https://github.com/civetweb/civetweb): the HTTP server (MIT)
 * [json-c](https://github.com/json-c/json-c): JSON, from the webOSbrew SDK (MIT)

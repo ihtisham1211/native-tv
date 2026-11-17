@@ -23,10 +23,11 @@ Fails on:
     of a page already converted (CONVERTED below)
   * a local variable named t in a page that uses t(), which would hide it
   * a page that uses keys but loads no script that defines t()
-  * a dictionary (native-tv/assets/i18n/<lang>.json) that does not parse, holds a key
-    nothing uses, an entry without "text" and "from", a translation whose
-    {placeholders} or markup differ from the English it was made from, a language
-    the loader (web/ui/i18n.js) does not list, or a listed one without a file
+  * a dictionary (native-tv/assets/i18n/<lang>.json, <lang> being "es", or with a
+    region, "pt-br") that does not parse, holds a key nothing uses, an entry
+    without "text" and "from", a translation whose {placeholders} or markup differ
+    from the English it was made from, a language the loader (web/ui/i18n.js) does
+    not list, a listed one without a file, or one with no name for the language list
 
 Reports, and never fails on: translations made from English that has changed
 since (the page shows the new English, so editing English is not blocked on a
@@ -394,9 +395,15 @@ def markup(text):
 
 # ---- dictionaries -----------------------------------------------------------
 
-listed = re.search(r'var LANGS = \[([^\]]*)\]', LOADER.read_text(encoding='utf-8'))
-listed = set(re.findall(r"'([a-z]{2})'", listed.group(1))) if listed else set()
-files = {p.stem: p for p in sorted(LANG_DIR.glob('*.json'))} if LANG_DIR.exists() else {}
+LANG_CODE = r'[a-z]{2}(?:-[a-z]{2})?'
+loader = LOADER.read_text(encoding='utf-8')
+listed = re.search(r'var LANGS = \[([^\]]*)\]', loader)
+listed = set(re.findall(r"'(%s)'" % LANG_CODE, listed.group(1))) if listed else set()
+named = re.search(r'var NAMES = \{([^}]*)\}', loader)
+named = set(re.findall(r"[{,]\s*'?(%s)'?\s*:" % LANG_CODE, '{' + named.group(1))) if named else set()
+for lang in sorted(listed - named):
+    problems.append('i18n.js lists "%s" but NAMES has no name for it, so the language list would show "undefined"' % lang)
+files ={p.stem: p for p in sorted(LANG_DIR.glob('*.json'))} if LANG_DIR.exists() else {}
 for lang in sorted(listed - set(files)):
     problems.append('i18n.js lists "%s" but there is no assets/i18n/%s.json' % (lang, lang))
 for lang in sorted(set(files) - listed):
