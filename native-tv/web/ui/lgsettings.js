@@ -1,7 +1,8 @@
 // LG's own settings as controls, used by the Privacy, Advanced and Game tabs.
 
-/* LG's own settings from lgsettings.js, as switches. Only the rows the TV
-   reports come back, so a section with none stays hidden. */
+/* LG's own settings from lgsettings.js, as switches: its ads and promotions,
+   and what it may upload. Only the rows the TV reports come back, so a section
+   with none stays hidden. */
 function renderLgSettings(rows) {
   const promo = rows.filter(r => r.section === 'promotions');
   const d = q('pv-promo-d');
@@ -22,7 +23,23 @@ function renderLgSettings(rows) {
       next: anyOn ? '0' : '1',
       attrs: 'data-ads="all"'
     })}</div></div>`;
-  q('pv-promo').innerHTML = master + promo.map(r =>
+  q('pv-promo').innerHTML = master + lgSwitchRows(promo);
+
+  const uploads = rows.filter(r => r.section === 'uploads');
+  const uploadsDetails = q('pv-uploads-d');
+  if (uploadsDetails) uploadsDetails.hidden = !uploads.length;
+  const uploadsCount = q('pv-uploads-cur');
+  if (uploadsCount) {
+    uploadsCount.textContent = uploads.length
+      ? t('pv.groupOn', '{on} of {total} on', { on: uploads.filter(r => r.on).length, total: uploads.length }) : '';
+  }
+  const uploadsTable = q('pv-uploads');
+  if (uploadsTable) uploadsTable.innerHTML = lgSwitchRows(uploads);
+}
+// One row each, a switch with the setting's name and what it does: on is the
+// setting that lets LG show the ad or take the upload.
+function lgSwitchRows(rows) {
+  return rows.map(r =>
     `<div class="prot-row"><div class="prot-main"><div class="prot-title">${esc(r.title)}</div>` +
     `<div class="prot-desc">${esc(r.desc)}</div></div>` +
     `<div class="prot-status">${renderToggle({
@@ -34,7 +51,7 @@ function renderLgSettings(rows) {
     })}</div></div>`).join('');
 }
 document.addEventListener('click', async e => {
-  const b = e.target.closest('#pv-promo button[data-id], #pv-promo button[data-ads]');
+  const b = e.target.closest('#pv-promo button[data-id], #pv-promo button[data-ads], #pv-uploads button[data-id]');
   if (!b) return;
   b.disabled = true;
   if (b.dataset.ads) await sendCommand('lgAds', b.dataset.next === '1');

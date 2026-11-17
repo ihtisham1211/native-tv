@@ -75,6 +75,7 @@ bool AdBlockManager::start(std::string *error) {
     sdpGraceActive_.store(true);
     if (!store_.restoreAtBoot(true, error))
         return false;
+    syncAirplayKeyCheck();
     learnCountry();
     if (store_.waitsForSdp()) {
         if (loop_.isLoopThread()) {
@@ -129,24 +130,28 @@ bool AdBlockManager::sdpGraceActive() const { return sdpGraceActive_.load(); }
 
 Json AdBlockManager::setMode(const std::string &mode) {
     Json result = store_.setMode(mode, sdpGraceActive_.load());
+    syncAirplayKeyCheck();
     reconcileSdpGrace();
     return result;
 }
 
 Json AdBlockManager::setTvUpdatesBlocked(bool blocked) {
     Json result = store_.setTvUpdatesBlocked(blocked, sdpGraceActive_.load());
+    syncAirplayKeyCheck();
     reconcileSdpGrace();
     return result;
 }
 
 Json AdBlockManager::setLocalLookups(bool on) {
     Json result = store_.setLocalLookups(on, sdpGraceActive_.load());
+    syncAirplayKeyCheck();
     reconcileSdpGrace();
     return result;
 }
 
 Json AdBlockManager::setCustomHosts(const Json &options) {
     Json result = store_.setCustomHosts(options, sdpGraceActive_.load());
+    syncAirplayKeyCheck();
     reconcileSdpGrace();
     return result;
 }
@@ -167,7 +172,19 @@ void AdBlockManager::learnCountry() {
         if (!store_.updateCountry(country, sdpGraceActive_.load(), &error) && logger_)
             logger_->warning("adblock: could not save the TV country" +
                              (error.empty() ? std::string() : ": " + error));
+        syncAirplayKeyCheck();
     });
+}
+
+void AdBlockManager::syncAirplayKeyCheck() {
+    std::string error;
+    const std::string changed = store_.syncAirplayKeyCheck(sdpGraceActive_.load(), &error);
+    if (!logger_)
+        return;
+    if (!changed.empty())
+        logger_->info("adblock: " + changed);
+    if (!error.empty())
+        logger_->warning("adblock: could not set AirPlay's key check: " + error);
 }
 
 void AdBlockManager::reconcileSdpGrace() {
@@ -267,6 +284,7 @@ void AdBlockManager::finalizeSdpGrace(const std::string &message) {
             logger_->warning("adblock: could not refresh the mounted hosts table" +
                              (error.empty() ? std::string() : ": " + error));
     }
+    syncAirplayKeyCheck();
 }
 
 void AdBlockManager::cancelSdpTimers() {

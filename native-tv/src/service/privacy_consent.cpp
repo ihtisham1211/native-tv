@@ -508,6 +508,23 @@ Json privacySimpleSummary(const Json &projection) {
         item.set("service", daemon["name"]);
         reports.add(item);
     }
+    // LG's log upload settings, which the diagnostics uploader reads before it
+    // sends anything and LG's own menus have no switch for.
+    for (const Json &setting : projection["lgSettings"].items()) {
+        if (setting["section"].string() != "uploads" || !setting["on"].boolean() || !writable)
+            continue;
+        Json item = Json::object();
+        Json variables = Json::object();
+        variables.set("name", setting["title"]);
+        item.set("label", Json::text(say::msg(
+            "srv.privacy.item.upload", "{name} is on", variables)));
+        item.set("action", Json::text("lgSetting"));
+        Json value = Json::object();
+        value.set("id", setting["id"]);
+        value.set("on", Json::flag(false));
+        item.set("value", value);
+        reports.add(item);
+    }
 
     Json onScreen = Json::array();
     for (const Json &setting : projection["lgSettings"].items()) {

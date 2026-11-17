@@ -1445,6 +1445,83 @@ name.
   `lgtviot.com`; `ad`, `info` under `lgsmartad.com`.
 - No `lggalleryplus.com` in either.
 
+## LG's cloud and its uploads, measured by Glasshouse (OLED77C5PUA, webOS 11.2; C4, webOS 10.3.1)
+
+[Glasshouse](https://github.com/rorygallagher2024/glasshouse) measured this on its
+contributors' TVs, and it is written up from its research notes (0.156.0); Native Tv
+has not repeated it on a TV. It is why the blocker's lists and the Privacy tab's log
+upload switches are as they are.
+
+- **The service platform on webOS 11 is `tv.wiselg.com`.** sdx's server list,
+  `/mnt/lg/cmn_data/sdp/sdx/server_addr_version.conf`, has one block, `11.0.0`,
+  naming `tv.wiselg.com` for every service: the `default` services (`sdp_auth`,
+  `sdp_init`, `sdp_common`, `sdp_logging`, `sdp_home`) are reached as
+  `<country>.tv.wiselg.com`, the `ric` ones (`sdp_apps`, `sdp_search`, `sdp_nlp`,
+  `ibis_secure`, `ibis_stat_secure`, `rdx_secure` at `rdx/10.0.0/`,
+  `nudge_log_secure`, `cdpbeacon_secure`, `lgshoplog_secure`) as
+  `<region>.tv.wiselg.com`. `getServerUrl` answered `http://US.tv.wiselg.com`,
+  `getRdxServerUrl` `https://AIC.tv.wiselg.com/rdx/10.0.0/`, and
+  `appInstallService`'s `serverInfo` names `http://US.tv.wiselg.com`. `lgtvsdp.com`
+  and `nextlgsdp.com` are not in the list. `systemTimeSource` is `sdp`, so the clock
+  comes from these hosts: they are blocked only once it is valid.
+- **uploadd is started by the bus, not its unit.** Its service file is
+  `Type=dynamic`, so a call to it runs `/usr/sbin/uploadd -v` whatever
+  `uploadd.service` is masked to; PmLogDaemon, faultmanager, prosense, rdxd,
+  alwaysready, arccontroller, iot-proxy and remotediag name it. With its unit
+  masked it was found running 64 to 76 s after each of four boots. It names no
+  host: it asks sdx for `getRdxServerUrl`, `getServerUrl` and
+  `getHttpHeaderForServiceRequest`, and sends through `sdx/send`. It reads
+  `option.dbgLogUpload` (true from the factory) and `option.faultLogUpload`
+  (false); PmLogDaemon, prosense and remotediag read `faultLogUpload`.
+- **LG switches `dbgLogUpload` on at boot.** `/etc/palm/defaultSettings.json` has it
+  false, yet it was true again after every start, with `/var/luna/preferences/option`
+  rewritten at boot. PmLogDaemon's strings have the mechanism:
+  `dbgWhitelist_update` asks sdx's `rdxdev_secure` service (`fileInfo?version=`, on
+  `tv.wiselg.com`), downloads `dbgWhitelist.enc` into `/mnt/lg/cmn_data/whitelist/`
+  and writes `{"category":"option", "settings":{"dbgLogUpload": %s}}` from the
+  answer; "UserReport Off" writes `faultLogUpload` false. uploadd subscribes to both
+  keys and answers "isDbgLogUpload flag is false" while it is off. A write of false
+  held until the next boot only, and a C2 on webOS 9.2.2 kept both settings off.
+- **adlogservice.** `/mnt/lg/cmn_data/adlogservice/data/adlogservice.enc` is an
+  encrypted Python script, run by `com.webos.service.lsa`. Its configuration enables it
+  on `generalTermsAllowed` alone, and its bytecode names
+  `aic.api.adts.lgtvcommon.com/api/v2/advertisement`, `mac`, `app_id` and `channel`:
+  app and channel use with the TV's MAC address.
+- **remotediag** (`/usr/sbin/remotediag`) names `rone-aic.lge.com`, `rone-eic.lge.com`,
+  `rone-kic.lge.com`, `rone-saic.lge.com` and `rone-tv-*` siblings. Its unit has
+  `ConditionPathExists=/mnt/lg/cmn_data/remoteDebug/remoteDebug.sh`, absent there,
+  so it did not run.
+- **sdx uploads reports to `rdx2.nextlgsdp.com`** (C4, webOS 10.3.1):
+  `getRdxServerUrl` answered `https://US.rdx2.nextlgsdp.com/rdx/9.0.0/`, so the older
+  `rdx2.lgtvsdp.com` names no longer cover it. It is not `us.nextlgsdp.com`, which sdx
+  signs in to and the Content Store uses.
+- **The Content Store logs its requests to `elastic.lgwebostv.com`** (C4). Its frontend
+  (`com.webos.app.discovery`, loaded from LG's servers) posts to
+  `<first label of its API host>.elastic.lgwebostv.com/logs/<type>`, with the TV's wired
+  MAC address and a request id in each, and the device platform, language and SDK version
+  in the request logs. It is fire-and-forget: with it sinkholed the store still opens and
+  lists apps.
+- **AirPlay pairing needs the country's time server, or its key check skipped** (B4,
+  webOS 10.3.2, reported to Glasshouse). The first pairing after each power-on has the
+  daemon ask `com.webos.service.mfi` to check the TV's MFi key with LG through sdx's
+  `sdp_airplay` service on `<country>.nextlgsdp.com` (`AE.nextlgsdp.com` on a B4 set to
+  the UAE). With that blocked, `downloadKey` answers -5 and the daemon waits 10 s,
+  longer than the iPhone, which says "Unable to Connect". The daemon skips the check
+  while `/tmp/mfi_key_requested` exists, and a power-on deletes that file but not a
+  directory with something in it.
+- **Other names, not telemetry.** `lgtvonline.lge.com` is connman's online check;
+  `lgthinq.com`, `lgeapi.com` and `lgtviot.com` are the ThinQ account and IoT cloud
+  (accountmanager, iot-client, iot-proxy, the Matter service); the updater
+  (`/usr/sbin/update`) checks `https://snu.lge.com/` and downloads from
+  `http://nsu.lge.com:5100/`.
+- **Where the names in the lists come from.** The SmartAd, screen recognition,
+  performance reporting, Home, ThinQ, SDP and LG Channels names that Glasshouse added are
+  its classification against Life's Good Without Spying's domain lists (commit
+  `0057ce44`), and the Content Store's `app.lgwebostv.com` and
+  `lgrecommends.lgappstv.com` families, which that project reports as store errors 202 or
+  -102 when blocked. That is the classification of that project, not a capture: a name's
+  presence says what a list calls it, not that a TV was seen using it.
+
 ## ACR on a CX (webOS 5.6.2)
 
 - **`acr2` starts on demand.** Its D-Bus service file is `Type=dynamic`, so

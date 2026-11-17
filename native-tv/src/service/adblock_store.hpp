@@ -45,6 +45,10 @@ class AdBlockStore {
     // another address.
     bool refreshForNetworkChange(bool sdpGraceActive, std::string *error = nullptr) const;
     Json setCustomHosts(const Json &options, bool sdpGraceActive) const;
+    // Keeps AirPlay pairing working while the table blocks the TV's country's time
+    // server, and ends that when it does not. Returns what changed, to be logged,
+    // or an empty string.
+    std::string syncAirplayKeyCheck(bool sdpGraceActive, std::string *error = nullptr) const;
 
     const std::string &dataRoot() const;
     const std::string &systemRoot() const;

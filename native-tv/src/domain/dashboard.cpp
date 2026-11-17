@@ -1267,6 +1267,13 @@ void privacy(Rows &rows, const Json &data, const std::string &sub) {
                      "in the Apps tab."),
             say::msg("tv.settings.open", "Open"));
     }
+    // What the TV may upload to LG, which LG's own menus have no switch for.
+    if (anyLg(data["lgSettings"], "uploads")) {
+        if (!data["consent"]["known"].valid() && !supervised)
+            page(rows, say::msg("tv.settings.page.data", "Data"));
+        head(rows, say::msg("pv.uploads", "Log uploads to LG"));
+        lgRows(rows, data["lgSettings"], true, "uploads");
+    }
 }
 
 // ---- Home ------------------------------------------------------------------------------------

@@ -87,10 +87,10 @@ void testReadProjectionMatchesConsentDashboardContract() {
 
 void testSimpleSummaryMatchesPrivacyActions() {
     const Json projection = Json::parse(
-        R"({"consentWritable":true,"consent":{"known":[{"key":"acrAllowed","label":"Screen recognition","enabled":true,"settable":true,"group":"watching"},{"key":"voiceAllowed","label":"Voice","enabled":true,"settable":true,"group":"watching"},{"key":"additionalDataAllowed","enabled":true,"settable":true,"group":"analytics"}],"other":[{"key":"networkAllowed","label":"Network use","enabled":true,"settable":false,"group":"platform"},{"key":"familyAllowed","label":"Family service","enabled":true,"settable":false,"group":"services"}]},"acr":{"active":false,"livePlus":true},"advertisingId":{"available":true,"lmtKnown":true,"limitTracking":false},"adblock":{"mode":"off"},"daemons":[{"name":"uploadd","label":"Diagnostics uploader","onDemand":false,"stoppable":true,"running":true},{"name":"admanager","label":"Advertising service","onDemand":true,"stoppable":false,"running":true}],"lgSettings":[{"section":"promotions","id":"screenSaverAd","title":"Screen saver ads","on":true}]})"
+        R"({"consentWritable":true,"consent":{"known":[{"key":"acrAllowed","label":"Screen recognition","enabled":true,"settable":true,"group":"watching"},{"key":"voiceAllowed","label":"Voice","enabled":true,"settable":true,"group":"watching"},{"key":"additionalDataAllowed","enabled":true,"settable":true,"group":"analytics"}],"other":[{"key":"networkAllowed","label":"Network use","enabled":true,"settable":false,"group":"platform"},{"key":"familyAllowed","label":"Family service","enabled":true,"settable":false,"group":"services"}]},"acr":{"active":false,"livePlus":true},"advertisingId":{"available":true,"lmtKnown":true,"limitTracking":false},"adblock":{"mode":"off"},"daemons":[{"name":"uploadd","label":"Diagnostics uploader","onDemand":false,"stoppable":true,"running":true},{"name":"admanager","label":"Advertising service","onDemand":true,"stoppable":false,"running":true}],"lgSettings":[{"section":"promotions","id":"screenSaverAd","title":"Screen saver ads","on":true},{"section":"uploads","id":"dbgLogUpload","title":"Debug log upload","on":true},{"section":"uploads","id":"faultLogUpload","title":"Fault log upload","on":false}]})"
     );
     const Json summary = privacySimpleSummary(projection);
-    check(summary["total"].number() == 7 && summary["areas"].size() == 4,
+    check(summary["total"].number() == 8 && summary["areas"].size() == 4,
           "summary counts actionable items across four privacy areas");
     check(summary["areas"][0]["items"].size() == 2 &&
               summary["areas"][0]["items"][1]["action"].string() == "acr",
@@ -98,9 +98,14 @@ void testSimpleSummaryMatchesPrivacyActions() {
     check(summary["areas"][1]["items"].size() == 2 &&
               summary["areas"][1]["items"][1]["action"].string() == "setAdBlock",
           "ad area includes the LMT and ad-block actions");
-    check(summary["areas"][2]["items"].size() == 2 &&
+    check(summary["areas"][2]["items"].size() == 3 &&
               summary["areas"][2]["items"][1]["service"].string() == "uploadd",
           "reports include a running stoppable service but skip on-demand services");
+    check(summary["areas"][2]["items"][2]["action"].string() == "lgSetting" &&
+              summary["areas"][2]["items"][2]["label"].string() == "Debug log upload is on" &&
+              summary["areas"][2]["items"][2]["value"]["id"].string() == "dbgLogUpload" &&
+              !summary["areas"][2]["items"][2]["value"]["on"].boolean(),
+          "reports include a log upload that is on, and not one that is off");
     check(summary["areas"][3]["items"].size() == 1 &&
               summary["areas"][3]["items"][0]["value"]["id"].string() == "screenSaverAd",
           "on-screen area includes enabled LG promotion settings");

@@ -3818,6 +3818,80 @@ void HttpFrontDoor::reapplyPreloadAfterBoot() const {
     (*attempt)(0);
 }
 
+void HttpFrontDoor::rememberHeldSetting(const service::LgSettingWrite &write) const {
+    if (!write.holdsOff)
+        return;
+    std::lock_guard<std::mutex> lock(heldSettingsMutex_);
+    JsonFile stateFile(dataFilePath(dataRoot_, "lgsettings-held.json"));
+    const JsonFileResult loaded = stateFile.load();
+    Json held = loaded.found && loaded.value.isObject() ? loaded.value : Json::object();
+    Json next = Json::object();
+    for (const std::string &id : held.keys())
+        if (id != write.id)
+            next.set(id, held[id]);
+    // An on hands the setting back to LG.
+    if (!write.switchedOn)
+        next.set(write.id, Json::flag(false));
+    std::string error;
+    if (!stateFile.save(next, &error) && logger_)
+        logger_->warning("lgsettings: could not record " + write.id + ": " + error);
+}
+
+void HttpFrontDoor::reapplyHeldSettings() const {
+    if (!config_.allowControl)
+        return;
+    std::lock_guard<std::mutex> lock(heldSettingsMutex_);
+    JsonFile stateFile(dataFilePath(dataRoot_, "lgsettings-held.json"));
+    const JsonFileResult loaded = stateFile.load();
+    if (!loaded.found || !loaded.value.isObject())
+        return;
+    const CommandPolicyContext context = controlPolicyContext(config_);
+    for (const std::string &id : loaded.value.keys()) {
+        service::LgHeldSetting held;
+        if (!service::lgHeldSetting(id, held))
+            continue;
+        Json keys = Json::array();
+        keys.add(Json::text(held.key));
+        Json readRequest = Json::object();
+        readRequest.set("category", Json::text(held.category));
+        readRequest.set("keys", keys);
+        LunaReply current;
+        if (!waitForLuna(luna_, "com.webos.service.settings/getSystemSettings", readRequest,
+                         current))
+            continue;
+        const Json now = current.response["settings"][held.key];
+        if (!now.valid() || now.dump() == held.off.dump())
+            continue;
+        Json settings = Json::object();
+        settings.set(held.key, held.off);
+        Json writeRequest = Json::object();
+        writeRequest.set("category", Json::text(held.category));
+        writeRequest.set("settings", settings);
+        LunaReply written;
+        const bool ok = waitForCommandPolicyLuna(
+            luna_, commandPolicy_, context, "control.lg-setting",
+            "com.webos.service.settings/setSystemSettings", writeRequest, "system-settings",
+            false, written) && written.response["returnValue"].boolean();
+        invalidateLgSettingsCache();
+        invalidatePrivacyCache();
+        if (logger_)
+            logger_->info("lgsettings: " + id + (ok ? " put back off" : " could not be put back off"));
+    }
+}
+
+void HttpFrontDoor::scheduleHeldSettings() const {
+    if (!eventLoop_)
+        return;
+    const auto reapply = [this]() {
+        (void)eventLoop_->submitBlocking([this]() { reapplyHeldSettings(); });
+    };
+    // Late, so LG's own write at start-up is over: it comes some time after boot.
+    (void)eventLoop_->scheduleAfter(
+        std::chrono::milliseconds(environmentNumber("TVWEB_HELD_SETTINGS_DELAY_MS", 60000)),
+        reapply);
+    (void)eventLoop_->scheduleEvery(std::chrono::hours(1), reapply);
+}
+
 void HttpFrontDoor::runStartupTasks() const {
     ScreensaverControl *const saver = screensaverControl();
     if (saver && screensaverManager_ && commandPolicy_) {
@@ -3852,6 +3926,7 @@ void HttpFrontDoor::runStartupTasks() const {
     }
     refreshHomeInputTitles();
     reapplyPreloadAfterBoot();
+    scheduleHeldSettings();
 }
 
 void HttpFrontDoor::refreshLauncher() const {
@@ -4957,9 +5032,10 @@ void HttpFrontDoor::sendPrivacyProjection(HttpExchange &exchange) const {
         }
     }
 
-    const Json settingsData = collectLgSettingsData({"promotions"});
+    const std::vector<std::string> lgSections = {"promotions", "uploads"};
+    const Json settingsData = collectLgSettingsData(lgSections);
     const Json settingsResponse = service::lgSettingsResponse(
-        {"promotions"}, settingsData["settings"], settingsData["descriptions"],
+        lgSections, settingsData["settings"], settingsData["descriptions"],
         settingsData["dimensions"], Json::object());
     response.set("lgSettings", settingsResponse["rows"]);
     response.set("simple", service::privacySimpleSummary(response));
@@ -12761,6 +12837,8 @@ void HttpFrontDoor::setControl(HttpExchange &exchange) const {
     }
     if (succeeded || (oledProtectionAction && oledProtectionWriteAttempted))
         invalidateLgSettingsCache();
+    if (succeeded && lgSettingAction)
+        rememberHeldSetting(lgSetting);
     if (succeeded || ((remoteKeyAction || homeKeyAction || sleepTimerAction || quickBootAction || deviceDetectionAction ||
                        lgSettingAction) && answered) ||
         (oledProtectionAction && oledProtectionWriteAttempted) ||

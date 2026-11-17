@@ -879,11 +879,17 @@ Other tools edit `/etc/hosts` too: AmazOff points
 lines over each time it is written. Switched off, the table comes down unless
 the file underneath lacks some of them: on a C4 on webOS 10.3.1 that file is on
 the read-only squashfs rootfs, so the table goes back up blocking nothing, and
-stays until the next reboot. A line is the blocker's own if it is a comment, a
-localhost line, a sinkhole (`0.0.0.0` or `::`) or names a host the table
-decides on, and anyone else's otherwise. The last rule is for the Homebrew
-Channel's update block, which points LG's update servers at `127.0.0.1` and
-`::1` and must not outlive update blocking being switched off. At boot,
+stays until the next reboot. A line is never kept if it is a comment, a
+localhost line, or a redirect that names a host the table decides on: the
+Homebrew Channel's update block points LG's update servers at `127.0.0.1` and
+`::1` and must not outlive update blocking being switched off. A sinkhole
+(`0.0.0.0` or `::`) is the table's own in the table's own file, up to the
+`# Kept from /etc/hosts` header, and another tool's after it; in any other file
+every sinkhole is that tool's, as Life's Good Without Spying's and LG App Update
+Blocker's are (they write nothing else), and is kept even where a tier blocks
+the same name, so it outlives the tier being switched off. Before this, every
+sinkhole was dropped, and the Homebrew Channel's update block being on, which
+keeps the table mounted whatever the tiers say, stopped those tools blocking. At boot,
 `50-tvweb` takes them from that boot's `/etc/hosts` before mounting and drops
 the previous boot's, so a tool that is no longer started leaves nothing behind.
 
@@ -913,26 +919,39 @@ list of common third-party ad and measurement endpoints. The following are
 
 | Domain | What it actually serves |
 | :--- | :--- |
-| `ngfts.lge.com`, `aic-ngfts.lge.com` | Content and firmware delivery CDN |
+| `ngfts.lge.com`, `aic-ngfts.lge.com`, `eic-ngfts.lge.com` | Content and firmware delivery CDN; the European host also serves Home search posters |
 | `cdplauncher.lgtvcommon.com`, `lgchhomeapp.lgtvcommon.com` | The Home launcher's recommendations and usage reports; needed by the Content Store after a factory reset |
-| `lgtviot.com` | The ThinQ cloud: the LG ThinQ app can no longer control the TV with it blocked |
-| `ueiwsp.com` | Universal Electronics' identification of devices connected over HDMI-CEC |
+| Home's `homeprv`, `nudge`, `rdl`, `recommend`, `service` and `wiseconfig` under `lgtvcommon.com`, and `pnv`, `wiseresource` and `qcardservice` | Home recommendations, configuration and pairing; the bare hosts and with `aic`, `eic` and `kic`, plus the exact `ruc` names Glasshouse lists |
+| `lgtviot.com`, `api`, `ocp`, `commonpush`, `push`, `sports` and `buddy` under it, and `lgeapi.com` | The ThinQ cloud, API, push, sports and LG account services: the LG ThinQ app can no longer control the TV with them blocked. Bare, with LG's regions (`aic`, `eic`, `kic`, `eu`) and the TV's country (the countries LG is seen using until it is known); OCP and ThinQ also with the region joined by a hyphen (`eic-ocp.lgtviot.com`) |
+| `lgthinq.com`, `connect-client`, `common`, `iotservice`, `service`, `op-lss`, `lss`, `noti`, `prd-api` and `it-service` under it | ThinQ connection, IoT and account services; a hyphenated region (`eic-connect-client.lgthinq.com`) where LG's own names use one |
+| `app.lgwebostv.com`, `lgrecommends.lgappstv.com` | The Content Store's interface and app recommendations; blocking them stops the store opening. Bare and with the TV's country only (their documented variants), with no regions |
+| `eic.lgchhomeapp.lgtvcommon.com`, `app-lgwebos.pluto.tv`, `sp.pluto.tv`, `tags.tiqcdn.com`, `lg-channelplus-eu-beacons.xumo.com`, `lg-channelplus-eu-mds.xumo.com`, `bss.lgechannel.com`, `lgechannel.com` | LG Channels and its Pluto and Xumo dependencies; blocking them may affect Pluto features |
+| `mtalk.google.com`, `device-provisioning.googleapis.com` | Google's [Firebase Cloud Messaging](https://firebase.google.com/docs/cloud-messaging/network-configuration) endpoints; apps that use them lose push notifications. Their use on the TV is not established; shared Google hosts such as `clients3.google.com` are left out |
+| `ueiwsp.com`, `www.ueiwsp.com` | Universal Electronics' identification of devices connected over HDMI-CEC |
 | `avsxappcaptiveportal.com` | Amazon's Alexa SDK asks it for `/generate_204` on a timer while Alexa runs, to tell whether the TV is online; blocked, Alexa reads the TV as offline |
 | `lgtvsdp.com` (and `us.`/`gb.`/`eu.`) | Service platform behind the Content Store on webOS 4 |
-| `nextlgsdp.com` (and `us.`/`gb.`/`eu.`) | The same on webOS 9 |
+| `nextlgsdp.com` (and `us.`/`gb.`/`de.`/`eu.`, the macro-regions `af`, `as`, `la`, `me`, `na`, `eu7`, and a `country7` name for the countries LG documents one for: `au`, `br`, `cn`, `hk`, `id`, `il`, `jp`, `kr`, `my`, `sg`, `tw`, `us`, `vn`, `za`; there is no `de7` or `gb7`) | The same on webOS 9 |
+| `ibs.nextlgsdp.com`, `ibsstat.nextlgsdp.com` (bare, with LG's regions and the TV's country) | The `ibis_secure` and `ibis_stat_secure` services of sdx |
+| `tv.wiselg.com` (bare, with LG's regions and the TV's country), `ruc.tv.wiselg.com`, `ngfts.tv.wiselg.com`, `eic-gfts.tv.wiselg.com`, `dev-ruc-ngfts.tv.wiselg.com` | LG's platform on webOS 11, where it also carries the diagnostics report upload (`rdx/10.0.0/`) and app usage statistics, so neither can be blocked on its own there. `ngfts` is the content CDN, `eic-gfts` a regional alias seen on a C4, and `dev-ruc-ngfts` a name in C5 firmware strings with no traffic seen |
 
 `com.webos.appInstallService` names the one its own set installs from:
 `http://GB.lgtvsdp.com` on a B8, `http://GB.nextlgsdp.com` on a C2. The full
 tier adds whatever that file says, so a firmware using neither is still covered.
 
-`wiselg.com` is not on either list, though the full tier still blocks it if
-`appInstallService` names it as its store. On webOS 11 the Content Store's
-first request goes to `<country>.tv.wiselg.com`, and a factory-reset TV asks for
-`ngfts.tv.wiselg.com` during setup
+`wiselg.com` itself is on neither list, but the full tier blocks the
+`tv.wiselg.com` names above, and whatever `appInstallService` names as its store.
+On webOS 11 the Content Store's first request goes to `<country>.tv.wiselg.com`,
+and a factory-reset TV asks for `ngfts.tv.wiselg.com` during setup
 ([Huttunen](https://fabricati-diem.inform.social/post/deshittification-as-a-service-part2-bypassing-the-app-store-gatekeeper/)),
-which suggests it is that release's service platform, in place of the SDP
-hosts. None of the tested TVs runs webOS 11, and Huttunen reports Netflix
-being interrupted after a cold boot with it blocked.
+which is that release's service platform, in place of the SDP hosts: on an
+OLED77C5PUA (webOS 11.2.0) sdx's server list names `<country>.tv.wiselg.com`
+(sign-in, set-up, logging, Home) and `<region>.tv.wiselg.com` (the Content
+Store, search, app usage statistics and the diagnostics report upload, which
+`getRdxServerUrl` gives as `https://AIC.tv.wiselg.com/rdx/10.0.0/`), and the
+clock comes from the same servers (`systemTimeSource` `sdp`). That is Glasshouse's
+measurement, not ours: none of Native Tv's tested TVs runs webOS 11. Huttunen
+reports Netflix being interrupted after a cold boot with the host blocked, so
+the `tv.wiselg.com` names wait for the clock, as `nextlgsdp.com` does.
 
 The `lgtvcommon.com`, `lgtviot.com` and `ueiwsp.com` rows, and
 `smartad.lge.com` on the ads tier, come from the blocklist in
@@ -957,7 +976,9 @@ left out of this expansion.
 
 The TV scans the hosts file during resolution, so this is deliberately a
 small selection rather than the upstream list's tens of thousands of names.
-The privacy regressions cap the built-in table at 24 KiB, check both address
+The privacy regressions cap the built-in table at 24 KiB for a TV whose country is known and, for
+the Everything tier, at 32 KiB before it is (the regional names are then listed for seven countries),
+check both address
 families and protect representative playback and platform hosts. These are
 table checks, not a guarantee that every app tolerates blocking ad requests.
 
@@ -1000,8 +1021,56 @@ To prevent this while preserving full platform blocking:
   entirely, and `nextlgsdp.com` is blocked immediately.
 * With an [NTP server](#setting-the-clock-from-ntp) configured, the first answer it
   gives sets the time as `sdp`, which ends the wait at once.
-* An owner's hosts list that names `nextlgsdp.com` or a name under it gets the same wait,
-  on either tier.
+* An owner's hosts list that names `nextlgsdp.com` or `tv.wiselg.com`, or a name under
+  either, gets the same wait, on either tier.
+* On webOS 11 the clock servers are `tv.wiselg.com` (see above), and the same wait covers
+  every name under it and the Content Store's host when `appInstallService` names one under
+  either domain (`us.tv.wiselg.com` on a C5). The ads tier blocks one name under
+  `nextlgsdp.com`, `rdx2.nextlgsdp.com` (with LG's regions and the TV's country), which
+  sdx hands out as its report upload address on a C4 on webOS 10.3.1
+  (`https://US.rdx2.nextlgsdp.com/rdx/9.0.0/`; measured by Glasshouse), so that tier waits
+  for the clock too, and never blocks the clock hosts themselves.
+
+### AirPlay's key check
+
+AirPlay's first pairing after each power-on has the TV's AirPlay daemon ask
+`com.webos.service.mfi` to check the TV's MFi key with LG, through sdx's
+`sdp_airplay` service on `<country>.nextlgsdp.com` (`<country>.tv.wiselg.com` on
+webOS 11). With that blocked, `downloadKey` answers -5 and the daemon waits 10 s,
+longer than the iPhone does, which says "Unable to Connect": a B4 on webOS 10.3.2,
+as reported to Glasshouse (#1434), not measured by Native Tv. The daemon skips
+the check while `/tmp/mfi_key_requested` exists, and a power-on deletes that
+file but not a directory with something in it. So while the table blocks the TV's
+country's clock server (`AdBlockStore::syncAirplayKeyCheck`, run after every
+change to the table, at start, when the TV's country is learnt and when the clock
+wait ends), that path is a directory holding a folder, `nativetv`, of ours; once
+it does not, the folder goes, and the directory if nothing else is in it. A file
+the TV left there is replaced by the directory. The key itself is still read from the TV's
+secure store. Nothing is read or written where no table is mounted.
+
+### The log upload settings
+
+`option.dbgLogUpload` (true from the factory) and `option.faultLogUpload` (false) are read
+by LG's diagnostics uploader, `uploadd`, which refuses to send while either is false;
+PmLogDaemon, prosense and remotediag read `faultLogUpload`. LG's menus have no switch for
+either (`ui.visible: false`). The Privacy tab's **Log uploads to LG** writes them as
+`true` or `false`, which is how LG stores them, where every other switch of the tab is
+`"on"` or `"off"` text (`storeAsBoolean` in `lg_settings.cpp`). The section is `uploads`,
+so `/api/lgsettings?section=uploads` and `/api/privacy` read it, the one-switch-off
+summary lists one that is on under usage reports, and Home Assistant gets no entity for it.
+
+PmLogDaemon writes `dbgLogUpload` at each boot from the answer of sdx's `rdxdev_secure`
+service (the debug log whitelist), so it was true again after every start on an OLED77C5PUA on
+webOS 11.2.0 while LG's `defaultSettings.json` says false; a C2 on webOS 9.2.2 kept both off
+(both Glasshouse's measurements,
+[written up here](tv-research.md#lgs-cloud-and-its-uploads-measured-by-glasshouse-oled77c5pua-webos-112-c4-webos-1031)).
+So a row with `holdsOff` is recorded when the TV takes an off, in
+`lgsettings-held.json` (`{"dbgLogUpload": false}`), and `HttpFrontDoor::reapplyHeldSettings`
+reads each recorded setting and writes the off again when it finds it on: 60 s after the
+daemon starts (`TVWEB_HELD_SETTINGS_DELAY_MS` shortens that for the tests), hourly, and each
+time the TV is switched on. A write that turns it on drops the record, which hands it back
+to LG; nothing is written for a setting that reads off, or where the TV does not report it,
+or with controls off.
 
 ### The owner's hosts list
 

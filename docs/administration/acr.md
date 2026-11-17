@@ -96,6 +96,7 @@ ACR has not been confirmed: on that C9 none of them did while the ad
 blocker kept the TV from authenticating with LG.
 
 Switching the flags off stops the TV acting on them. The ad blocker's **Ads &
-telemetry** mode also blocks the Alphonso servers LG Ad Solutions runs ACR through, so a TV
+telemetry** mode also blocks the Alphonso servers LG Ad Solutions runs ACR through (including
+its ad-inserter and overlay-configuration hosts, and `lgads.tv`), so a TV
 that still has a flag on, or re-enables one after a firmware update, has
 nowhere to send the data.

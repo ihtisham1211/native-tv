@@ -27,6 +27,16 @@ struct LocalInterface {
 };
 
 AdBlockParseResult parseAdBlockCustomHosts(const std::string &text);
+// Whether a name is one of the clock servers' (nextlgsdp.com on webOS 9,
+// tv.wiselg.com on webOS 11, and anything under either): the TV sets its clock
+// from them, so they stay reachable until it is valid. The Ads & telemetry tier
+// has one such name, and the owner's list can name any.
+bool adBlockIsSdpName(const std::string &name);
+// Whether a list of blocked names holds the TV's country's own clock server
+// (<country>.nextlgsdp.com or <country>.tv.wiselg.com; any of the fallback
+// countries while the TV's is not known).
+bool adBlockBlocksClockServer(const std::vector<std::string> &blocked,
+                              const std::string &country);
 std::vector<std::string> adBlockAds(const std::string &country);
 std::vector<std::string> adBlockPlatform(const std::string &country,
                                          const std::string &serverHost,

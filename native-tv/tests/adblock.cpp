@@ -298,6 +298,131 @@ void checkLocalLookups() {
     }
 }
 
+// The names refreshed from upstream Glasshouse's lists, by tier (test/test-privacy.js
+// there): each is blocked on both address families, and the Everything tier's stay
+// reachable on Ads & telemetry.
+void checkRefreshedLists() {
+    using namespace nativetv::service;
+    const std::vector<std::string> adsNames = {
+        "ad.lgappstv.com", "info.lgsmartad.net", "lgad.cjpowercast.com", "lgads.tv",
+        "ad-inserter.alphonso.tv", "config-overlay-ads.alphonso.tv",
+        "ruc.cdpbeacon.lgtvcommon.com", "eic-rum.elsa.lgecloudapm.com", "lgecloudapm.com",
+        "tracking.lgtvsdp.com", "rone-aic.lge.com", "rone-eic.lge.com", "rone-kic.lge.com",
+        "rone-saic.lge.com", "rone-tv-aic.lge.com", "rone-tv-cic.lge.com",
+        "rone-tv-eic.lge.com", "rone-tv-kic.lge.com", "rone-tv-saic.lge.com",
+        // The regional families, bare, with LG's regions and the TV's country.
+        "ad.lgsmartad.com", "gb.ad.lgsmartad.com", "ads.lgtvcommon.com", "gb.ads.lgtvcommon.com",
+        "eic.videoads.lgtvcommon.com", "gb.elastic.lgwebostv.com", "kic.elastic.lgwebostv.com",
+        "cdpbeacon2.lgtvcommon.com", "eu.cdpbeacon2.lgtvcommon.com",
+        "api.adts.lgtvcommon.com", "aic.api.adts.lgtvcommon.com", "gb.api.adts.lgtvcommon.com"};
+    const std::vector<std::string> adsClockNames = {
+        "rdx2.nextlgsdp.com", "gb.rdx2.nextlgsdp.com", "aic.rdx2.nextlgsdp.com"};
+    const std::vector<std::string> everythingNames = {
+        "eic-ngfts.lge.com", "config.lgtvsdp.com", "thetake.com", "pnv.lgtvcommon.com",
+        "wiseresource.lgtvcommon.com", "qcardservice.lgtvcommon.com",
+        "ruc.homeprv.lgtvcommon.com", "ruc.nudge.lgtvcommon.com", "ruc.recommend.lgtvcommon.com",
+        "ruc.service.lgtvcommon.com", "ruc.wiseconfig.lgtvcommon.com", "ruc.api.lgtviot.com",
+        "ruc.commonpush.lgtviot.com", "ruc.push.lgtviot.com", "ruc.sports.lgtviot.com",
+        "qt2-kic.lgtviot.com", "ruc-op-lss.lgthinq.com", "it-service.lgthinq.com",
+        "lgthinq.com", "lss.lgthinq.com", "noti.lgthinq.com", "prd-api.lgthinq.com",
+        "eic.lgchhomeapp.lgtvcommon.com", "app-lgwebos.pluto.tv", "sp.pluto.tv",
+        "tags.tiqcdn.com", "lg-channelplus-eu-beacons.xumo.com",
+        "lg-channelplus-eu-mds.xumo.com", "bss.lgechannel.com", "lgechannel.com",
+        "www.ueiwsp.com", "mtalk.google.com", "device-provisioning.googleapis.com",
+        // Bare, with the regions (aic.lgtviot.com) and the TV's country (gb.).
+        "lgtviot.com", "gb.lgtviot.com", "eic.api.lgtviot.com", "gb.commonpush.lgtviot.com",
+        "kic.sports.lgtviot.com", "gb.buddy.lgtviot.com", "lgeapi.com", "eu.lgeapi.com",
+        "gb.app.lgwebostv.com", "app.lgwebostv.com", "gb.lgrecommends.lgappstv.com",
+        // Home takes the regions as labels, ThinQ and OCP with a hyphen.
+        "cdplauncher.lgtvcommon.com", "aic.cdplauncher.lgtvcommon.com",
+        "kic.service.lgtvcommon.com", "eic.wiseconfig.lgtvcommon.com",
+        "eic-ocp.lgtviot.com", "ocp.lgtviot.com", "eic-connect-client.lgthinq.com",
+        "kic-common.lgthinq.com", "aic-iotservice.lgthinq.com", "eic-op-lss.lgthinq.com"};
+    const std::vector<std::string> clockNames = {
+        "nextlgsdp.com", "us.nextlgsdp.com", "de.nextlgsdp.com", "af.nextlgsdp.com",
+        "eu7.nextlgsdp.com", "ibs.nextlgsdp.com", "gb.ibsstat.nextlgsdp.com",
+        "tv.wiselg.com", "gb.tv.wiselg.com", "eic.tv.wiselg.com", "ruc.tv.wiselg.com",
+        "ngfts.tv.wiselg.com", "eic-gfts.tv.wiselg.com", "dev-ruc-ngfts.tv.wiselg.com"};
+
+    const std::string adsTable = adBlockHostsTable("ads", "gb", "", false, false, nullptr, {});
+    const std::string fullTable = adBlockHostsTable("full", "gb", "", false, false, nullptr, {});
+    const std::string graceTable = adBlockHostsTable("full", "gb", "", true, false, nullptr, {});
+    const std::string adsGraceTable = adBlockHostsTable("ads", "gb", "", true, false, nullptr, {});
+    for (const std::string &name : adsNames) {
+        check(sinkholed(adsTable, name) && sinkholed(fullTable, name) &&
+                  sinkholed(adsGraceTable, name) && sinkholed(graceTable, name),
+              name + " is blocked on both tiers, clock or not");
+    }
+    for (const std::string &name : everythingNames) {
+        check(sinkholed(fullTable, name) && sinkholed(graceTable, name),
+              name + " is blocked on the Everything tier, clock or not");
+        check(!sinkholed(adsTable, name), name + " stays reachable on Ads & telemetry");
+    }
+    for (const std::string &name : adsClockNames) {
+        check(sinkholed(adsTable, name) && sinkholed(fullTable, name),
+              name + " is blocked once the clock is valid");
+        check(!sinkholed(adsGraceTable, name) && !sinkholed(graceTable, name),
+              name + " waits for the clock");
+    }
+    for (const std::string &name : clockNames) {
+        check(sinkholed(fullTable, name) && !sinkholed(graceTable, name) &&
+                  !sinkholed(adsTable, name),
+              name + " waits for the clock and is Everything's alone");
+    }
+    // A country7 variant only for the countries LG documents it for.
+    check(has(adBlockPlatform("us", "", false), "us7.nextlgsdp.com") &&
+              !has(adBlockPlatform("gb", "", false), "gb7.nextlgsdp.com") &&
+              !has(adBlockPlatform("de", "", false), "de7.nextlgsdp.com") &&
+              has(adBlockPlatform("", "", false), "au7.nextlgsdp.com") &&
+              !has(adBlockPlatform("", "", false), "gb7.nextlgsdp.com"),
+          "the country7 name is listed for the countries it is documented for");
+    check(has(adBlockPlatform("fr", "", false), "fr.app.lgwebostv.com") &&
+              !has(adBlockPlatform("fr", "", false), "gb.app.lgwebostv.com") &&
+              !has(adBlockPlatform("fr", "", false), "aic.app.lgwebostv.com"),
+          "the Content Store's hosts take the TV's country alone, not LG's regions");
+    check(has(adBlockPlatform("", "", false), "gb.app.lgwebostv.com") &&
+              has(adBlockPlatform("", "", false), "de.app.lgwebostv.com"),
+          "before the TV's country is known the countries LG is seen using stand in");
+
+    // On webOS 11 the Content Store's host is one of the clock servers: it waits with
+    // them, where any other store host is blocked at once.
+    check(!has(adBlockPlatform("us", "us.tv.wiselg.com", true), "us.tv.wiselg.com") &&
+              has(adBlockPlatform("us", "us.tv.wiselg.com", false), "us.tv.wiselg.com") &&
+              has(adBlockPlatform("us", "store.lgtvsdp.com", true), "store.lgtvsdp.com"),
+          "the store host that is a clock server waits for the clock");
+
+    check(adBlockIsSdpName("tv.wiselg.com") && adBlockIsSdpName("us.tv.wiselg.com") &&
+              adBlockIsSdpName("nextlgsdp.com") && adBlockIsSdpName("us.rdx2.nextlgsdp.com") &&
+              !adBlockIsSdpName("wiselg.com") && !adBlockIsSdpName("lgtvsdp.com") &&
+              !adBlockIsSdpName("notnextlgsdp.com") && !adBlockIsSdpName("tv.wiselg.com.example.org"),
+          "the clock servers are told apart by domain, not by a substring");
+
+    // The owner's list names under either domain wait too.
+    AdBlockCustomList custom;
+    custom.mode = "add";
+    custom.names = {"mine.example.com", "eic.tv.wiselg.com"};
+    check(!has(adBlockList("ads", "gb", "", true, &custom), "eic.tv.wiselg.com") &&
+              has(adBlockList("ads", "gb", "", false, &custom), "eic.tv.wiselg.com") &&
+              has(adBlockList("ads", "gb", "", true, &custom), "mine.example.com"),
+          "a list naming a tv.wiselg.com host waits for the clock");
+
+    // The unique names, both address families.
+    for (const char *mode : {"ads", "full"}) {
+        const std::vector<std::string> names = adBlockList(mode, "gb", "", false, nullptr);
+        check(std::set<std::string>(names.begin(), names.end()).size() == names.size(),
+              std::string(mode) + ": the refreshed lists have no name twice");
+    }
+
+    // The TV's country's own clock server is what AirPlay's key check goes through.
+    check(adBlockBlocksClockServer({"gb.nextlgsdp.com"}, "gb") &&
+              adBlockBlocksClockServer({"gb.tv.wiselg.com"}, "gb") &&
+              !adBlockBlocksClockServer({"us.nextlgsdp.com"}, "gb") &&
+              !adBlockBlocksClockServer({"gb.rdx2.nextlgsdp.com", "nextlgsdp.com"}, "gb") &&
+              adBlockBlocksClockServer({"de.nextlgsdp.com"}, "") &&
+              !adBlockBlocksClockServer({"jp.nextlgsdp.com"}, ""),
+          "the country's clock server is told from the others, and the fallback countries stand in");
+}
+
 int main() {
     using namespace nativetv::service;
 
@@ -411,17 +536,54 @@ int main() {
     check(adBlockList("off", "us", "", false, &custom).empty(),
           "off mode applies neither built-in nor custom hosts");
 
+    // A file the table did not write: every sinkhole in it is another tool's (Life's
+    // Good Without Spying and LG App Update Blocker write nothing else), kept even
+    // where the table blocks the same name, so it outlives a tier being switched off.
     const std::vector<std::string> foreign = adBlockForeignHostsLines(
         "# comment\n0.0.0.0 ad.doubleclick.net\n:: su.lge.com\n"
         "127.0.0.1 cloudfront.xp-assets.aiv-cdn.net\n"
         "::1 cloudfront.xp-assets.aiv-cdn.net\n"
-        "192.168.1.5 nas\n192.168.1.5 nas\n0.0.0.0\n",
+        "127.0.0.1 su.lge.com\n"
+        "192.168.1.5 nas\n192.168.1.5 nas\n0.0.0.0\n0.0.0.0 ad.doubleclick.net\n",
         {"ad.doubleclick.net", "su.lge.com"});
     check(foreign == std::vector<std::string>({
+              "0.0.0.0 ad.doubleclick.net", ":: su.lge.com",
               "127.0.0.1 cloudfront.xp-assets.aiv-cdn.net",
               "::1 cloudfront.xp-assets.aiv-cdn.net", "192.168.1.5 nas",
               "0.0.0.0"}),
-          "foreign host preservation excludes managed and sinkhole lines and removes duplicates");
+          "another tool's file keeps its sinkholes, drops the managed hosts' redirects "
+          "(the Homebrew Channel's update block) and removes duplicates");
+    // The table's own file: its sinkholes are its own until the kept lines' header.
+    const std::string ownTable =
+        "127.0.0.1\tlocalhost\n\n# LG Ad & Telemetry Blackhole (lg-webos-dashboard)\n"
+        "0.0.0.0\tad.doubleclick.net\n::\tad.doubleclick.net\n"
+        "0.0.0.0\tfoo.example.com\n::\tfoo.example.com\n"
+        "\n# Kept from /etc/hosts, where other tools put them\n"
+        "0.0.0.0 tracker.example.net\n:: tracker.example.net\n"
+        "127.0.0.1 cloudfront.xp-assets.aiv-cdn.net\n";
+    check(adBlockForeignHostsLines(ownTable, {"ad.doubleclick.net"}) ==
+              std::vector<std::string>({
+                  "0.0.0.0 tracker.example.net", ":: tracker.example.net",
+                  "127.0.0.1 cloudfront.xp-assets.aiv-cdn.net"}),
+          "the table's own sinkholes go, and those under its kept header stay");
+    check(adBlockForeignHostsLines(
+              "# LG Ad & Telemetry Blackhole (lg-webos-mqtt)\n0.0.0.0\tfoo.example.com\n", {}).empty(),
+          "a table written under the earlier name is told apart the same way");
+    {
+        // What was kept is written back under the header, and is kept again as it is.
+        const std::string rewritten = adBlockHostsTable(
+            "ads", "gb", "", false, false, nullptr,
+            {"0.0.0.0 tracker.example.net", ":: tracker.example.net"});
+        check(adBlockForeignHostsLines(rewritten, adBlockManagedNames("gb", "")) ==
+                  std::vector<std::string>({"0.0.0.0 tracker.example.net",
+                                            ":: tracker.example.net"}),
+              "another tool's sinkholes survive the table being written and read again");
+        const std::string off = adBlockHostsTable(
+            "off", "gb", "", false, false, nullptr, {"0.0.0.0 tracker.example.net"});
+        check(!sinkholed(off, "ad.lgsmartad.com") &&
+                  off.find("0.0.0.0 tracker.example.net\n") != std::string::npos,
+              "with the tier off another tool's sinkhole is still in the table");
+    }
 
     const std::string table = adBlockHostsTable(
         "ads", "gb", "nativetv.local", true, true, &custom, foreign);
@@ -464,7 +626,13 @@ int main() {
             check(sinkholed(tierTable, host), tier + ": " + host + " is not blocked");
         check(std::set<std::string>(hosts.begin(), hosts.end()).size() == hosts.size(),
               tier + ": the built-in hosts are unique");
-        check(tierTable.size() < 24576, tier + ": the hosts table stays under 24 KiB for older TVs");
+        // Every name is two lines the TV reads on each lookup. Before the TV's country is
+        // known the regional names are listed for seven countries, so the larger
+        // Everything tier gets more room until it is.
+        check(tierTable.size() < (tier == "full" ? 32768u : 24576u),
+              tier + ": the hosts table stays small enough for older TVs, country not known");
+        check(adBlockHostsTable(tier, "gb", "", false, false, nullptr, {}).size() < 24576,
+              tier + ": the hosts table stays under 24 KiB for older TVs, country known");
         check(has(hosts, "cdpsvc.lgtvcommon.com") && has(hosts, "gb.cdpsvc.lgtvcommon.com"),
               tier + ": the customer data host is blocked");
     }
@@ -480,6 +648,7 @@ int main() {
           "with the ad blocker off the table carries no ad hosts");
     check(adsOnly.find("::1\tlocalhost ip6-localhost ip6-loopback") != std::string::npos,
           "localhost keeps its IPv6 entry");
+    checkRefreshedLists();
     checkStore();
     checkLocalLookups();
     std::cout << "native ad-block policy checks passed\n";
