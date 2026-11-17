@@ -1202,7 +1202,8 @@ int main() {
                   "The dock is the first row of six, the other apps a second row, the top picks the third");
             check(std::fabs(dockMotion.value("sy")) < .5 && dockMotion.value("bar") < .01,
                   "At rest the page is down and the bar is a pill");
-            const Node *restClock = textNode(dock.scene(), "17:05");
+            const Scene restScene = dock.scene();
+            const Node *restClock = textNode(restScene, "17:05");
             check(restClock && restClock->rect.x > 1600,
                   "The pill holds the clock at the right, not where the whole bar has it");
             for (int i = 0; i < 4; ++i)
@@ -1232,7 +1233,8 @@ int main() {
             dock.key(Key::Up);
             dock.key(Key::Up);
             dockMs = run(dock, dockMs + 16, 900);
-            const Node *barClock = textNode(dock.scene(), "17:05");
+            const Scene barScene = dock.scene();
+            const Node *barClock = textNode(barScene, "17:05");
             check(dock.snapshot()["navigation"].boolean() && dockMotion.value("bar") > .99 &&
                       std::fabs(dockMotion.value("sy")) < .5 && barClock && barClock->rect.x == 1556,
                   "Up from the dock brings the whole bar in over the pill");
