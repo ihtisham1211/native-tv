@@ -28,7 +28,6 @@ class AdBlockManager {
     bool sdpGraceActive() const;
     Json setMode(const std::string &mode);
     Json setTvUpdatesBlocked(bool blocked);
-    Json setLocalLookups(bool on);
     Json setCustomHosts(const Json &options);
 
   private:
@@ -40,7 +39,6 @@ class AdBlockManager {
     void acceptAnyTimeSource();
     void finalizeSdpGrace(const std::string &message);
     void cancelSdpTimers();
-    void watchNetworkOnLoop();
 
     EventLoop &loop_;
     LunaClient &luna_;
@@ -53,7 +51,6 @@ class AdBlockManager {
     bool sdpCheckPending_ = false;
     EventLoop::TimerId sdpPollTimer_ = 0;
     EventLoop::TimerId sdpCapTimer_ = 0;
-    EventLoop::TimerId networkTimer_ = 0;
 };
 
 } // namespace daemon

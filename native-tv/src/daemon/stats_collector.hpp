@@ -34,9 +34,8 @@ struct StatsDeps {
     // The player state from the live subscription, when it delivers; invalid
     // Json when it does not (the collector then asks the TV).
     std::function<Json()> liveMedia;
-    std::function<Json()> adBlock;      // {enabled, count}
-    std::function<bool()> localLookups; // LG's device scans answered on the TV
-    std::function<Json()> powerOn;      // {onReason, onTime}
+    std::function<Json()> adBlock; // {enabled, count}
+    std::function<Json()> powerOn; // {onReason, onTime}
     std::function<std::string()> screensaverMode;
     std::function<std::string()> screensaverLevel;
     std::function<bool()> screensaverLaunched;
