@@ -2514,6 +2514,16 @@ bool HttpFrontDoor::serverSettingControl(const std::string &action, const Json &
             !value.isString() || value.string() != offer.version)
             return fail(say::msg("srv.update.notOffered",
                                  "that release is not the latest one found; check for updates again"));
+        // An app install in flight, or one being uploaded, is not cut off by the restart.
+        bool installBusy = appInstallUploadReservation_.held();
+        {
+            std::lock_guard<std::mutex> lock(installJobMutex_);
+            installBusy = installBusy ||
+                          (appInstallSnapshotReady_ && appInstallSnapshotWorking(appInstallSnapshot_));
+        }
+        if (installBusy)
+            return fail(say::msg("srv.update.installBusy",
+                                 "an app install is in progress; update Native Tv when it has finished"));
         if (!releaseUpdate()->start(offer, error)) return fail(error);
         if (logger_) logger_->info("update: installing release " + offer.version);
         return answer();
@@ -14483,6 +14493,14 @@ void HttpFrontDoor::handleAppInstallAction(HttpExchange &exchange,
     }
     Json payload;
     if (!readAppInstallJson(exchange, payload)) return;
+    // A preview that was waiting for its confirmation must not start installing while
+    // Native Tv is being updated; starting an install is refused in startAppInstall.
+    if (action == "confirm" && releaseUpdate()->working()) {
+        sendInstallError(exchange, 409,
+                         say::msg("srv.install.busy.update",
+                                  "Native Tv is being updated; install the app when it has finished"));
+        return;
+    }
     Json actionPayload = payload;
     std::shared_ptr<std::atomic<bool>> nativeDownloadCancellation;
     std::string nativeDownloadJobId;

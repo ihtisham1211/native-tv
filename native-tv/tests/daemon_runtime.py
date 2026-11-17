@@ -10982,6 +10982,14 @@ class DaemonRuntimeTests(unittest.TestCase):
                 "    fake = os.environ['NATIVETV_TEST_FAKE_LUNA']\n"
                 "    os.execv(fake, [fake] + args)\n"
                 "payload = json.loads(args[-1])\n"
+                "if payload['id'] != '" + appId + "':\n"
+                "    # Another app's install, kept going while its hold file is there.\n"
+                "    while os.path.exists(os.environ['NATIVETV_TEST_HOLD']):\n"
+                "        time.sleep(0.05)\n"
+                "    print(json.dumps({'returnValue': True, 'statusValue': 10}), flush=True)\n"
+                "    print(json.dumps({'statusValue': 30, 'details': {'packageId': payload['id']}}), flush=True)\n"
+                "    time.sleep(20)\n"
+                "    raise SystemExit\n"
                 "with open(os.environ['NATIVETV_TEST_INSTALL_LOG'], 'a') as output:\n"
                 "    output.write(json.dumps({'payload': payload, 'bytes': os.path.getsize(payload['ipkUrl'])}) + '\\n')\n"
                 "mode = open(os.environ['NATIVETV_TEST_INSTALL_MODE']).read().strip()\n"
@@ -10996,8 +11004,12 @@ class DaemonRuntimeTests(unittest.TestCase):
             installLuna.chmod(0o700)
             config.write_text(json.dumps({"host": "127.0.0.1", "port": publicPort, "token": token,
                                           "allowControl": True}))
+            hold = root / "hold-app-install"
+            appPackage = app_install_ipk(with_service=False)
             environment = os.environ.copy()
             environment.update({
+                "TVWEB_NATIVE_INSTALL": "1", "TVWEB_INSTALL_STAGING": str(root / "install-stage"),
+                "NATIVETV_FAKE_LUNA_MODE": "app-install-recovery", "NATIVETV_TEST_HOLD": str(hold),
                 "TVWEB_LUNA_SEND": str(installLuna), "TVWEB_DATA_DIR": str(dataRoot),
                 "TVWEB_PROXY_SECRET": "release-update-secret-0123456789abcdef",
                 "TVWEB_RELEASE_BASE": "http://127.0.0.1:%d" % releasePort,
@@ -11028,6 +11040,26 @@ class DaemonRuntimeTests(unittest.TestCase):
                                        "Content-Type": "application/json"})
                 with urlopen(req, timeout=15) as response:
                     return json.loads(response.read())
+
+            def call(path, payload=None, data=None, contentType="application/json"):
+                req = Request("http://127.0.0.1:%d%s" % (publicPort, path),
+                              data=json.dumps(payload).encode() if payload is not None else data,
+                              method="POST" if payload is not None or data is not None else "GET",
+                              headers={"Authorization": "Bearer " + token, "Content-Type": contentType})
+                try:
+                    with urlopen(req, timeout=15) as response:
+                        return response.status, json.loads(response.read())
+                except HTTPError as error:
+                    return error.code, json.loads(error.read())
+
+            def app_install_in(states, seconds=10):
+                deadline = time.monotonic() + seconds
+                while time.monotonic() < deadline:
+                    code, snapshot = call("/api/apps/install/status")
+                    if snapshot.get("state") in states:
+                        return snapshot
+                    time.sleep(0.05)
+                self.fail("the app install stayed in %r, wanted %r" % (snapshot, states))
 
             def update_state():
                 status = get("/api/update")
@@ -11095,6 +11127,27 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertIn("by deploying it again", refused["error"])
                 (dataRoot / "mark-away").rename(mark)
                 self.assertIsNone(update_state()["unavailable"])
+
+                # An app install under way is not cut off by an update: it is refused until the
+                # install has finished.
+                hold.write_text("")
+                code, started = call("/api/apps/install/upload", data=appPackage,
+                                     contentType="application/octet-stream")
+                self.assertEqual(code, 200, started)
+                app_install_in(["awaiting-confirm"])
+                code, confirmed = call("/api/apps/install/confirm", {"jobId": started["install"]["jobId"]})
+                self.assertEqual(code, 200, confirmed)
+                app_install_in(["installing"])
+                self.assertTrue(control("checkRelease")["release"]["available"])
+                busy = control("installRelease", version)
+                self.assertFalse(busy["ok"], busy)
+                self.assertIn("app install is in progress", busy["error"])
+                self.assertEqual(update_state()["state"], "idle")
+                self.assertEqual([path for path in requested if not path.endswith(".manifest.json")], [])
+                hold.unlink()
+                app_install_in(["installed"])
+                self.assertFalse(installLog.exists(), "another app's install is not the update's")
+                requested.clear()
 
                 # The manifest differs from the one the check saw: nothing is downloaded.
                 release["tag"] = manifest(sha="b" * 64)
@@ -11178,11 +11231,22 @@ class DaemonRuntimeTests(unittest.TestCase):
                 # While it runs, the update is restarting, and neither a second update nor an app
                 # install may start.
                 installerMode.write_text("slow")
+                # An install that was waiting for its confirmation is not let through either.
+                code, waiting = call("/api/apps/install/upload", data=appPackage,
+                                     contentType="application/octet-stream")
+                self.assertEqual(code, 200, waiting)
+                app_install_in(["awaiting-confirm"])
                 result, _ = attempt()
                 self.assertTrue(result["ok"], result)
                 while update_state()["state"] != "restarting":
                     time.sleep(0.02)
+                code, late = call("/api/apps/install/confirm", {"jobId": waiting["install"]["jobId"]})
+                self.assertEqual(code, 409, late)
+                self.assertIn("being updated", late["error"])
+                self.assertEqual(app_install_in(["awaiting-confirm"])["jobId"], waiting["install"]["jobId"])
                 self.assertIn("already running", control("installRelease", version)["error"])
+                code, cancelled = call("/api/apps/install/cancel", {"jobId": waiting["install"]["jobId"]})
+                self.assertEqual(code, 200, cancelled)
                 refused = Request("http://127.0.0.1:%d/api/apps/install/url" % publicPort,
                                   data=json.dumps({"url": "http://127.0.0.1:9/x.ipk"}).encode(),
                                   method="POST", headers={"Authorization": "Bearer " + token,
