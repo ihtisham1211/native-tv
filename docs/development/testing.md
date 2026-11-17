@@ -553,6 +553,11 @@ stand-in `nc` and without one: it believes `nc`'s yes, and tries bash's own
 root, so an account with a group ID too large for ustar (upstream Glasshouse #924)
 still deploys: a stand-in `tar` takes `--owner`, only `--uid`, or neither, and the
 computer's own `tar` makes a bundle whose entries are all root's.
+`tvwebctl_test.sh` (`native-tvwebctl`, Linux only) runs the watchdog against a stand-in daemon.
+`tvwebctl_scope_test.sh` (`native-tvwebctl-scope`, any computer) runs `start` and `restart`
+against stand-in `systemd-run` and `start-stop-daemon`: on a TV they run once, under
+`systemd-run --scope` after a probe, and they run where they are off a TV, where
+`systemd-run` is missing or refuses, inside a scope already, and for `stop` and `status`.
 `scripts/build-ipk.py
 --native-build native-tv/build-webos` includes the shared runtime payload;
 the packager defaults to `native-tv/build-webos` and fails when it is missing. The TV check

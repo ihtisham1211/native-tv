@@ -748,6 +748,10 @@ if(BUILD_TESTING)
   add_test(NAME native-tvwebctl COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/tvwebctl_test.sh
            ${CMAKE_CURRENT_SOURCE_DIR}/lifecycle/tvwebctl)
   set_tests_properties(native-tvwebctl PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 240 RUN_SERIAL TRUE)
+  # tvwebctl's systemd scope, against stand-in systemd-run and start-stop-daemon; runs anywhere.
+  add_test(NAME native-tvwebctl-scope COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/tests/tvwebctl_scope_test.sh
+           ${CMAKE_CURRENT_SOURCE_DIR}/lifecycle/tvwebctl)
+  set_tests_properties(native-tvwebctl-scope PROPERTIES TIMEOUT 60)
   add_executable(native-services-keeper-tests tests/services_keeper.cpp)
   target_link_libraries(native-services-keeper-tests PRIVATE nativetv_daemon)
   target_compile_options(native-services-keeper-tests PRIVATE -Wall -Wextra -Werror)

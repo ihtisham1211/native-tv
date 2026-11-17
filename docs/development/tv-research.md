@@ -1694,3 +1694,15 @@ match what it first read, which turned the real setting off. The server now asks
 1.5 s apart, when a reading differs from the last one, and keeps the change only if it lasts. The
 `com.webos.service.tv.systemproperty/getProperties` call for `OledGSR` that the older fallback uses
 answers `ERROR_06 Invalid argument` on this TV.
+
+## Which cgroup the Homebrew Channel's start-up runs in (webOS 6 and 9)
+
+Measured by upstream Glasshouse (its #1355), not by us: processes started by
+the Homebrew Channel's start-up (`/var/lib/webosbrew/startup.sh` and the hooks
+it runs) inherit the systemd cgroup of the LG service that ran it. On a
+50NANO756PR (webOS 6) that was `webapp-mgr.service`, holding the server,
+dropbear and telnetd; changing some settings, background services and
+Promotions & tips among them, restarted it, which killed all three until the TV
+was unplugged. On a C2 (webOS 9.2.2) they are in `ls-hubd.service`, the Luna
+hub. `systemd-run --scope` (systemd 250 on the C2) moves a command into a
+transient scope of its own.
