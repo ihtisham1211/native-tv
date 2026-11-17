@@ -99,12 +99,34 @@ void finishLoop(EventLoop &loop, StateSubscriptions &state,
                 std::thread &thread) {
     const bool posted = loop.post([&loop, &state]() {
         state.stop();
+        // After a failed check "application" can still have its second owner, and its
+        // Luna child would keep the loop from stopping. With no owner this does nothing.
+        state.stopGroup("application");
         loop.scheduleAfter(std::chrono::milliseconds(150), [&loop]() { loop.stop(); });
     });
     if (!posted)
         loop.stop();
     thread.join();
 }
+
+// A failed check throws while the loop thread still runs, and destroying a
+// joinable std::thread calls std::terminate, which hides the failed check.
+class LoopThreadGuard {
+  public:
+    LoopThreadGuard(EventLoop &loop, StateSubscriptions &state, std::thread &thread)
+        : loop_(loop), state_(state), thread_(thread) {}
+    ~LoopThreadGuard() {
+        if (thread_.joinable())
+            finishLoop(loop_, state_, thread_);
+    }
+    LoopThreadGuard(const LoopThreadGuard &) = delete;
+    LoopThreadGuard &operator=(const LoopThreadGuard &) = delete;
+
+  private:
+    EventLoop &loop_;
+    StateSubscriptions &state_;
+    std::thread &thread_;
+};
 
 void testGroupsAndReferenceCounts() {
     const std::string logPath = temporaryPath();
@@ -125,8 +147,14 @@ void testGroupsAndReferenceCounts() {
                             [&invalidations](const std::string &group) {
                                 invalidations.push_back(group);
                             },
-                            [&statusChanges, &condition](const std::string &group, bool isLive) {
-                                statusChanges.push_back(group + (isLive ? ":live" : ":stopped"));
+                            [&](const std::string &group, bool isLive) {
+                                {
+                                    // Under the waiter's mutex, so a wake-up cannot fall
+                                    // between its check of isLive() and its wait.
+                                    std::lock_guard<std::mutex> lock(mutex);
+                                    statusChanges.push_back(group +
+                                                            (isLive ? ":live" : ":stopped"));
+                                }
                                 condition.notify_all();
                             });
     live.cache().onChange([&](const state::Event &event) {
@@ -153,12 +181,16 @@ void testGroupsAndReferenceCounts() {
           }),
           "could not queue state subscriptions startup");
     std::thread loopThread([&]() { loop.run(); });
+    LoopThreadGuard loopGuard(loop, live, loopThread);
 
     bool gotDefaultState = false;
     {
         std::unique_lock<std::mutex> lock(mutex);
+        // A group turns live only after its first reply's events have reached the
+        // listeners, so the events alone do not mean the last group is live yet.
         gotDefaultState = condition.wait_for(lock, std::chrono::seconds(4), [&]() {
-            return events.size() >= 11 && live.isLive("media");
+            return events.size() >= 11 && live.isLive("picture") && live.isLive("power") &&
+                   live.isLive("application") && live.isLive("audio") && live.isLive("media");
         });
     }
     if (!gotDefaultState) {
@@ -255,6 +287,7 @@ void testLegacyMediaFallback() {
     check(loop.post([&]() { live.startGroup("media"); }),
           "could not queue media subscription startup");
     std::thread loopThread([&]() { loop.run(); });
+    LoopThreadGuard loopGuard(loop, live, loopThread);
     bool receivedLegacy = false;
     for (int attempt = 0; attempt < 60; ++attempt) {
         const Json snapshot = live.snapshot();
@@ -288,6 +321,7 @@ void runMediaPersistenceFixture(const std::string &mode,
     check(loop.post([&]() { live.startGroup("media"); }),
           "could not queue media persistence fixture");
     std::thread loopThread([&]() { loop.run(); });
+    LoopThreadGuard loopGuard(loop, live, loopThread);
     bool received = false;
     for (int attempt = 0; attempt < 60; ++attempt) {
         const Json snapshot = live.snapshot();
@@ -324,6 +358,7 @@ void testRefusedWindowSubscriptions() {
           }),
           "could not queue the window subscriptions");
     std::thread loopThread([&]() { loop.run(); });
+    LoopThreadGuard loopGuard(loop, live, loopThread);
     std::this_thread::sleep_for(std::chrono::milliseconds(2300));
     finishLoop(loop, live, loopThread);
     const std::vector<std::string> calls = readLines(logPath);
@@ -377,6 +412,7 @@ void testLegacyAudioFallback() {
           }),
           "could not queue audio subscription startup");
     std::thread loopThread([&]() { loop.run(); });
+    LoopThreadGuard loopGuard(loop, live, loopThread);
     bool receivedLegacy = false;
     for (int attempt = 0; attempt < 40; ++attempt) {
         const Json snapshot = live.snapshot();
@@ -421,6 +457,7 @@ void testReconnectStartsANewSnapshot() {
     check(loop.post([&]() { live.startGroup("application"); }),
           "could not queue reconnect state group");
     std::thread loopThread([&]() { loop.run(); });
+    LoopThreadGuard loopGuard(loop, live, loopThread);
     bool reconnected = false;
     {
         std::unique_lock<std::mutex> lock(mutex);
