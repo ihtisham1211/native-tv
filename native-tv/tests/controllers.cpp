@@ -1192,6 +1192,7 @@ int main() {
             FakeTransport dockTransport;
             Application dock(dockTransport);
             dock.update(0);
+            dock.wallClock(17, 5, 0, 25, 9);
             reply(dock, "catalogue", dockCatalogue);
             reply(dock, "discover", feed);
             uint32_t dockMs = run(dock, 16, 1500);
@@ -1201,6 +1202,9 @@ int main() {
                   "The dock is the first row of six, the other apps a second row, the top picks the third");
             check(std::fabs(dockMotion.value("sy")) < .5 && dockMotion.value("bar") < .01,
                   "At rest the page is down and the bar is a pill");
+            const Node *restClock = textNode(dock.scene(), "17:05");
+            check(restClock && restClock->rect.x > 1600,
+                  "The pill holds the clock at the right, not where the whole bar has it");
             for (int i = 0; i < 4; ++i)
                 dock.key(Key::Right);
             check(dock.snapshot()["focusCard"].string() == "tool:search", "Search is the fifth tile");
@@ -1228,8 +1232,9 @@ int main() {
             dock.key(Key::Up);
             dock.key(Key::Up);
             dockMs = run(dock, dockMs + 16, 900);
+            const Node *barClock = textNode(dock.scene(), "17:05");
             check(dock.snapshot()["navigation"].boolean() && dockMotion.value("bar") > .99 &&
-                      std::fabs(dockMotion.value("sy")) < .5,
+                      std::fabs(dockMotion.value("sy")) < .5 && barClock && barClock->rect.x == 1556,
                   "Up from the dock brings the whole bar in over the pill");
             dock.key(Key::Down);
             dockMs = run(dock, dockMs + 16, 900);
@@ -1252,6 +1257,20 @@ int main() {
             check(!dock.snapshot()["editing"].boolean() && dock.snapshot()["rows"].number() == 3 &&
                       dock.snapshot()["rowCards"].number() == 6,
                   "Finishing the edit puts the dock's rows of six back");
+            // An app of the second row of apps stays focused through an edit, as the rows of six are
+            // merged and split again around it.
+            dock.key(Key::Down);
+            for (int i = 0; i < 3; ++i)
+                dock.key(Key::Right);
+            check(dock.snapshot()["row"].number() == 1 && dock.snapshot()["focusCard"].string() == "a8",
+                  "The eighth app is the fourth tile of the second row");
+            dock.longPress();
+            check(dock.snapshot()["editing"].boolean() && dock.snapshot()["focusCard"].string() == "a8",
+                  "Editing starts on the app that was focused");
+            dock.key(Key::Ok);
+            check(!dock.snapshot()["editing"].boolean() && dock.snapshot()["row"].number() == 1 &&
+                      dock.snapshot()["focusCard"].string() == "a8",
+                  "After the edit the focus is on the same app, not on the dock");
             kit::useTheme("n-google-tv");
         }
         FakeTransport idleTransport;

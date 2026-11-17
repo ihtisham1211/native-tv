@@ -401,7 +401,7 @@ void heroWall(Paint paint, const Hero &hero) {
         // Three static layers keep the text legible over any art.
         Color shade = color::ink;
         Node &bottom = scene.shape(screen, clear);
-        if (look::dock)
+        if (hero.dock)
             bottom.gradient = gradient(0, {{faded(shade, .74f), 0},
                                            {faded(shade, .34f), .22f},
                                            {faded(shade, 0), .46f}});
@@ -450,11 +450,11 @@ void heroText(Paint paint, const Hero &hero) {
         box.w -= dx;
         return box;
     };
-    Rect source = beside(geometry::heroSource());
+    Rect source = beside(geometry::heroSource(hero.dock));
     if (!hero.image.empty() && !invisible(hero.text[1])) {
         Group group(scene, hero.text[1]);
-        float top = geometry::heroSource().y,
-              bottom = geometry::heroSubtitle().y + layout::heroSubH;
+        float top = geometry::heroSource(hero.dock).y,
+              bottom = geometry::heroSubtitle(hero.dock).y + layout::heroSubH;
         Rect art = {canvas::safeX, top + (bottom - top - layout::heroArt) / 2, layout::heroArt,
                     layout::heroArt};
         Node &picture = scene.picture(art, 0, layout::heroArt / 2);
@@ -478,14 +478,15 @@ void heroText(Paint paint, const Hero &hero) {
     }
     if (!invisible(hero.text[1])) {
         Group group(scene, hero.text[1]);
-        text(paint, beside(geometry::heroTitle()), hero.title, type::display, color::onSurface);
+        text(paint, beside(geometry::heroTitle(hero.dock)), hero.title, type::display,
+             color::onSurface);
     }
     if (!invisible(hero.text[2])) {
         Group group(scene, hero.text[2]);
         if (!hero.facts.empty())
-            factsText(paint, beside(geometry::heroSubtitle()), hero.facts, type::labelL,
+            factsText(paint, beside(geometry::heroSubtitle(hero.dock)), hero.facts, type::labelL,
                       color::onSurface2);
-        Rect body = beside(geometry::heroDescription());
+        Rect body = beside(geometry::heroDescription(hero.dock));
         if (!hero.description.empty())
             text(paint, body, hero.description, type::bodyL, color::onSurface2, Node::Align::Left,
                  2);
@@ -500,7 +501,7 @@ void pagination(Paint paint, const Pagination &dots) {
     Group group(scene, {dots.alpha, dots.y});
     float progress = focus::clamp01(dots.progress);
     for (int i = 0; i < dots.count; ++i) {
-        Rect slot = geometry::dotSlot(i, dots.count);
+        Rect slot = geometry::dotSlot(i, dots.count, dots.dock);
         float current =
             i < static_cast<int>(dots.current.size()) ? focus::clamp01(dots.current[i]) : 0;
         float middle = slot.y + (slot.h - layout::dot) / 2;

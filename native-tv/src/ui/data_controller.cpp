@@ -1,5 +1,6 @@
 #include "ui/application.hpp"
 #include "ui/controller_helpers.hpp"
+#include "ui/home_layout.hpp"
 #include <algorithm>
 
 namespace nativetv {
@@ -23,6 +24,22 @@ void Application::rebuildHome() {
         for (size_t i = 0; i < cards.size(); ++i)
             if (cards[i].id == oldId)
                 home.column = i;
+    }
+    // A dock's apps run six to a row, so an edit or a feed that adds Search can move the focused app to
+    // another of its rows: the focus follows it.
+    if (!oldId.empty() && home::onDock(home.tabs[home.tab].key)) {
+        bool held = false;
+        if (home.row < home.rows.size())
+            for (const Card &card : home.rows[home.row].cards)
+                held = held || card.id == oldId;
+        for (size_t r = 0; !held && r < home.rows.size(); ++r)
+            if (home::isApps(home.rows[r]))
+                for (size_t c = 0; !held && c < home.rows[r].cards.size(); ++c)
+                    if (home.rows[r].cards[c].id == oldId) {
+                        home.row = r;
+                        home.column = c;
+                        held = true;
+                    }
     }
     auto stops = navigationStops(state_);
     if (std::find(stops.begin(), stops.end(), home.nav) == stops.end())

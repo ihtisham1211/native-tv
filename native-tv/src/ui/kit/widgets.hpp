@@ -110,6 +110,7 @@ struct Hero {
     std::string source, title, facts, description, image, hint;
     // Source row, title and the lines under it enter one after another (spec 5.3).
     Enter text[3];
+    bool dock = false; // the page is laid out on a theme's dock: text at the top, a lighter shade
 };
 // The artwork, tints, legibility scrims and the veil that rises with the rows.
 void heroWall(Paint paint, const Hero &hero);
@@ -131,6 +132,7 @@ struct Pagination {
     std::vector<float> current; // per slot, 0..1: dot turns into the progress track
     float progress = 0;
     float alpha = 1, y = 0; // y: parallax offset
+    bool dock = false;      // the dots sit where the dock's page puts them
 };
 void pagination(Paint paint, const Pagination &dots);
 

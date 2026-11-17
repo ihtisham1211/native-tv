@@ -265,8 +265,12 @@ void Application::homeData() {
         } else if (icons && homeTab && !flow_.rowsEntered && home::isApps(home.rows[0])) {
             // The apps lead Home and the feed's rows follow them: they enter without the feed,
             // and the focus will not be on them, so their name is already dim.
-            homePlayEntrance(0, 1);
-            motion_.set(home::id("rd", 0), 1);
+            size_t end = 1;
+            while (end < home.rows.size() && home::isApps(home.rows[end])) // a dock's rows of six
+                ++end;
+            homePlayEntrance(0, end);
+            for (size_t r = 0; r < end; ++r)
+                motion_.set(home::id("rd", r), 1);
         }
     } else if (flow_.entered && flow_.pendingTab < 0) {
         // Rows that came late (a feed past its 600 ms) enter like the others.
@@ -391,7 +395,8 @@ void Application::homeFocus(bool jump) {
     else
         motion_.spring("sy", stack, springParams(kit::motion::spring::page));
     // A theme with a dock rests the bar as a pill; focus on the bar brings the whole bar in.
-    glide("bar", home.navigation ? 1 : 0);
+    // It stays in while the page it leads to is being swapped in.
+    glide("bar", home.navigation || flow_.pendingTab >= 0 ? 1 : 0);
     homeRetargetPill(jump);
 }
 

@@ -65,8 +65,8 @@ A theme in the manner of tvOS, after Apple's Human Interface Guidelines and the 
 | `look.dockPitch` | 256 | 256 (unused) | The distance between Home's rows on a dock: a 156 px tile and the 100 px tvOS asks for between rows. Feed rows (cards of 169 px under a 52 px title) fit in it. The Apps page keeps `rowPitch`. |
 | `look.dockRise` | 680 | 680 (unused) | One row down from the dock raises the page by this much, so the dock becomes the top row of the grid (its tiles at 110 px) and the first row below it is at 366; each row after that raises it by `dockPitch`. The hero has faded out by then (it fades over the first 150 px). |
 | `look.dockEditLift` | 240 | 240 (unused) | While the apps are edited the page rises by this much, so the row clears the hint keys, which start at 900 px. |
-| `look.heroTop` | 150 | 226 | Where the hero's source line starts. Google TV's block sits above the rows at the bottom left; tvOS's Top Shelf title is at the top, so on a dock the block starts at 150 px, under the whole bar, which comes in over it on Up. |
-| `look.dotsTop` | 686 | 488 | The carousel's dots, kept 50 px above the dock's capsule instead of beside the hero text. |
+| `look.heroTop` | 150 | 226 | Where the hero's source line starts. Google TV's block sits above the rows at the bottom left; tvOS's Top Shelf title is at the top, so on the Home tab of a dock theme the block starts at 150 px, under the whole bar, which comes in over it on Up. The other tabs keep the block where it is. |
+| `look.dotsTop` | 686 | 488 | The carousel's dots on the Home tab of a dock theme, kept 50 px above the dock's capsule instead of beside the hero text. |
 | `look.sheen` | 0.3 | 0 | A diagonal light across a focused tile or card, white at 30% fading out by the middle. |
 | `look.shadowDy`, `shadowBlur`, `shadowAlpha` | 36, 90, 0.62 | 22, 56, 0.62 | A farther, softer shadow under the lifted item. |
 

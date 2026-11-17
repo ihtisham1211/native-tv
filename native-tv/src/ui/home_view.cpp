@@ -90,6 +90,7 @@ kit::Hero heroOf(const Frame &frame) {
     }
     hero.wallAlpha = static_cast<float>(motion.value("wall"));
     hero.stackY = static_cast<float>(motion.value("sy"));
+    hero.dock = !home.tabs.empty() && home::onDock(home.tabs[home.tab].key);
     hero.source = home.art.text.source;
     hero.title = home.art.text.title;
     hero.facts = home.art.text.facts;
@@ -228,7 +229,7 @@ void rows(kit::Paint paint, const Frame &frame, float top = 0) {
         label.enter.alpha *=
             kit::focus::clamp01((kit::canvas::height - 40 - labelY) / 48);
         // The dock's rows of apps carry no title; the feed's rows keep theirs.
-        if (!(dock && home::isApps(row))) {
+        if (!(dock && home::isApps(row) && !home.editing)) {
             // The label sits where the row's own pitch puts it, not where a Google TV row's would.
             const float shift = dock ? kit::geometry::dockLabelY(static_cast<int>(ri)) -
                                            kit::geometry::rowLabelY(static_cast<int>(ri))
@@ -420,6 +421,7 @@ void drawHome(kit::Paint paint, const Frame &frame) {
             dots.alpha = hero.text[2].alpha * parallax.textAlpha *
                          static_cast<float>(motion.value("dots"));
             dots.y = parallax.textY;
+            dots.dock = hero.dock;
             kit::pagination(paint, dots);
         }
         rows(paint, frame);
