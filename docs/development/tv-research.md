@@ -818,7 +818,8 @@ and others' work on webOS 10
 
 ## LG's device scans (webOS 9.2.2, C2)
 
-These measurements are from [Glasshouse](https://github.com/rorygallagher2024/glasshouse)'s testing; they have not been repeated with Native Tv.
+These measurements are from [Glasshouse](https://github.com/rorygallagher2024/glasshouse)'s testing
+(its TV research, "LG's device scans"); they have not been repeated with Native Tv.
 
 `iconnectivity` (UEI QuickSet) reverse-looks-up every address on the TV's
 /24. On a C2 with `other.ueiEnable` off, opening the Home Hub's page for
@@ -827,11 +828,64 @@ and nothing periodic followed. A reporter's TV sent all 253 every 5 minutes
 (1.6 s each pass) alongside `www.ueiwsp.com`, and `discovery.meethue.com`
 every 1.5 to 3.5 minutes; the C2 asks for the latter too. Other C1 (webOS
 6.5.3) and C3 owners report the same with Auto device detection off.
-`iconnectivity` resolves through glibc (`getnameinfo`, from `libqse` and
-`librim_qsp`) and c-ares; `/etc/nsswitch.conf` reads `hosts: files mdns
-myhostname dns`, so `/etc/hosts` is consulted first. Its state is in
-`/mnt/lg/cmn_data/iconnectivity` (`environ.conf` holds `ueiEnable`;
-`qs_data/discovered_devices.db` was written that day with it off).
+Its state is in `/mnt/lg/cmn_data/iconnectivity` (`environ.conf` holds
+`ueiEnable`; `qs_data/discovered_devices.db` is a SQLite table of the devices
+it found).
+
+- **A sweep is asked for.** One `luna://com.webos.service.ics/iot/getAllIoTDevices`
+  call, the Home Hub's, started a pass of all 253 addresses within 5 s, with
+  the stored device list intact, and nothing followed for 6.5 minutes. With
+  no such call, 12 minutes with the device list emptied and 12 minutes with
+  `ueiEnable` on each sent none; the emptied list refilled to 17 devices
+  from other discovery. A TV that sweeps every 5 minutes has something
+  asking every 5 minutes. `ls-monitor` shows the caller: the `TX call` lines
+  to `com.webos.service.ics` name the sender and the app it acts for.
+- **`/etc/hosts` does not answer them.** `/etc/nsswitch.conf` reads `hosts:
+  files mdns myhostname dns` and `iconnectivity` links glibc's `getnameinfo`
+  and c-ares, which suggested the hosts table would be read first. With the
+  table naming all 253 addresses as themselves, mounted where `iconnectivity`
+  sees it, and `gethostbyaddr` answering from it, a sweep still sent 252 PTR
+  queries. `iconnectivity` sends them to the DNS relay in `/etc/resolv.conf`
+  (`connmand`, at `127.0.0.1` and `::1`), one socket per query, without the
+  name service lookup that reads `/etc/hosts`, and `connmand` forwards them.
+  Native Tv's "Answer device scans on the TV" switch was built on the
+  opposite reading, did nothing, and was removed.
+- **The firewall cannot pick them out.** The C2's kernel offers only the
+  `icmp`, `udp`, `tcp` and similar matches, no `string`, `u32`, `owner` or
+  `bpf`, so a rule cannot tell a PTR query from any other DNS query, and
+  `iconnectivity` runs as root like the rest. Sending all DNS through a relay
+  on the TV would make every lookup depend on it.
+- **Its own controls.** `com.webos.service.ics/debug/setDebugCmd`
+  (`{ "debugCmd": "showTimerList" }` and others) answers `returnValue: true`
+  and logs nothing, even with the `ICS` log contexts at `debug`; its strings
+  name IP discovery methods (SubnetScan, Reverse DNS, mDNS, UPnP) and a device
+  polling interval, with no luna method found that switches one off.
+- **A stub holds it down.** `ls-hubd` starts it from
+  `/usr/share/dbus-1/system-services/com.webos.service.ics.service`
+  (`Type=dynamic`, `Exec=/usr/sbin/iconnectivity`) at each call, so killing
+  it lasts until the next one. With a script that exits at once bind-mounted
+  over `/usr/sbin/iconnectivity`, calls got no reply and nothing ran; the
+  mount reached the app jails' copies too, and one `umount` took them all
+  away, after which the next call started it again. `ps` and `pidof` do not
+  list it: its executable link in `/proc` does.
+- **What asks on webOS 11.** On an OLED65C2PUA (webOS 11.2.0, firmware
+  43.21.74), `com.webos.iotframework` called `/iot/getAllIoTDevices` every
+  300 s. It is started the same way (`Type=dynamic`,
+  `/usr/palm/services/com.webos.iotframework/com.webos.iotframework`). The
+  C2 on webOS 9.2.2 does not have it.
+- **An hourly sweep is left.** On an OLED65C34LA (webOS 11.2.0, firmware
+  43.21.71), with `iotframework` held down by a bind-mounted stub, the
+  5-minute sweeps stopped and a full one came an hour later, then none for
+  15 minutes. What asks for it, or whether `iconnectivity` keeps a timer of its
+  own, was not found. Holding `iconnectivity` down stops it as well.
+- **It is also universal control's IR blaster.** LG's settings and
+  connection apps ask `com.webos.service.ics/blaster/` (`getURLforUEIDevices`,
+  `deleteIPConnectionHistory`), and the input app reads a set-top box's set-up
+  from it. On the C2, `blaster/getURLforUEIDevices {}` answered at once with
+  QuickSet running (error 322, with no box set up) and not at all with it held
+  down. Two owners with it held down had a set-top box stop answering the
+  Magic Remote a few seconds after the TV started, and LG's Universal Remote
+  settings spin and fail, until it was back (an A1 on webOS 6.3.1, a C2).
 
 ## Boot and app state (webOS 9.2.2, C2)
 

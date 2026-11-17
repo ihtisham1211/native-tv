@@ -2921,11 +2921,6 @@ StatsCollector *HttpFrontDoor::statsCollector() const {
             shape.set("count", state["count"]);
             return shape;
         };
-        deps.localLookups = [this]() {
-            service::AdBlockStore fallbackStore(dataRoot_, systemRoot_);
-            const service::AdBlockStore &store = adBlockManager_ ? adBlockManager_->store() : fallbackStore;
-            return store.localLookups();
-        };
         deps.powerOn = [this]() {
             // tvpower gives the reason and the times only when asked; they are
             // read at start and after each transition, and the times moved on.
@@ -11547,7 +11542,6 @@ void HttpFrontDoor::setControl(HttpExchange &exchange) const {
     const bool adBlockAction = action == "adblock" || action == "setAdBlock" ||
                                action == "toggleAdBlock";
     const bool blockTvUpdatesAction = action == "blockTvUpdates";
-    const bool localLookupsAction = action == "localLookups";
     const service::LgSettingWrite lgSetting = action == "lgSetting"
         ? service::lgSettingWrite(payload["value"])
         : service::LgSettingWrite();
@@ -11622,7 +11616,7 @@ void HttpFrontDoor::setControl(HttpExchange &exchange) const {
         !serviceMenuLockAction && !consentAction && !acrAction && !lgAdsAction &&
         !limitAdTrackingAction &&
         !clearAdCookiesAction && !resetAdIdAction && !adBlockAction &&
-        !blockTvUpdatesAction && !localLookupsAction) {
+        !blockTvUpdatesAction) {
         invalidateLgSettingsCache();
         if (action == "lgSetting") {
             refuseControl(payload["value"].isObject() && payload["value"]["id"].isString()
@@ -11671,7 +11665,7 @@ void HttpFrontDoor::setControl(HttpExchange &exchange) const {
         resetAdIdControl(exchange);
         return;
     }
-    if (adBlockAction || blockTvUpdatesAction || localLookupsAction) {
+    if (adBlockAction || blockTvUpdatesAction) {
         const auto sendResult = [&exchange](const Json &result) {
             (void)exchange.respond(200,
                                    {{"Content-Type", "application/json; charset=utf-8"},
@@ -11687,8 +11681,7 @@ void HttpFrontDoor::setControl(HttpExchange &exchange) const {
             return;
         }
         CommandPolicySpec localCommand;
-        localCommand.action = adBlockAction ? "control.adblock"
-            : blockTvUpdatesAction ? "control.block-tv-updates" : "control.local-lookups";
+        localCommand.action = adBlockAction ? "control.adblock" : "control.block-tv-updates";
         localCommand.uri = "native/hosts-table/apply";
         localCommand.timeout = std::chrono::milliseconds(3000);
         localCommand.resource = "hosts-table";
@@ -11697,16 +11690,13 @@ void HttpFrontDoor::setControl(HttpExchange &exchange) const {
         LunaReply localReply;
         const CommandDecision decision = commandPolicy_->executeLocal(
             localCommand, context, false,
-            [this, &payload, action, blockTvUpdatesAction, localLookupsAction,
-             &operationResult]() {
-                if (blockTvUpdatesAction || localLookupsAction) {
+            [this, &payload, action, blockTvUpdatesAction, &operationResult]() {
+                if (blockTvUpdatesAction) {
                     const Json value = payload["value"];
                     const bool on = value.isBoolean() ? value.boolean()
                         : value.isString() &&
                             (value.string() == "on" || value.string() == "true");
-                    operationResult = blockTvUpdatesAction
-                        ? adBlockManager_->setTvUpdatesBlocked(on)
-                        : adBlockManager_->setLocalLookups(on);
+                    operationResult = adBlockManager_->setTvUpdatesBlocked(on);
                     return operationResult["ok"].isBoolean() &&
                            operationResult["ok"].boolean();
                 }

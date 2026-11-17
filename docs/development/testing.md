@@ -420,7 +420,8 @@ shape before any action), `native-config-settings` (the defaults, an empty form'
 (a writer behind a live config lock is waited for, its update kept). The protected ids are held by
 `native-app-list` (an empty id is protected) and `test_native_tile_hiding_flag_and_hidden_list` (the flag file, a hidden list
 with no flag, an explicit 0, protected ids dropped from the list). `native-adblock` holds the built-in tables (both address families for every host, the common ad networks, unique hosts under 24 KiB, the
-playback and platform hosts left reachable) and `native-adblock-manager`
+playback and platform hosts left reachable, and the clean-up at start of what the removed device-scan switch left: its file and its
+lines in a mounted table) and `native-adblock-manager`
 (`tests/adblock_manager.cpp`) the SDP grace period (a valid clock at restart, a cold boot waiting for SDP, webOS 4 without `timeValid`; the
 120 s wait for a time from another source is not run). `native-oled-care` covers the OLED protections through
 `oledStatsObject`. Nine targets that check with `assert()` are built with `-UNDEBUG`, as a Release build otherwise
