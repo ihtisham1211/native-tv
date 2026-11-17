@@ -672,9 +672,48 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(self.run_script()[0]["action"], "upgraded")
         self.assertEqual((self.install / "VERSION").read_text().strip(), "9.2.0")
 
+    def test_the_files_an_update_replaces_are_kept_by_link_not_by_copy(self):
+        # The old files are held where they are, which costs no room while both versions are on
+        # the flash; the new ones go in by rename and leave them alone. After a rollback, which
+        # leaves the kept files in place, they are still the very files that were installed.
+        self.existing("9.0.0")
+        self.put(self.source / "native/nativetv-daemon", "broken daemon", 0o666)
+        installed = {name: (self.install / name).stat().st_ino
+                     for name in ("native/nativetv-daemon", "native/nativetv-service", "VERSION", "config.json")}
+        self.assertFalse(self.run_script()[0]["ok"])
+        previous = self.install / ".previous"
+        for name in ("native/nativetv-daemon", "native/nativetv-service", "VERSION"):
+            self.assertEqual((previous / name).stat().st_ino, installed[name], name)
+        # Data is not among the files kept.
+        self.assertFalse((previous / "config.json").exists())
+        self.assertEqual((previous / "native/nativetv-daemon").read_text(), "previous daemon")
+        self.assertEqual((self.install / "native/nativetv-daemon").read_text(), "previous daemon")
+
+    def without_hard_links(self):
+        shim = self.root / "shim"
+        shim.mkdir(exist_ok=True)
+        # A `ln` that makes symbolic links, for the hook and the lock, and no other.
+        self.put(shim / "ln", '#!/bin/sh\ncase "$1" in -*) exec /bin/ln "$@" ;; *) exit 1 ;; esac\n', 0o755)
+        self.environment["PATH"] = str(shim) + os.pathsep + self.environment["PATH"]
+
+    def test_the_files_are_copied_where_a_link_cannot_be_made(self):
+        self.without_hard_links()
+        self.existing("9.0.0")
+        self.put(self.source / "native/nativetv-daemon", "broken daemon", 0o666)
+        inode = (self.install / "native/nativetv-daemon").stat().st_ino
+        answer, _ = self.run_script()
+        self.assertFalse(answer["ok"])
+        self.assertIn("did not start", answer["error"])
+        previous = self.install / ".previous/native/nativetv-daemon"
+        self.assertEqual(previous.read_text(), "previous daemon")
+        self.assertNotEqual(previous.stat().st_ino, inode)
+        self.assertEqual((self.install / "native/nativetv-daemon").read_text(), "previous daemon")
+
     def test_update_that_cannot_keep_the_old_version_replaces_nothing(self):
         if os.geteuid() == 0:
             self.skipTest("root reads any file")
+        # Neither a link nor a copy of the file can be made.
+        self.without_hard_links()
         self.existing("9.0.0")
         unreadable = self.install / "native/nativetv-daemon"
         unreadable.chmod(0)

@@ -66,15 +66,18 @@ link_hook() {
 }
 fail() { printf '{"ok":false,"error":"%s"}\n' "$1"; exit 0; }
 
-# The files this update is about to replace, copied aside, so that a server which
+# The files this update is about to replace, kept aside, so that a server which
 # does not come up can be put back. An update goes ahead only when all of them
-# are kept.
+# are kept. They are linked rather than copied, which costs no room: the new files
+# go in by rename and leave the old ones as they were, which `.previous` then holds
+# alone. Where a link cannot be made the file is copied.
 keep_previous() {
   rm -rf "$PREV" "$D/.update-failed"
   ( cd "$S" && find . -type f ) | while read -r f; do
     case "$f" in ./50-tvweb.sh) continue ;; esac
     [ -f "$D/$f" ] || continue
-    mkdir -p "$PREV/$(dirname "$f")" && cp -p "$D/$f" "$PREV/$f" || exit 1
+    mkdir -p "$PREV/$(dirname "$f")" || exit 1
+    ln "$D/$f" "$PREV/$f" 2>/dev/null || cp -p "$D/$f" "$PREV/$f" || exit 1
   done
 }
 # The server is up once it has written its first heartbeat, which tvwebctl
