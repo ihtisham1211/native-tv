@@ -526,6 +526,42 @@ Json vrrType(const Json &raw) {
     return result;
 }
 
+std::vector<std::pair<unsigned, std::string>> remoteButtonCodes() {
+    // Glasshouse's table, measured by it and not repeated on a TV here. The evdev codes are LG's
+    // IR_KEY_* values in /usr/share/X11/xkb/keycodes/lg less the 8 xkb adds: the streaming
+    // buttons read on a C4, the microphone and Google Assistant on a C2 (webOS 9.2.2), the
+    // microphone also on a C9 (webOS 4.10.2). The Qt codes are the same keys' Qt::Key_webOS_*.
+    static const std::pair<unsigned, const char *> table[] = {
+        {398, "red"}, {399, "green"}, {400, "yellow"}, {401, "blue"},
+        {1037, "netflix"}, {1038, "amazon"}, {1042, "disneyplus"},
+        {1043, "lgchannels"}, {1044, "rakutentv"}, {1083, "movies"},
+        {1086, "alexa"}, {1117, "googleassistant"}, {428, "voice"},
+        {18874385u, "red"}, {18874386u, "green"}, {18874387u, "yellow"},
+        {18874388u, "blue"}, {18874408u, "netflix"}, {18874409u, "amazon"},
+        {18874396u, "disneyplus"}, {18874397u, "lgchannels"},
+        {18874426u, "rakutentv"}, {18874413u, "movies"}, {18874416u, "alexa"},
+        {18874398u, "googleassistant"}, {18874420u, "voice"}
+    };
+    std::vector<std::pair<unsigned, std::string>> result;
+    for (const auto &entry : table)
+        result.emplace_back(entry.first, entry.second);
+    return result;
+}
+
+std::string remoteButton(unsigned code) {
+    for (const auto &entry : remoteButtonCodes())
+        if (entry.first == code) return entry.second;
+    return std::string();
+}
+
+std::vector<std::string> remoteButtons() {
+    std::vector<std::string> result;
+    for (const auto &entry : remoteButtonCodes())
+        if (std::find(result.begin(), result.end(), entry.second) == result.end())
+            result.push_back(entry.second);
+    return result;
+}
+
 std::string tvDefaultName(const std::string &model) {
     const std::string unknown = "LGTV"; // the owner's name for a TV whose model is not known
     // The leading run of letters and digits, upper case: "OLED55C4PUA.DUSQLJR" -> "OLED55C4PUA",

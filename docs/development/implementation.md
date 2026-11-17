@@ -713,7 +713,7 @@ chosen with `applicationManager.launch(id, "{}")` or nothing; every other key
 returns `NextPolicy`. A key set to a media control holds `media:` and the
 control's name (`media:pause`) in place of an app id, and its press sends the
 control's Linux key code through `com.webos.service.networkinput/test/sendKeyCode`,
-the same codes as the dashboard's media buttons (play 207, pause 119, stop 128,
+the same codes as the dashboard's media buttons (OK 28, play 207, pause 119, stop 128,
 rewind 168, fast forward 208, volume up 115, volume down 114, mute 113;
 volume repeats while the key is held). Those keys go through the chain again, and the
 filter names none of them, so they reach LG's filters and the app in front.
@@ -726,10 +726,17 @@ switch is turned off later, until it is changed. The calls are the filter's own,
 reaches `com.lge.*`, `com.palm.*` and `com.webos.*` services; a call to `tvpower` from the filter was
 answered on a B3 ([research](tv-research.md#running-our-own-code-early-in-a-cold-start-b3-webos-1032)),
 and the filter already calls `/power/getPowerOnReason`. That `powerOff` and `turnOffScreen` are
-allowed has not been tried on a TV, and a refusal would leave the key taken and doing nothing. There
-is no way yet for a key the filter takes to reach the daemon (the filter's console output is in no
-file, and a bus service of ours runs a fixed script that takes no input from the call), so a key
-cannot be sent to Home Assistant. `tests/ui/test-remote-keys-filter.js` runs the
+allowed has not been tried on a TV, and a refusal would leave the key taken and doing nothing. A key
+the filter takes does not reach the daemon through the filter (its console output is in no
+file, and a bus service of ours runs a fixed script that takes no input from the call), but the
+daemon's reader of the remote's input devices (`remote_buttons`) does not need it: Glasshouse read a
+press the filter had taken on the remote's own device all the same, for the microphone and Google
+Assistant on a C2 (webOS 9.2.2, [research](tv-research.md#remote-button-codes-and-the-input-device-c2-webos-922)),
+and that has not been repeated here. A key set to Home Assistant holds `action:homeAssistant` and the
+filter does nothing for it, keeping the press from LG while the reader reports it as a Remote Button
+event, which is why the choice is offered only for the buttons that are reported and while MQTT is
+on. OK is `media:ok`, KEY_ENTER (28), for a remote whose own OK is the scroll wheel's press.
+`tests/ui/test-remote-keys-filter.js` runs the
 filter against stand-ins for the compositor's objects, which shows what the script does and not what
 the compositor allows. Only the JavaScript filter has actions: webOS 11's native key handling only
 launches apps, as it has no media controls either.

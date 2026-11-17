@@ -119,6 +119,9 @@ int main() {
     assert(appleTv["title"].string() == "Apple TV" && appleTv["kind"].string() == "input");
     assert(findChoice(result["choices"], "com.webos.app.hdmi2")["title"].string() == "HDMI 2");
     assert(findChoice(result["choices"], "media:fastForward")["title"].string() == "Fast forward");
+    // OK is a button press the filter sends as the remote's own OK would.
+    assert(findChoice(result["choices"], "media:ok")["title"].string() == "OK");
+    assert(findChoice(result["choices"], "media:ok")["kind"].string() == "media");
     // Screen off and Power off, offered while the server's switches allow them.
     assert(findChoice(result["choices"], "action:screenOff")["title"].string() == "Screen off");
     assert(findChoice(result["choices"], "action:screenOff")["kind"].string() == "action");
@@ -141,6 +144,53 @@ int main() {
     assert(!findChoice(result["choices"], "com.webos.app.container.demo").valid());
     assert(findChoice(result["choices"], "org.example.alpha").valid());
     assert(findChoice(result["choices"], "org.example.zulu").valid());
+
+    // Keys that only some remotes have, and the Home Assistant choice. With MQTT off no key
+    // is offered it and the choice is not listed.
+    writeFile(systemRoot + "/usr/lib/qt5/qml/KeyFilters/regional.js",
+              "WebOS.Key_webOS_USP WebOS.Key_webOS_Globoplay WebOS.Key_webOS_Shahid "
+              "WebOS.Key_webOS_Voice WebOS.Key_webOS_GoogleVoice");
+    {
+        const Json regional = service::remoteKeysReadResponse(state);
+        assert(findKey(regional["keys"], "movies").valid());
+        assert(!findKey(regional["keys"], "movies")["elsewhere"].boolean());
+        assert(findKey(regional["keys"], "globoplay")["elsewhere"].boolean());
+        assert(findKey(regional["keys"], "shahid")["elsewhere"].boolean());
+        assert(findKey(regional["keys"], "voice")["title"].string() == "Microphone");
+        assert(findKey(regional["keys"], "voice")["replacesVoice"].boolean());
+        assert(!findKey(regional["keys"], "netflix")["replacesVoice"].boolean());
+        // Ivi, Okko, Kinopoisk and LG Shop have no symbol in the filters, only webOS 11 offers them.
+        assert(!findKey(regional["keys"], "ivi").valid());
+        assert(!findChoice(regional["choices"], "action:homeAssistant").valid());
+        assert(!findKey(regional["keys"], "netflix")["homeAssistant"].boolean());
+
+        writeFile(dataRoot + "/country", "BR\n");
+        const Json brazil = service::remoteKeysReadResponse(state);
+        assert(!findKey(brazil["keys"], "globoplay")["elsewhere"].boolean());
+        assert(findKey(brazil["keys"], "shahid")["elsewhere"].boolean());
+        writeFile(dataRoot + "/country", "AE\n");
+        const Json emirates = service::remoteKeysReadResponse(state);
+        assert(findKey(emirates["keys"], "globoplay")["elsewhere"].boolean());
+        assert(!findKey(emirates["keys"], "shahid")["elsewhere"].boolean());
+        writeFile(dataRoot + "/country", "GB\n");
+
+        service::RemoteKeysReadState withHomeAssistant = state;
+        withHomeAssistant.homeAssistant = true;
+        const Json offered = service::remoteKeysReadResponse(withHomeAssistant);
+        const Json choice = findChoice(offered["choices"], "action:homeAssistant");
+        assert(choice["title"].string() == "Home Assistant" && choice["kind"].string() == "ha");
+        for (const char *reported : {"red", "netflix", "movies", "googleassistant", "voice"})
+            assert(findKey(offered["keys"], reported)["homeAssistant"].boolean());
+        // A key whose presses Home Assistant does not receive is not offered the choice.
+        for (const char *unreported : {"search", "hulu", "globoplay", "shahid"})
+            assert(!findKey(offered["keys"], unreported)["homeAssistant"].boolean());
+        // It needs neither of the server's control switches: it does nothing on the TV.
+        withHomeAssistant.allowControl = false;
+        const Json noControl = service::remoteKeysReadResponse(withHomeAssistant);
+        assert(findChoice(noControl["choices"], "action:homeAssistant").valid());
+        assert(!findChoice(noControl["choices"], "action:screenOff").valid());
+    }
+    unlink((systemRoot + "/usr/lib/qt5/qml/KeyFilters/regional.js").c_str());
 
     writeFile(dataRoot + "/remotekeys.json",
               "{\"keys\":{\"netflix\":\"org.example.alpha\","
@@ -165,7 +215,10 @@ int main() {
         "[{\"netflix\":{\"launch_param\":null,\"app_id\":\"netflix\","
         "\"isActive\":true}},{\"amazon\":{\"launch_param\":null,"
         "\"app_id\":\"amazon\",\"isActive\":false}},{\"iplayer\":{"
-        "\"launch_param\":null,\"app_id\":\"iplayer\",\"isActive\":false}}]");
+        "\"launch_param\":null,\"app_id\":\"iplayer\",\"isActive\":false}},"
+        "{\"ivi\":{\"launch_param\":null,\"app_id\":\"ivi.original\","
+        "\"isActive\":true}},{\"okko\":{\"launch_param\":null,"
+        "\"app_id\":\"okko.original\",\"isActive\":false}}]");
     nativeState.actions = Json::parse(
         "{\"tvGuide\":{\"action\":\"launch\",\"id\":\"guide\"},"
         "\"inputHub\":{\"action\":\"launch\",\"id\":\"hub\"}}");
@@ -184,6 +237,13 @@ int main() {
     assert(findKey(nativeResult["keys"], "ai")["turnsOffVoice"].boolean());
     assert(findKey(nativeResult["keys"], "alexa")["blocksApp"].boolean());
     assert(findKey(nativeResult["keys"], "iplayer").valid());
+    // A regional button LG's list has switched on is offered, one it has switched off or
+    // does not name is not, and the filters' Home Assistant choice is not offered at all.
+    assert(findKey(nativeResult["keys"], "ivi").valid());
+    assert(!findKey(nativeResult["keys"], "okko").valid());
+    assert(!findKey(nativeResult["keys"], "kinopoisk").valid());
+    assert(!findKey(nativeResult["keys"], "netflix")["homeAssistant"].boolean());
+    assert(findChoice(nativeResult["choices"], "action:homeAssistant").valid() == false);
     assert(findChoice(nativeResult["choices"], "com.webos.app.quickinputpicker").valid());
     assert(findChoice(nativeResult["choices"], "media:play").valid() == false);
     assert(findChoice(nativeResult["choices"], "action:screenOff").valid() == false);
@@ -195,7 +255,8 @@ int main() {
         "[{\"netflix\":{\"launch_param\":null,\"app_id\":\"netflix\","
         "\"isActive\":true}},{\"amazon\":{\"launch_param\":null,"
         "\"app_id\":\"amazon\",\"isActive\":true}},{\"vendorKey\":"
-        "{\"preserve\":true}}]");
+        "{\"preserve\":true}},{\"ivi\":{\"launch_param\":null,"
+        "\"app_id\":\"ivi.original\",\"isActive\":true}}]");
     nativeWriteState.actions = nativeState.actions;
     nativeWriteState.buttonSettings = Json::parse(
         "{\"customShortPress\":{\"id\":\"accessibility\",\"type\":"
@@ -205,10 +266,13 @@ int main() {
     Json nativeMap = Json::parse(
         "{\"netflix\":\"org.example.alpha\",\"amazon\":\"\","
         "\"guide\":\"\",\"homehub\":\"org.example.alpha\","
-        "\"multikey\":\"org.example.alpha\"}");
+        "\"multikey\":\"org.example.alpha\",\"ivi\":\"org.example.alpha\"}");
     service::NativeRemoteKeysWriteResult nativeWrites =
         service::nativeRemoteKeysWriteRequests(nativeMap, nativeWriteState);
     assert(nativeWrites.mappingChanged);
+    // A regional button is written like any streaming button, LG's entry kept to put back.
+    assert(nativeWrites.mappingInfo[3]["ivi"]["app_id"].string() == "org.example.alpha");
+    assert(nativeWrites.lgRecord["mapping"]["ivi"]["app_id"].string() == "ivi.original");
     assert(nativeWrites.mappingInfo[0]["netflix"]["app_id"].string() ==
            "org.example.alpha");
     assert(nativeWrites.mappingInfo[1]["amazon"]["isActive"].boolean() == false);
@@ -269,6 +333,7 @@ int main() {
     assert(restoreWrites.mappingChanged);
     assert(restoreWrites.mappingInfo[0]["netflix"]["app_id"].string() == "netflix");
     assert(restoreWrites.mappingInfo[1]["amazon"]["isActive"].boolean());
+    assert(restoreWrites.mappingInfo[3]["ivi"]["app_id"].string() == "ivi.original");
     assert(restoreWrites.actionValues["com.webos.keyaction.tvGuide"]["id"].string() ==
            "guide");
     assert(restoreWrites.buttonSettings["customShortPress"]["id"].string() ==

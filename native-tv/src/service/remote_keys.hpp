@@ -17,6 +17,8 @@ struct RemoteKeysReadState {
     // the server cannot check them, so an action is offered only while they allow it.
     bool allowControl = true;
     bool allowPower = true;
+    // Whether MQTT is on, which offers the Home Assistant choice on the keys it receives.
+    bool homeAssistant = false;
 };
 
 struct NativeRemoteKeysReadState {

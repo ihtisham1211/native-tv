@@ -447,8 +447,8 @@ window.addEventListener('resize', () => {
 // inputs and the apps.
 const RK_GROUPS = [
   { id: 'streaming', title: () => t('apps.remoteKeys.streaming', 'Streaming buttons'),
-    keys: ['netflix', 'amazon', 'disneyplus', 'rakutentv', 'lgchannels', 'hulu', 'iplayer', 'freeviewplay', 'slingtv'] },
-  { id: 'assistant', title: () => t('apps.remoteKeys.assistant', 'Voice assistant buttons'), keys: ['alexa', 'googleassistant'] },
+    keys: ['netflix', 'amazon', 'disneyplus', 'rakutentv', 'lgchannels', 'ivi', 'okko', 'kinopoisk', 'shop', 'hulu', 'iplayer', 'freeviewplay', 'slingtv', 'globoplay', 'shahid'] },
+  { id: 'assistant', title: () => t('apps.remoteKeys.assistant', 'Voice assistant buttons'), keys: ['voice', 'alexa', 'googleassistant'] },
   { id: 'colour', title: () => t('apps.remoteKeys.colour', 'Color keys'), keys: ['red', 'green', 'yellow', 'blue'] },
   // Anything else, including keys a later server offers.
   { id: 'other', title: () => t('apps.remoteKeys.other', 'Other keys'), keys: null }
@@ -459,6 +459,7 @@ const RK_COLOURS = { red: '#FF3030', green: '#30DE61', yellow: '#F2C230', blue: 
 // The volume controls' and the actions' own marks; the rest share the play/pause one. Drawn
 // rather than typed: the page is one font now, and a speaker is not in it.
 const RK_MEDIA_MARKS = {
+  'media:ok': '<svg class="sym" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></svg>',
   'media:volumeUp': '<svg class="sym" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.5 9H4v6h2.5L11 19z"/><path d="M15.5 9.6a3.4 3.4 0 0 1 0 4.8M18 7.2a7 7 0 0 1 0 9.6"/></svg>',
   'media:volumeDown': '<svg class="sym" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.5 9H4v6h2.5L11 19z"/><path d="M15.5 9.6a3.4 3.4 0 0 1 0 4.8"/></svg>',
   'media:mute': '<svg class="sym" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 5 6.5 9H4v6h2.5L11 19z"/><path d="M16 9.5 20.5 14M20.5 9.5 16 14"/></svg>',
@@ -469,6 +470,7 @@ const RK_MEDIA_MARK = '<svg class="sym" viewBox="0 0 24 24" aria-hidden="true"><
 // The marks that say what a key is, drawn rather than typed.
 const RK_SWITCHER_MARK = '<svg class="sym" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3 4 7l4 4M4 7h16M16 21l4-4-4-4M20 17H4"/></svg>';
 const RK_NOTHING_MARK = '<svg class="sym" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M5.6 5.6 18.4 18.4"/></svg>';
+const RK_HOME_ASSISTANT_MARK = '<svg class="sym" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4l8 7M6 10v10h12V10"/></svg>';
 let rkData = null;     // the last remoteKeys answer, for the picker
 let rkOpen = null;     // the key whose picker is open
 let rkCols = 0;        // the columns its grid had when it opened
@@ -484,6 +486,7 @@ function rkDoes(k, kindOf) {
   if (k.action === 'lg') return `<span class="rk-lg">${esc(t('apps.remoteKeys.lg', 'As LG has it'))}</span>`;
   if (k.action === 'nothing') return `<span class="rk-none" aria-hidden="true">${RK_NOTHING_MARK}</span>${esc(t('apps.remoteKeys.doesNothing', 'Does nothing'))}`;
   if (kindOf(k.id) === 'switcher') return `<span class="rk-none" aria-hidden="true">${RK_SWITCHER_MARK}</span>${esc(t('apps.remoteKeys.inputSwitcher', 'Input switcher'))}`;
+  if (kindOf(k.id) === 'ha') return `<span class="rk-none" aria-hidden="true">${RK_HOME_ASSISTANT_MARK}</span>${esc(t('apps.remoteKeys.toHomeAssistant', 'To Home Assistant'))}`;
   if (kindOf(k.id) === 'media' || kindOf(k.id) === 'action') return `<span class="rk-none" aria-hidden="true">${RK_MEDIA_MARKS[k.id] || RK_MEDIA_MARK}</span>${esc(k.opens)}`;
   const icon = kindOf(k.id) === 'app' ? rkIcon(k.id) : '';
   return `${icon}<span translate="no">${esc(k.opens)}</span>`;
@@ -511,7 +514,8 @@ function renderRemoteKeys(d) {
   const kindOf = id => kinds[id] || 'app';
   const tile = k => {
     const dot = RK_COLOURS[k.key] ? `<i class="rk-dot" style="background:${RK_COLOURS[k.key]}"></i>` : '';
-    const label = k.action === 'open' && (kindOf(k.id) === 'media' || kindOf(k.id) === 'action') ? k.opens
+    const label = k.action === 'open' && kindOf(k.id) === 'ha' ? t('apps.remoteKeys.toHomeAssistant', 'To Home Assistant')
+      : k.action === 'open' && (kindOf(k.id) === 'media' || kindOf(k.id) === 'action') ? k.opens
       : k.action === 'open' ? t('apps.remoteKeys.opens', 'Opens {app}', { app: k.opens })
       : k.action === 'nothing' ? t('apps.remoteKeys.doesNothing', 'Does nothing') : t('apps.remoteKeys.lg', 'As LG has it');
     return `<button type="button" class="rk-key${k.action !== 'lg' ? ' rk-changed' : ''}" data-key="${esc(k.key)}"
@@ -572,7 +576,10 @@ function toggleRemoteKey(tile) {
   const apps = rkData.choices.filter(c => c.kind === 'app');
   // LG's input switcher, beside As LG has it and Nothing.
   const switchers = rkData.choices.filter(c => c.kind === 'switcher')
-    .map(c => opt(c.id, `<span aria-hidden="true">${RK_SWITCHER_MARK}</span> ${esc(t('apps.remoteKeys.inputSwitcher', 'Input switcher'))}`)).join('');
+    .map(c => opt(c.id, `<span aria-hidden="true">${RK_SWITCHER_MARK}</span> ${esc(t('apps.remoteKeys.inputSwitcher', 'Input switcher'))}`)).join('') +
+    // Only on a key whose presses Home Assistant receives.
+    (k.homeAssistant ? rkData.choices.filter(c => c.kind === 'ha')
+      .map(c => opt(c.id, `<span aria-hidden="true">${RK_HOME_ASSISTANT_MARK}</span> ${esc(c.title)}`)).join('') : '');
   // A key set to something no longer offered (an app since removed) still shows it.
   const gone = k.action === 'open' && !rkData.choices.some(c => c.id === k.id)
     ? opt(k.id, `<span translate="no">${esc(k.opens)}</span>`) : '';
@@ -583,9 +590,10 @@ function toggleRemoteKey(tile) {
   pick.innerHTML = `<div class="rk-pick-head"><span translate="no">${esc(t('apps.remoteKeys.keyLabel', '{key} key', { key: k.title }))}</span>
       <button type="button" class="rk-close" onclick="closeRemoteKeyPicker(true)">${esc(t('apps.remoteKeys.close', 'Close'))}</button></div>
     ${k.blocksApp ? `<div class="pv-note">${esc(t('apps.remoteKeys.blocksAlexa', 'Setting this key stops Alexa from opening until it is As LG has it again. Amazon still shows that Alexa is loading for a few seconds.'))}</div>` : ''}
+    ${k.replacesVoice ? `<div class="pv-note">${esc(t('apps.remoteKeys.replacesVoice', 'Set to anything else, this button no longer starts voice control. As LG has it brings it back.'))}</div>` : ''}
     ${k.turnsOffVoice ? `<div class="pv-note">${esc(t('apps.remoteKeys.turnsOffVoice', 'Setting this key switches off LG\'s voice assistant, so voice search, the AI assistant and the microphone stop working until it is As LG has it again.'))}</div>` : ''}
     <div class="rk-opts">${opt('lg', esc(t('apps.remoteKeys.lg', 'As LG has it')))}${k.noNothing ? '' : opt('nothing', `<span aria-hidden="true">${RK_NOTHING_MARK}</span> ${esc(t('apps.remoteKeys.nothing', 'Nothing'))}`)}${switchers}${gone}</div>
-    ${media.length ? `<div class="rk-sub">${esc(t('apps.remoteKeys.media', 'Media'))}</div>
+    ${media.length ? `<div class="rk-sub">${esc(t('apps.remoteKeys.buttons', 'Buttons'))}</div>
     <div class="rk-opts">${media.map(c => opt(c.id, esc(c.title))).join('')}</div>` : ''}
     ${actions.length ? `<div class="rk-sub">${esc(t('apps.remoteKeys.actions', 'Actions'))}</div>
     <div class="pv-note">${esc(t('apps.remoteKeys.actionsNote', 'Not yet tried on a TV. If the key then does nothing, set it back to As LG has it.'))}</div>

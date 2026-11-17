@@ -36,7 +36,7 @@ Every entity the TV publishes, by category. Which categories are published is se
 | `button` | `button.lg_tv_remote_ok` | Remote OK | Presses OK on the remote |
 | `button` | `button.lg_tv_remote_back` | Remote Back | Presses Back on the remote |
 | `button` | `button.lg_tv_remote_home` | Remote Home | Presses Home on the remote |
-| `event` | `event.lg_tv_remote_button` | Remote Button | Fires when red, green, yellow, or blue buttons are pressed on the remote |
+| `event` | `event.lg_tv_remote_button` | Remote Button | Fires when a color button, a streaming button, Movies, Alexa, Google Assistant or the microphone is pressed on the remote ([event types](home-assistant-remote-buttons.md#home-assistant-entity)) |
 | `button` | `button.lg_tv_play` | Play | Resume media playback |
 | `button` | `button.lg_tv_pause` | Pause | Pause media playback |
 | `button` | `button.lg_tv_play_pause` | Play / Pause | Toggle media playback |

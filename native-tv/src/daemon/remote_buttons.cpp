@@ -1,4 +1,5 @@
 #include "daemon/remote_buttons.hpp"
+#include "domain/names.hpp"
 #include <algorithm>
 #include <array>
 #include <cerrno>
@@ -23,18 +24,17 @@ const unsigned kEvKey = 1;
 const unsigned kHomeCode = 773;
 const unsigned kDebounceMilliseconds = 200;
 
-std::string colorForCode(unsigned code) {
-    switch (code) {
-    case 398:
-    case 18874385: return "red";
-    case 399:
-    case 18874386: return "green";
-    case 400:
-    case 18874387: return "yellow";
-    case 401:
-    case 18874388: return "blue";
-    default: return std::string();
+// Whether the line holds the number as a whole, not inside a longer one.
+bool containsNumber(const std::string &line, unsigned number) {
+    const std::string digits = std::to_string(number);
+    for (size_t at = line.find(digits); at != std::string::npos;
+         at = line.find(digits, at + 1)) {
+        const bool startsNumber = at == 0 || !std::isdigit(static_cast<unsigned char>(line[at - 1]));
+        const size_t end = at + digits.size();
+        const bool endsNumber = end == line.size() || !std::isdigit(static_cast<unsigned char>(line[end]));
+        if (startsNumber && endsNumber) return true;
     }
+    return false;
 }
 
 unsigned readU16(const unsigned char *bytes) {
@@ -101,9 +101,9 @@ std::vector<RemoteButtonEvent> RemoteButtonsParser::feed(const unsigned char *by
         }
         if (value != 1)
             continue;
-        const std::string color = colorForCode(code);
-        if (!color.empty())
-            events.push_back({RemoteButtonEventType::ColorButton, color, code, true});
+        const std::string button = names::remoteButton(code);
+        if (!button.empty())
+            events.push_back({RemoteButtonEventType::Button, button, code, true});
         else
             events.push_back({RemoteButtonEventType::Key, "", code, true});
     }
@@ -118,10 +118,12 @@ std::vector<RemoteButtonEvent> RemoteButtonsParser::parseQtLogLine(
     if (line.find("pressed") == std::string::npos &&
         line.find("D_KEY_PRESS") == std::string::npos)
         return events;
-    for (const unsigned code : {18874385u, 18874386u, 18874387u, 18874388u}) {
-        if (line.find(std::to_string(code)) == std::string::npos)
+    for (const auto &entry : names::remoteButtonCodes()) {
+        // Qt codes only: the log names a key by its Qt code, and a short evdev code would
+        // match inside any number.
+        if (entry.first <= 0xffffu || !containsNumber(line, entry.first))
             continue;
-        events.push_back({RemoteButtonEventType::ColorButton, colorForCode(code), code, true});
+        events.push_back({RemoteButtonEventType::Button, entry.second, entry.first, true});
     }
     return events;
 }
@@ -236,7 +238,7 @@ void RemoteButtonsReader::run() {
 
     const auto dispatchEvents = [&](const std::vector<RemoteButtonEvent> &events) {
         for (const RemoteButtonEvent &event : events) {
-            if (event.type == RemoteButtonEventType::ColorButton) {
+            if (event.type == RemoteButtonEventType::Button) {
                 const auto now = std::chrono::steady_clock::now();
                 const auto found = lastButtonPress.find(event.button);
                 if (found != lastButtonPress.end() &&

@@ -2,6 +2,8 @@
 
 #include "core/json.hpp"
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace nativetv {
 namespace names {
@@ -49,5 +51,14 @@ Json compensationStatus(bool running);
 Json emmcEolStates();
 Json emmcEol(unsigned code);
 Json vrrType(const Json &raw);
+
+// The remote's buttons whose presses are reported as Remote Button events, by the code the
+// remote's input device sends (Linux evdev, a 16-bit value) and the Qt key code LG's input log
+// names (above 65535). The codes are from Glasshouse's measurements, not Native Tv's.
+std::vector<std::pair<unsigned, std::string>> remoteButtonCodes();
+// The button a code is, or "" for a code that is not reported.
+std::string remoteButton(unsigned code);
+// Every reported button once: the Remote Button entity's event types.
+std::vector<std::string> remoteButtons();
 } // namespace names
 } // namespace nativetv

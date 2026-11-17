@@ -1676,13 +1676,13 @@ int main(int argc, char **argv) {
                                 remoteHomeHoldTimer)
                                 remoteHomeHoldTimer->onKeyEvent(event.pressed);
                             const char *type = event.type == RemoteButtonEventType::HomeKey
-                                ? "home" : event.type == RemoteButtonEventType::ColorButton
+                                ? "home" : event.type == RemoteButtonEventType::Button
                                     ? "button" : "key";
                             if (event.type != RemoteButtonEventType::Key)
                                 stateBridge->publishRemoteInput(type, event.code,
                                                                event.pressed, event.button);
                         }
-                        if (event.type != RemoteButtonEventType::ColorButton ||
+                        if (event.type != RemoteButtonEventType::Button ||
                             !event.pressed || !mqttShadowClient || !mqttShadowTopics)
                             return;
                         Json payload = Json::object();

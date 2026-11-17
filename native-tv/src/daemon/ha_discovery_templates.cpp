@@ -2188,7 +2188,16 @@ const Json &templates() {
         "red",
         "green",
         "yellow",
-        "blue"
+        "blue",
+        "netflix",
+        "amazon",
+        "disneyplus",
+        "lgchannels",
+        "rakutentv",
+        "movies",
+        "alexa",
+        "googleassistant",
+        "voice"
       ],
       "icon": "mdi:remote",
       "unique_id": "lg_tv_remote_button",

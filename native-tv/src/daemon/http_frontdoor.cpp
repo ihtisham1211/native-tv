@@ -782,6 +782,11 @@ bool setupTruthy(const Json &value) {
     return value.isArray() || value.isObject();
 }
 
+// MQTT is on with a broker named: Home Assistant can receive what the remote's keys do.
+bool mqttIsOn(const Json &document) {
+    return setupTruthy(document["mqtt"]["enabled"]) && setupTruthy(document["mqtt"]["host"]);
+}
+
 int queryHexValue(char value) {
     if (value >= '0' && value <= '9')
         return value - '0';
@@ -10579,6 +10584,7 @@ void HttpFrontDoor::setRemoteKey(HttpExchange &exchange) const {
     service::RemoteKeysReadState state;
     state.allowControl = config_.allowControl;
     state.allowPower = config_.allowPower;
+    state.homeAssistant = mqttIsOn(config_.document);
     state.systemRoot = systemRoot_;
     state.dataRoot = dataRoot_;
     state.filterChain = replies[0].response["configs"][
@@ -10597,8 +10603,12 @@ void HttpFrontDoor::setRemoteKey(HttpExchange &exchange) const {
     }
 
     bool offered = false;
+    bool homeAssistantKey = false;
     for (const Json &row : remoteKeys["keys"].items())
-        if (row["key"].string() == key) offered = true;
+        if (row["key"].string() == key) {
+            offered = true;
+            homeAssistantKey = row["homeAssistant"].boolean();
+        }
     if (!offered) {
         sendSetupError(exchange, 400, "This TV does not have that key");
         return;
@@ -10614,7 +10624,15 @@ void HttpFrontDoor::setRemoteKey(HttpExchange &exchange) const {
     bool validTarget = action != "open";
     if (action == "open") {
         for (const Json &choice : remoteKeys["choices"].items())
-            if (choice["id"].string() == id) validTarget = true;
+            if (choice["id"].string() == id) {
+                validTarget = true;
+                // Home Assistant is a choice only on the keys whose presses it receives.
+                if (choice["kind"].string() == "ha" && !homeAssistantKey) {
+                    sendSetupError(exchange, 400, say::msg("srv.remoteKeys.notReported",
+                        "Home Assistant does not receive this key's presses"));
+                    return;
+                }
+            }
         if (!validTarget) {
             sendSetupError(exchange, 400, say::msg("srv.quickAccess.unknownApp", "That app is not on this TV"));
             return;
@@ -17348,6 +17366,7 @@ void HttpFrontDoor::sendApps(HttpExchange &exchange) const {
         service::RemoteKeysReadState remoteKeysState;
         remoteKeysState.allowControl = config_.allowControl;
         remoteKeysState.allowPower = config_.allowPower;
+        remoteKeysState.homeAssistant = mqttIsOn(config_.document);
         remoteKeysState.systemRoot = systemRoot_;
         remoteKeysState.dataRoot = dataRoot_;
         remoteKeysState.filterChain = replies[remoteKeysCall].response["configs"]

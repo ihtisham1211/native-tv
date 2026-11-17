@@ -11501,9 +11501,12 @@ class DaemonRuntimeTests(unittest.TestCase):
             hiddenAppInfo.parent.mkdir(parents=True)
             hiddenAppInfo.write_text(json.dumps({
                 "id": "org.example.hidden", "title": "Hidden Tile"}))
+            # MQTT on, which offers the keys Home Assistant receives a choice that does
+            # nothing on the TV; no broker is contacted without the native MQTT switches.
             config.write_text(json.dumps({
                 "host": "127.0.0.1", "port": publicPort, "token": token,
-                "allowControl": True, "allowTileHiding": True
+                "allowControl": True, "allowTileHiding": True,
+                "mqtt": {"enabled": True, "host": "broker.local"}
             }))
 
             context = {
@@ -11735,6 +11738,39 @@ class DaemonRuntimeTests(unittest.TestCase):
                              if call["uri"] == "com.webos.service.config/setConfigs" and
                              "nativetv.remoteKeys" in call["payload"]["configs"]]
                 self.assertEqual(keyWrites[-1]["keys"]["alexa"], "org.example.youtube")
+
+                # Home Assistant: offered on the keys whose presses it receives (Netflix and
+                # Alexa here, not Hulu), and the key then does nothing on the TV.
+                status, body = getApps()
+                self.assertEqual(status, 200, body.decode("utf-8", "replace"))
+                remoteKeys = json.loads(body)["remoteKeys"]
+                homeAssistantChoice = [choice for choice in remoteKeys["choices"]
+                                       if choice["id"] == "action:homeAssistant"]
+                self.assertEqual(homeAssistantChoice, [{
+                    "id": "action:homeAssistant", "title": "Home Assistant", "kind": "ha"}])
+                self.assertEqual({key["key"]: key.get("homeAssistant", False)
+                                  for key in remoteKeys["keys"]},
+                                 {"netflix": True, "hulu": False, "alexa": True})
+                status, body = postRemoteKey("hulu", "open", "action:homeAssistant")
+                self.assertEqual(status, 400, body.decode("utf-8", "replace"))
+                self.assertIn("does not receive", json.loads(body)["error"])
+                self.assertNotEqual(json.loads((dataRoot / "remotekeys.json").read_text())[
+                    "keys"]["hulu"], "action:homeAssistant")
+                status, body = postRemoteKey("netflix", "open", "action:homeAssistant")
+                self.assertEqual(status, 200, body.decode("utf-8", "replace"))
+                self.assertEqual(json.loads((dataRoot / "remotekeys.json").read_text())[
+                    "keys"]["netflix"], "action:homeAssistant")
+                lunaCalls = [json.loads(line) for line in details.read_text().splitlines()]
+                keyWrites = [call["payload"]["configs"]["nativetv.remoteKeys"]
+                             for call in lunaCalls
+                             if call["uri"] == "com.webos.service.config/setConfigs" and
+                             "nativetv.remoteKeys" in call["payload"]["configs"]]
+                self.assertEqual(keyWrites[-1]["keys"]["netflix"], "action:homeAssistant")
+                status, body = getApps()
+                netflixRow = [key for key in json.loads(body)["remoteKeys"]["keys"]
+                              if key["key"] == "netflix"][0]
+                self.assertEqual((netflixRow["action"], netflixRow["id"], netflixRow["opens"]),
+                                 ("open", "action:homeAssistant", "Home Assistant"))
 
                 status, body = getCatalogWithHost("unlisted.example")
                 self.assertEqual(status, 403, body.decode("utf-8", "replace"))
