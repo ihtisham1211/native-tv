@@ -22,9 +22,13 @@ def handle(tv, uri, payload):
     if method in ("blockSystemApp", "releaseBlockSystemApp"):
         tv["samCalls"].append("%s %s" % (method, payload.get("id")))
         tv["samPayloads"].append(payload)
-        if not tv["hasBlock"]:
+        # webOS 4 has neither call; a G3 on webOS 8.4.0 and a C2 on 9.2.2 have the block only.
+        if not tv["hasBlock"] or (method == "releaseBlockSystemApp" and not tv["hasRelease"]):
             return {"returnValue": False, "errorText": "Unknown method"}
-        if method == "releaseBlockSystemApp" and tv["failReleases"] > 0:
+        # A release of an app that is not blocked is accepted: it is how the manager asks
+        # whether sam has the call, so only a block that is there can be refused.
+        if (method == "releaseBlockSystemApp" and tv["failReleases"] > 0 and
+                tv["blocked"].get(payload.get("id"))):
             tv["failReleases"] -= 1
             return {"returnValue": False}
         tv["blocked"][payload.get("id")] = method == "blockSystemApp"

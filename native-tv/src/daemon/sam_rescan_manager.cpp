@@ -237,11 +237,37 @@ bool SamRescanManager::releaseApp(const std::string &appId, unsigned tries,
     return false;
 }
 
+// Whether sam has releaseBlockSystemApp, asked once with a release of the app about to be
+// blocked, which changes nothing where it is not blocked. Some TVs have the block and not the
+// release: a G3 on webOS 8.4.0 blocked LG's Home and could not release it, so Home would not
+// launch until a reboot, and a C2 on webOS 9.2.2 answers the release the same way, "Unknown
+// method" (both measured by Glasshouse). The answer is kept; no answer is not, and blocks
+// nothing.
+bool SamRescanManager::hasRelease(const std::string &appId,
+                                  const CommandPolicyContext &context) {
+    if (releaseKnown_) return releaseAvailable_;
+    Json payload = Json::object();
+    payload.set("id", Json::text(appId));
+    Json response;
+    if (!call("sam-rescan.probe-release",
+              "com.webos.applicationManager/releaseBlockSystemApp", payload,
+              "sam-app-rescan", context, response))
+        return false;
+    releaseKnown_ = true;
+    releaseAvailable_ = response["errorText"].string().find("Unknown method") ==
+                        std::string::npos;
+    if (!releaseAvailable_ && logger_)
+        logger_->info("sam-rescan: SAM has no releaseBlockSystemApp, so no app is blocked "
+                      "to have it reread");
+    return releaseAvailable_;
+}
+
 Json SamRescanManager::rereadApp(const std::string &appId,
                                  const CommandPolicyContext &context) {
     if (appId != kHomeApp && appId != kScreensaverApp)
         return result(false, "unsupported SAM app id");
     std::unique_lock<std::mutex> operation(operationMutex_);
+    if (!hasRelease(appId, context)) return result(false);
     Json payload = Json::object();
     payload.set("id", Json::text(appId));
     if (needsForceParameter()) payload.set("forceBlockSystemApp", Json::flag(false));

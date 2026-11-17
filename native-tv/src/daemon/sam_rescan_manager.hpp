@@ -45,6 +45,7 @@ class SamRescanManager {
     bool writeBlockedList(const Json &list, const CommandPolicyContext &context);
     bool releaseApp(const std::string &appId, unsigned tries,
                     const CommandPolicyContext &context, bool quiet);
+    bool hasRelease(const std::string &appId, const CommandPolicyContext &context);
     void delay(unsigned milliseconds) const;
     bool needsForceParameter() const;
     static Json result(bool ok, const std::string &error = std::string());
@@ -56,6 +57,9 @@ class SamRescanManager {
     std::mutex operationMutex_;
     std::mutex refreshMutex_;
     std::mutex restartMutex_;
+    // Under operationMutex_: whether sam has releaseBlockSystemApp, once an answer says.
+    bool releaseKnown_ = false;
+    bool releaseAvailable_ = false;
 };
 } // namespace daemon
 } // namespace nativetv

@@ -14627,8 +14627,11 @@ class DaemonRuntimeTests(unittest.TestCase):
                     "com.webos.service.config/getConfigs",
                     "com.webos.service.config/setConfigs",
                     "com.webos.service.config/setConfigs",
+                    # A release first, which asks whether sam has one before anything is blocked.
+                    "com.webos.applicationManager/releaseBlockSystemApp",
                     "com.webos.applicationManager/blockSystemApp",
                     "com.webos.applicationManager/releaseBlockSystemApp"])
+                self.assertEqual(operationCalls[4]["payload"], {"id": "com.webos.app.home"})
                 self.assertEqual(operationCalls[2]["payload"]["configs"][
                     "profile.blockedAppList"][-1],
                     "io.github.ihtisham1211.nativetv.rescan")
