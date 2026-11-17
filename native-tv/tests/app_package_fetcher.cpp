@@ -3,6 +3,7 @@
 #include <arpa/inet.h>
 #include <atomic>
 #include <cassert>
+#include <cstdlib>
 #include <chrono>
 #include <iostream>
 #include <netinet/in.h>
@@ -68,6 +69,10 @@ int main() {
         receivedUserAgent = request.header("user-agent");
         if (request.uri == "/redirect") {
             (void)exchange.respond(302, {{"Location", "/package"}}, "");
+        } else if (request.uri.compare(0, 6, "/hops/") == 0) {
+            const int remaining = std::atoi(request.uri.c_str() + 6);
+            (void)exchange.respond(302, {{"Location", remaining > 0 ? "/hops/" + std::to_string(remaining - 1)
+                                                                    : std::string("/package")}}, "");
         } else if (request.uri == "/package") {
             (void)exchange.respond(200, {{"Content-Type", "application/octet-stream"}}, package);
         } else if (request.uri == "/large") {
@@ -163,6 +168,32 @@ int main() {
         assert(std::chrono::steady_clock::now() - cancelStarted <
                std::chrono::seconds(2));
         releaseStall.store(true);
+
+        // Native Tv's own update is fetched over https only, with http allowed to this
+        // computer alone (the tests' stand-in for GitHub), and few redirects.
+        const auto fetchHttps = [&](const std::string &address) {
+            bytes.clear();
+            return service::AppPackageFetcher::downloadHttps(
+                address, "tvweb/4.2.0", "", 1024,
+                [&bytes](const char *data, size_t size) {
+                    bytes.append(data, size);
+                    return true;
+                }, status, failure);
+        };
+        assert(!fetchHttps("http://example.org/package"));
+        assert(failure.message == "the address must start with https://");
+        assert(!fetchHttps(localhostUrl) && failure.message == "the address must start with https://");
+        assert(!fetchHttps("ftp://example.org/package"));
+        assert(fetchHttps(url("/package")) && bytes == package);
+        assert(fetchHttps(url("/hops/4")) && bytes == package);  // five redirects
+        assert(!fetchHttps(url("/hops/5")) && bytes.empty());  // a sixth
+        bytes.clear();
+        assert(service::AppPackageFetcher::download(
+            url("/hops/6"), "tvweb/4.2.0", "", 1024,
+            [&bytes](const char *data, size_t size) {
+                bytes.append(data, size);
+                return true;
+            }, status, failure) && bytes == package);
 
         const bool invalid = service::AppPackageFetcher::download(
             "file:///tmp/app.ipk", "tvweb/4.2.0", "", 1024,

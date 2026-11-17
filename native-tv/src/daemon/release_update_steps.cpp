@@ -156,7 +156,7 @@ bool downloadPackage(const ReleaseUpdateEnvironment &environment, const service:
     long status = 0;
     service::AppPackageDownloadFailure failure;
     const service::AppPackageDownload &download = environment.downloader
-        ? environment.downloader : service::AppPackageDownload(&service::AppPackageFetcher::download);
+        ? environment.downloader : service::AppPackageDownload(&service::AppPackageFetcher::downloadHttps);
     bool ok = download(offer.ipkUrl, environment.userAgent,
                        environment.ipPreference ? environment.ipPreference() : std::string(),
                        capacity.maxDownloadBytes, sink, status, failure, stopping);

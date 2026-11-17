@@ -27,6 +27,14 @@ class AppPackageFetcher {
                          const AppPackageDownloadSink &sink,
                          long &httpStatus, AppPackageDownloadFailure &failure,
                          const AppPackageDownloadCancelled &cancelled = {});
+    // For Native Tv's own update, whose package is installed as root: only https is
+    // fetched (http only to this computer, for the tests), a redirect may not leave
+    // https, and at most five are followed.
+    static bool downloadHttps(const std::string &url, const std::string &userAgent,
+                              const std::string &ipPreference, uint64_t maximumBytes,
+                              const AppPackageDownloadSink &sink,
+                              long &httpStatus, AppPackageDownloadFailure &failure,
+                              const AppPackageDownloadCancelled &cancelled = {});
     static bool validUrl(const std::string &url, std::string &error);
 };
 

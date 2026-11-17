@@ -118,7 +118,7 @@ ReleaseFetch fetchOverCurl(const std::string &userAgent,
         long status = 0;
         AppPackageDownloadFailure failure;
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
-        const bool fetched = AppPackageFetcher::download(
+        const bool fetched = AppPackageFetcher::downloadHttps(
             url, userAgent, ipPreference ? ipPreference() : std::string(), kManifestBytes,
             [&body](const char *bytes, size_t count) { body.append(bytes, count); return true; },
             status, failure,
