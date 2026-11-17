@@ -3333,6 +3333,15 @@ HomeOrchestrator *HttpFrontDoor::homeOrchestrator() const {
             return static_cast<long long>(std::chrono::duration_cast<std::chrono::milliseconds>(
                 std::chrono::steady_clock::now().time_since_epoch()).count());
         };
+        if (homeTakeoverLifecycleManager_->needsLgHomePreloadHold())
+            deps.holdLgHomePreload = [this]() {
+                // Under the switch's lock and mounted again: a switch-off between the
+                // orchestrator's check and this send would be held again after it let
+                // LG's Home back.
+                std::lock_guard<std::mutex> operationLock(homeOperationMutex_);
+                if (!homeTakeoverMounted(systemRoot_, dataRoot_)) return true;
+                return homeTakeoverLifecycleManager_->holdLgHomePreload(true);
+            };
         // config.json's nativeClient.stubGraceMs tunes the watch without a
         // rebuild (a TV that starts the client slowly, a test).
         const Json nativeClient = config_.document["nativeClient"];

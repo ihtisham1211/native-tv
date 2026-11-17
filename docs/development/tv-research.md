@@ -1695,6 +1695,22 @@ match what it first read, which turned the real setting off. The server now asks
 `com.webos.service.tv.systemproperty/getProperties` call for `OledGSR` that the older fallback uses
 answers `ERROR_06 Invalid argument` on this TV.
 
+## The preload manager launching Home during playback (B4, webOS 10.3.2)
+
+Measured by upstream Glasshouse (its #1372), not by us: with Glasshouse Home (its
+equivalent of ours) in LG's Home's place on an OLED77B46LA, while Jellyfin played a 4K Dolby Vision file at
+94 Mbps with `MemAvailable` under 200 MB, `com.webos.service.preloadmanager`
+launched `com.webos.app.home` three times in 90 s (`preloadType` `periodic`,
+`preloadMode` `criu`). After the third, surface-manager hid Jellyfin's window
+and showed Home's, and under four minutes later Jellyfin was no longer running.
+With `setPreloadPolicy` `isEnabled: false` for `com.webos.app.home` the preload
+manager launched only HDMI 4 in nine minutes of the same file, and set back to
+`true` it launched Home 8 s later. The policy is the preload manager's own, not
+configd's, so a restart of the preload manager loses it. The same call was
+refused every time on a C5 (webOS 11.2.0). Our own notes above have it
+launching Home at 53 s (G3, webOS 9.2.2) and 67 s (G5, webOS 10.3.1) of a cold
+start, after the boot hook's mount.
+
 ## Which cgroup the Homebrew Channel's start-up runs in (webOS 6 and 9)
 
 Measured by upstream Glasshouse (its #1355), not by us: processes started by

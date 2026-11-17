@@ -4,9 +4,11 @@
 #include "daemon/home_takeover_manager.hpp"
 #include "daemon/luna.hpp"
 #include "daemon/sam_rescan_manager.hpp"
+#include "service/preload.hpp"
 
 #include <chrono>
 #include <condition_variable>
+#include <cstdlib>
 #include <fstream>
 #include <iterator>
 #include <memory>
@@ -32,7 +34,9 @@ std::string readFile(const std::string &path) {
                        std::istreambuf_iterator<char>());
 }
 
-bool blockBeforeNudge(const std::string &systemRoot) {
+// The major version /etc/issue names ("webOS TV 10.3.2"), or starfish-release
+// where it does not; 0 where neither does.
+int webosMajor(const std::string &systemRoot) {
     std::string issue = readFile(rooted(systemRoot, "/etc/issue"));
     if (issue.empty()) issue = readFile(rooted(systemRoot, "/etc/issue.net"));
     std::smatch match;
@@ -43,10 +47,12 @@ bool blockBeforeNudge(const std::string &systemRoot) {
             rooted(systemRoot, "/etc/starfish-release"));
         static const std::regex releaseVersion(
             "release[[:space:]]+([0-9]+)", std::regex_constants::icase);
-        if (!std::regex_search(release, match, releaseVersion)) return false;
+        if (!std::regex_search(release, match, releaseVersion)) return 0;
     }
-    return match[1].str() == "10" || match[1].str() == "11";
+    return std::atoi(match[1].str().c_str());
 }
+
+bool blockBeforeNudge(int major) { return major == 10 || major == 11; }
 
 Json failure(const std::string &message) {
     Json result = Json::object();
@@ -110,7 +116,18 @@ HomeTakeoverLifecycleManager::HomeTakeoverLifecycleManager(
     HomeScreenManager &homeScreen, HomeTakeoverManager &takeover,
     SamRescanManager &samRescan, LunaClient &luna, std::string systemRoot)
     : homeScreen_(homeScreen), takeover_(takeover), samRescan_(samRescan),
-      luna_(luna), blockFirst_(blockBeforeNudge(systemRoot)) {}
+      luna_(luna) {
+    const int major = webosMajor(systemRoot);
+    blockFirst_ = blockBeforeNudge(major);
+    preloadHold_ = major >= 10;
+}
+
+bool HomeTakeoverLifecycleManager::holdLgHomePreload(bool hold) {
+    if (!preloadHold_) return false;
+    LunaReply reply;
+    return lunaCall(luna_, "com.webos.service.preloadmanager/setPreloadPolicy",
+                    service::preloadPolicyRequest(kHomeId, !hold), reply);
+}
 
 bool HomeTakeoverLifecycleManager::appInfo(Json &info) {
     Json payload = Json::object();
@@ -194,6 +211,8 @@ Json HomeTakeoverLifecycleManager::takeover(
         rollbackTakeover(context);
         return failure(error.empty() ? "could not stop LG's Home" : error);
     }
+    // Best effort: a refusal is the caller's to see, where it sends it again.
+    (void)holdLgHomePreload(true);
     return mounted;
 }
 
@@ -218,6 +237,8 @@ Json HomeTakeoverLifecycleManager::release(
     payload.set("appId", Json::text(kHomeId));
     LunaReply ignored;
     (void)lunaCall(luna_, "com.palm.webappmanager/killApp", payload, ignored);
+    // Only where Native Tv Home was in its place: there the policy was held.
+    if (!released["already"].boolean()) (void)holdLgHomePreload(false);
     return released;
 }
 } // namespace daemon

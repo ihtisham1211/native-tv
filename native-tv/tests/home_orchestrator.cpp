@@ -792,6 +792,115 @@ void theProbeKeepsLgHomeAtStart() {
         check(happened(w, "release") && !orchestrator.halted(), "an unsupported version still switches Home off");
     }
 }
+
+// ---------------------------------------------------------------- the preload manager
+
+// Where the TV needs it (webOS 10 and later), the preload manager is told not to keep LG's Home
+// loaded once a minute while Native Tv Home holds the place, and at each wake: it loses the
+// policy when it restarts, and on a switch-on.
+HomeOrchestratorDeps preloadHeld(World &w, bool &taken) {
+    HomeOrchestratorDeps d = depsFor(w);
+    d.holdLgHomePreload = [&w, &taken]() {
+        w.ev("preload:off");
+        return taken;
+    };
+    return d;
+}
+
+void thePreloadHoldIsSentOnceAMinute() {
+    World w = watched();
+    bool taken = true;
+    HomeOrchestrator orchestrator(preloadHeld(w, taken));
+    orchestrator.start();
+    check(times(w, "preload:off") == 0, "the takeover sets it, not the start: " + joined(w.events));
+    w.clock.advance(59999);
+    check(times(w, "preload:off") == 0, "not before the minute");
+    w.clock.advance(1);
+    check(times(w, "preload:off") == 1, "then it is sent");
+    w.clock.advance(120000);
+    check(times(w, "preload:off") == 3, "and each minute after: " + joined(w.events));
+    check(w.errors.empty(), "without a word in the log");
+
+    // The wake: the screen coming back on sends it at once.
+    orchestrator.onScreen(false);
+    w.clock.advance(180000);
+    check(times(w, "preload:off") == 3, "nothing is sent while the screen is off");
+    orchestrator.onScreen(true);
+    check(times(w, "preload:off") == 4, "the screen coming on sends it: " + joined(w.events));
+    orchestrator.onScreen(true);
+    check(times(w, "preload:off") == 4, "a screen that was on already does not");
+
+    // A stop cancels the minute, and nothing is sent after it.
+    orchestrator.stop();
+    check(w.clock.timers.empty(), "stop() cancels the timer");
+    w.clock.advance(180000);
+    check(times(w, "preload:off") == 4, "nothing is sent after a stop");
+}
+
+void thePreloadHoldFollowsTheMount() {
+    World w = watched();
+    bool taken = true;
+    HomeOrchestrator orchestrator(preloadHeld(w, taken));
+    // Switched on later from the dashboard: the start found Home off.
+    w.raw.set("enabled", Json::flag(false));
+    w.mounted = false;
+    orchestrator.start();
+    w.clock.advance(180000);
+    check(times(w, "preload:off") == 0, "nothing is held while Home is off: " + joined(w.events));
+    w.raw.set("enabled", Json::flag(true));
+    w.mounted = true;
+    w.clock.advance(60000);
+    check(times(w, "preload:off") == 1, "Home switched on is held at the next minute");
+    w.escaped = true;
+    w.clock.advance(120000);
+    check(times(w, "preload:off") == 1, "not while LG's Home is open on purpose");
+    w.escaped = false;
+    w.mounted = false;
+    w.clock.advance(120000);
+    check(times(w, "preload:off") == 1, "nor once LG's Home has its place back");
+}
+
+void aRefusedPreloadHoldIsSaidOnce() {
+    World w = watched();
+    bool taken = false;
+    HomeOrchestrator orchestrator(preloadHeld(w, taken));
+    orchestrator.start();
+    w.clock.advance(180000);
+    check(times(w, "preload:off") == 3, "it is asked again each minute");
+    check(w.errors.size() == 1 && w.errors[0].find("preload manager did not take LG's Home off") != std::string::npos,
+          "but said once: " + joined(w.errors));
+    taken = true;
+    w.clock.advance(60000);
+    taken = false;
+    w.clock.advance(60000);
+    check(w.errors.size() == 2, "a refusal after an acceptance is said again: " + joined(w.errors));
+}
+
+void noPreloadHoldWhereTheTvDoesNotNeedIt() {
+    World w = watched();
+    HomeOrchestrator orchestrator(depsFor(w));
+    orchestrator.start();
+    check(w.clock.timers.empty(), "with no dependency (webOS 9) there is no timer");
+    orchestrator.onScreen(false);
+    orchestrator.onScreen(true);
+    w.clock.advance(300000);
+    check(!happened(w, "preload:off"), "and nothing is sent");
+}
+
+void aGivenBackHomeIsNotHeld() {
+    // LG's Home given back after the third crash: nothing holds its preload off.
+    World w = watched();
+    bool taken = true;
+    HomeOrchestrator orchestrator(preloadHeld(w, taken));
+    orchestrator.start();
+    crash(w, orchestrator);
+    crash(w, orchestrator);
+    crash(w, orchestrator);
+    check(orchestrator.halted() && !w.mounted, "LG's Home was given back");
+    const size_t sent = times(w, "preload:off");
+    w.clock.advance(300000);
+    check(times(w, "preload:off") == sent, "nothing is held after that: " + joined(w.events));
+}
 } // namespace
 
 int main(int argc, char **argv) {
@@ -815,6 +924,11 @@ int main(int argc, char **argv) {
         aClientSamRefusesIsGivenUpAtOnce();
         aClientThatOpensIsLeftToCome();
         theProbeKeepsLgHomeAtStart();
+        thePreloadHoldIsSentOnceAMinute();
+        thePreloadHoldFollowsTheMount();
+        aRefusedPreloadHoldIsSaidOnce();
+        noPreloadHoldWhereTheTvDoesNotNeedIt();
+        aGivenBackHomeIsNotHeld();
     } catch (const std::exception &error) {
         std::fprintf(stderr, "home orchestrator test failed: %s\n", error.what());
         return 1;

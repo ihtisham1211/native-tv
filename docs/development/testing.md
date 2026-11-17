@@ -478,7 +478,13 @@ listed), another app opened from Home, a running list that cannot be read, a cli
 standby, a screen that is off, LG's Home opened on purpose, no takeover in place and Home switched off count nothing; a
 tripped orchestrator takes nothing again (no wake open, no later crash counts) until `rearm()`; a failed release is
 logged; `stop()` leaves no timer; and a probe that refuses at start gives LG's Home the place without switching Home
-off, where a webOS version that is not offered still switches it off.
+off, where a webOS version that is not offered still switches it off. Where the TV needs it (webOS 10 and later), the
+preload manager is told not to keep LG's Home loaded once a minute, and when the screen comes on, only while Home holds
+the place and LG's Home is not open on purpose, not after LG's Home was given back, and a refusal is logged once; with no
+such dependency (webOS 9) no timer runs. The takeover lifecycle test in the runtime suite checks the calls
+themselves against the stand-in `luna-send`: `isEnabled` false for `com.webos.app.home` after a takeover on webOS 11 (by
+the route, the dashboard's switch-on and the boot hook's `--takeover-home`), true after a release that unmounted
+something, nothing after a refused takeover or a release of what was not held, and nothing at all on webOS 9.
 
 `native-home-probe-gate` runs stand-in clients (shell scripts) through the real child runner: exits 0, 10, 11, 12 and
 13 and any other exit are classified, a missing or non-executable file, a hang and a crash are refused, 10 and 11 are

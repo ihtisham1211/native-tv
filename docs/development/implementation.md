@@ -1645,6 +1645,16 @@ for a client that cannot run, and LG's Home comes back for one that cannot stay 
   exits, so the next launch of the app found a client that was gone and started none (the Home key stayed on the stub).
   Without the registration a launch of the client behind the stub left the stub in front for good: the log showed the
   launch at 0, 15 and 30 s, and no window change.
+- *The preload manager.* On webOS 10 and later it launches `com.webos.app.home` now and then, which with the stub under that
+  id brings Native Tv Home in front of the app being watched (upstream Glasshouse measured three launches in 90 s during a 4K
+  stream on a B4, webOS 10.3.2; we have not seen it). While the stub has the place,
+  `HomeTakeoverLifecycleManager::holdLgHomePreload` tells the preload manager not to keep LG's Home loaded
+  (`setPreloadPolicy`, `isEnabled` false), after a takeover that worked, and lets it again (`isEnabled` true) after a release that
+  unmounted something, so a release of a place that was not held sets nothing. The policy is the preload manager's own and is lost
+  when it restarts, so the orchestrator (where the lifecycle manager says the TV needs it) sends it again each minute and when
+  the screen comes on, while the stub is mounted and LG's Home is not open on purpose, under the same lock as the switch. A cold
+  start where the preload manager starts after the server can see LG's Home preloaded once, until the next minute. A TV that
+  refuses it (a C5, webOS 11.2.0, did every time upstream) is asked each minute and the log says so once.
 - *The Home key.* It reaches LG's filters and opens `com.webos.app.home`, the stub, which asks for the client's Home screen again each time
   it is shown (`visibilitychange`, `webOSRelaunch`) and never while hidden. The client is meant to go to its Home screen on any launch or
   return to the front, so that it does not depend on sam passing the new parameters to a client that is running. The app is also the

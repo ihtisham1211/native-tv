@@ -68,8 +68,11 @@ void HomeOrchestrator::sayError(const std::string &line) const {
 
 void HomeOrchestrator::stop() {
     std::lock_guard<std::mutex> lock(mutex_);
+    stopped_ = true;
     cancelWakeLocked();
     cancelStubLocked();
+    if (preloadHoldTimer_ && deps_.cancel) deps_.cancel(preloadHoldTimer_);
+    preloadHoldTimer_ = 0;
 }
 
 void HomeOrchestrator::cancelWakeLocked() {
@@ -81,6 +84,8 @@ void HomeOrchestrator::cancelWakeLocked() {
 // ---------------------------------------------------------------- start
 
 void HomeOrchestrator::start() {
+    // First, whatever follows: Home can be switched on later from the dashboard.
+    armPreloadHold();
     if (!cleanLegacy()) return;
     Json c = deps_.config();
     // Saved only where it differs from the default, so a start writes nothing otherwise.
@@ -298,6 +303,45 @@ void HomeOrchestrator::onScreen(bool active) {
     }
     if (was != active && deps_.config()["enabled"].boolean())
         deps_.blocking([this]() { syncAutoLaunch(); });
+    if (!was && active && deps_.holdLgHomePreload && deps_.blocking)
+        deps_.blocking([this]() { resendPreloadHold(); });
+}
+
+// ---------------------------------------------------------------- the preload manager
+
+/*
+ * The preload manager launched LG's Home three times in 90 s while an app
+ * played a 4K stream on a B4 (webOS 10.3.2), and the third brought Home in
+ * front of the app: Native Tv Home, now it holds LG's Home's id. With the
+ * policy off it launched none in nine minutes (measured by upstream
+ * Glasshouse; not on a TV of ours). The takeover sets the policy; this sends
+ * it again, since the preload manager forgets it when it restarts.
+ */
+void HomeOrchestrator::armPreloadHold() {
+    if (!deps_.holdLgHomePreload || !deps_.after || !deps_.blocking) return;
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (stopped_) return;
+    if (preloadHoldTimer_ && deps_.cancel) deps_.cancel(preloadHoldTimer_);
+    preloadHoldTimer_ = deps_.after(deps_.preloadHoldMs, [this]() {
+        deps_.blocking([this]() {
+            resendPreloadHold();
+            armPreloadHold();
+        });
+    });
+}
+
+void HomeOrchestrator::resendPreloadHold() {
+    if (!deps_.holdLgHomePreload || !mayWatch()) return;
+    const bool taken = deps_.holdLgHomePreload();
+    bool report;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        // Refused every time on a C5 (webOS 11.2.0), where it is asked again each
+        // minute: said once.
+        report = !taken && !preloadRefusalLogged_;
+        preloadRefusalLogged_ = !taken;
+    }
+    if (report) sayError("home: the preload manager did not take LG's Home off");
 }
 
 /*

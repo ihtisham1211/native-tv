@@ -14631,6 +14631,15 @@ class DaemonRuntimeTests(unittest.TestCase):
                 except HTTPError as error:
                     return error.code, error.read().decode("utf-8", "replace")
 
+            def lgHomePreload():
+                # What the preload manager was told about LG's Home, in order: its isEnabled.
+                details = root / "luna-details.jsonl"
+                calls = [json.loads(line) for line in details.read_text().splitlines()] \
+                    if details.exists() else []
+                return [call["payload"]["application"]["isEnabled"] for call in calls
+                        if call["uri"] == "com.webos.service.preloadmanager/setPreloadPolicy"
+                        and call["payload"]["application"]["id"] == "com.webos.app.home"]
+
             try:
                 deadline = time.monotonic() + 8
                 ready = False
@@ -14651,6 +14660,7 @@ class DaemonRuntimeTests(unittest.TestCase):
 
                 status, body = request(withSecret=False)
                 self.assertEqual(status, 403, body)
+                self.assertEqual(lgHomePreload(), [], "a refused request tells the preload manager nothing")
                 staged = root / "data/home-takeover"
                 self.assertFalse(staged.exists(), "unauthorized requests must not stage files")
                 self.assertFalse(mountLog.exists(), "unauthorized requests must not mount LG Home")
@@ -14674,6 +14684,8 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertTrue(blockCalls, "native takeover must reread Home through SAM")
                 self.assertFalse(blockCalls[0]["payload"]["forceBlockSystemApp"])
                 self.assertTrue(releaseCalls, "native takeover must release Home after the SAM block")
+                self.assertEqual(lgHomePreload(), [False],
+                                 "on webOS 11 the takeover tells the preload manager not to keep LG's Home loaded")
                 status, body = request("stopLgHome")
                 self.assertEqual(status, 200, body)
                 self.assertEqual(body["result"], {"ok": True, "stopped": True})
@@ -14735,6 +14747,9 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertFalse(keptLayout.exists())
                 self.assertEqual(len(umountLog.read_text().splitlines()), 1,
                                  "the normal unmount should work first")
+                self.assertEqual(lgHomePreload()[-1], True,
+                                 "the release lets the preload manager keep LG's Home loaded again")
+                preloadTold = len(lgHomePreload())
                 status, body = request("setStartLayout", fields={"blank": True})
                 self.assertEqual(status, 200, body)
                 self.assertEqual(body["result"], {
@@ -14753,11 +14768,14 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertEqual((layoutDir / "home_layoutShelfView.xml").read_text(),
                                  originalLayout)
                 self.assertFalse(keptLayout.exists())
+                self.assertEqual(len(lgHomePreload()), preloadTold,
+                                 "the start layout does not touch the preload manager")
                 status, body = request("takeover")
                 self.assertEqual(status, 200, body)
                 self.assertEqual(body["result"], {
                     "ok": True, "changed": False, "mounted": True, "already": False
                 })
+                self.assertEqual(lgHomePreload()[-1], False)
                 (root / "force-lazy-unmount").touch()
                 status, body = request("releaseTakeover")
                 self.assertEqual(status, 200, body)
@@ -14769,6 +14787,8 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertEqual(len(umountCalls), 3,
                                  "a failed normal unmount should fall back to lazy unmount")
                 self.assertTrue(umountCalls[-1].startswith("-l "), umountCalls)
+                self.assertEqual(lgHomePreload()[-1], True)
+                preloadTold = len(lgHomePreload())
                 status, body = request("releaseTakeover")
                 self.assertEqual(status, 200, body)
                 self.assertEqual(body["result"], {
@@ -14776,6 +14796,8 @@ class DaemonRuntimeTests(unittest.TestCase):
                 })
                 self.assertEqual(len(umountLog.read_text().splitlines()), 3,
                                  "a released takeover must not unmount twice")
+                self.assertEqual(len(lgHomePreload()), preloadTold,
+                                 "LG's Home that was not held is not let back")
 
                 (root / "force-lazy-unmount").unlink()
                 samRefuse.touch()
@@ -14789,6 +14811,8 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertEqual(len(mountLog.read_text().splitlines()), 3)
                 self.assertEqual(len(umountLog.read_text().splitlines()), 4,
                                  "a SAM refusal must roll back the native mount")
+                self.assertEqual(len(lgHomePreload()), preloadTold,
+                                 "a refused takeover does not hold LG's Home off")
 
                 (dataRoot / "home.json").write_text(json.dumps({
                     "enabled": False, "restorePending": False
@@ -14814,6 +14838,8 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertTrue(json.loads((dataRoot / "home.json").read_text())["enabled"])
                 self.assertTrue(mountedMarker.exists(),
                                 "native enable must complete the managed takeover")
+                self.assertEqual(lgHomePreload()[-1], False,
+                                 "switching Home on holds LG's Home off in the preload manager")
                 self.assertIn("starting", json.loads(
                     (dataRoot / "remotekeys.json").read_text()))
                 self.assertTrue(earlyHomeFlag.is_file())
@@ -14828,6 +14854,8 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertFalse(disabledHome["restorePending"])
                 self.assertFalse(mountedMarker.exists(),
                                  "native disable must release LG Home")
+                self.assertEqual(lgHomePreload()[-1], True,
+                                 "switching Home off lets the preload manager keep LG's Home again")
                 self.assertEqual(appDirectory.resolve(), originalHome.resolve())
                 self.assertNotIn("starting", json.loads(
                     (dataRoot / "remotekeys.json").read_text()))
@@ -14875,12 +14903,16 @@ class DaemonRuntimeTests(unittest.TestCase):
                 webos11Layout.read_text(), originalLayout,
                 "the webOS 11 takeover must leave LG's layout unchanged")
             self.assertNotIn("nativetv-home-starting", webos11Layout.read_text())
+            self.assertEqual(lgHomePreload()[-1], False,
+                             "the boot hook's takeover holds LG's Home off in the preload manager")
 
             release = run_home_operation("--release-home")
             self.assertEqual(release.returncode, 0, release.stdout + release.stderr)
             self.assertFalse(mountedMarker.exists())
             self.assertEqual(appDirectory.resolve(), originalHome.resolve())
             self.assertEqual(samHomeType.read_text().strip(), "native")
+            self.assertEqual(lgHomePreload()[-1], True,
+                             "tvwebctl's release lets the preload manager keep LG's Home again")
 
             config.write_text(json.dumps({
                 "host": "127.0.0.1", "port": publicPort, "token": token,
@@ -14899,6 +14931,7 @@ class DaemonRuntimeTests(unittest.TestCase):
             (dataRoot / "home.json").write_text(json.dumps({
                 "enabled": True, "hideLgHomeAtStart": True
             }))
+            preloadTold = len(lgHomePreload())
             takeover9 = run_home_operation("--takeover-home")
             self.assertEqual(takeover9.returncode, 0,
                              takeover9.stdout + takeover9.stderr)
@@ -14917,6 +14950,8 @@ class DaemonRuntimeTests(unittest.TestCase):
                 (layoutDir / "home_layoutShelfView.xml").read_text(), originalLayout,
                 "webOS 9 must restore LG's original layout on release")
             self.assertFalse((dataRoot / "home-takeover-lg-layout").exists())
+            self.assertEqual(len(lgHomePreload()), preloadTold,
+                             "on webOS 9 the preload manager is left as it is")
 
             (dataRoot / "home.json").write_text(json.dumps({"enabled": False}))
             mountCount = len(mountLog.read_text().splitlines())
