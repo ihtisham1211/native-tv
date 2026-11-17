@@ -26,6 +26,8 @@ const Entry kTable[] = {
     {"appletv", "video"}, {"appletvplus", "video"}, {"twitch", "video"},
     {"crunchyroll", "video"}, {"plex", "video"}, {"jellyfin", "video"}, {"emby", "video"},
     {"kodi", "video"}, {"stremio", "video"}, {"tiktok", "video"},
+    {"hotstar", "video"}, {"com.sonyliv2.tvapp", "video"}, {"com.zee5.app", "video"},
+    {"tv.stremioorigin.app", "video"}, {"com.sostk.nativejelly", "video"},
     {"com.webos.app.lgchannels", "video"}, {"com.webos.app.livetv", "video"},
     {"com.webos.app.mediadiscovery", "video"}, {"com.webos.app.lifeonscreen", "video"},
     {"com.webos.app.newandhot", "video"}, {"com.animemania.app", "video"},
@@ -58,6 +60,7 @@ const Entry kTable[] = {
     {"org.webosbrew.inputhook", "tools"}, {"ooo.lew.lifesgoodwithoutspying", "tools"},
     {"org.webosbrew.safeupdate", "tools"}, {"com.open.hidden.menu", "tools"},
     {"io.github.beatcracker.decoderbench", "tools"}, {"com.amazoff.patcher", "tools"},
+    {"com.hotsoff.patcher", "tools"},
 };
 
 const char *lookup(const std::string &key) {
