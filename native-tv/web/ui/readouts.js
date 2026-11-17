@@ -402,7 +402,8 @@ async function tick() {
        measured on, so a Wi-Fi set reads its own counters, not a dormant eth0. */
     const nt = d.netTotal;
     const netParts = [];
-    if (d.ssid) netParts.push(esc(d.ssid));
+    // row() writes the sub-line as text, so the name goes in as it is: escaped, "&" showed as "&amp;".
+    if (d.ssid) netParts.push(d.ssid);
     if (d.wifi && d.wifi.level) netParts.push(d.wifi.level + ' dBm');
     if (tx > 0) netParts.push(t('metrics.net.up', '{rate} kB/s up', { rate: tx.toFixed(0) }));
     if (nt) netParts.push(t('metrics.net.totals', '{down} down, {up} up', { down: bytes(nt.rx), up: bytes(nt.tx) }));
