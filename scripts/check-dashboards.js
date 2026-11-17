@@ -699,6 +699,45 @@ async function visitMovedPages(browser, base, problems) {
 }
 
 
+// Each language of the dashboard (ui/i18n.js) opens on a phone without a script
+// error or a sideways scroll, translates the Server tab, tells the server which
+// language it is on its own requests, and is listed by the Language setting. Arabic
+// is laid out right to left, which moves the Remote button to the other corner.
+async function visitLanguages(browser, base, problems) {
+  const loader = fs.readFileSync(path.join(WEB, 'ui', 'i18n.js'), 'utf8');
+  const codes = [...loader.match(/var LANGS = \[([^\]]*)\]/)[1].matchAll(/'([a-z-]+)'/g)].map(m => m[1]);
+  for (const code of codes) {
+    const label = 'Language ' + code;
+    const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+    page.on('pageerror', e => problems.push(label + ': ' + e.message));
+    page.on('console', m => {
+      if (m.type() === 'error' && !/^Failed to load resource/.test(m.text())) problems.push(label + ': console: ' + m.text());
+    });
+    let sent = null;
+    page.on('request', r => { if (sent === null && /\/api\//.test(r.url())) sent = r.headers()['x-native-tv-lang'] || ''; });
+    try {
+      await page.goto(base + '/?lang=' + code + '&tab=server', { waitUntil: 'load' });
+      await page.waitForFunction(() => document.querySelector('[data-t="server.health.title"]') && document.querySelector('.fab'), null, { timeout: 5000 });
+      await page.waitForTimeout(500);
+      const seen = await page.evaluate(() => ({
+        lang: document.documentElement.lang, dir: document.documentElement.dir,
+        title: document.querySelector('[data-t="server.health.title"]').textContent.trim(),
+        options: Array.from(document.querySelectorAll('#lang-sel option')).map(o => o.value),
+        sideways: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        remoteOnLeft: document.querySelector('.fab').getBoundingClientRect().left < innerWidth / 2
+      }));
+      if (seen.lang !== code) problems.push(label + ': the page is in "' + seen.lang + '"');
+      if (seen.dir !== (code === 'ar' ? 'rtl' : '')) problems.push(label + ': dir is "' + seen.dir + '"');
+      if (seen.title === 'Server health') problems.push(label + ': the Server tab is not translated');
+      if (seen.remoteOnLeft !== (code === 'ar')) problems.push(label + ': the Remote button is on the ' + (seen.remoteOnLeft ? 'left' : 'right'));
+      if (seen.sideways > 0) problems.push(label + ': the page scrolls sideways by ' + seen.sideways + 'px');
+      if (sent !== code) problems.push(label + ': the first API request sent language "' + sent + '"');
+      const listed = ['auto', 'en'].concat(codes).sort().join();
+      if (seen.options.slice().sort().join() !== listed) problems.push(label + ': the Language list offers ' + seen.options.join());
+    } finally { await page.close(); }
+  }
+}
+
 let serverOutput = () => '';
 (async () => {
   const server = await startServer();
@@ -713,7 +752,7 @@ let serverOutput = () => '';
     await visitAll(browser, tv.map(t => ({ url: base + PAGES.dashboard + '?tab=' + t, label: 'TV ' + t })), problems);
   }
   const checks = [visitTvDashboard, visitTvNonOled, visitMovedPages, visitTVAssetAssembly, visitTVPolling, visitTVRendering, visitTVFastStats,
-    visitSetupRendering, visitTVDesignSystem];
+    visitSetupRendering, visitTVDesignSystem, visitLanguages];
   let checked = 0;
   for (const check of checks) {
     if (filter && !filter.test(check.name)) continue;

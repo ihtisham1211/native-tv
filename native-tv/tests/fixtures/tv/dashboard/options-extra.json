@@ -205,7 +205,6 @@
   "adblock": {
    "enabled": true,
    "count": 75
-  },
-  "localLookups": false
+  }
  }
 }

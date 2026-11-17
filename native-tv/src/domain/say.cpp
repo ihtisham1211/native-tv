@@ -79,7 +79,14 @@ std::atomic<bool> translating(false);
 std::mutex originsMutex; // msg() runs on every HTTP worker
 Origins fixedOrigins;
 Origins filledOrigins;
-std::map<std::string, Dictionary> dictionaries; // changed only by loadTranslations, before serving
+// Reading all nine dictionaries at start took 13 MB of resident memory on the
+// host (1.5 MB each), where the daemon is 5 to 11 MB on a TV and a dashboard uses
+// one language: loadTranslations lists the files, and a language is read the first
+// time a request asks for it. A std::map keeps a dictionary where it is as others
+// are added.
+std::mutex dictionariesMutex;
+std::map<std::string, std::string> dictionaryFiles; // language -> path
+std::map<std::string, Dictionary> dictionaries;     // read so far; empty for a file with no entries
 
 void remember(const std::string &text, const std::string &key, const std::string &english,
               const Json &variables) {
@@ -223,9 +230,44 @@ bool readFile(const std::string &path, std::string &contents) {
     return true;
 }
 
+bool twoLetters(const std::string &value, size_t from) {
+    return value[from] >= 'a' && value[from] <= 'z' && value[from + 1] >= 'a' &&
+           value[from + 1] <= 'z';
+}
+
+// "es", or a language with its region, "pt-br", for one whose regions have
+// dictionaries of their own.
 bool languageCode(const std::string &value) {
-    return value.size() == 2 && value[0] >= 'a' && value[0] <= 'z' && value[1] >= 'a' &&
-           value[1] <= 'z';
+    return (value.size() == 2 && twoLetters(value, 0)) ||
+           (value.size() == 5 && twoLetters(value, 0) && value[2] == '-' && twoLetters(value, 3));
+}
+
+Dictionary readDictionary(const std::string &path) {
+    Dictionary dictionary;
+    std::string contents;
+    if (!readFile(path, contents))
+        return dictionary;
+    const Json document = Json::parse(contents);
+    for (const std::string &key : document.keys()) {
+        const Json entry = document[key];
+        if (entry["text"].isString() && entry["from"].isString() && !entry["text"].string().empty())
+            dictionary[key] = {entry["text"].string(), entry["from"].string()};
+    }
+    return dictionary;
+}
+
+// The dictionary of a language, read the first time it is asked for; null when
+// there is no file for it or it has no entries.
+const Dictionary *dictionaryFor(const std::string &language) {
+    std::lock_guard<std::mutex> lock(dictionariesMutex);
+    std::map<std::string, Dictionary>::iterator loaded = dictionaries.find(language);
+    if (loaded == dictionaries.end()) {
+        const std::map<std::string, std::string>::const_iterator file = dictionaryFiles.find(language);
+        if (file == dictionaryFiles.end())
+            return nullptr;
+        loaded = dictionaries.emplace(language, readDictionary(file->second)).first;
+    }
+    return loaded->second.empty() ? nullptr : &loaded->second;
 }
 } // namespace
 
@@ -252,45 +294,38 @@ std::string list(const std::vector<std::string> &items) {
 }
 
 size_t loadTranslations(const std::string &directory) {
-    std::map<std::string, Dictionary> loaded;
+    std::map<std::string, std::string> files;
     if (DIR *folder = opendir(directory.c_str())) {
         while (const dirent *item = readdir(folder)) {
             const std::string name = item->d_name;
-            std::string contents;
-            if (name.size() != 7 || name.compare(2, 5, ".json") != 0 ||
-                !languageCode(name.substr(0, 2)) || !readFile(directory + "/" + name, contents))
-                continue;
-            const Json document = Json::parse(contents);
-            Dictionary dictionary;
-            for (const std::string &key : document.keys()) {
-                const Json entry = document[key];
-                if (entry["text"].isString() && entry["from"].isString() &&
-                    !entry["text"].string().empty())
-                    dictionary[key] = {entry["text"].string(), entry["from"].string()};
-            }
-            if (!dictionary.empty())
-                loaded[name.substr(0, 2)] = std::move(dictionary);
+            const size_t codeLength = name.size() < 5 ? 0 : name.size() - 5;
+            if (codeLength != 0 && name.compare(codeLength, 5, ".json") == 0 &&
+                languageCode(name.substr(0, codeLength)))
+                files[name.substr(0, codeLength)] = directory + "/" + name;
         }
         closedir(folder);
     }
     translating.store(false, std::memory_order_release);
-    dictionaries.swap(loaded);
+    {
+        std::lock_guard<std::mutex> lock(dictionariesMutex);
+        dictionaryFiles.swap(files);
+        dictionaries.clear();
+    }
     {
         std::lock_guard<std::mutex> lock(originsMutex);
         fixedOrigins.clear();
         filledOrigins.clear();
     }
-    translating.store(!dictionaries.empty(), std::memory_order_release);
-    return dictionaries.size();
+    translating.store(!dictionaryFiles.empty(), std::memory_order_release);
+    return dictionaryFiles.size();
 }
 
 std::string requestedLanguage(const std::string &headerValue) {
-    std::string code = headerValue.substr(0, 2);
+    std::string code = headerValue;
     for (char &letter : code)
         if (letter >= 'A' && letter <= 'Z')
             letter = static_cast<char>(letter + ('a' - 'A'));
-    if (headerValue.size() != 2 || !languageCode(code) ||
-        !translating.load(std::memory_order_acquire) || !dictionaries.count(code))
+    if (!languageCode(code) || !translating.load(std::memory_order_acquire) || !dictionaryFor(code))
         return std::string();
     return code;
 }
@@ -298,15 +333,15 @@ std::string requestedLanguage(const std::string &headerValue) {
 std::string translateJson(const std::string &body, const std::string &language) {
     if (!translating.load(std::memory_order_acquire))
         return body;
-    const std::map<std::string, Dictionary>::const_iterator dictionary = dictionaries.find(language);
-    if (dictionary == dictionaries.end())
+    const Dictionary *dictionary = dictionaryFor(language);
+    if (!dictionary)
         return body;
     Json document = Json::parse(body);
     if (!document.valid())
         return body;
     bool changed = false;
     Json replacement;
-    if (translateNode(document, "", dictionary->second, changed, replacement))
+    if (translateNode(document, "", *dictionary, changed, replacement))
         document = replacement;
     return changed ? document.dump() : body;
 }

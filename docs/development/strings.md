@@ -5,7 +5,8 @@ used, with a key next to it. The key names the string, so the same words are use
 wherever it appears, and `scripts/check-strings.py` catches the ones that drift
 apart. A translation is a file that maps the same keys to another language, in
 `native-tv/assets/i18n/<lang>.json`. English needs no file, so reading the markup
-or the script shows the real words. [Spanish](#spanish) is the one language so far.
+or the script shows the real words. There are nine: [Spanish](#spanish), and
+[eight more](#the-other-languages) that came from Glasshouse.
 
 The pages the TV's own browser shows (`native-tv/assets/google-tv/`) and the native
 TV client are English only. So are Home Assistant entity names, MQTT topics and
@@ -96,7 +97,8 @@ The check reads those pairs too.
 all carry on in English. When a page is in another language it sends
 `X-Native-Tv-Lang: es` on its own requests, and `HttpExchange::respond()` swaps the
 messages in the JSON it answers with for their translations, from the same file
-the page uses. The daemon reads `assets/i18n/` once, at start.
+the page uses. The daemon lists `assets/i18n/` at start and reads a language's file the first time a page asks for
+it, so the TV keeps in memory only the dictionaries that dashboards use.
 
 Only fields a page shows are changed (`error`, `label`, `title` and the rest of
 `displayField()` in `native-tv/src/domain/say.cpp`), and only strings
@@ -114,11 +116,25 @@ are given.
 ## The language
 
 The page follows `?lang=es`, then the choice stored by the **Language** list on the
-[Server tab](../dashboard/server.md#native-tv) (Auto, English or Español, in the
-browser's `localStorage` as `lang`), then the browser's own language. A language with
-no file is English. Changing the list stores the choice, drops `?lang=` from the
-address and reloads, since `i18n.js` reads the dictionary once, before the page's
+[Server tab](../dashboard/server.md#native-tv) (Auto, English or a language named in its
+own words, in the browser's `localStorage` as `lang`), then the browser's own language. A
+language with no file is English. Changing the list stores the choice, drops `?lang=` from
+the address and reloads, since `i18n.js` reads the dictionary once, before the page's
 scripts run, so the first paint is in one language.
+
+A code is two letters, or two with a region, as `pt-br`, where a region's language differs
+enough to have a file of its own. Only that region's browsers (`pt-BR`) and `?lang=pt-br`
+choose it; any other region of the language, such as `pt-PT` or `es-MX`, takes the file with
+two letters, when there is one. The page sends the whole code in `X-Native-Tv-Lang`, and the
+daemon reads `<xx>.json` and `<xx>-<yy>.json` alike.
+
+A language written right to left is listed in `RTL` in `i18n.js`. The page then gets
+`dir="rtl"`, which the rules marked `[dir="rtl"]` in `native-tv/web/ui/ui.css` answer: the flex
+and grid rows reverse by themselves, so those rules only mirror what names a side (an
+offset, a margin, an alignment, a switch's knob) and keep a slider as it is, since its fill and
+the number beside it grow to the right. Keyed text takes the direction of its own words, so English
+that shows in place of a missing translation keeps its full stop at the end. Gauges and bars
+are not mirrored. Arabic is the one so far.
 
 ## Translations
 
@@ -140,8 +156,8 @@ so a changed apostrophe or a trailing space counts.
   and the entry is dead weight on every TV);
 - a translation whose `{placeholders}`, markup tags or entities differ from the
   English it was made from, which would print `{n}` or break the page;
-- a language the loader lists in `LANGS` without a file, or a file it does not list,
-  which would never be read.
+- a language the loader lists in `LANGS` without a file or without a name in `NAMES`,
+  or a file it does not list, which would never be read.
 
 It reports, and does not fail on, translations whose `from` is out of date and keys a
 language lacks (`--missing` lists them). Editing English is therefore never blocked
@@ -161,10 +177,11 @@ string that was removed is deleted.
    every key with its English as `from` and an empty `text`. Entries left empty are
    rejected, so leave a key out to show its English.
 2. Fill in `text`, keeping each `{placeholder}` as it is.
-3. Add the two-letter code to `LANGS` and the language's name in its own words to
-   `NAMES` in `native-tv/web/ui/i18n.js`, and the file to `FILES` in
-   `native-tv/lifecycle/deploy.sh`. The Server tab's list is built from `LANGS`
-   and `NAMES`.
+3. Add the code (two letters, or lowercase with a region as `pt-br`) to `LANGS` and the
+   language's name in its own words to `NAMES` in `native-tv/web/ui/i18n.js`, and the file
+   to `FILES` in `native-tv/lifecycle/deploy.sh`, which the packages are built from. The
+   Server tab's list is built from `LANGS` and `NAMES`. A language written right to left
+   goes in `RTL` there too.
 4. Check the page in that language with `?lang=<code>` for text that does not fit
    and for English that was missed.
 
@@ -184,6 +201,34 @@ character Spanish needs but whose screens and glyph atlas have not been tried wi
 the pages the TV's own browser shows; names the TV reports; the Homebrew Channel
 catalogue's descriptions; and the date formats, which follow the browser's own
 language rather than the dashboard's.
+
+## The other languages
+
+`ar.json` (Arabic), `fr.json` (French), `hu.json` (Hungarian), `it.json` (Italian), `pl.json`
+(Polish), `pt.json` (European Portuguese), `pt-br.json` (Brazilian Portuguese) and `ru.json`
+(Russian) are [Glasshouse's](https://github.com/rorygallagher2024/glasshouse) dictionaries
+(MIT), which volunteers contributed there. Each holds the entries whose key and English are
+the same in Native Tv and in Glasshouse: 1,464 of Native Tv's 1,966 keys, about three quarters
+(1,463 in Russian). The rest of a page shows in English until an entry is made for it, as for any
+key a language lacks. Glasshouse's other entries, for text Native Tv does not have or has
+changed, were left out, and the product name in two entries (Arabic and Hungarian) was changed
+from Glasshouse to Native Tv. The check reports each file's count.
+
+The translators, as Glasshouse's release notes name them (GitHub user names): Arabic,
+[nasyaldnya](https://github.com/nasyaldnya); French, [eskiiom](https://github.com/eskiiom);
+Hungarian, [danzig666](https://github.com/danzig666); Italian,
+[haven80](https://github.com/haven80); Polish, [Noxarian](https://github.com/Noxarian);
+European Portuguese, [arctumn](https://github.com/arctumn); Brazilian Portuguese,
+[danielteles](https://github.com/danielteles); Russian,
+[AlexShum22](https://github.com/AlexShum22).
+
+Glasshouse does not say how each was made, and some of it may be machine-made. **None of it
+has been read by a native speaker for Native Tv.** A correction is a pull request that edits
+the `text` of the entry and leaves its `from` alone.
+
+Not translated, as for Spanish: the native TV client, the pages the TV's own browser shows,
+names the TV reports, the Homebrew Channel catalogue's descriptions and the date formats. The
+daemon's messages follow the page in these languages too, where the file has an entry for them.
 
 ## Converting part of a page
 

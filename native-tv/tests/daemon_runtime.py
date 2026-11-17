@@ -9641,6 +9641,9 @@ class DaemonRuntimeTests(unittest.TestCase):
         token = "dashboard-language-token"
         dictionaryPath = Path(__file__).resolve().parents[1] / "assets/i18n/es.json"
         dictionary = json.loads(dictionaryPath.read_text(encoding="utf-8"))
+        # A language with a region has a file of its own, pt-br.json; pt.json is not copied.
+        brazilianPath = dictionaryPath.with_name("pt-br.json")
+        brazilian = json.loads(brazilianPath.read_text(encoding="utf-8"))
         with tempfile.TemporaryDirectory(prefix="nativetv-native-language-") as folder:
             root = Path(folder)
             config = root / "config.json"
@@ -9661,6 +9664,7 @@ class DaemonRuntimeTests(unittest.TestCase):
             }))
             (assets / "screensavers/clock.qml").write_text("Text {}\n")
             shutil.copyfile(dictionaryPath, assets / "i18n/es.json")
+            shutil.copyfile(brazilianPath, assets / "i18n/pt-br.json")
             config.write_text(json.dumps({
                 "host": "127.0.0.1", "port": publicPort, "token": token,
                 "allowControl": True
@@ -9725,7 +9729,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                     [m["available"] for m in spanish["modes"]], [m["available"] for m in english["modes"]])
 
                 # Another language, or one with no dictionary, is English.
-                for language in ("en", "de", "xx", "", "es-MX", "../"):
+                for language in ("en", "de", "xx", "", "es-MX", "pt", "pt-xx", "pt_br", "../"):
                     self.assertEqual(clock(language)[1]["label"], "Clock", language)
 
                 # An error banner is translated in the same way.
@@ -9741,11 +9745,23 @@ class DaemonRuntimeTests(unittest.TestCase):
                                        {"action": "screensaverMode", "value": "clock"})
                 self.assertEqual(json.loads(body)["error"], held["from"])
 
+                # A language with its region reads its own file, in either case.
+                brazilianHeld = brazilian["srv.saver.held"]
+                self.assertNotEqual(brazilianHeld["text"], held["text"])
+                for language in ("pt-br", "PT-BR"):
+                    status, headers, body = call("/api/control", language, "POST",
+                                                 {"action": "screensaverMode", "value": "clock"})
+                    self.assertEqual(json.loads(body)["error"], brazilianHeld["text"], language)
+                    self.assertEqual(headers.get("Content-Length"), str(len(body)))
+
                 # The dictionary itself is an asset, served as it is on disk.
                 status, headers, body = call("/assets/i18n/es.json", "es")
                 self.assertEqual(status, 200)
                 self.assertIn("application/json", headers.get("Content-Type"))
                 self.assertEqual(json.loads(body), dictionary)
+                status, headers, body = call("/assets/i18n/pt-br.json")
+                self.assertEqual(status, 200)
+                self.assertEqual(json.loads(body), brazilian)
             finally:
                 if process.poll() is None:
                     process.send_signal(signal.SIGTERM)

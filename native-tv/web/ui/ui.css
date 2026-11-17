@@ -888,3 +888,32 @@ button.tools-switch.on { color: var(--c-on-surface); }
   --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960'%3E%3Cpath d='M480-361q-8 0-15-2.5t-13-8.5L268-556q-11-11-11-28t11-28q11-11 28-11t28 11l156 156 156-156q11-11 28-11t28 11q11 11 11 28t-11 28L508-372q-6 6-13 8.5t-15 2.5Z'/%3E%3C/svg%3E");
   --caret: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 -960 960 960' fill='%23888'%3E%3Cpath d='M480-361q-8 0-15-2.5t-13-8.5L268-556q-11-11-11-28t11-28q11-11 28-11t28 11l156 156 156-156q11-11 28-11t28 11q11 11 11 28t-11 28L508-372q-6 6-13 8.5t-15 2.5Z'/%3E%3C/svg%3E");
 }
+
+/* ---------- Right to left ---------- */
+/* i18n.js sets dir="rtl" for Arabic. Flex and grid rows then run the other way by themselves;
+   these rules mirror what names a side (an offset, a margin, an alignment, the switch's handle)
+   and keep a slider as it is, since the fill and the number beside it grow to the right. A key
+   with no translation shows its English, so keyed text takes the direction of its own words and
+   an English sentence keeps its full stop at the end. */
+[dir="rtl"] [data-t] { unicode-bidi: plaintext; text-align: right; }
+[dir="rtl"] .sheet .hint { text-align: center; }
+[dir="rtl"] input[type=range], [dir="rtl"] .vol-wrap { direction: ltr; }
+[dir="rtl"] .appbar-logo { margin-right: 0; margin-left: 12px; }
+[dir="rtl"] .btn .ic { margin-left: 0; margin-right: -8px; }
+[dir="rtl"] .fab { right: auto; left: 16px; }
+@media (min-width: 600px) { [dir="rtl"] .fab { left: 24px; } }
+[dir="rtl"] .nav-search span, [dir="rtl"] .nav-shortcut, [dir="rtl"] .ss-card { text-align: right; }
+[dir="rtl"] .dl dd, [dir="rtl"] details > summary .cur, [dir="rtl"] .search-result-kind,
+[dir="rtl"] .search-result-section, [dir="rtl"] .lgs-range .num { text-align: left; }
+[dir="rtl"] .prot-status { margin-left: 0; margin-right: auto; }
+[dir="rtl"] .tools-search-count, [dir="rtl"] .tools-actions { margin-left: 0; margin-right: auto; }
+[dir="rtl"] .tools-search-count { padding-left: 0; padding-right: 12px; }
+[dir="rtl"] .figure small, [dir="rtl"] .unit, [dir="rtl"] .tools-cnt { margin-left: 0; margin-right: 2px; }
+[dir="rtl"] .cfg-ent-chk .ent-type, [dir="rtl"] .n em { margin-left: 0; margin-right: 6px; }
+[dir="rtl"] .err-note b, [dir="rtl"] .log-detail-meta .lbl { margin-right: 0; margin-left: 6px; }
+[dir="rtl"] .prot-title .prot-sub, [dir="rtl"] .proc .p-pid, [dir="rtl"] .oled-sub { margin-left: 0; margin-right: 8px; }
+[dir="rtl"] input[type=file]::file-selector-button { margin-right: 0; margin-left: 12px; }
+[dir="rtl"] button.pill.sw::before { left: auto; right: 8px; }
+[dir="rtl"] button.pill.sw[aria-pressed="true"]::before { transform: translateX(-20px) scale(1.5); }
+[dir="rtl"] button.pill.sw:not(:disabled):active::before { transform: translateX(0) scale(1.75); }
+[dir="rtl"] button.pill.sw[aria-pressed="true"]:not(:disabled):active::before { transform: translateX(-20px) scale(1.75); }
