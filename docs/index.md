@@ -36,6 +36,14 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
 </p>
 <p align="center"><sub>The TV app in its three themes: Google TV, the default, OLED Care, for OLED panels, and Apple TV. Rendered by the TV app against a webOS emulator, not photographed on a TV; the HDMI inputs and the panel figures are sample values.</sub></p>
 
+<p align="center">
+  <video controls preload="none" poster="media/native-tv-promo-poster.jpg" width="640">
+    <source src="media/native-tv-promo.mp4" type="video/mp4">
+    <a href="media/native-tv-promo.mp4">Watch the 54-second Native Tv overview video</a>
+  </video><br>
+  <sub>A 54-second overview, silent with captions. The TV footage is rendered by the TV app with stand-in data, not filmed on a TV.</sub>
+</p>
+
 ## What it does
 
 * **[Control the TV without the cloud](dashboard/control.md).** D-pad, typing into the TV's text fields, volume, playback keys, app launcher, picture presets, sound output, power and reboot.

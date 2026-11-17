@@ -35,6 +35,11 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
 </p>
 <p align="center"><sub>The TV app in its three themes: Google TV, the default, OLED Care, for OLED panels, and Apple TV. Rendered by the TV app against a webOS emulator, not photographed on a TV; the HDMI inputs and the panel figures are sample values.</sub></p>
 
+<p align="center">
+  <a href="docs/media/native-tv-promo.mp4"><img src="docs/media/native-tv-promo-poster.jpg" alt="Watch the 54-second Native Tv overview video" width="64%"></a><br>
+  <sub>▶ A 54-second overview, silent with captions. The TV footage is rendered by the TV app with stand-in data, not filmed on a TV.</sub>
+</p>
+
 > [!NOTE]
 >
 > ## The TV belongs to its owner.
