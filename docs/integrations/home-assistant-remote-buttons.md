@@ -1,6 +1,6 @@
 # Remote Button Events
 
-Capture presses of the four colored buttons (**Red**, **Green**, **Yellow**, and **Blue**) on your LG Magic Remote or IR remote to trigger automations in Home Assistant.
+Capture presses of the four colored buttons (**Red**, **Green**, **Yellow**, and **Blue**), the streaming buttons (**Netflix**, **Prime Video**, **Disney+**, **LG Channels**, **Rakuten TV**, **Movies** and **Alexa**), the **Google Assistant** button and the **microphone** on your LG Magic Remote or IR remote to trigger automations in Home Assistant.
 
 ---
 
@@ -9,6 +9,11 @@ Capture presses of the four colored buttons (**Red**, **Green**, **Yellow**, and
 Most LG remotes include dedicated colored buttons (traditionally used for teletext or HbbTV interactive services). This feature listens directly to input events from the remote control on webOS and publishes each press to Home Assistant as an [Event entity](https://www.home-assistant.io/integrations/event/).
 
 Because it is exposed as an `event` entity rather than a `sensor`, every press fires an event in Home Assistant—even if you press the same button multiple times in succession.
+
+Presses reach Home Assistant whatever the button is set to under [Remote keys](../dashboard/apps.md#remote-keys) on the Apps tab, and the button still does what it is set to there: a streaming button opens its app, and the microphone starts voice control. To stop the TV acting on a button as well, set it to **Home Assistant** (or **Nothing**, which does the same): the press then does nothing on the TV and still reaches Home Assistant. The choice is offered for the buttons listed here, while MQTT is on, on TVs whose key handling is the JavaScript filter; webOS 11's own key handling cannot do it, so there a streaming button is set to **Nothing** instead. Which buttons a remote has depends on the model and region.
+
+> [!NOTE]
+> The button codes and the finding that a press still arrives on the remote's own input device after the TV's key filter has taken it are [Glasshouse](https://github.com/rorygallagher2024/glasshouse)'s measurements: the streaming buttons on a C4, the microphone and Google Assistant on a C2 (webOS 9.2.2) and, for the microphone, a C9 (webOS 4.10.2). They have not yet been tried on a TV with Native Tv, so which buttons a given remote reports is for a TV to confirm. Details are in the [TV research notes](../development/tv-research.md#remote-button-codes-and-the-input-device-c2-webos-922).
 
 <div style="text-align: center; margin: 1.5rem 0;">
   <iframe width="315" height="560" src="https://www.youtube.com/embed/G1o166aweb0" title="Remote button events demonstration" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="max-width: 100%; border-radius: 8px;"></iframe>
@@ -26,7 +31,7 @@ Because it is exposed as an `event` entity rather than a `sensor`, every press f
 
 | Entity | Type | Event Types | Topic |
 |---|---|---|---|
-| `event.lg_tv_remote_button` | `event` | `red`, `green`, `yellow`, `blue` | `lgtv/events/button` |
+| `event.lg_tv_remote_button` | `event` | `red`, `green`, `yellow`, `blue`, `netflix`, `amazon` (Prime Video), `disneyplus`, `lgchannels`, `rakutentv`, `movies`, `alexa`, `googleassistant`, `voice` (the microphone) | `lgtv/events/button` |
 
 When a button is pressed, the server publishes a JSON payload to the event topic:
 
@@ -46,7 +51,7 @@ When a button is pressed, the server publishes a JSON payload to the event topic
 1. Go to **Settings** → **Automations & Scenes** → **Create Automation**.
 2. Under **When** (Triggers), choose **Entity** → **State**.
 3. Select entity **Remote Button** (`event.lg_tv_remote_button`).
-4. In the **Event type** field, enter the color: `red`, `green`, `yellow`, or `blue`.
+4. In the **Event type** field, enter the button: a color (`red`, `green`, `yellow`, or `blue`), a streaming button (`netflix`, `amazon`, `disneyplus`, `lgchannels`, `rakutentv`, `movies` or `alexa`), `googleassistant` or the microphone, `voice`.
 5. Under **Then do** (Actions), add any action you want (e.g. toggle lights, run a script, set a scene).
 
 ---
@@ -99,7 +104,32 @@ action:
 mode: restart
 ```
 
-#### Example 3: Handling All Four Buttons in a Single Automation
+#### Example 3: The Microphone Toggles the Ambient Light
+
+Set the microphone to **Home Assistant** under Remote keys too, so a press no longer starts LG's voice control as well. The button is checked in a condition rather than in the trigger's `attribute` and `to` fields: a trigger on an attribute fires only when it changes, so pressing the same button twice in a row would run the automation once.
+
+```yaml
+alias: "TV Remote: microphone toggles the ambient light"
+trigger:
+  - platform: state
+    entity_id: event.lg_tv_remote_button
+    not_from:
+      - unknown
+      - unavailable
+    not_to:
+      - unknown
+      - unavailable
+condition:
+  - condition: template
+    value_template: "{{ trigger.to_state.attributes.event_type == 'voice' }}"
+action:
+  - action: light.toggle
+    target:
+      entity_id: light.tv_ambient
+mode: restart
+```
+
+#### Example 4: Handling All Four Buttons in a Single Automation
 
 You can handle all four colored buttons within a single automation using a `choose` action:
 
@@ -213,7 +243,8 @@ trigger:
 ## Technical Details
 
 - **Input Devices**: webOS exposes remote input streams via `/dev/input/event*` devices (`LGE RCU` for infrared, `LGE M-RCU` for Bluetooth Magic Remotes).
-- **Non-Invasive**: The listener reads the Linux kernel input stream passively without injecting binaries or intercepting system processes.
+- **Non-Invasive**: The listener reads the Linux kernel input stream passively without injecting binaries or intercepting system processes. A key set to **Home Assistant** under Remote keys is taken by the TV's key filter, which does nothing for it; the listener still reads the press from the remote's input device.
+- **Button Codes**: Each button is the Linux key code the remote's device sends (for example 1037 for Netflix and 428 for the microphone) or, from LG's input log, the Qt key code of the same key. The codes are listed in the [TV research notes](../development/tv-research.md#remote-button-codes-and-the-input-device-c2-webos-922).
 - **Disconnected Devices**: A device that disconnects is closed, and input devices are looked for again every five seconds, so a remote that comes back is picked up and a stale device cannot keep a CPU core busy.
 - **Debouncing**: Hardware keypresses across duplicate event devices are automatically debounced within 200 ms to prevent double-triggering.
 - **Automatic Discovery**: On supported hardware, the entity is discovered automatically; on unsupported hardware or emulators, the discovery entity is withheld.

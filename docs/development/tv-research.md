@@ -669,6 +669,42 @@ app in front. Remote Keys puts its own filter first.
   `/mnt/lg/cmn_data/var/preferences/configd_factory_db.json`, kept across
   reboots. There is no delete method, and setting `null` is ignored.
 
+## Remote button codes and the input device (C2, webOS 9.2.2)
+
+These measurements are from [Glasshouse](https://github.com/rorygallagher2024/glasshouse)'s testing; they have not been repeated with Native Tv.
+
+- **The input device still delivers a press the filter takes.** Read on
+  28 October 2026 with an MR22 Magic Remote: the microphone and Google Assistant
+  buttons arrive on the remote's own input device (`LGE M-RCU - Builtin [0]`) as
+  key codes 428 and 1117, LG's xkb codes 436 and 1125 less 8, while `lginput2`
+  logs `KEY_VOICE` and `KEY_GOOGLEVOICE`. A C9 (webOS 4.10.2) reports 428 for the
+  microphone too. With either set in Remote keys, the compositor's filter keeps
+  the press from LG and the device still delivers it. A key set to **Home
+  Assistant** relies on this: the filter does nothing for it, and the press reaches
+  Home Assistant from the device.
+- **The other buttons' codes.** The `IR_KEY_*` values in
+  `/usr/share/X11/xkb/keycodes/lg` less 8, captured on a C4 for the streaming
+  buttons: Netflix 1037 (IR 1045), Prime Video 1038, Disney+ 1042, LG Channels
+  1043, Rakuten TV 1044 and Alexa 1086. Movies (`IR_KEY_USP`) 1083 is read from
+  the table the same way. The Qt codes in LG's input log are 18874408, 18874409,
+  18874396, 18874397, 18874426 and 18874416 for the streaming buttons and Alexa,
+  and 18874413, 18874420 and 18874398 for Movies, the microphone and Google
+  Assistant, which are `Qt::Key_webOS_USP`, `_Voice` and `_GoogleVoice` as the xkb
+  table names them.
+- **The microphone can be set like any key.** On a CX (webOS 5.5) the microphone
+  button set to an app through the filter opened it on a press and on a hold
+  alike, and set back to LG's own it started voice control again.
+- **Regional buttons.** A 55QNED70A (webOS 10.3.1, Brazil) names
+  `Key_webOS_Globoplay` in its filter files, which opens `globoplaywebos`; an
+  OLED77B46LA (webOS 10.3.2, United Arab Emirates) names `Key_webOS_Shahid` (IR
+  1092, Qt 18874462), which opens `net.mbc.shahid-lgapp`. On a C3 (webOS 11) the
+  settings service's `other.mapping_info` lists Ivi, Okko, Kinopoisk and LG Shop
+  beside the other streaming buttons; their Qt key symbols on older firmware are
+  not known.
+- **OK from a filter.** Key code 28 (`KEY_ENTER`) sent through
+  `networkinput/test/sendKeyCode` acted as OK on a C2 (webOS 9.2.2), for a remote
+  whose own OK is the scroll wheel's press.
+
 ## Native key filters (C5, webOS 11.2.0)
 
 - **No JavaScript filters.** `surface-manager` runs on Weston

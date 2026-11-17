@@ -57,7 +57,7 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
 
 * **Control and automation**
   * **[Control without the cloud](https://ihtisham1211.github.io/native-tv/dashboard/control/).** D-pad, typing into the TV's text fields, volume, playback keys, app launcher, picture presets, sound output routing, power and reboot, from any browser.
-  * **[Remote button remapping](https://ihtisham1211.github.io/native-tv/dashboard/apps/#remote-keys).** Point Netflix, Prime Video, Guide, the colour keys and other shortcut buttons at any app, an HDMI input or Live TV; it survives reboots.
+  * **[Remote button remapping](https://ihtisham1211.github.io/native-tv/dashboard/apps/#remote-keys).** Point Netflix, Prime Video, Guide, the colour keys and other shortcut buttons at any app, an HDMI input or Live TV, or have a button only tell Home Assistant; it survives reboots.
   * **[Home Assistant and MQTT](https://ihtisham1211.github.io/native-tv/integrations/home-assistant/).** The TV appears as one device through MQTT Discovery, with controls, telemetry and [remote button events](https://ihtisham1211.github.io/native-tv/integrations/home-assistant-remote-buttons/). The topics work for any MQTT client.
 * **Privacy and cleanup**
   * **[Privacy: see what the TV collects, and switch it off](https://ihtisham1211.github.io/native-tv/dashboard/privacy/).** Whether LG's content-recognition engine is running, the advertising identifier and every recorded data agreement, most of them switchable; an on-TV blocker for LG's ad and telemetry endpoints, with its list for a router, Pi-hole or AdGuard Home; a switch for the two diagnostics services that upload to LG. [What LG's ACR does](https://ihtisham1211.github.io/native-tv/administration/acr/).

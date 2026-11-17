@@ -51,7 +51,7 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
 * **[Debloat and clean up](dashboard/apps.md).** Install Homebrew Channel apps, uninstall LG apps, stop background services, hide system apps from the launcher.
 * **[Guard risky actions with an admin PIN](administration/security.md).** A four-digit PIN, asked in the TV's first-run setup, is needed to install and remove apps, change SSH keys, restore a backup and use the power actions, on the TV and in the dashboard.
 * **[Control power and standby](dashboard/advanced.md#power-and-standby).** Stay on the network while off, Quick Boot, Wake-on-LAN, Always Ready, the On and Off timers, and a switch that [blocks LG's firmware updates](dashboard/advanced.md#system-updates), which can take root access away.
-* **[Remap the remote's buttons](dashboard/apps.md#remote-keys).** Point Netflix, Prime Video, Guide and the colour keys at any app, HDMI input or Live TV.
+* **[Remap the remote's buttons](dashboard/apps.md#remote-keys).** Point Netflix, Prime Video, Guide and the colour keys at any app, HDMI input or Live TV, or have a button only tell Home Assistant.
 * **[Install the dashboard as an app](dashboard/index.md#install-as-an-app).** A web app manifest and icons put it on a phone's home screen or a computer's app list.
 * **[Replace the screen saver](dashboard/screen-savers.md)** with a clock, starfield, fireworks or the TV's own readings.
 * **[TV report](dashboard/server.md).** The versions, model and which readings the TV answered, with nothing private in them, to paste into an issue.
