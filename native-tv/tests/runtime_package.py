@@ -12,6 +12,7 @@ import struct
 import subprocess
 import tarfile
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -489,6 +490,7 @@ class InstallerTests(unittest.TestCase):
                  'case "$1" in\n'
                  '  status) echo running ;;\n'
                  '  restart) echo restart >> "$here/commands"; rm -f "$TVWEB_BEAT"\n'
+                 '           [ -z "$TVWEB_TEST_RESTART_DELAY" ] || sleep "$TVWEB_TEST_RESTART_DELAY"\n'
                  '           grep -q broken "$here/native/nativetv-daemon" || echo 1 > "$TVWEB_BEAT" ;;\n'
                  '  *) echo "$1" >> "$here/commands" ;;\n'
                  'esac\n', 0o755)
@@ -613,6 +615,87 @@ class InstallerTests(unittest.TestCase):
         self.assertFalse((self.install / "commands").exists(), "the server was not restarted")
         self.assertFalse((self.install / ".hbc-stage").exists())
         self.assertFalse((self.install / ".previous").exists())
+
+    def wait_for_lock(self):
+        lock = self.install / ".install.lock"
+        deadline = time.monotonic() + 10
+        while not os.path.lexists(lock) and time.monotonic() < deadline:
+            time.sleep(0.02)
+        self.assertTrue(os.path.lexists(lock), "the run never took the lock")
+        return lock
+
+    def boot_id(self):
+        try:
+            return Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+        except OSError:
+            return ""
+
+    def test_a_second_run_does_not_touch_an_install_that_is_being_made(self):
+        # The launch page's run starts while the dashboard's is still waiting for its server.
+        self.existing("9.0.0")
+        self.environment["TVWEB_TEST_RESTART_DELAY"] = "2"
+        first = subprocess.Popen(["sh", str(self.script)], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                 text=True, env=self.environment)
+        lock = self.wait_for_lock()
+        answer, _ = self.run_script()
+        self.assertEqual(answer, {"ok": False, "error": "an install is already running"})
+        output, _ = first.communicate(timeout=30)
+        self.assertEqual(json.loads(output.splitlines()[-1])["action"], "upgraded")
+        # One swap and one restart, and the lock goes when the run does.
+        self.assertEqual((self.install / "commands").read_text().split(), ["restart"])
+        self.assertFalse(os.path.lexists(lock))
+        self.assert_runtime()
+
+    def test_a_lock_whose_holder_is_gone_does_not_block_an_install(self):
+        self.existing("9.0.0")
+        gone = subprocess.Popen(["sh", "-c", "exit 0"])
+        gone.wait()
+        os.symlink("%d:%s" % (gone.pid, self.boot_id()), self.install / ".install.lock")
+        self.assertEqual(self.run_install()["action"], "upgraded")
+        self.assertFalse(os.path.lexists(self.install / ".install.lock"))
+
+    def test_a_pid_from_before_a_reboot_does_not_hold_the_lock(self):
+        # After a power cut the pid in the lock may belong to something else now.
+        self.existing("9.0.0")
+        bystander = subprocess.Popen(["sleep", "30"])
+        try:
+            os.symlink("%d:another-boot" % bystander.pid, self.install / ".install.lock")
+            self.assertEqual(self.run_install()["action"], "upgraded")
+        finally:
+            bystander.kill()
+            bystander.wait()
+
+    def test_a_lock_held_by_a_live_run_is_left_alone(self):
+        self.existing("9.0.0")
+        holder = subprocess.Popen(["sleep", "30"])
+        target = "%d:%s" % (holder.pid, self.boot_id())
+        try:
+            os.symlink(target, self.install / ".install.lock")
+            answer, _ = self.run_script()
+            self.assertEqual(answer, {"ok": False, "error": "an install is already running"})
+            self.assertEqual(os.readlink(self.install / ".install.lock"), target)
+            self.assertEqual((self.install / "VERSION").read_text().strip(), "9.0.0")
+            self.assertFalse((self.install / "commands").exists())
+        finally:
+            holder.kill()
+            holder.wait()
+
+    def test_the_lock_is_released_when_a_run_fails_or_is_stopped(self):
+        self.existing("9.0.0")
+        self.put(self.source / "native/nativetv-daemon", "broken daemon", 0o666)
+        answer, _ = self.run_script()
+        self.assertFalse(answer["ok"])
+        self.assertFalse(os.path.lexists(self.install / ".install.lock"), "after a rollback")
+        # A run that is told to stop, while its server restarts, puts nothing in the way of the next.
+        self.put(self.source / "native/nativetv-daemon", "new daemon", 0o666)
+        self.environment["TVWEB_TEST_RESTART_DELAY"] = "1"
+        run = subprocess.Popen(["sh", str(self.script)], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               text=True, env=self.environment)
+        lock = self.wait_for_lock()
+        run.terminate()
+        run.communicate(timeout=30)
+        self.assertFalse(os.path.lexists(lock), "after a signal")
+        time.sleep(1.5)  # the stand-in restart that was under way finishes before the folder goes
 
     def test_a_new_attempt_forgets_the_failure_before_it(self):
         self.existing("9.0.0")

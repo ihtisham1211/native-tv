@@ -134,8 +134,39 @@ sync_native() {
   chmod 755 "$D/native/nativetv-daemon" "$D/native/nativetv-service" || return 1
 }
 
+# One run at a time. The launch page can start this while the dashboard's update
+# is still waiting for its server or putting the old one back, and two runs would
+# clear each other's stage and copy of the old files. The lock is a symlink, whose
+# creation is atomic and whose target says who holds it: the pid and the boot it
+# belongs to, so a lock left by a power cut, or by a pid something else has since
+# been given, is taken over.
+LOCK="$D/.install.lock"
+boot_id() { cat /proc/sys/kernel/random/boot_id 2>/dev/null; }
+holder_alive() {   # the lock's target, pid:boot
+  holder_pid=${1%%:*}
+  case "$holder_pid" in ''|*[!0-9]*) return 1 ;; esac
+  [ "${1#*:}" = "$(boot_id)" ] && kill -0 "$holder_pid" 2>/dev/null
+}
+release_lock() { [ "$(readlink "$LOCK" 2>/dev/null)" = "$ME" ] && rm -f "$LOCK"; }
+acquire_lock() {
+  mkdir -p "$D" || fail "could not create $D"
+  ME="$$:$(boot_id)"
+  if ! ln -s "$ME" "$LOCK" 2>/dev/null; then
+    held=$(readlink "$LOCK" 2>/dev/null)
+    holder_alive "$held" && return 1
+    # Only the lock that was seen to be stale is removed, not one taken meanwhile.
+    [ "$(readlink "$LOCK" 2>/dev/null)" = "$held" ] && rm -f "$LOCK"
+    ln -s "$ME" "$LOCK" 2>/dev/null || return 1
+  fi
+  [ "$(readlink "$LOCK" 2>/dev/null)" = "$ME" ]
+}
+
 [ -f "$SRC/VERSION" ] || fail "the app has no server files in it"
 runtime_complete || fail "the app has an incomplete native runtime"
+acquire_lock || fail "an install is already running"
+# Released on every way out, including a signal, which only a trap sees to.
+trap release_lock EXIT
+trap 'exit 1' HUP INT TERM
 want=$(version_of "$SRC/VERSION")
 have=$(version_of "$D/VERSION")
 [ -n "$have" ] || have=$(old_version_of "$D")
