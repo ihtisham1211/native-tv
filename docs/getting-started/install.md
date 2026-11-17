@@ -12,7 +12,7 @@ Each [release](https://github.com/ihtisham1211/native-tv/releases) carries the H
 1. Root the TV and install the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel).
 2. Download `io.github.ihtisham1211.nativetv_<version>_all.ipk` from the [latest release](https://github.com/ihtisham1211/native-tv/releases/latest).
 3. Install it on the TV with [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop) or `ares-install`.
-4. Open the Native Tv app on the TV. It puts the server in place, starts it and opens the dashboard; the first run starts the [setup wizard](#option-1-on-screen-setup-in-the-tv-app).
+4. Open the Native Tv app on the TV. It puts the server in place, starts it and opens the dashboard; on a first run it opens the [setup wizard](#option-1-on-screen-setup-in-the-tv-app) instead, because the server says setup is not done.
 
 [Managing](managing.md) covers updating a package install. The rest of this page, from the quick start on, builds the server from a clone and installs it over SSH instead.
 
