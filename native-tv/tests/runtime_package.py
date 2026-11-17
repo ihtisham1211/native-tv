@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import signal
 import socket
 import stat
 import struct
@@ -481,17 +482,29 @@ class InstallerTests(unittest.TestCase):
         self.source.mkdir(parents=True)
         self.install.mkdir()
         self.put(self.source / "VERSION", "9.1.0\n")
-        # A restart writes the heartbeat a server writes once it is up, unless its
-        # daemon is the "broken" one the tests build.
+        # A restart starts a "daemon", a process of its own with a pid file, and writes the
+        # heartbeat a server writes once it is up. What the daemon does is what its file
+        # says: "broken" never starts, "crashing" dies after a second, "flapping" is
+        # started again under another pid after a second (as the watchdog does), "stalled"
+        # stops its heartbeat after a second, and any other keeps running.
         self.beat = self.root / "tvweb.beat"
-        self.environment = dict(os.environ, TVWEB_BEAT=str(self.beat), TVWEB_UP_WAIT="2")
+        self.pidfile = self.root / "tvweb.pid"
+        self.environment = dict(os.environ, TVWEB_BEAT=str(self.beat), TVWEB_PIDFILE=str(self.pidfile),
+                                TVWEB_UP_WAIT="2", TVWEB_UPDATE_SETTLE_SECONDS="3")
         self.put(self.source / "tvwebctl",
                  '#!/bin/sh\nhere=$(dirname "$0")\n'
+                 'kind() { grep -q "$1" "$here/native/nativetv-daemon"; }\n'
                  'case "$1" in\n'
                  '  status) echo running ;;\n'
-                 '  restart) echo restart >> "$here/commands"; rm -f "$TVWEB_BEAT"\n'
+                 '  restart) echo restart >> "$here/commands"; rm -f "$TVWEB_BEAT" "$TVWEB_PIDFILE"\n'
                  '           [ -z "$TVWEB_TEST_RESTART_DELAY" ] || sleep "$TVWEB_TEST_RESTART_DELAY"\n'
-                 '           grep -q broken "$here/native/nativetv-daemon" || echo 1 > "$TVWEB_BEAT" ;;\n'
+                 '           kind broken && exit 0\n'
+                 '           life=30; kind crashing && life=1\n'
+                 '           sleep "$life" >/dev/null 2>&1 &\n'
+                 '           echo $! > "$TVWEB_PIDFILE"; echo $! >> "$here/pids"; echo 1 > "$TVWEB_BEAT"\n'
+                 '           kind flapping && ( sleep 1; sleep 30 >/dev/null 2>&1 & echo $! > "$TVWEB_PIDFILE"; echo $! >> "$here/pids" ) >/dev/null 2>&1 &\n'
+                 '           kind stalled && ( sleep 1; rm -f "$TVWEB_BEAT" ) >/dev/null 2>&1 &\n'
+                 '           exit 0 ;;\n'
                  '  *) echo "$1" >> "$here/commands" ;;\n'
                  'esac\n', 0o755)
         self.put(self.source / "50-tvweb.sh", "#!/bin/sh\n", 0o755)
@@ -516,6 +529,15 @@ class InstallerTests(unittest.TestCase):
         self.script.write_text(script)
 
     def tearDown(self):
+        # The stand-in daemons are processes of their own.
+        try:
+            for pid in (self.install / "pids").read_text().split():
+                try:
+                    os.kill(int(pid), signal.SIGKILL)
+                except OSError:
+                    pass
+        except OSError:
+            pass
         self.temporary.cleanup()
 
     def put(self, path, text, mode=0o644):
@@ -572,7 +594,10 @@ class InstallerTests(unittest.TestCase):
 
     def test_upgrade_is_reported_once_the_new_server_is_up_and_keeps_no_copy(self):
         self.existing("9.0.0")
+        started = time.monotonic()
         self.assertEqual(self.run_install()["action"], "upgraded")
+        # A server that has written its heartbeat is up only once it has gone on running.
+        self.assertGreaterEqual(time.monotonic() - started, 3)
         self.assertTrue(self.beat.exists())
         self.assertFalse((self.install / ".previous").exists())
         self.assertFalse((self.install / ".update-failed").exists())
@@ -597,6 +622,24 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(failed["version"], "9.1.0")
         self.assertIn("version 9.0.0 was put back", failed["error"])
         self.assertFalse((self.install / ".hbc-stage").exists())
+
+    def test_a_server_that_starts_and_then_stops_is_replaced_by_the_one_it_replaced(self):
+        # It writes its heartbeat and is running when the script looks, and then dies, is
+        # started again under another pid, or stops writing: none of those is up.
+        for kind in ("crashing", "flapping", "stalled"):
+            with self.subTest(kind=kind):
+                self.existing("9.0.0")
+                (self.install / "commands").unlink(missing_ok=True)
+                self.put(self.source / "native/nativetv-daemon", kind + " daemon", 0o666)
+                answer, _ = self.run_script()
+                self.assertFalse(answer["ok"], answer)
+                self.assertIn("did not start", answer["error"])
+                self.assertEqual((self.install / "native/nativetv-daemon").read_text(), "previous daemon")
+                self.assertEqual((self.install / "VERSION").read_text().strip(), "9.0.0")
+                self.assertEqual((self.install / "commands").read_text().split(), ["restart", "restart"])
+                failed = json.loads((self.install / ".update-failed").read_text())
+                self.assertEqual(failed["version"], "9.1.0")
+                self.assertIn("version 9.0.0 was put back", failed["error"])
 
     def test_update_that_cannot_keep_the_old_version_replaces_nothing(self):
         if os.geteuid() == 0:

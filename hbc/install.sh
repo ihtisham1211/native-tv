@@ -18,7 +18,9 @@ HOOKDIR=/var/lib/webosbrew/init.d
 # after TVWEB_ are only moved by native-tv/tests/runtime_package.py.
 PREV="$D/.previous"
 BEAT=${TVWEB_BEAT:-/var/run/tvweb.beat}
+PIDFILE=${TVWEB_PIDFILE:-/var/run/tvweb.pid}
 UP_WAIT=${TVWEB_UP_WAIT:-60}
+SETTLE=${TVWEB_UPDATE_SETTLE_SECONDS:-12}
 
 version_of() { tr -d '[:space:]' < "$1" 2>/dev/null; }
 # An install from before the daemon was the whole server kept its version in tvweb.js.
@@ -73,15 +75,28 @@ keep_previous() {
   done
 }
 # The server is up once it has written its first heartbeat, which tvwebctl
-# removes when it stops one and the server writes as it finishes starting.
+# removes when it stops one and the server writes as it finishes starting, and
+# has gone on running for a while: the same process, with its heartbeat still
+# there. A daemon that gets as far as its event loop and then dies, which the
+# watchdog would start again under another pid, is not up.
 came_up() {
   waited=0
-  while [ "$waited" -lt "$UP_WAIT" ]; do
-    [ -s "$BEAT" ] && running && return 0
+  while [ ! -s "$BEAT" ]; do
+    [ "$waited" -lt "$UP_WAIT" ] || return 1
     sleep 1
     waited=$((waited + 1))
   done
-  return 1
+  daemon=$(cat "$PIDFILE" 2>/dev/null)
+  case "$daemon" in ''|*[!0-9]*) return 1 ;; esac
+  settled=0
+  while [ "$settled" -lt "$SETTLE" ]; do
+    kill -0 "$daemon" 2>/dev/null || return 1
+    [ "$(cat "$PIDFILE" 2>/dev/null)" = "$daemon" ] || return 1
+    [ -s "$BEAT" ] || return 1
+    sleep 1
+    settled=$((settled + 1))
+  done
+  return 0
 }
 # An update that did not take is undone: the files it replaced go back by rename,
 # as the new ones went in, the old server is started, and what happened is left
