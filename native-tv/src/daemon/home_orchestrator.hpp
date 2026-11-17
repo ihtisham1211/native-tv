@@ -85,6 +85,14 @@ struct HomeOrchestratorDeps {
     std::function<long long()> nowMs;
     HomeWatchOptions watch;
 
+    // Where the TV needs it (webOS 10 and later; unset elsewhere): the preload
+    // manager told not to keep LG's Home loaded, true where it took it. The
+    // takeover sets it; this sends it again once a minute while Native Tv Home
+    // holds the place, and at each wake, because the preload manager loses it
+    // when it restarts and on a switch-on.
+    std::function<bool()> holdLgHomePreload;
+    long long preloadHoldMs = 60000;
+
     // Timers and blocking work, on the daemon's event loop.
     std::function<unsigned long long(long long delayMs, std::function<void()> task)> after;
     std::function<void(unsigned long long timer)> cancel;
@@ -140,6 +148,8 @@ class HomeOrchestrator {
     void countExit(const std::string &why);
     void giveBack(const std::string &cause, const std::string &reason);
     void cancelStubLocked();
+    void armPreloadHold();
+    void resendPreloadHold();
 
     bool cleanLegacy();
     bool finishLegacy();
@@ -174,6 +184,9 @@ class HomeOrchestrator {
     bool stubWatching_ = false;
     unsigned long long stubToken_ = 0;
     unsigned long long stubTimer_ = 0;
+    bool stopped_ = false;
+    unsigned long long preloadHoldTimer_ = 0;
+    bool preloadRefusalLogged_ = false;
 };
 } // namespace daemon
 } // namespace nativetv

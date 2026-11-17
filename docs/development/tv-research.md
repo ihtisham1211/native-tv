@@ -1694,3 +1694,31 @@ match what it first read, which turned the real setting off. The server now asks
 1.5 s apart, when a reading differs from the last one, and keeps the change only if it lasts. The
 `com.webos.service.tv.systemproperty/getProperties` call for `OledGSR` that the older fallback uses
 answers `ERROR_06 Invalid argument` on this TV.
+
+## The preload manager launching Home during playback (B4, webOS 10.3.2)
+
+Measured by upstream Glasshouse (its #1372), not by us: with Glasshouse Home (its
+equivalent of ours) in LG's Home's place on an OLED77B46LA, while Jellyfin played a 4K Dolby Vision file at
+94 Mbps with `MemAvailable` under 200 MB, `com.webos.service.preloadmanager`
+launched `com.webos.app.home` three times in 90 s (`preloadType` `periodic`,
+`preloadMode` `criu`). After the third, surface-manager hid Jellyfin's window
+and showed Home's, and under four minutes later Jellyfin was no longer running.
+With `setPreloadPolicy` `isEnabled: false` for `com.webos.app.home` the preload
+manager launched only HDMI 4 in nine minutes of the same file, and set back to
+`true` it launched Home 8 s later. The policy is the preload manager's own, not
+configd's, so a restart of the preload manager loses it. The same call was
+refused every time on a C5 (webOS 11.2.0). Our own notes above have it
+launching Home at 53 s (G3, webOS 9.2.2) and 67 s (G5, webOS 10.3.1) of a cold
+start, after the boot hook's mount.
+
+## Which cgroup the Homebrew Channel's start-up runs in (webOS 6 and 9)
+
+Measured by upstream Glasshouse (its #1355), not by us: processes started by
+the Homebrew Channel's start-up (`/var/lib/webosbrew/startup.sh` and the hooks
+it runs) inherit the systemd cgroup of the LG service that ran it. On a
+50NANO756PR (webOS 6) that was `webapp-mgr.service`, holding the server,
+dropbear and telnetd; changing some settings, background services and
+Promotions & tips among them, restarted it, which killed all three until the TV
+was unplugged. On a C2 (webOS 9.2.2) they are in `ls-hubd.service`, the Luna
+hub. `systemd-run --scope` (systemd 250 on the C2) moves a command into a
+transient scope of its own.

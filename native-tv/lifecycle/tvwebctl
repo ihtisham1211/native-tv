@@ -10,8 +10,8 @@
 # Usage: tvwebctl {start|stop|restart|status|watch|restore-home|restore-keys|restore-nativetv-home}
 
 # Each can be moved by a TVWEB_ variable of the same name, which only
-# native-tv/tests/tvwebctl_test.sh sets: it runs this script against a stand-in
-# daemon.
+# native-tv/tests/tvwebctl_test.sh and tvwebctl_scope_test.sh set: they run this
+# script against a stand-in daemon.
 LOG=${TVWEB_LOG:-/var/lib/tvweb/tvweb.log}
 PIDFILE=${TVWEB_PIDFILE:-/var/run/tvweb.pid}
 WATCHPID=${TVWEB_WATCHPID:-/var/run/tvwebwatch.pid}
@@ -26,6 +26,8 @@ CONFIG=${TVWEB_CONFIG:-/var/lib/tvweb/config.json}
 NATIVE_ENV=${TVWEB_NATIVE_ENV:-/var/lib/tvweb/native.env}
 ASSETS=${TVWEB_ASSETS:-/var/lib/tvweb/assets}
 PROC_ROOT=${TVWEB_PROC_ROOT:-/proc}
+# Where LG's apps are: what tells a TV from a computer (see the scope below).
+PALM_APPS=${TVWEB_PALM_APPS:-/usr/palm/applications}
 STUCK_SETTLE_MS=${TVWEB_STUCK_SETTLE_MS:-3000}
 SELF=$(readlink -f "$0" 2>/dev/null || echo /var/lib/tvweb/tvwebctl)
 
@@ -362,6 +364,27 @@ watch_loop() {
     stale=0
   done
 }
+
+# The daemon and its watchdog in a systemd scope of their own. Started from the
+# Homebrew Channel's start-up they were in the cgroup of the LG service that ran
+# it, with the Homebrew Channel's SSH and telnet, and restarting that service
+# killed them all: webapp-mgr.service on a 50NANO756PR (webOS 6), where a
+# settings change did, until the TV was unplugged; ls-hubd.service on a C2
+# (webOS 9.2.2). Measured by upstream Glasshouse (#1355), not on a TV of ours.
+# Only on a TV, and not when already in a tvweb scope (the daemon restarting
+# itself). Where systemd-run is missing or refuses, they start where they are.
+case "$1" in
+  start|restart)
+    if [ -z "$TVWEB_SCOPED" ] && [ -d "$PALM_APPS" ] && command -v systemd-run >/dev/null 2>&1 &&
+       ! grep -q 'tvweb' /proc/self/cgroup 2>/dev/null; then
+      # Tried first with a command that does nothing, so the action itself runs
+      # once, in the scope or, where none can be made, here.
+      if systemd-run --scope --unit="tvweb-probe-$$" /bin/true >/dev/null 2>&1; then
+        TVWEB_SCOPED=1 exec systemd-run --scope --unit="tvweb-$$" /bin/sh "$SELF" "$@"
+      fi
+      echo "systemd-run did not start it in a scope of its own; starting it here"
+    fi ;;
+esac
 
 case "$1" in
   start)   start_app; start_watch ;;

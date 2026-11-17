@@ -3,6 +3,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 import shutil
 import socket
@@ -160,6 +161,64 @@ class RuntimeTests(unittest.TestCase):
             self.assertEqual(calls.read_text().split(),
                              ["-z", "-w", "6", "127.0.0.1", str(closedPort)])
             self.assertEqual(answers(openPort, nc=1), 0, "after nc's no, bash still tries")
+
+    def test_deploy_bundle_is_written_as_owned_by_root(self):
+        # ustar holds IDs up to 2097151, and a Mac account with a larger group ID made tar refuse
+        # every entry (upstream Glasshouse #924), so pack_bundle writes the bundle as root: with
+        # --owner/--group, then --uid/--gid for the tar on macOS 10.15 to 15.3, then as it is.
+        script = (ROOT / "lifecycle/deploy.sh").read_text()
+        start = script.index("\nmake_bundle() {")
+        functions = script[start:script.index("\npack_bundle\n", start) + 1]
+        with tempfile.TemporaryDirectory() as folder:
+            work = Path(folder) / "work"
+            (work / "b").mkdir(parents=True)
+            (work / "b/file").write_text("x")
+            tools = Path(folder) / "bin"
+            tools.mkdir()
+            calls = Path(folder) / "tar-calls"
+            # A tar that takes the options in TAR_TAKES (a word each) and, given none of them, still
+            # sees the account's large group ID.
+            (tools / "tar").write_text(
+                '#!/bin/sh\n'
+                'for a in "$@"; do case "$a" in\n'
+                '  --owner=*) case " $TAR_TAKES " in *" owner "*) ;; *) echo "unsupported $a" >&2; exit 1 ;; esac; given=1 ;;\n'
+                '  --uid=*) case " $TAR_TAKES " in *" uid "*) ;; *) echo "unsupported $a" >&2; exit 1 ;; esac; given=1 ;;\n'
+                'esac; done\n'
+                'echo "$@" >> "%s"\n'
+                '[ -n "$given" ] || [ -z "$TAR_LARGE_GID" ] || { echo "gid too large" >&2; exit 1; }\n' % calls)
+            (tools / "tar").chmod(0o755)
+
+            def pack(takes, largeGid=False, path=None):
+                calls.unlink(missing_ok=True)
+                env = {"PATH": path or "%s:%s" % (tools, "/usr/bin:/bin"), "WORK": str(work),
+                       "TAR_TAKES": takes}
+                if largeGid:
+                    env["TAR_LARGE_GID"] = "1"
+                run = subprocess.run([shutil.which("bash"), "-c", "set -e\n" + functions + "\npack_bundle"],
+                                     env=env, capture_output=True, text=True, timeout=20)
+                return run.returncode, (calls.read_text().split("\n")[:-1] if calls.exists() else [])
+
+            owner = "--format=ustar --owner=0 --group=0 -cf %s/bundle.tar ." % work
+            uid = "--format=ustar --uid=0 --gid=0 -cf %s/bundle.tar ." % work
+            plain = "--format=ustar -cf %s/bundle.tar ." % work
+            self.assertEqual(pack("owner uid", largeGid=True), (0, [owner]))
+            self.assertEqual(pack("uid", largeGid=True), (0, [uid]), "the tar of macOS 10.15 to 15.3")
+            self.assertEqual(pack("", largeGid=False), (0, [plain]), "macOS 10.14 and older keep the IDs")
+            self.assertEqual(pack("", largeGid=True)[0], 1, "a tar with neither option still fails loudly")
+
+            # The tar of this computer, where it takes either option: every entry is root's.
+            real = Path(folder) / "real"
+            real.mkdir()
+            takesOwner = [subprocess.run(["tar", "--format=ustar", *options, "-cf", str(real / "probe.tar"),
+                                          "-C", str(work / "b"), "."],
+                                         capture_output=True).returncode == 0
+                          for options in (["--owner=0", "--group=0"], ["--uid=0", "--gid=0"])]
+            if any(takesOwner):
+                self.assertEqual(pack("", path=os.environ["PATH"])[0], 0)
+                with tarfile.open(work / "bundle.tar") as bundle:
+                    members = bundle.getmembers()
+                self.assertTrue(members)
+                self.assertEqual({(m.uid, m.gid) for m in members}, {(0, 0)})
 
     def test_abi_rejections(self):
         for invalid in (b"host Mach-O", elf()[:100], elf(glibc="2.34"),

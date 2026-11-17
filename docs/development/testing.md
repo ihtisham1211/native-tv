@@ -440,7 +440,7 @@ an install started after the settings save. The suites `test-dashboard-nav.js`, 
 `node native-tv/tests/ui/run.js`. `test-hbc-launch.js` runs the Homebrew Channel app's launch script against a stand-in address, `XMLHttpRequest` and exec bridge, with no `window.PalmSystem`: a server that says first-run setup is needed (`setupNeeded` in `/api/caps`) is opened on the setup pages, one whose setup is done on the dashboard, whether it was already running or the script has just put it in place. `test-i18n.js` runs the string loader (`ui/i18n.js`) against a stand-in page, address bar, storage and network: the language is picked from `?lang=`, then the stored choice, then the browser's; the dictionary is read once, synchronously; English that no longer matches an entry's `from` is shown as it is; `data-t` text and attributes are translated in place; the `X-Native-Tv-Lang` header goes on requests to the TV and not to other sites; and the Server tab's list stores a choice and drops `?lang=` before reloading. `test-admin-session.js` runs the fetch wrapper of `ui/core.js` against a stand-in network: the admin session goes out with API requests only, a 403 that says `pin:true` raises the unlock prompt and retries once, a cancelled prompt leaves the refusal, and a 401 raises the passcode screen. `test-dashboard-nav.js` holds the phone dashboard's sections and tabs
 against `ui.html` (the 13 panels, five sections, the tab buttons the scripts reveal), the Android wrapper's
 `navState` call, and the `?theme=` and `data-theme` behaviour. `test-hdmi-grid.js` runs `hdmiTable()` from `ui/lgsettings.js` and holds that no column of the HDMI inputs
-table keeps a minimum width: three of them once did (150, 130 and 130 px), which pushed the Audio format column off a 390 px phone. `test-release-card.js` runs `renderRelease()` from `ui/server.js` against the shapes the server sends for the Updates card: a newer release, none, a failed check (beside the last good answer or alone), a build from a git checkout, a check under way, and no release check at all. `test-pwa.js` holds the install contract: `ui.html` links a manifest with a name, the start URL `/`, standalone display, the page's theme colour and 192, 512 and maskable icons that are PNGs of the size they claim, and the service worker (`assets/pwa/sw.js`) answers page navigations only, with an offline page when the TV is unreachable, and never caches.
+table keeps a minimum width: three of them once did (150, 130 and 130 px), which pushed the Audio format column off a 390 px phone. `test-wifi-name.js` runs `tick()` from `ui/readouts.js` against one stats answer and holds that the Network row shows a Wi-Fi name with `&`, `<` or `"` as typed: the row writes its sub-line as text, and a name escaped first showed "Home &amp; Garden". `test-release-card.js` runs `renderRelease()` from `ui/server.js` against the shapes the server sends for the Updates card: a newer release, none, a failed check (beside the last good answer or alone), a build from a git checkout, a check under way, and no release check at all. `test-pwa.js` holds the install contract: `ui.html` links a manifest with a name, the start URL `/`, standalone display, the page's theme colour and 192, 512 and maskable icons that are PNGs of the size they claim, and the service worker (`assets/pwa/sw.js`) answers page navigations only, with an offline page when the TV is unreachable, and never caches.
 
 `native-luna` also covers the urgent call's one extra slot (one key press at a time, ahead of the
 normal calls waiting), a child killed before answering run once more and then given up on, a
@@ -478,7 +478,13 @@ listed), another app opened from Home, a running list that cannot be read, a cli
 standby, a screen that is off, LG's Home opened on purpose, no takeover in place and Home switched off count nothing; a
 tripped orchestrator takes nothing again (no wake open, no later crash counts) until `rearm()`; a failed release is
 logged; `stop()` leaves no timer; and a probe that refuses at start gives LG's Home the place without switching Home
-off, where a webOS version that is not offered still switches it off.
+off, where a webOS version that is not offered still switches it off. Where the TV needs it (webOS 10 and later), the
+preload manager is told not to keep LG's Home loaded once a minute, and when the screen comes on, only while Home holds
+the place and LG's Home is not open on purpose, not after LG's Home was given back, and a refusal is logged once; with no
+such dependency (webOS 9) no timer runs. The takeover lifecycle test in the runtime suite checks the calls
+themselves against the stand-in `luna-send`: `isEnabled` false for `com.webos.app.home` after a takeover on webOS 11 (by
+the route, the dashboard's switch-on and the boot hook's `--takeover-home`), true after a release that unmounted
+something, nothing after a refused takeover or a release of what was not held, and nothing at all on webOS 9.
 
 `native-home-probe-gate` runs stand-in clients (shell scripts) through the real child runner: exits 0, 10, 11, 12 and
 13 and any other exit are classified, a missing or non-executable file, a hang and a crash are refused, 10 and 11 are
@@ -549,7 +555,15 @@ incomplete or absent payload before installed files change. Package fixtures
 also require an ARM worker and reject missing builds before deployment, and
 `deploy.sh`'s telnet probe is run against a listening and a closed port, with a
 stand-in `nc` and without one: it believes `nc`'s yes, and tries bash's own
-`/dev/tcp` after its no or when the host has none.
+`/dev/tcp` after its no or when the host has none. Its install bundle is written as owned by
+root, so an account with a group ID too large for ustar (upstream Glasshouse #924)
+still deploys: a stand-in `tar` takes `--owner`, only `--uid`, or neither, and the
+computer's own `tar` makes a bundle whose entries are all root's.
+`tvwebctl_test.sh` (`native-tvwebctl`, Linux only) runs the watchdog against a stand-in daemon.
+`tvwebctl_scope_test.sh` (`native-tvwebctl-scope`, any computer) runs `start` and `restart`
+against stand-in `systemd-run` and `start-stop-daemon`: on a TV they run once, under
+`systemd-run --scope` after a probe, and they run where they are off a TV, where
+`systemd-run` is missing or refuses, inside a scope already, and for `stop` and `status`.
 `scripts/build-ipk.py
 --native-build native-tv/build-webos` includes the shared runtime payload;
 the packager defaults to `native-tv/build-webos` and fails when it is missing. The TV check
