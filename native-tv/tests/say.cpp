@@ -48,12 +48,18 @@ struct Dictionaries {
               "\"srv.list\":{\"text\":\"{items} y {last}\",\"from\":\"{items} and {last}\"},"
               "\"srv.empty\":{\"text\":\"\",\"from\":\"Never empty\"},"
               "\"srv.badshape\":\"just a string\"}");
+        write(directory + "/pt-br.json",
+              "{\"srv.power.on\":{\"text\":\"Ligado\",\"from\":\"On\"}}");
         write(directory + "/de.json", "{ this is not json");
+        write(directory + "/xx.json", "{}");
         write(directory + "/english.json", "{}");
         write(directory + "/fr.txt", "{}");
+        write(directory + "/pt-brx.json", "{\"srv.power.on\":{\"text\":\"No\",\"from\":\"On\"}}");
+        write(directory + "/pt_br.json", "{\"srv.power.on\":{\"text\":\"No\",\"from\":\"On\"}}");
     }
     ~Dictionaries() {
-        for (const char *name : {"es.json", "de.json", "english.json", "fr.txt"})
+        for (const char *name : {"es.json", "pt-br.json", "de.json", "xx.json", "english.json", "fr.txt",
+                                 "pt-brx.json", "pt_br.json"})
             unlink((directory + "/" + name).c_str());
         rmdir(directory.c_str());
     }
@@ -85,17 +91,22 @@ int main() {
         check(say::requestedLanguage("es").empty(), "No dictionary, no language");
 
         const Dictionaries dictionaries;
-        check(say::loadTranslations(dictionaries.directory) == 1,
-              "Only well-formed <xx>.json files with entries are read");
+        check(say::loadTranslations(dictionaries.directory) == 4,
+              "Only <xx>.json and <xx>-<yy>.json files are listed");
         check(say::loadTranslations("/nonexistent/nativetv-say") == 0 && say::requestedLanguage("es").empty(),
               "A missing folder leaves English");
-        check(say::loadTranslations(dictionaries.directory) == 1, "Reading again replaces what was read");
+        check(say::loadTranslations(dictionaries.directory) == 4, "Listing again replaces what was listed");
 
         check(say::requestedLanguage("es") == "es" && say::requestedLanguage("ES") == "es",
               "A language with a dictionary is accepted, in either case");
+        check(say::requestedLanguage("pt-br") == "pt-br" && say::requestedLanguage("pt-BR") == "pt-br",
+              "A language with its region and a dictionary of its own is accepted");
         check(say::requestedLanguage("").empty() && say::requestedLanguage("en").empty() &&
-                  say::requestedLanguage("de").empty() && say::requestedLanguage("fr").empty() &&
-                  say::requestedLanguage("es-MX").empty() && say::requestedLanguage("../").empty(),
+                  say::requestedLanguage("de").empty() && say::requestedLanguage("xx").empty() &&
+                  say::requestedLanguage("fr").empty() &&
+                  say::requestedLanguage("pt").empty() && say::requestedLanguage("es-MX").empty() &&
+                  say::requestedLanguage("pt-brx").empty() && say::requestedLanguage("pt_br").empty() &&
+                  say::requestedLanguage("pt-").empty() && say::requestedLanguage("../").empty(),
               "English, a language without a dictionary and odd values are not");
 
         // Messages made after the load are remembered, and swapped in display fields only.
@@ -109,6 +120,9 @@ int main() {
         check(say::translateJson("{\"label\":\"On\",\"state\":\"On\",\"on\":true}", "es") ==
                   "{\"label\":\"Encendido\",\"state\":\"On\",\"on\":true}",
               "A raw value that reads like a message is never changed");
+        check(say::translateJson("{\"label\":\"On\"}", "pt-br") == "{\"label\":\"Ligado\"}" &&
+                  say::translateJson("{\"label\":\"On\"}", "pt") == "{\"label\":\"On\"}",
+              "A dictionary with a region translates for that language only");
 
         const std::string failed = say::msg("srv.update.failed", "The update failed: {error}", one("error", "disk full"));
         check(say::translateJson("{\"error\":\"" + failed + "\"}", "es") ==
@@ -181,6 +195,18 @@ int main() {
             worker.join();
         check(failures[0] + failures[1] + failures[2] + failures[3] == 0,
               "Concurrent messages and translations stay consistent");
+
+        // A language is read when a request first asks for it, and kept: the other
+        // dictionaries are not in memory until a dashboard uses them.
+        check(say::loadTranslations(dictionaries.directory) == 4, "Listing again");
+        say::msg("srv.power.on", "On");
+        unlink((dictionaries.directory + "/pt-br.json").c_str());
+        check(say::requestedLanguage("pt-br").empty(), "A file not yet read is read when first asked for");
+        check(say::requestedLanguage("es") == "es", "The first request reads it");
+        unlink((dictionaries.directory + "/es.json").c_str());
+        check(say::requestedLanguage("es") == "es" &&
+                  say::translateJson("{\"label\":\"On\"}", "es") == "{\"label\":\"Encendido\"}",
+              "and it stays in memory");
 
         // Loading nothing turns it off again.
         check(say::loadTranslations("/nonexistent/nativetv-say") == 0 && say::translateJson(body, "es") == body,

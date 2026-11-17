@@ -94,7 +94,8 @@ Per-port settings for HDMI Deep Colour (extended bandwidth for 4K HDR) and audio
 * **SIMPLINK (HDMI-CEC):** Enables CEC control and auto power synchronization with connected devices over HDMI.
 * **IP control:** Enables external IP control protocol support.
 * **Auto device detection:** Finds devices the TV can show on its Home Dashboard and control, from set-top boxes to smart lights, plugs, and switches. On newer webOS versions, the TV looks up every address on the home network each time it boots, which local network ad blockers (such as Pi-hole) record as hundreds of requests. Turning this off stops the boot scans completely.
-* **Answer device scans on the TV:** LG's device detection also looks up every address on the home network when the TV's Home Hub looks for devices, and on some TVs every 5 minutes even with Auto device detection off. With this on, the TV names each of those addresses as itself in its hosts table, so the lookups are answered on the TV and stay off the network. Nothing the TV shows changes. It uses the same hosts table as the [ad blocker](privacy.md), so it works with the ad blocker off.
+
+LG's device detection also looks up every address on the home network when the TV's Home Hub looks for devices, and on some TVs every 5 minutes even with Auto device detection off. Native Tv has no switch for these lookups. Releases up to 0.124.0 had **Answer device scans on the TV**, which named each address as itself in the TV's hosts table, but LG's device scan sends its lookups to the TV's DNS relay without reading that table, so it changed nothing. Holding LG's scanner down does stop the lookups, but it is also universal control's IR blaster, and a set-top box controlled from the Magic Remote stopped answering with it held down, so Native Tv does not offer that either. Both findings are Glasshouse's measurements, in [LG's device scans](../development/tv-research.md#lgs-device-scans-webos-922-c2).
 
 ## Front lights
 
