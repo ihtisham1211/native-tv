@@ -89,10 +89,38 @@ std::string stagedFile(const ReleaseUpdateEnvironment &environment, const servic
     return joinPath(environment.stagingDirectory, service::releasePackageFile(offer.version));
 }
 
+// The staging directory as an open descriptor, made first when `create` is set. It has to
+// be a real directory, not a link, that belongs to the user this server runs as and that
+// nobody else can write to: the package waits in it between its checksum being checked and
+// the TV's installer reading it, and a link or a file put there by someone else in that
+// time would be installed as root. The descriptor is the one the files are made through.
+int openStagingDirectory(const std::string &path, bool create, std::string &error) {
+    if (create) (void)mkdir(path.c_str(), 0700);
+    const int directory = open(path.c_str(), O_RDONLY | O_DIRECTORY | O_CLOEXEC | O_NOFOLLOW);
+    struct stat info = {};
+    if (directory < 0 && errno != ELOOP && errno != ENOTDIR) {
+        error = "could not use " + path + ": " + std::strerror(errno);
+        return -1;
+    }
+    if (directory < 0 || fstat(directory, &info) != 0 || info.st_uid != geteuid() || (info.st_mode & 022) != 0) {
+        if (directory >= 0) close(directory);
+        error = msg("srv.update.stagingUnsafe",
+                    "the folder the update is downloaded to, {path}, is a link, belongs to another user or can be written by others",
+                    {{"path", path}});
+        return -1;
+    }
+    return directory;
+}
+
 bool downloadPackage(const ReleaseUpdateEnvironment &environment, const service::ReleaseOffer &offer,
                      const std::function<void(uint64_t)> &progress, const std::function<bool()> &stopping,
                      std::string &error) {
-    (void)mkdir(environment.stagingDirectory.c_str(), 0700);
+    const int directory = openStagingDirectory(environment.stagingDirectory, true, error);
+    if (directory < 0) return false;
+    struct DirectoryGuard {
+        int descriptor;
+        ~DirectoryGuard() { close(descriptor); }
+    } guard = {directory};
     uint64_t freeBytes = 0;
     const bool freeKnown = service::AppInstallSpace::availableBytes(environment.stagingDirectory, freeBytes);
     service::AppInstallDownloadCapacity capacity;
@@ -101,11 +129,11 @@ bool downloadPackage(const ReleaseUpdateEnvironment &environment, const service:
         error = msg("srv.update.noSpace", "there is not enough free space on the TV to download the update");
         return false;
     }
-    const std::string path = stagedFile(environment, offer);
-    (void)unlink(path.c_str());
-    const int output = open(path.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, 0600);
+    const std::string name = service::releasePackageFile(offer.version);
+    (void)unlinkat(directory, name.c_str(), 0);
+    const int output = openat(directory, name.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC | O_NOFOLLOW, 0600);
     if (output < 0) {
-        error = "could not create " + path + ": " + std::strerror(errno);
+        error = "could not create " + stagedFile(environment, offer) + ": " + std::strerror(errno);
         return false;
     }
     uint64_t received = 0;
@@ -276,15 +304,23 @@ service::ReleaseUpdateSteps productionReleaseUpdateSteps(const ReleaseUpdateEnvi
     steps.applyPackage = [env](const service::ReleaseOffer &offer, const std::function<bool()> &stopping,
                                std::string &error) { return applyPackage(env, offer, stopping, error); };
     // The staging folder holds this update's package and nothing else.
+    // Only a folder that is the server's own: a link there, or a folder others write to,
+    // would have the server delete files that are not its own.
     steps.discard = [env]() {
-        DIR *directory = opendir(env.stagingDirectory.c_str());
-        if (!directory) return;
+        std::string unused;
+        const int descriptor = openStagingDirectory(env.stagingDirectory, false, unused);
+        if (descriptor < 0) return;
+        DIR *directory = fdopendir(descriptor);
+        if (!directory) {
+            close(descriptor);
+            return;
+        }
         std::vector<std::string> names;
         while (const dirent *entry = readdir(directory))
             if (std::strcmp(entry->d_name, ".") != 0 && std::strcmp(entry->d_name, "..") != 0)
                 names.push_back(entry->d_name);
+        for (const std::string &name : names) (void)unlinkat(descriptor, name.c_str(), 0);
         closedir(directory);
-        for (const std::string &name : names) (void)unlink(joinPath(env.stagingDirectory, name).c_str());
     };
     return steps;
 }

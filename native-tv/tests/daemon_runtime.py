@@ -11006,6 +11006,11 @@ class DaemonRuntimeTests(unittest.TestCase):
                                           "allowControl": True}))
             hold = root / "hold-app-install"
             appPackage = app_install_ipk(with_service=False)
+            # The staging folder starts as a link to a folder with a file in it that must survive.
+            victims = root / "victims"
+            victims.mkdir()
+            (victims / "keep-me").write_text("not the server's to delete")
+            staging.symlink_to(victims)
             environment = os.environ.copy()
             environment.update({
                 "TVWEB_NATIVE_INSTALL": "1", "TVWEB_INSTALL_STAGING": str(root / "install-stage"),
@@ -11110,6 +11115,27 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertIn("check for updates again", refused["error"])
                 self.assertEqual(requested, [])
 
+                # The folder the package waits in has to be the server's own. A link there is not
+                # followed, to download into or to empty, and nor is a folder that others can write to.
+                self.assertTrue(control("checkRelease")["release"]["available"])
+                self.assertEqual([path.name for path in victims.iterdir()], ["keep-me"],
+                                 "the server emptied the folder a link led to")
+                for unsafe in ("link", "open"):
+                    if unsafe == "open":
+                        staging.unlink()
+                        staging.mkdir()
+                        staging.chmod(0o777)
+                    self.assertTrue(control("installRelease", version)["ok"])
+                    state = finished()
+                    self.assertEqual(state["state"], "failed", unsafe)
+                    self.assertIn("is a link, belongs to another user or can be written by others", state["error"])
+                    self.assertEqual([path.name for path in victims.iterdir()], ["keep-me"])
+                    if unsafe == "open":
+                        self.assertEqual(list(staging.glob("*")), [])
+                    self.assertTrue(all(path.endswith(".manifest.json") for path in requested), requested)
+                staging.chmod(0o700)
+                requested.clear()
+
                 # Only the version the owner confirmed, which is the latest found, is installed.
                 self.assertTrue(control("checkRelease")["release"]["available"])
                 for wrong in ("98.0.0", "99.0.1", "", None, 99):
@@ -11142,7 +11168,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                 busy = control("installRelease", version)
                 self.assertFalse(busy["ok"], busy)
                 self.assertIn("app install is in progress", busy["error"])
-                self.assertEqual(update_state()["state"], "idle")
+                self.assertIn(update_state()["state"], ("idle", "failed"), "the update started")
                 self.assertEqual([path for path in requested if not path.endswith(".manifest.json")], [])
                 hold.unlink()
                 app_install_in(["installed"])
