@@ -2,6 +2,8 @@
 #include "domain/names.hpp"
 #include "domain/say.hpp"
 #include <cctype>
+#include <cmath>
+#include <string>
 
 namespace nativetv {
 namespace service {
@@ -75,6 +77,17 @@ HomeOpenPlan planHomeOpen(const std::string &kind, const std::string &id,
         plan.appId = names::inputAppId(hit["input"].string());
         plan.row = "dev";
         plan.rowId = id;
+        // LG's input picker passes a device's id to its HDMI app, which has the TV select
+        // that device over HDMI-CEC: a console in standby wakes and a receiver switches to
+        // it. The ids are CEC logical addresses (receiver 5, PlayStation 5 8 on a G3, webOS
+        // 9.2.2, measured by Glasshouse): 0 is the TV, 15 broadcast, and EIM reports -1 for
+        // none. Without a usable id only the port opens.
+        const double uniqueId = hit["uniqueId"].isNumber() ? hit["uniqueId"].number() : 0;
+        if (uniqueId > 0 && uniqueId < 15 && uniqueId == std::floor(uniqueId)) {
+            plan.launchParams = Json::object();
+            plan.launchParams.set("id", Json::text("uniqueId"));
+            plan.launchParams.set("value", Json::text(std::to_string(static_cast<int>(uniqueId))));
+        }
         return plan;
     }
     if (kind == "ch") {

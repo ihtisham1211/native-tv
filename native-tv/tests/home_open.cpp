@@ -71,6 +71,7 @@ int main() {
     assert(plan.action == "launch");
     assert(plan.appId == "com.webos.app.hdmi2");
     assert(plan.row == "dev" && plan.rowId == "hdmi2:game-console");
+    assert(!plan.launchParams.valid()); // no id from the TV: the port opens alone
 
     plan = planHomeOpen("dev", "hdmi2", apps, devices, channels);
     assert(plan.handled && plan.ok);
@@ -79,6 +80,37 @@ int main() {
 
     plan = planHomeOpen("dev", "hdmi3", apps, devices, channels);
     assert(plan.handled && !plan.ok);
+
+    // A device with a CEC id has LG's HDMI app select it, as LG's own input picker does: a
+    // receiver and a console on one port each get their own. Without a usable id (none,
+    // -1 for none, 0 the TV, 15 broadcast, beyond that, not a whole number) the port opens
+    // alone.
+    const struct { const char *id; double uniqueId; const char *selected; } cecCases[] = {
+        {"hdmi2:av-receiver", 5, "5"}, {"hdmi2:game-console", 8, "8"}, {"hdmi2:game-console", 14, "14"},
+        {"hdmi2:game-console", -1, nullptr}, {"hdmi2:game-console", 0, nullptr},
+        {"hdmi2:game-console", 15, nullptr}, {"hdmi2:game-console", 255, nullptr},
+        {"hdmi2:game-console", 4.5, nullptr}};
+    for (const auto &cecCase : cecCases) {
+        Json withId = Json::array();
+        Json entry = device(cecCase.id, "hdmi2");
+        entry.set("uniqueId", Json::numeric(cecCase.uniqueId));
+        withId.add(entry);
+        plan = planHomeOpen("dev", cecCase.id, apps, withId, channels);
+        assert(plan.handled && plan.ok && plan.appId == "com.webos.app.hdmi2");
+        if (cecCase.selected) {
+            assert(plan.launchParams.isObject());
+            assert(plan.launchParams["id"].string() == "uniqueId");
+            assert(plan.launchParams["value"].string() == cecCase.selected);
+        } else {
+            assert(!plan.launchParams.valid());
+        }
+    }
+    Json notANumber = Json::array();
+    Json textual = device("hdmi2:game-console", "hdmi2");
+    textual.set("uniqueId", Json::text("8"));
+    notANumber.add(textual);
+    plan = planHomeOpen("dev", "hdmi2:game-console", apps, notANumber, channels);
+    assert(plan.ok && !plan.launchParams.valid());
 
     // A channel tunes.
     plan = planHomeOpen("ch", "channel-1", apps, devices, channels);

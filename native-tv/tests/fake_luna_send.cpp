@@ -609,12 +609,15 @@ int main(int argc, char **argv) {
         receiver.set("osdName", Json::text("AV Receiver"));
         receiver.set("depth", Json::numeric(1));
         receiver.set("physicalAddress", Json::numeric(4096));
+        // As a G3 reports them: the CEC logical addresses, receiver 5 and console 8.
+        receiver.set("uniqueId", Json::numeric(5));
         subList.add(receiver);
         Json console = Json::object();
         console.set("id", Json::text("SIMPLINK"));
         console.set("osdName", Json::text("Game Console"));
         console.set("depth", Json::numeric(2));
         console.set("physicalAddress", Json::numeric(8192));
+        console.set("uniqueId", Json::numeric(8));
         subList.add(console);
         plugged.set("subList", subList);
         devices.add(plugged);

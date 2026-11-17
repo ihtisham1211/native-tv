@@ -25,7 +25,8 @@ struct HomeOpenPlan {
 bool homeOpenHandledKind(const std::string &kind, const std::string &id);
 
 // Decide what an open request does from the catalogue sources. An app tile
-// launches its launch point, a device opens its HDMI input, a channel tunes,
+// launches its launch point, a device opens its HDMI input (selecting the device
+// over HDMI-CEC where the TV reports its id), a channel tunes,
 // and YouTube videos and Netflix titles create app-specific launch parameters.
 // Those two are the only deep links; a title is never opened in another app.
 HomeOpenPlan planHomeOpen(const std::string &kind, const std::string &id,

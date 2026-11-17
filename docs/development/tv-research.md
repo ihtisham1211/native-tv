@@ -17,6 +17,24 @@ On the same TV, unplugged HDMI 1 and HDMI 3 returned `connected: true`, but
 sublists. Where present, `hdmiPlugIn` takes precedence over `connected` for
 plug detection. The device list does not report per-device power state.
 
+### Selecting and waking a source through a receiver (G3, webOS 9.2.2)
+
+Measured by [Glasshouse](https://github.com/rorygallagher2024/glasshouse), not repeated with
+Native Tv. LG's installed `InputPicker/Controllers/ConnectionsInterfaces/Interfaces.qml`
+passes a device's EIM `uniqueId` as HDMI launch parameters `{id: "uniqueId", value: "8"}`.
+`inputcommon`'s `DeepLinkHandler.qml` passes them to
+`ExternalDeviceControlInterfaces/SimplinkController.qml`, which calls
+`com.webos.service.eim/cec/setCECUniqueId`. Without the parameters, that controller uses the
+input's `lastUniqueId`, or its first SIMPLINK device. On HDMI 2 with no remembered source, this
+selected the STEREO 70s receiver (id 5), leaving the PS5 (id 8, physical address 2.4.0.0) asleep.
+
+With the PS5 confirmed in rest mode, switching through HDMI 4 and Home and then launching HDMI 2
+with its device id woke it. CEC history showed `Set Stream Path` to 2.4.0.0 and the PS5 replying
+`Report Power Status` with `On`. LG's service sent the CEC Power key itself, so no separate power
+key is needed. A DISPLAY capture showed the receiver's logo even while the PS5 reported On, so
+that picture alone does not establish console power state. The ids match CEC logical addresses
+(receiver 5, PS5 8): 0 is the TV, 15 broadcast, and EIM reports -1 for none.
+
 ## The picture of an input behind Home (G3, webOS 9.2.2)
 
 With a web app on screen, an HDMI input's receiver stays locked to its

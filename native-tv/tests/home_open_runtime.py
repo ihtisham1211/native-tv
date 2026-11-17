@@ -172,8 +172,21 @@ def main():
             assert status == 200 and json.loads(body.decode("utf-8")) == {"ok": True}
             opened = [call for call in calls(details)
                       if call["uri"] == "com.webos.applicationManager/launch"]
-            assert opened[-1]["payload"] == {"id": "com.webos.app.hdmi2"}
+            # With the CEC id the TV reports for it, as LG's own input picker launches it:
+            # the console is selected behind the receiver rather than the receiver itself.
+            assert opened[-1]["payload"] == {
+                "id": "com.webos.app.hdmi2",
+                "params": {"id": "uniqueId", "value": "8"}}
+            status, _, body = post(
+                port, token, {"kind": "dev", "id": "hdmi2:av-receiver"})
+            assert status == 200 and json.loads(body.decode("utf-8")) == {"ok": True}
+            opened = [call for call in calls(details)
+                      if call["uri"] == "com.webos.applicationManager/launch"]
+            assert opened[-1]["payload"] == {
+                "id": "com.webos.app.hdmi2",
+                "params": {"id": "uniqueId", "value": "5"}}
 
+            # An input with no device on it opens its port alone.
             status, _, body = post(port, token, {"kind": "dev", "id": "hdmi1"})
             assert status == 200 and json.loads(body.decode("utf-8")) == {"ok": True}
             opened = [call for call in calls(details)
