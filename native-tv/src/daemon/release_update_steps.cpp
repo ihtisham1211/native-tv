@@ -239,7 +239,9 @@ bool applyPackage(const ReleaseUpdateEnvironment &environment, const service::Re
     posix_spawnattr_setpgroup(&attributes, 0);
     char shell[] = "/bin/sh";
     std::string scriptCopy = script;
-    char *const arguments[] = {shell, &scriptCopy[0], nullptr};
+    // `update` says the owner asked for this, so that an update that was put back before is tried again.
+    char update[] = "update";
+    char *const arguments[] = {shell, &scriptCopy[0], update, nullptr};
     pid_t installer = -1;
     const int spawned = posix_spawn(&installer, shell, &actions, &attributes, arguments, environ);
     posix_spawn_file_actions_destroy(&actions);

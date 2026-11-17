@@ -8,7 +8,8 @@
 # rather than over SSH. Installs made either way share /var/lib/tvweb, so one
 # made with deploy.sh is upgraded in place, config and all.
 #
-# Prints one JSON line last, which the launch page reads.
+# Prints one JSON line last, which the launch page reads. The server's update passes
+# `update` as its argument.
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 SRC="$HERE/tvweb"
@@ -23,6 +24,8 @@ UP_WAIT=${TVWEB_UP_WAIT:-60}
 SETTLE=${TVWEB_UPDATE_SETTLE_SECONDS:-12}
 
 version_of() { tr -d '[:space:]' < "$1" 2>/dev/null; }
+# The version the last update, which was put back, was for.
+failed_version() { sed -n 's/.*"version":"\([^"]*\)".*/\1/p' "$D/.update-failed" 2>/dev/null; }
 # An install from before the daemon was the whole server kept its version in tvweb.js.
 old_version_of() { sed -n "s/^var TVWEB_VERSION = '\([^']*\)';.*/\1/p" "$1/tvweb.js" 2>/dev/null; }
 # Whether dotted version $1 is newer than $2. BusyBox sort has no -V.
@@ -165,7 +168,6 @@ holder_alive() {   # the lock's target, pid:boot
 release_lock() { [ "$(readlink "$LOCK" 2>/dev/null)" = "$ME" ] && rm -f "$LOCK"; }
 acquire_lock() {
   mkdir -p "$D" || fail "could not create $D"
-  ME="$$:$(boot_id)"
   if ! ln -s "$ME" "$LOCK" 2>/dev/null; then
     held=$(readlink "$LOCK" 2>/dev/null)
     holder_alive "$held" && return 1
@@ -178,10 +180,13 @@ acquire_lock() {
 
 [ -f "$SRC/VERSION" ] || fail "the app has no server files in it"
 runtime_complete || fail "the app has an incomplete native runtime"
-acquire_lock || fail "an install is already running"
-# Released on every way out, including a signal, which only a trap sees to.
+# Released on every way out, including a signal, which only a trap sees to. The traps
+# come first: a signal between taking the lock and setting them would leave it behind.
+# Until the lock is this run's they remove nothing.
+ME="$$:$(boot_id)"
 trap release_lock EXIT
 trap 'exit 1' HUP INT TERM
+acquire_lock || fail "an install is already running"
 want=$(version_of "$SRC/VERSION")
 have=$(version_of "$D/VERSION")
 [ -n "$have" ] || have=$(old_version_of "$D")
@@ -193,6 +198,17 @@ if [ -n "$have" ] && { [ "$have" = "$want" ] || newer "$have" "$want"; }; then
   running || "$D/tvwebctl" start >/dev/null 2>&1
   link_hook
   adopt
+  result started
+  exit 0
+fi
+
+# An update that was put back is not tried again each time the app is opened, which
+# would cost the minute the new server is given every time: opening the app leaves
+# the old server running. The dashboard's Install passes `update`, and so tries again,
+# as does a package newer than the one that failed.
+if [ "$1" != "update" ] && [ -n "$have" ] && [ "$(failed_version)" = "$want" ]; then
+  running || "$D/tvwebctl" start >/dev/null 2>&1
+  link_hook
   result started
   exit 0
 fi

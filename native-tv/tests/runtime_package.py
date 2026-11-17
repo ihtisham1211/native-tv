@@ -554,8 +554,8 @@ class InstallerTests(unittest.TestCase):
         self.put(self.install / "native/nativetv-daemon", "previous daemon", 0o755)
         self.put(self.install / "assets/dashboard-app/install-app.sh", '#!/bin/sh\necho null\n', 0o755)
 
-    def run_script(self):
-        result = subprocess.run(["sh", str(self.script)], capture_output=True, text=True, check=True,
+    def run_script(self, *arguments):
+        result = subprocess.run(["sh", str(self.script), *arguments], capture_output=True, text=True, check=True,
                                 env=self.environment)
         return json.loads(result.stdout.splitlines()[-1]), result
 
@@ -630,6 +630,7 @@ class InstallerTests(unittest.TestCase):
             with self.subTest(kind=kind):
                 self.existing("9.0.0")
                 (self.install / "commands").unlink(missing_ok=True)
+                (self.install / ".update-failed").unlink(missing_ok=True)
                 self.put(self.source / "native/nativetv-daemon", kind + " daemon", 0o666)
                 answer, _ = self.run_script()
                 self.assertFalse(answer["ok"], answer)
@@ -640,6 +641,36 @@ class InstallerTests(unittest.TestCase):
                 failed = json.loads((self.install / ".update-failed").read_text())
                 self.assertEqual(failed["version"], "9.1.0")
                 self.assertIn("version 9.0.0 was put back", failed["error"])
+
+    def test_opening_the_app_does_not_try_an_update_that_was_put_back_again(self):
+        self.existing("9.0.0")
+        self.put(self.source / "native/nativetv-daemon", "broken daemon", 0o666)
+        answer, _ = self.run_script()
+        self.assertFalse(answer["ok"])
+        # The launch page runs it with no argument each time the app is opened: the old
+        # server is left running, and no attempt is made over again.
+        (self.install / "commands").unlink()
+        failed = (self.install / ".update-failed").read_text()
+        answer, _ = self.run_script()
+        self.assertTrue(answer["ok"], answer)
+        self.assertEqual((answer["action"], answer["version"]), ("started", "9.0.0"))
+        self.assertEqual((self.install / "native/nativetv-daemon").read_text(), "previous daemon")
+        self.assertFalse((self.install / "commands").exists(), "nothing was restarted")
+        self.assertEqual((self.install / ".update-failed").read_text(), failed)
+        # The dashboard's Install passes `update`, and tries again, and a newer package is not held back.
+        self.put(self.source / "native/nativetv-daemon", "new daemon", 0o666)
+        answer, _ = self.run_script("update")
+        self.assertEqual(answer["action"], "upgraded")
+        self.assertFalse((self.install / ".update-failed").exists())
+
+    def test_a_package_newer_than_the_one_that_was_put_back_is_installed_on_opening_the_app(self):
+        self.existing("9.0.0")
+        self.put(self.source / "native/nativetv-daemon", "broken daemon", 0o666)
+        self.assertFalse(self.run_script()[0]["ok"])
+        self.put(self.source / "VERSION", "9.2.0\n")
+        self.put(self.source / "native/nativetv-daemon", "new daemon", 0o666)
+        self.assertEqual(self.run_script()[0]["action"], "upgraded")
+        self.assertEqual((self.install / "VERSION").read_text().strip(), "9.2.0")
 
     def test_update_that_cannot_keep_the_old_version_replaces_nothing(self):
         if os.geteuid() == 0:
@@ -732,7 +763,7 @@ class InstallerTests(unittest.TestCase):
         # A run that is told to stop, while its server restarts, puts nothing in the way of the next.
         self.put(self.source / "native/nativetv-daemon", "new daemon", 0o666)
         self.environment["TVWEB_TEST_RESTART_DELAY"] = "1"
-        run = subprocess.Popen(["sh", str(self.script)], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        run = subprocess.Popen(["sh", str(self.script), "update"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                text=True, env=self.environment)
         lock = self.wait_for_lock()
         run.terminate()
@@ -743,7 +774,8 @@ class InstallerTests(unittest.TestCase):
     def test_a_new_attempt_forgets_the_failure_before_it(self):
         self.existing("9.0.0")
         self.put(self.install / ".update-failed", '{"version":"9.1.0","error":"x"}\n')
-        self.assertEqual(self.run_install()["action"], "upgraded")
+        answer, _ = self.run_script("update")
+        self.assertEqual(answer["action"], "upgraded")
         self.assertFalse((self.install / ".update-failed").exists())
 
     def test_upgrade_from_the_node_server_clears_its_files(self):

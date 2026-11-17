@@ -10963,7 +10963,7 @@ class DaemonRuntimeTests(unittest.TestCase):
             installer = app / "payload/install.sh"
             installer.write_text(
                 "#!/bin/sh\n"
-                "echo \"$(cat \"$(dirname \"$0\")/tvweb/VERSION\") staged=$(ls \"$NATIVETV_TEST_STAGING\" | wc -l | tr -d ' ')\""
+                "echo \"$(cat \"$(dirname \"$0\")/tvweb/VERSION\") staged=$(ls \"$NATIVETV_TEST_STAGING\" | wc -l | tr -d ' ') arg=$1\""
                 " >> \"$NATIVETV_TEST_INSTALLER_RUNS\"\n"
                 "case \"$(cat \"$NATIVETV_TEST_INSTALLER_MODE\")\" in\n"
                 "  restart) printf '{\"ok\":true,\"action\":\"upgraded\"}\\n'; kill -TERM $PPID ;;\n"
@@ -11248,7 +11248,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertEqual(state["state"], "failed")
                 self.assertIn("not enough room to keep the version being replaced", state["error"])
                 # It ran after the package was in and the download removed, and before nothing else.
-                self.assertEqual(installerRuns.read_text().split(), ["99.0.0", "staged=0"])
+                self.assertEqual(installerRuns.read_text().split(), ["99.0.0", "staged=0", "arg=update"])
                 self.assertIsNone(process.poll())
                 installLog.unlink()
                 installerRuns.unlink()
@@ -11299,7 +11299,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                     self.fail("the app's installer restarted nothing: %r" % update_state())
                 # The staged package went before the installer ran, and the TV was given exactly
                 # the package that was checked.
-                self.assertEqual(installerRuns.read_text().split(), ["99.0.0", "staged=0"])
+                self.assertEqual(installerRuns.read_text().split(), ["99.0.0", "staged=0", "arg=update"])
                 installed = [json.loads(line) for line in installLog.read_text().splitlines()]
                 self.assertEqual(len(installed), 1)
                 self.assertEqual(installed[0]["payload"]["id"], appId)
