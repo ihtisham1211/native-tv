@@ -12332,6 +12332,173 @@ class DaemonRuntimeTests(unittest.TestCase):
                 for call in restoreCalls),
                 "native-filter restore must not install or clear the JavaScript map")
 
+    def test_native_webos11_alexa_block_refusal_leaves_the_write_standing(self):
+        # A C3 on webOS 11.2.0 answers the block of amazon.alexa.view "exist in
+        # listLaunchPoint" (measured by Glasshouse): the rest of a remote-key write
+        # must stand, with a note, and the block is not asked for again.
+        binary = Path(sys.argv[1]).resolve()
+        fakeLuna = binary.parent / "native-fake-luna-send"
+        secret = "native-alexa-refusal-secret-0123456789abcdef"
+        token = "native-alexa-refusal-token"
+
+        def runDaemon(savedKeys, check):
+            publicPort = unused_port_pair()
+            nodePort = unused_port_pair((publicPort, publicPort + 1))
+            with tempfile.TemporaryDirectory(prefix="nativetv-alexa-refusal-") as folder:
+                root = Path(folder)
+                config = root / "config.json"
+                assets = root / "assets"
+                dataRoot = root / "data"
+                systemRoot = root / "system"
+                procRoot = root / "proc"
+                details = root / "luna-details.jsonl"
+                for directory in (assets, dataRoot, systemRoot / "bin", procRoot):
+                    directory.mkdir(parents=True)
+                (root / "messages").write_text("boot\n")
+                (dataRoot / "remotekeys.json").write_text(json.dumps({"keys": savedKeys}))
+                config.write_text(json.dumps({
+                    "host": "127.0.0.1", "port": publicPort, "token": token,
+                    "allowControl": True
+                }))
+
+                class NodeContextHandler(BaseHTTPRequestHandler):
+                    def do_POST(self):
+                        self.rfile.read(int(self.headers.get("Content-Length", "0")))
+                        payload = json.dumps({"ok": True, "remoteKeys": None}).encode("utf-8")
+                        self.send_response(200)
+                        self.send_header("Content-Length", str(len(payload)))
+                        self.end_headers()
+                        self.wfile.write(payload)
+
+                    def log_message(self, format, *args):
+                        pass
+
+                nodeServer = HTTPServer(("127.0.0.1", nodePort), NodeContextHandler)
+                nodeThread = threading.Thread(target=nodeServer.serve_forever)
+                nodeThread.daemon = True
+                nodeThread.start()
+                environment = os.environ.copy()
+                environment["TVWEB_LUNA_SEND"] = str(fakeLuna)
+                environment["TVWEB_DATA_DIR"] = str(dataRoot)
+                environment["TVWEB_PROXY_SECRET"] = secret
+                environment["NATIVETV_FAKE_LUNA_MODE"] = "remote-keys-native"
+                environment["NATIVETV_FAKE_LUNA_ALEXA_BLOCK"] = "launch-point"
+                environment["NATIVETV_FAKE_LUNA_DETAILS"] = str(details)
+                environment["TVWEB_NATIVE_REMOTE_INPUT"] = "1"
+                environment["TVWEB_REMOTE_KEYS_LOG_PATH"] = str(root / "messages")
+                environment["TVWEB_REMOTE_INPUT_DIRECTORY"] = str(root / "no-input")
+                environment["TVWEB_REMOTE_INPUT_DEVICES"] = str(root / "no-input-devices")
+                environment["TVWEB_REMOTE_INPUT_LOG"] = str(root / "no-input-log")
+                process = subprocess.Popen(
+                    [str(binary), "--config", str(config), "--heartbeat",
+                     str(root / "tvweb.beat"), "--workers", "4", "--listen",
+                     "--node-port", str(nodePort), "--assets-root", str(assets),
+                     "--system-root", str(systemRoot), "--proc-root", str(procRoot)],
+                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                    env=environment)
+
+                def request(path, method="GET", body=None, headers=None):
+                    headers = dict(headers or {"Authorization": "Bearer " + token})
+                    if body is not None:
+                        headers["Content-Type"] = "application/json"
+                        body = json.dumps(body).encode("utf-8")
+                    req = Request("http://127.0.0.1:%d%s" % (publicPort, path),
+                                  data=body, method=method, headers=headers)
+                    try:
+                        with urlopen(req, timeout=20) as response:
+                            return response.status, json.loads(response.read() or b"null")
+                    except HTTPError as error:
+                        return error.code, json.loads(error.read() or b"null")
+
+                def lunaCalls(uri):
+                    if not details.exists():
+                        return []
+                    return [call for call in map(json.loads, details.read_text().splitlines())
+                            if call["uri"] == uri]
+
+                def alexaOffered():
+                    status, apps = request("/api/apps")
+                    self.assertEqual(status, 200, apps)
+                    return any(row["key"] == "alexa" for row in apps["remoteKeys"]["keys"])
+
+                try:
+                    deadline = time.monotonic() + 8
+                    while time.monotonic() < deadline and process.poll() is None:
+                        try:
+                            with urlopen(Request(
+                                "http://127.0.0.1:%d/api/caps" % publicPort,
+                                headers={"Authorization": "Bearer " + token}), timeout=2):
+                                break
+                        except (OSError, URLError):
+                            time.sleep(0.03)
+                    else:
+                        output, _ = process.communicate(timeout=6)
+                        self.fail("native daemon did not start:\n" + output[-4000:])
+                    check(request, lunaCalls, alexaOffered, dataRoot, publicPort, secret)
+                finally:
+                    if process.poll() is None:
+                        process.send_signal(signal.SIGTERM)
+                        try:
+                            process.communicate(timeout=6)
+                        except subprocess.TimeoutExpired:
+                            process.kill()
+                            process.wait(timeout=3)
+                    nodeServer.shutdown()
+                    nodeServer.server_close()
+
+        blockUri = "com.webos.applicationManager/blockSystemApp"
+        settingsUri = "com.webos.settingsservice/setSystemSettings"
+
+        def writeThroughTheDashboard(request, lunaCalls, alexaOffered, dataRoot,
+                                     publicPort, secret):
+            self.assertTrue(alexaOffered(), "Alexa is offered until the TV has refused")
+            status, answer = request("/api/remotekeys", "POST", {
+                "key": "alexa", "action": "nothing", "id": ""
+            })
+            self.assertEqual(status, 200, answer)
+            self.assertTrue(answer["ok"])
+            self.assertIn("Alexa button stays as LG has it", answer["note"])
+            self.assertEqual(len(lunaCalls(blockUri)), 1)
+            self.assertNotIn("alexa", json.loads(
+                (dataRoot / "remotekeys.json").read_text())["keys"],
+                "the refused key is taken back out of the saved map")
+            self.assertFalse((dataRoot / "remotekeys-lg.json").exists(),
+                             "no block is recorded as Native Tv's")
+            self.assertFalse(alexaOffered(), "Alexa is not offered once the TV has refused")
+            status, answer = request("/api/remotekeys", "POST", {
+                "key": "netflix", "action": "open", "id": "org.example.youtube"
+            })
+            self.assertEqual(status, 200, answer)
+            self.assertEqual(answer, {"ok": True}, "a later write has nothing to note")
+            self.assertEqual(len(lunaCalls(blockUri)), 1, "the refused block is not asked again")
+            self.assertEqual(json.loads((dataRoot / "remotekeys.json").read_text())["keys"],
+                             {"netflix": "org.example.youtube"})
+
+        def reconcileASavedKey(request, lunaCalls, alexaOffered, dataRoot,
+                               publicPort, secret):
+            status, applied = request("/_internal/remote-keys/apply", "POST", {},
+                                      {"X-NativeTv-Proxy-Secret": secret})
+            self.assertEqual(status, 200, applied)
+            self.assertTrue(applied["ok"], applied)
+            self.assertEqual(len(lunaCalls(blockUri)), 1)
+            mappingWrites = [call["payload"]["settings"]["mapping_info"]
+                             for call in lunaCalls(settingsUri)
+                             if "mapping_info" in call["payload"].get("settings", {})]
+            self.assertTrue(mappingWrites, "the other saved key is written all the same")
+            self.assertEqual(mappingWrites[-1][0]["netflix"]["app_id"], "org.example.youtube")
+            self.assertFalse((dataRoot / "remotekeys-lg.json").exists() and
+                             "amazon.alexa.view" in json.loads(
+                                 (dataRoot / "remotekeys-lg.json").read_text()).get("blocks", {}),
+                             "no block is recorded as Native Tv's")
+            self.assertFalse(alexaOffered())
+            status, applied = request("/_internal/remote-keys/apply", "POST", {},
+                                      {"X-NativeTv-Proxy-Secret": secret})
+            self.assertTrue(applied["ok"], applied)
+            self.assertEqual(len(lunaCalls(blockUri)), 1, "and not asked again")
+
+        runDaemon({}, writeThroughTheDashboard)
+        runDaemon({"alexa": "", "netflix": "org.example.youtube"}, reconcileASavedKey)
+
     def test_native_mqtt_shadow_publishes_retained_state_on_isolated_topics(self):
         binary = Path(sys.argv[1]).resolve()
         fakeLuna = binary.parent / "native-fake-luna-send"

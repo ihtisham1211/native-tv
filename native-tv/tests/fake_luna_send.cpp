@@ -1305,14 +1305,23 @@ int main(int argc, char **argv) {
             const Json call = Json::parse(line);
             if (call["payload"]["id"].string() != "amazon.alexa.view")
                 continue;
+            // A refused block (a C3 on webOS 11.2.0) leaves the view as it was.
             if (call["uri"].string() ==
-                    "com.webos.applicationManager/blockSystemApp")
+                    "com.webos.applicationManager/blockSystemApp" &&
+                environment("NATIVETV_FAKE_LUNA_ALEXA_BLOCK") != "launch-point")
                 blocked = true;
             else if (call["uri"].string() ==
                          "com.webos.applicationManager/releaseBlockSystemApp")
                 blocked = false;
         }
         reply.set("returnValue", Json::flag(!blocked));
+    } else if (mode == "remote-keys-native" &&
+               uri == "com.webos.applicationManager/blockSystemApp" &&
+               callPayload["id"].string() == "amazon.alexa.view" &&
+               environment("NATIVETV_FAKE_LUNA_ALEXA_BLOCK") == "launch-point") {
+        reply.set("returnValue", Json::flag(false));
+        reply.set("errorCode", Json::numeric(1));
+        reply.set("errorText", Json::text("exist in listLaunchPoint: amazon.alexa.view"));
     } else if (mode == "remote-keys-native" &&
                (uri == "com.webos.applicationManager/blockSystemApp" ||
                 uri == "com.webos.applicationManager/releaseBlockSystemApp")) {

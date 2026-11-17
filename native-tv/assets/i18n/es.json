@@ -1466,6 +1466,7 @@
 "srv.quickAccess.notInstalled": {"text": "App no instalada", "from": "App not installed"},
 "srv.quickAccess.unknownApp": {"text": "Esa app no está en esta TV", "from": "That app is not on this TV"},
 "srv.quickAccess.unsupported": {"text": "El acceso rápido de esta TV no se puede cambiar desde aquí", "from": "This TV's Quick Access cannot be changed from here"},
+"srv.remoteKeys.alexaRefused": {"text": "Esta TV no deja impedir que Alexa se inicie, así que el botón de Alexa sigue como lo tiene LG", "from": "This TV will not stop Alexa from launching, so the Alexa button stays as LG has it"},
 "srv.remoteKeys.badKey": {"text": "Esta TV no tiene esa tecla", "from": "This TV does not have that key"},
 "srv.remoteKeys.chainFailed": {"text": "La TV no aceptó el cambio", "from": "The TV did not take the change"},
 "srv.remoteKeys.fastForward": {"text": "Avance rápido", "from": "Fast forward"},

@@ -848,7 +848,12 @@ starts the adapter on demand, so there is no unit to switch off; it shows
 blocked with `applicationManager/blockSystemApp` (`forceBlockSystemApp: false`,
 as webOS 11 requires; a second block is answered "already blocked") and
 released for **As LG has it**, and the press is answered from the log as the
-AI button's is. The adapter's toast is not shortened by `closeToast`, so for
+AI button's is. A TV that will not block the view (a C3 on webOS 11.2.0 answers
+"exist in listLaunchPoint", since the view has a launch point there) is not
+asked again until the server restarts: the refusal is remembered, the block
+recorded before it was asked for is taken back, and the key leaves the saved
+map. The rest of a write stands, the answer carries a `note`, and the Alexa
+button is not offered. The adapter's toast is not shortened by `closeToast`, so for
 4 s from the press toasts are switched off with `notification/disable`, which
 makes the service refuse new ones rather than queue them, and back on with
 `enable`; any other toast in that time is refused too. `remotekeys-toasts-off`
