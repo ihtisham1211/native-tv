@@ -127,8 +127,21 @@ void testOtherCommandsAndTopicBounds() {
 }
 } // namespace
 
+void testReleasesAreNotInstalledOverMqtt() {
+    // The command suffixes the router does not know are passed on to /api/control, where
+    // installRelease would start an update from a message to the broker, with no
+    // token, no admin PIN and no confirmation when none is set.
+    for (const char *suffix : {"installRelease", "installrelease", "INSTALLRELEASE"}) {
+        const MqttControlCommand command = route(suffix, "99.0.0");
+        check(!command.valid, "a release install must not be routed from MQTT");
+    }
+    check(route("setReleaseCheck", "on").valid && route("checkRelease", "").valid,
+          "the other release commands are still passed on");
+}
+
 int main() {
     try {
+        testReleasesAreNotInstalledOverMqtt();
         testSimpleCommandMappings();
         testTimerAndLgSettingsMappings();
         testOtherCommandsAndTopicBounds();

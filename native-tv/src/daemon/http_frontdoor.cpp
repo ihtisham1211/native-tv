@@ -9942,6 +9942,10 @@ Json HttpFrontDoor::executeMqttControl(const Json &payload) const {
     if (!payload.isObject() || !payload["action"].isString() ||
         payload["action"].string().empty())
         return failure("control action is invalid");
+    // Whatever routed it here, an MQTT command cannot install a release: the dashboard's
+    // route asks for the token, the admin PIN and the owner's confirmation first.
+    if (payload["action"].string() == "installRelease")
+        return failure("installing a release is not done over MQTT");
 
     const std::string body = payload.dump();
     HttpRequest request;
