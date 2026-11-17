@@ -166,7 +166,18 @@ elif [ -f "$DIR/config.json" ]; then
 fi
 # ustar is the plainest format, and both the GNU tar on webOS 4 and the BusyBox
 # tar on webOS 9 read it. COPYFILE_DISABLE stops macOS adding its ._ files.
-( cd "$WORK/b" && COPYFILE_DISABLE=1 tar --format=ustar -cf "$WORK/bundle.tar" . )
+# ustar holds owner and group IDs up to 2097151, and a Mac account from a
+# directory server can have a larger group ID (1149420193, seen by upstream
+# Glasshouse), which made tar refuse every entry. Every entry is written as
+# root, which the TV ignores anyway when it unpacks with -o. GNU tar and the tar
+# on macOS 15.4 or later take --owner and --group; the one on macOS 10.15 to 15.3
+# (libarchive before 3.7.3) takes --uid and --gid instead, and the one on macOS
+# 10.14 or older neither, so there the IDs stay as they are.
+make_bundle() { ( cd "$WORK/b" && COPYFILE_DISABLE=1 tar --format=ustar "$@" -cf "$WORK/bundle.tar" . ); }
+pack_bundle() {
+  make_bundle --owner=0 --group=0 2>/dev/null || make_bundle --uid=0 --gid=0 2>/dev/null || make_bundle
+}
+pack_bundle
 
 SUM=""
 if command -v md5sum >/dev/null 2>&1; then

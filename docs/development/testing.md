@@ -549,7 +549,10 @@ incomplete or absent payload before installed files change. Package fixtures
 also require an ARM worker and reject missing builds before deployment, and
 `deploy.sh`'s telnet probe is run against a listening and a closed port, with a
 stand-in `nc` and without one: it believes `nc`'s yes, and tries bash's own
-`/dev/tcp` after its no or when the host has none.
+`/dev/tcp` after its no or when the host has none. Its install bundle is written as owned by
+root, so an account with a group ID too large for ustar (upstream Glasshouse #924)
+still deploys: a stand-in `tar` takes `--owner`, only `--uid`, or neither, and the
+computer's own `tar` makes a bundle whose entries are all root's.
 `scripts/build-ipk.py
 --native-build native-tv/build-webos` includes the shared runtime payload;
 the packager defaults to `native-tv/build-webos` and fails when it is missing. The TV check
