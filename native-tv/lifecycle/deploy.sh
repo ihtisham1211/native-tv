@@ -90,7 +90,8 @@ assets/home-app/assets/icon80.png assets/home-app/assets/icon130.png \
 assets/splash-app/appinfo.json assets/splash-app/packageinfo.json \
 assets/splash-app/assets/icon80.png assets/splash-app/assets/icon130.png \
 assets/early-service/install.sh assets/early-service/early-start.sh \
-assets/i18n/es.json \
+assets/i18n/ar.json assets/i18n/es.json assets/i18n/fr.json assets/i18n/hu.json assets/i18n/it.json \
+assets/i18n/pl.json assets/i18n/pt.json assets/i18n/pt-br.json assets/i18n/ru.json \
 assets/fonts/Roboto-Regular.woff assets/fonts/Roboto-Medium.woff assets/fonts/LICENSE-Roboto.txt \
 assets/fonts/GoogleSansFlex-Display.ttf assets/fonts/GoogleSansFlex-Regular.ttf assets/fonts/GoogleSansFlex-Medium.ttf assets/fonts/LICENSE-GoogleSansFlex-OFL.txt \
 assets/app-icons/app-icons.pack assets/app-icons/LICENSE-DashboardIcons.txt \

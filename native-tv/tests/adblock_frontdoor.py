@@ -167,11 +167,10 @@ class AdBlockFrontDoorTests(unittest.TestCase):
                 self.assertTrue(result["ok"])
                 self.assertFalse(result["tvUpdatesBlocked"])
 
-                (data / "local_lookups").write_text("")
-                status, result = request("/api/control", {"action": "localLookups", "value": "off"})
+                # "Answer device scans on the TV" is gone: an old dashboard tab's request is refused.
+                status, result = request("/api/control", {"action": "localLookups", "value": "on"})
                 self.assertEqual(status, 200)
-                self.assertTrue(result["ok"], result)
-                self.assertFalse(result["localLookups"])
+                self.assertEqual(result, {"ok": False, "error": "unknown action"})
                 self.assertFalse((data / "local_lookups").exists())
 
                 status, result = request("/api/adblock/custom", "{bad json")

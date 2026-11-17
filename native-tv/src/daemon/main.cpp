@@ -889,10 +889,11 @@ int main(int argc, char **argv) {
         for (const std::string &warning : loaded.warnings)
             logger.warning(warning);
 
-        // The dashboard's dictionaries, beside its scripts; with none, every
-        // message goes out in English.
+        // The dashboard's dictionaries, beside its scripts, each read when a
+        // dashboard first uses its language; with none, every message goes out
+        // in English.
         if (const size_t languages = nativetv::say::loadTranslations(assetsRoot + "/i18n"))
-            logger.info("strings: " + std::to_string(languages) + " dashboard language(s) loaded");
+            logger.info("strings: " + std::to_string(languages) + " dashboard language(s) available");
 
         const bool nativeMqttShadowRequested =
             environmentEnabled("TVWEB_NATIVE_MQTT_SHADOW");

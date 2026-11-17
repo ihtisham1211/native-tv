@@ -17,11 +17,17 @@
  * them. The dictionaries are after Glasshouse's (MIT).
  */
 (function (root) {
-  // Languages that have a file in /assets/i18n/. English needs none.
-  var LANGS = ['es'];
+  // Languages that have a file in /assets/i18n/. English needs none. A code
+  // with its region, pt-br, is a language of its own; the language without one
+  // is the other regions'.
+  var LANGS = ['ar', 'es', 'fr', 'hu', 'it', 'pl', 'pt', 'pt-br', 'ru'];
   // Each language in its own words, as the language list shows it, so it can
   // be found whatever the page is in.
-  var NAMES = { en: 'English', es: 'Español' };
+  var NAMES = { en: 'English', ar: 'العربية', es: 'Español', fr: 'Français', hu: 'Magyar', it: 'Italiano',
+                pl: 'Polski', pt: 'Português', 'pt-br': 'Português (Brasil)', ru: 'Русский' };
+  // Languages written right to left: the page gets dir="rtl", which the
+  // stylesheet's [dir="rtl"] rules answer where they name a side.
+  var RTL = { ar: true };
 
   var dict = {};
   var lang = 'en';
@@ -43,11 +49,13 @@
 
   // ?lang=xx wins, then the stored choice, then the browser's language.
   function pick() {
-    var m = /[?&]lang=([a-z]{2})/i.exec(location.search);
+    var m = /[?&]lang=([a-z]{2}(?:-[a-z]{2})?)/i.exec(location.search);
     var chosen = stored();
     var want = m ? m[1] : chosen !== 'auto' ? chosen
              : ((navigator.languages && navigator.languages[0]) || navigator.language || 'en');
-    want = String(want).slice(0, 2).toLowerCase();
+    want = String(want).toLowerCase();
+    // pt-BR is a file of its own; any other region, es-MX or pt-PT, is the language.
+    if (LANGS.indexOf(want) < 0) want = want.slice(0, 2);
     return LANGS.indexOf(want) < 0 ? 'en' : want;
   }
 
@@ -67,6 +75,7 @@
       if (x.status !== 200) throw new Error('no dictionary');
       dict = JSON.parse(x.responseText);
       document.documentElement.setAttribute('lang', lang);
+      if (RTL[lang]) document.documentElement.setAttribute('dir', 'rtl');
     } catch (e) {
       dict = {};
       lang = 'en';

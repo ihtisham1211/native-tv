@@ -1,7 +1,6 @@
 #include "service/adblock.hpp"
 #include <algorithm>
 #include <cctype>
-#include <set>
 #include <sstream>
 
 namespace nativetv {
@@ -338,20 +337,6 @@ bool parseIp4(const std::string &text, unsigned &address) {
     return true;
 }
 
-std::string ip4Text(unsigned address) {
-    return std::to_string(address >> 24) + "." +
-           std::to_string((address >> 16) & 255) + "." +
-           std::to_string((address >> 8) & 255) + "." +
-           std::to_string(address & 255);
-}
-
-// 10/8, 172.16/12 and 192.168/16.
-bool isPrivate4(unsigned address) {
-    return (address >= 0x0a000000u && address <= 0x0affffffu) ||
-           (address >= 0xac100000u && address <= 0xac1fffffu) ||
-           (address >= 0xc0a80000u && address <= 0xc0a8ffffu);
-}
-
 void sinkhole(std::ostringstream &output, const std::string &host) {
     output << "0.0.0.0\t" << host << "\n::\t" << host << '\n';
 }
@@ -502,35 +487,7 @@ std::vector<std::string> adBlockList(const std::string &mode,
     return own;
 }
 
-std::vector<std::string> adBlockLocalLookupAddresses(
-    const std::vector<LocalInterface> &interfaces) {
-    // Each network is the TV's subnet where that is a /24 or smaller, otherwise
-    // the /24 around the TV, which is what the scans cover. The TV's own
-    // addresses are left out: the daemon looks those up to name the TV.
-    std::set<unsigned> own;
-    std::vector<std::pair<unsigned, unsigned>> networks;
-    for (const LocalInterface &entry : interfaces) {
-        if (!isPrivate4(entry.address))
-            continue;
-        own.insert(entry.address);
-        unsigned long long size = 4294967296ULL - entry.netmask;
-        if (!(size > 0 && size <= 256))
-            size = 256;
-        networks.push_back({entry.address - entry.address % static_cast<unsigned>(size),
-                            static_cast<unsigned>(size)});
-    }
-    std::vector<std::string> result;
-    std::set<unsigned> seen;
-    for (const auto &network : networks)
-        for (unsigned host = 1; host + 1 < network.second; ++host) {
-            const unsigned address = network.first + host;
-            if (own.count(address) == 0 && seen.insert(address).second)
-                result.push_back(ip4Text(address));
-        }
-    return result;
-}
-
-bool adBlockIsLocalLookupLine(const std::string &line) {
+bool adBlockIsLegacyLookupLine(const std::string &line) {
     std::istringstream words(line);
     std::string first, second, extra;
     unsigned address = 0;
@@ -573,7 +530,7 @@ std::vector<std::string> adBlockForeignHostsLines(
                     appendUnique(kept, line);
             } else if (line.find("localhost") == std::string::npos &&
                        line.find("ip6-") == std::string::npos &&
-                       !adBlockIsLocalLookupLine(line)) {
+                       !adBlockIsLegacyLookupLine(line)) {
                 bool isManaged = false;
                 for (size_t i = 1; i < parts.size() && !isManaged; ++i)
                     isManaged = contains(managedNames, lower(parts[i]));
@@ -594,8 +551,7 @@ std::string adBlockHostsTable(const std::string &mode,
                               bool sdpGraceActive,
                               bool tvUpdatesBlocked,
                               const AdBlockCustomList *custom,
-                              const std::vector<std::string> &foreignLines,
-                              const std::vector<std::string> &localLookupAddresses) {
+                              const std::vector<std::string> &foreignLines) {
     std::ostringstream output;
     output << "127.0.0.1\tlocalhost.localdomain\tlocalhost\n"
            << "::1\tlocalhost ip6-localhost ip6-loopback\n"
@@ -611,11 +567,6 @@ std::string adBlockHostsTable(const std::string &mode,
         output << "\n# TV software updates, blocked by the flag the Homebrew Channel also uses\n";
         for (const std::string &host : kUpdateHosts)
             sinkhole(output, host);
-    }
-    if (!localLookupAddresses.empty()) {
-        output << "\n# The local network, so LG's device scans are answered on the TV\n";
-        for (const std::string &address : localLookupAddresses)
-            output << address << '\t' << address << '\n';
     }
     if (!foreignLines.empty()) {
         output << "\n" << kKeptHeader << "\n";

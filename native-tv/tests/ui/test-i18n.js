@@ -128,17 +128,60 @@ var order = [
   ['', 'en', ['es-ES'], 'en'],
   ['', 'auto', ['es-419'], 'es'],
   ['', undefined, ['es'], 'es'],
-  ['', undefined, ['fr-FR', 'es'], 'en'],
+  ['', undefined, ['de-DE', 'es'], 'en'],
   ['', undefined, ['en-GB'], 'en'],
-  ['?lang=fr', undefined, ['es'], 'en'],
+  ['?lang=de', undefined, ['es'], 'en'],
   ['', 'klingon', ['es'], 'es'],
-  ['?lang=ES', undefined, ['en'], 'es']
+  ['?lang=ES', undefined, ['en'], 'es'],
+  // The other eight languages, and a region of one: pt-BR has a file of its own,
+  // any other region of Portuguese or Spanish is the language
+  ['', undefined, ['fr-FR', 'es'], 'fr'],
+  ['', undefined, ['ar-EG'], 'ar'],
+  ['', undefined, ['ru'], 'ru'],
+  ['', undefined, ['pt-BR'], 'pt-br'],
+  ['', undefined, ['pt-PT'], 'pt'],
+  ['', undefined, ['pt'], 'pt'],
+  ['?lang=pt-br', undefined, ['en'], 'pt-br'],
+  ['?lang=PT-BR', 'es', ['en'], 'pt-br'],
+  ['?lang=pt-xx', undefined, ['en'], 'pt'],
+  ['?lang=es-MX', undefined, ['en'], 'es'],
+  ['', 'pt-br', ['es'], 'pt-br'],
+  ['', 'pt', ['pt-BR'], 'pt'],
+  ['?lang=hu&tab=privacy', undefined, ['en'], 'hu'],
+  ['', undefined, ['it-IT', 'pl'], 'it'],
+  ['', undefined, ['pl'], 'pl']
 ];
 order.forEach(function (row) {
   var got = boot({ search: row[0], stored: row[1], browser: row[2] }).ctx.I18N.lang();
   assert.strictEqual(got, row[3], 'search ' + row[0] + ', stored ' + row[1] + ', browser ' + row[2] + ' -> ' + row[3] + ', got ' + got);
 });
 console.log('  ✓ ?lang= wins over the stored choice, which wins over the browser\'s language');
+
+// 4b. Each language reads its own file: pt-br's name has a hyphen
+p = boot({ browser: ['pt-BR'] });
+assert.strictEqual(p.xhrs[0].url, '/assets/i18n/pt-br.json');
+assert.strictEqual(p.root.attrs.lang, 'pt-br');
+p = boot({ browser: ['fr-CA'] });
+assert.strictEqual(p.xhrs[0].url, '/assets/i18n/fr.json');
+p.ctx.fetch('/api/screensaver');
+assert.strictEqual(p.fetches[0].init.headers.get('X-Native-Tv-Lang'), 'fr');
+p = boot({ browser: ['pt-BR'] });
+p.ctx.fetch('/api/screensaver');
+assert.strictEqual(p.fetches[0].init.headers.get('X-Native-Tv-Lang'), 'pt-br', 'the server is told the whole code');
+console.log('  ✓ pt-br loads pt-br.json and is sent to the server whole');
+
+// 4c. Arabic is laid out right to left; the others, and Arabic without its dictionary, are not
+p = boot({ browser: ['ar-SA'] });
+assert.strictEqual(p.ctx.I18N.lang(), 'ar');
+assert.strictEqual(p.root.attrs.dir, 'rtl');
+assert.strictEqual(p.root.attrs.lang, 'ar');
+['es', 'fr', 'ru', 'pt-BR', 'en-US'].forEach(function (browser) {
+  assert.strictEqual(boot({ browser: [browser] }).root.attrs.dir, undefined, browser + ' stays left to right');
+});
+assert.strictEqual(boot({ browser: ['ar'], dictStatus: 404 }).root.attrs.dir, undefined, 'English is not laid out right to left');
+assert.strictEqual(boot({ search: '?lang=ar', browser: ['en'] }).root.attrs.dir, 'rtl', '?lang=ar');
+assert.strictEqual(boot({ stored: 'ar', browser: ['en'] }).root.attrs.dir, 'rtl', 'a stored choice');
+console.log('  ✓ Arabic sets dir="rtl" on the page, and nothing else does');
 
 // 5. No dictionary, a bad one or blocked storage leaves English, not a half-translated page
 ['throw', 404, 500].forEach(function (status) {
@@ -202,9 +245,14 @@ function select() {
 }
 var sel = select();
 p = boot({ stored: 'es', select: sel });
-assert.strictEqual(sel.options.length, 1);
-assert.strictEqual(sel.options[0].value, 'es');
-assert.strictEqual(sel.options[0].textContent, 'Español');
+var offered = {};
+sel.options.forEach(function (o) { offered[o.value] = o.textContent; });
+assert.deepStrictEqual(Object.keys(offered), ['ar', 'es', 'fr', 'hu', 'it', 'pl', 'pt', 'pt-br', 'ru']);
+assert.strictEqual(offered.es, 'Español');
+assert.strictEqual(offered.ar, 'العربية');
+assert.strictEqual(offered.ru, 'Русский');
+assert.strictEqual(offered['pt-br'], 'Português (Brasil)');
+assert.strictEqual(sel.options.filter(function (o) { return o.attrs.translate !== 'no'; }).length, 0, 'names are not translated by the browser');
 assert.strictEqual(sel.value, 'es');
 sel.value = 'en';
 sel.listeners.change();
@@ -231,7 +279,14 @@ sel = select();
 p = boot({ readyState: 'loading', select: sel, elements: [] });
 assert.strictEqual(sel.options.length, 0, 'while the page is parsing, the list waits for it');
 p.listeners.DOMContentLoaded();
-assert.strictEqual(sel.options.length, 1);
-console.log('  ✓ the Server tab\'s list offers Español, stores a choice and drops ?lang= before reloading');
+assert.strictEqual(sel.options.length, 9);
+
+sel = select();
+p = boot({ stored: 'pt-br', select: sel });
+assert.strictEqual(sel.value, 'pt-br', 'a language with a region is shown as chosen');
+sel.value = 'ru';
+sel.listeners.change();
+assert.strictEqual(p.store.lang, 'ru');
+console.log('  ✓ the Server tab\'s list offers every language, stores a choice and drops ?lang= before reloading');
 
 console.log('ALL test-i18n.js assertions passed!\n');
