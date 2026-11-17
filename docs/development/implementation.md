@@ -1329,14 +1329,59 @@ request is libcurl through `AppPackageFetcher`, cancelled after 20 seconds, and
 the manifest is read to 64 KB. A server built from a clone reports its version
 without the `+commit` suffix, and says it was built from source.
 
-The result is only reported, in `/api/update`'s `release` block (the route is
-the shared server status, not an update route): installing stays with the
-Homebrew Channel, because `AppPackagePolicy` refuses Native Tv's own package and
-its SHA-256 comes from the same release as the package, so it detects a corrupted
-download but proves nothing about who published it. The dashboard's **Open
-Homebrew Channel** is `launchApp` on `org.webosbrew.hbchannel`. Installing the
-`.ipk` does not replace the running server either: that happens when the app's
-launch page next runs `install.sh`.
+The result is reported in `/api/update`'s `release` block (the route is the
+shared server status, not an update route), with the state of an update in its
+`update` object. The package's SHA-256 comes from the same release as the
+package, so it detects a corrupted download but proves nothing about who
+published it.
+
+## Installing a release from the Server tab
+
+The `installRelease` action of `/api/control` (an admin action: the PIN's
+session is needed when one is set) starts `service/release_update`'s
+`ReleaseUpdate` on a worker thread, with the version the dashboard asked the
+owner about; it is installed only while it is still what the last check found.
+`daemon/release_update_steps` holds the steps, which the unit tests replace:
+
+1. **Read.** The release's own manifest, `releases/download/v<version>/<id>.manifest.json`
+   (not the latest link, which may have moved), is read by the same libcurl call
+   as the check and must name this app, this version, this version's package file
+   (`<id>_<version>_all.ipk`, which is also the only name it is downloaded as) and
+   the same SHA-256 the check showed.
+2. **Download.** To `/media/developer/temp/nativetv-update` (`TVWEB_UPDATE_STAGING`
+   moves it, for tests), through `AppPackageFetcher` with its size limit set from the free
+   space (a third of it, at most 256 MB). The progress is the bytes written.
+3. **Verify.** The file's SHA-256 against the manifest's. `AppInstallExecutor`
+   then compares it again, before it calls `dev/install`.
+4. **Install.** `AppInstallExecutor` with `allowNativeTv`, which `AppPackagePolicy`
+   otherwise refuses for Native Tv's own package (the Homebrew Channel's stays
+   refused: `dev/install` strips the root a package's services were given, and
+   this package has none). The staged file is deleted afterwards, as the installer
+   needs the room.
+5. **Apply.** After the app's `payload/tvweb/VERSION` is the new version (waited for
+   up to 30 s, as `dev/install` can finish after luna-send gives up), the app's
+   `payload/install.sh`, found by `/var/lib/tvweb/.from-homebrew-channel`, is started in its own
+   process group with its output in `update.log`. It restarts this server,
+   so the step only returns when it did not: the installer's last line says why, and
+   a server it left running reports that it did not restart. A shutdown stops the wait
+   rather than holding the restart.
+
+`install.sh` is where the swap is made safe. Before it replaces anything it copies the
+files it is about to replace to `.previous`, and goes ahead only when all are
+copied. After the restart it waits for the heartbeat file (`/var/run/tvweb.beat`,
+which `tvwebctl` removes when it stops a server and the server writes when it has
+finished starting) for up to a minute; without one, or if the files did not take, it
+puts the copied files back by rename, restarts, and writes the reason to
+`.update-failed`, which the restored server reads at its next start and shows. It is
+the same script the app's launch page runs, so a package installed by hand is also
+undone when its server does not start. The data files (`config.json`, `home.json`
+and the rest) are never among the files it replaces. The new server may have
+started to change them before it failed, which is the one thing this does not
+undo.
+
+One update runs at a time, and while it works an app install and `restartServer` are
+refused. `update.log`, `.update-failed` and `.previous` are listed in
+[What the dashboard changes](../administration/tv-changes.md).
 
 `update.check` in `config.json` (off by default; the key the backups already
 carry) switches the daily check on. It reuses `DailyBackupScheduler`: five

@@ -480,7 +480,18 @@ class InstallerTests(unittest.TestCase):
         self.source.mkdir(parents=True)
         self.install.mkdir()
         self.put(self.source / "VERSION", "9.1.0\n")
-        self.put(self.source / "tvwebctl", '#!/bin/sh\ncase "$1" in status) echo running;; *) echo "$1" >> "$(dirname "$0")/commands";; esac\n', 0o755)
+        # A restart writes the heartbeat a server writes once it is up, unless its
+        # daemon is the "broken" one the tests build.
+        self.beat = self.root / "tvweb.beat"
+        self.environment = dict(os.environ, TVWEB_BEAT=str(self.beat), TVWEB_UP_WAIT="2")
+        self.put(self.source / "tvwebctl",
+                 '#!/bin/sh\nhere=$(dirname "$0")\n'
+                 'case "$1" in\n'
+                 '  status) echo running ;;\n'
+                 '  restart) echo restart >> "$here/commands"; rm -f "$TVWEB_BEAT"\n'
+                 '           grep -q broken "$here/native/nativetv-daemon" || echo 1 > "$TVWEB_BEAT" ;;\n'
+                 '  *) echo "$1" >> "$here/commands" ;;\n'
+                 'esac\n', 0o755)
         self.put(self.source / "50-tvweb.sh", "#!/bin/sh\n", 0o755)
         self.put(self.source / "assets/dashboard-app/install-app.sh", '#!/bin/sh\necho null\n', 0o755)
         self.put(self.source / "native/nativetv-service", "new runtime", 0o666)
@@ -519,9 +530,13 @@ class InstallerTests(unittest.TestCase):
         self.put(self.install / "native/nativetv-daemon", "previous daemon", 0o755)
         self.put(self.install / "assets/dashboard-app/install-app.sh", '#!/bin/sh\necho null\n', 0o755)
 
+    def run_script(self):
+        result = subprocess.run(["sh", str(self.script)], capture_output=True, text=True, check=True,
+                                env=self.environment)
+        return json.loads(result.stdout.splitlines()[-1]), result
+
     def run_install(self):
-        result = subprocess.run(["sh", str(self.script)], capture_output=True, text=True, check=True)
-        answer = json.loads(result.stdout.splitlines()[-1])
+        answer, result = self.run_script()
         self.assertTrue(answer["ok"], result.stdout + result.stderr)
         return answer
 
@@ -552,6 +567,58 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(self.run_install()["action"], "upgraded")
         self.assert_runtime()
         self.assertEqual(before, [(self.install / name).read_bytes() for name in ("config.json", "home.json")])
+
+    def test_upgrade_is_reported_once_the_new_server_is_up_and_keeps_no_copy(self):
+        self.existing("9.0.0")
+        self.assertEqual(self.run_install()["action"], "upgraded")
+        self.assertTrue(self.beat.exists())
+        self.assertFalse((self.install / ".previous").exists())
+        self.assertFalse((self.install / ".update-failed").exists())
+
+    def test_new_server_that_does_not_start_is_replaced_by_the_one_it_replaced(self):
+        self.existing("9.0.0")
+        self.put(self.source / "native/nativetv-daemon", "broken daemon", 0o666)
+        self.put(self.install / "assets/page.html", "old page")
+        self.put(self.source / "assets/page.html", "new page")
+        before = {name: (self.install / name).read_bytes()
+                  for name in ("config.json", "home.json", "native/nativetv-daemon",
+                               "native/nativetv-service", "assets/page.html", "VERSION")}
+        answer, _ = self.run_script()
+        self.assertFalse(answer["ok"])
+        self.assertIn("did not start", answer["error"])
+        # Every file the update replaced is back, the data was never touched, and the
+        # old server was started again after the new one failed to come up.
+        self.assertEqual(before, {name: (self.install / name).read_bytes() for name in before})
+        self.assertEqual((self.install / "commands").read_text().split(), ["restart", "restart"])
+        self.assertTrue(self.beat.exists(), "the restored server was started")
+        failed = json.loads((self.install / ".update-failed").read_text())
+        self.assertEqual(failed["version"], "9.1.0")
+        self.assertIn("version 9.0.0 was put back", failed["error"])
+        self.assertFalse((self.install / ".hbc-stage").exists())
+
+    def test_update_that_cannot_keep_the_old_version_replaces_nothing(self):
+        if os.geteuid() == 0:
+            self.skipTest("root reads any file")
+        self.existing("9.0.0")
+        unreadable = self.install / "native/nativetv-daemon"
+        unreadable.chmod(0)
+        try:
+            answer, _ = self.run_script()
+        finally:
+            unreadable.chmod(0o755)
+        self.assertFalse(answer["ok"])
+        self.assertIn("keep the version being replaced", answer["error"])
+        self.assertEqual((self.install / "VERSION").read_text().strip(), "9.0.0")
+        self.assertEqual(unreadable.read_text(), "previous daemon")
+        self.assertFalse((self.install / "commands").exists(), "the server was not restarted")
+        self.assertFalse((self.install / ".hbc-stage").exists())
+        self.assertFalse((self.install / ".previous").exists())
+
+    def test_a_new_attempt_forgets_the_failure_before_it(self):
+        self.existing("9.0.0")
+        self.put(self.install / ".update-failed", '{"version":"9.1.0","error":"x"}\n')
+        self.assertEqual(self.run_install()["action"], "upgraded")
+        self.assertFalse((self.install / ".update-failed").exists())
 
     def test_upgrade_from_the_node_server_clears_its_files(self):
         # An install from before the daemon was the whole server: its version is in
@@ -586,7 +653,8 @@ class InstallerTests(unittest.TestCase):
                 source = self.source / "native" / missing
                 content = source.read_bytes()
                 source.unlink()
-                result = subprocess.run(["sh", str(self.script)], capture_output=True, text=True, check=True)
+                result = subprocess.run(["sh", str(self.script)], capture_output=True, text=True, check=True,
+                                        env=self.environment)
                 self.assertFalse(json.loads(result.stdout.splitlines()[-1])["ok"])
                 self.assertEqual((self.install / "VERSION").read_bytes(), before)
                 self.assertEqual((self.install / "native/nativetv-service").read_text(), "previous runtime")
@@ -597,7 +665,8 @@ class InstallerTests(unittest.TestCase):
         self.existing("9.0.0")
         before = (self.install / "VERSION").read_bytes()
         shutil.rmtree(self.source / "native")
-        result = subprocess.run(["sh", str(self.script)], capture_output=True, text=True, check=True)
+        result = subprocess.run(["sh", str(self.script)], capture_output=True, text=True, check=True,
+                                env=self.environment)
         self.assertFalse(json.loads(result.stdout.splitlines()[-1])["ok"])
         self.assertEqual((self.install / "VERSION").read_bytes(), before)
         self.assertEqual((self.install / "native/nativetv-service").read_text(), "previous runtime")

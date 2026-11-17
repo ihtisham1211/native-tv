@@ -14,7 +14,7 @@ Each [release](https://github.com/ihtisham1211/native-tv/releases) carries the H
 3. Install it on the TV with [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop) or `ares-install`.
 4. Open the Native Tv app on the TV. It puts the server in place, starts it and opens the dashboard; on a first run it opens the [setup wizard](#option-1-on-screen-setup-in-the-tv-app) instead, because the server says setup is not done.
 
-[Managing](managing.md) covers updating a package install. The rest of this page, from the quick start on, builds the server from a clone and installs it over SSH instead.
+A package install updates itself later: the Server tab's **Updates** card installs a newer release, and [Managing](managing.md#updating) says what that changes. The rest of this page, from the quick start on, builds the server from a clone and installs it over SSH instead.
 
 ## Quick start
 

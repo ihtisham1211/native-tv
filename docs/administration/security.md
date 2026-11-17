@@ -156,7 +156,7 @@ it before exposing it more widely.
 | Setting                        | Browser on the network                                                   | App on the TV | MQTT  |
 | :----------------------------- | :----------------------------------------------------------------------- | :------------ | :---- |
 | `"token": "your-secret-token"` | with `?k=your-secret-token` or `Authorization: Bearer your-secret-token` | works         | works |
-| Admin PIN set                  | install, remove, SSH keys, restore, Home Assistant settings, services, the dashboard port and power need `X-Admin-Session`, from the PIN | asks for the PIN | unaffected |
+| Admin PIN set                  | install, remove, SSH keys, restore, Home Assistant settings, services, the dashboard port, power and installing a Native Tv release need `X-Admin-Session`, from the PIN | asks for the PIN | unaffected |
 | `"host": "0.0.0.0"`            | over IPv4 only                                                           | works         | works |
 | `"host": "127.0.0.1"`          | no — port 8080 is closed to the network                                  | works         | works |
 
@@ -168,10 +168,27 @@ The Server tab's **Check for updates** button, and **Check daily** once switched
 on (`"update": {"check": true}`, off by default), fetch the latest release's
 manifest from `github.com/ihtisham1211/native-tv` over HTTPS. GitHub sees the
 TV's address and the `tvweb/<version>` the request names; no other identifier is
-sent. The answer is only shown: the version and the package's SHA-256 are read
-from it, and the links offered are built from that version, never taken from the
-manifest. The installer still refuses Native Tv's own package, so a release
-cannot install itself; it is installed from the Homebrew Channel.
+sent. The version and the package's SHA-256 are read from the manifest, and the
+links offered are built from that version, never taken from it.
+
+**Install version x.y.z**, on a server that came from the app package, goes on
+from there. It needs controls switched on, the admin PIN when one is set, and a
+confirmation in the dashboard. It then reads the release's own
+manifest again, downloads the `.ipk` it names from the same GitHub release over
+HTTPS (libcurl's certificate checks are on, and the TV's clock has to be right
+for them), refuses the package unless its SHA-256 is the manifest's, and has the
+TV's app installer put it in place before the app's installer, which runs as
+root as the server does, moves the files over. Nothing is installed from an
+address the manifest names: the manifest only supplies the checksum.
+
+The checksum comes from the same release as the package. It detects a damaged
+or truncated download; it does not show who published the release, and the
+package is not signed. Someone who can publish a release on the repository can
+therefore put code on a TV that installs it, which is also true of the
+Homebrew Channel's own updates. The action is one of `/api/control`'s, with its
+token and its JSON and same-origin checks, so a page on another site cannot
+start it, and the dashboard names the version it asks about, which the server
+installs only while it is still the one the last check found.
 
 ## Moving from telnet to SSH
 

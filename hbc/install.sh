@@ -14,6 +14,11 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 SRC="$HERE/tvweb"
 D=/var/lib/tvweb
 HOOKDIR=/var/lib/webosbrew/init.d
+# What an update replaces, kept for a server that does not start. The names
+# after TVWEB_ are only moved by native-tv/tests/runtime_package.py.
+PREV="$D/.previous"
+BEAT=${TVWEB_BEAT:-/var/run/tvweb.beat}
+UP_WAIT=${TVWEB_UP_WAIT:-60}
 
 version_of() { tr -d '[:space:]' < "$1" 2>/dev/null; }
 # An install from before the daemon was the whole server kept its version in tvweb.js.
@@ -55,6 +60,42 @@ link_hook() {
   mkdir -p "$HOOKDIR" && ln -sf "$SRC/50-tvweb.sh" "$HOOKDIR/50-tvweb"
 }
 fail() { printf '{"ok":false,"error":"%s"}\n' "$1"; exit 0; }
+
+# The files this update is about to replace, copied aside, so that a server which
+# does not come up can be put back. An update goes ahead only when all of them
+# are kept.
+keep_previous() {
+  rm -rf "$PREV" "$D/.update-failed"
+  ( cd "$S" && find . -type f ) | while read -r f; do
+    case "$f" in ./50-tvweb.sh) continue ;; esac
+    [ -f "$D/$f" ] || continue
+    mkdir -p "$PREV/$(dirname "$f")" && cp -p "$D/$f" "$PREV/$f" || exit 1
+  done
+}
+# The server is up once it has written its first heartbeat, which tvwebctl
+# removes when it stops one and the server writes as it finishes starting.
+came_up() {
+  waited=0
+  while [ "$waited" -lt "$UP_WAIT" ]; do
+    [ -s "$BEAT" ] && running && return 0
+    sleep 1
+    waited=$((waited + 1))
+  done
+  return 1
+}
+# An update that did not take is undone: the files it replaced go back by rename,
+# as the new ones went in, the old server is started, and what happened is left
+# for the server to show. A first install has nothing to go back to.
+abandon() {
+  if [ -n "$have" ] && [ -d "$PREV" ]; then
+    ( cd "$PREV" && find . -type f ) | while read -r f; do
+      cp -p "$PREV/$f" "$D/$f.new" && mv -f "$D/$f.new" "$D/$f"
+    done
+    printf '{"version":"%s","error":"%s, so version %s was put back"}\n' "$want" "$1" "$have" > "$D/.update-failed"
+    "$D/tvwebctl" restart >/dev/null 2>&1
+  fi
+  fail "$1"
+}
 
 # Same-version app launches also repair a missing or outdated native component.
 # Newer server installs keep their own runtime when an older app is opened.
@@ -117,6 +158,10 @@ mkdir -p "$D" || fail "could not create $D"
 S="$D/.hbc-stage"
 rm -rf "$S"
 cp -r "$SRC" "$S" || fail "could not copy the server files"
+if [ -n "$have" ] && ! keep_previous; then
+  rm -rf "$S" "$PREV"
+  fail "there is not enough room to keep the version being replaced"
+fi
 ( cd "$S" && find . -type f ) | while read -r f; do
   case "$f" in ./50-tvweb.sh) continue ;; esac
   mkdir -p "$D/$(dirname "$f")"
@@ -126,7 +171,7 @@ chmod +x "$D/tvwebctl" 2>/dev/null
 # The Node server of earlier releases: nothing runs it now.
 rm -rf "${D:?}/tvweb.js" "${D:?}/lib"
 if [ -f "$D/native/nativetv-service" ] && [ -f "$D/native/nativetv-daemon" ]; then
-  chmod 755 "$D/native/nativetv-daemon" "$D/native/nativetv-service" || fail "could not make native runtimes executable"
+  chmod 755 "$D/native/nativetv-daemon" "$D/native/nativetv-service" || abandon "could not make native runtimes executable"
 fi
 # ares-package stores plain files as 0666. The server runs as root, so nothing
 # else on the TV may be able to change its code.
@@ -143,9 +188,17 @@ chmod 600 "$D/config.json" 2>/dev/null
 
 rm -rf "$S"
 
-[ "$(version_of "$D/VERSION")" = "$want" ] || fail "the new files did not take"
+[ "$(version_of "$D/VERSION")" = "$want" ] || abandon "the new files did not take"
 link_hook
 # Before the restart, so the server starting up finds nothing left to retire.
 adopt
 "$D/tvwebctl" restart >/dev/null 2>&1
-if [ -n "$have" ]; then result upgraded; else result installed; fi
+# An upgrade is reported once the new server is running: the launch page and the
+# dashboard's update both wait on this answer.
+if [ -n "$have" ]; then
+  came_up || abandon "the new server did not start"
+  rm -rf "$PREV"
+  result upgraded
+else
+  result installed
+fi

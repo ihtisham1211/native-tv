@@ -59,6 +59,7 @@ add_library(nativetv_daemon src/daemon/app_tile_manager.cpp
   src/daemon/app_elevation_store.cpp
   src/daemon/install_job_store.cpp
   src/daemon/install_jobs.cpp
+  src/daemon/release_update_steps.cpp
   src/daemon/child_process.cpp src/daemon/command_policy.cpp
   src/daemon/adblock_manager.cpp src/daemon/config.cpp src/daemon/devtools_firewall.cpp
   src/daemon/daily_backup_scheduler.cpp src/daemon/game_frame_rate.cpp
@@ -132,7 +133,7 @@ add_library(nativetv_tv_services src/service/control_commands.cpp
   src/service/app_package_policy.cpp src/service/app_install_preview.cpp
   src/service/app_install_space.cpp
   src/service/admin_pin.cpp src/service/app_icons.cpp src/service/app_kinds.cpp src/service/backup.cpp
-  src/service/quick_access.cpp src/service/release_check.cpp src/service/screen_time.cpp
+  src/service/quick_access.cpp src/service/release_check.cpp src/service/release_update.cpp src/service/screen_time.cpp
   src/service/volume_ceiling.cpp src/service/keyboard.cpp
   src/service/screensaver_policy.cpp
   src/service/stats_fields.cpp
@@ -308,6 +309,10 @@ if(BUILD_TESTING)
   target_link_libraries(native-release-check-tests PRIVATE nativetv_tv_services)
   target_compile_options(native-release-check-tests PRIVATE -Wall -Wextra -Werror)
   add_test(NAME native-release-check COMMAND native-release-check-tests)
+  add_executable(native-release-update-tests tests/release_update.cpp)
+  target_link_libraries(native-release-update-tests PRIVATE nativetv_tv_services)
+  target_compile_options(native-release-update-tests PRIVATE -Wall -Wextra -Werror)
+  add_test(NAME native-release-update COMMAND native-release-update-tests)
   add_executable(native-daily-backup-scheduler-tests tests/daily_backup_scheduler.cpp)
   target_link_libraries(native-daily-backup-scheduler-tests PRIVATE nativetv_daemon)
   target_compile_options(native-daily-backup-scheduler-tests PRIVATE -Wall -Wextra -Werror)
