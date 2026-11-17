@@ -11,10 +11,13 @@ namespace say {
 // and English template each rendered message came from, and translateJson()
 // swaps those messages for their translations in the fields a page shows.
 
-// Reads <directory>/<xx>.json (a two-letter code), each { "key": { "text":
-// "...", "from": "the English it was made from" } }, and starts remembering
-// messages. Returns the number of languages read; none leaves msg() as it was.
-// Call it before serving, once: it replaces any dictionaries read before.
+// Lists <directory>/<xx>.json (a two-letter code, or one with a region as in
+// pt-br.json, for a language whose regions have files of their own), each
+// { "key": { "text": "...", "from": "the English it was made from" } }, and
+// starts remembering messages. A language is read the first time a request
+// asks for it, not here, so a TV holds only the dictionaries that dashboards
+// use. Returns the number of files listed; none leaves msg() as it was.
+// Call it before serving, once: it replaces any listed before.
 size_t loadTranslations(const std::string &directory);
 
 // The language a request asks for in its language header, when a dictionary is
