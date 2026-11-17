@@ -4,12 +4,15 @@
 #include "daemon/luna.hpp"
 #include "daemon/ntp_client.hpp"
 #include <arpa/inet.h>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
 #include <fstream>
+#include <functional>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -67,6 +70,134 @@ uint16_t startNtpServer(int &descriptor) {
     if (getsockname(descriptor, reinterpret_cast<sockaddr *>(&address), &length) != 0)
         throw std::runtime_error("could not read NTP client fixture port");
     return ntohs(address.sin_port);
+}
+
+// Answers every request with the time plus 40 ms until told to stop.
+void serveNtp(int server, const std::atomic<bool> &stop) {
+    timeval timeout{};
+    timeout.tv_usec = 50000;
+    setsockopt(server, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    while (!stop.load()) {
+        uint8_t request[512]{};
+        sockaddr_in client{};
+        socklen_t clientLength = sizeof(client);
+        const ssize_t count = recvfrom(server, request, sizeof(request), 0,
+                                       reinterpret_cast<sockaddr *>(&client), &clientLength);
+        if (count < 48)
+            continue;
+        uint8_t reply[48]{};
+        reply[0] = static_cast<uint8_t>((4 << 3) | 4);
+        reply[1] = 2;
+        std::memcpy(reply + 24, request + 40, 8);
+        const double unixMs = (static_cast<double>(read32(request + 40, 0)) - 2208988800.0) * 1000.0 +
+                              static_cast<double>(read32(request + 40, 4)) / 4294967296.0 * 1000.0 +
+                              40.0;
+        writeTimestamp(reply, 32, unixMs);
+        writeTimestamp(reply, 40, unixMs);
+        (void)sendto(server, reply, sizeof(reply), 0, reinterpret_cast<sockaddr *>(&client),
+                     clientLength);
+    }
+}
+
+bool waitFor(const std::function<bool()> &condition) {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+    while (!condition()) {
+        if (std::chrono::steady_clock::now() > deadline)
+            return false;
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return true;
+}
+
+// The time service accepts the time and the clock stays out: reported, not counted as set, and
+// set once the clock takes it. luna-send is a script that answers getSystemTime from a file.
+void checkClockNotTaken() {
+    int server = -1;
+    const uint16_t port = startNtpServer(server);
+    std::atomic<bool> stop(false);
+    std::thread responder([server, &stop] { serveNtp(server, stop); });
+
+    char directoryTemplate[] = "/tmp/nativetv-ntp-taken-XXXXXX";
+    const char *created = mkdtemp(directoryTemplate);
+    if (!created)
+        throw std::runtime_error("could not create NTP read-back fixture");
+    const std::string directory(created);
+    const std::string timeFile = directory + "/time.json";
+    const std::string script = directory + "/luna-send";
+    const auto writeTime = [&timeFile](long utc, const char *source) {
+        std::ofstream output(timeFile.c_str(), std::ios::trunc);
+        output << "{\"returnValue\":true,\"utc\":" << utc << ",\"systemTimeSource\":\""
+               << source << "\"}\n";
+    };
+    {
+        std::ofstream output(script.c_str());
+        output << "#!/bin/sh\nfor a in \"$@\"; do case \"$a\" in *getSystemTime) cat '"
+               << timeFile << "'; exit 0;; esac; done\necho '{\"returnValue\":true}'\n";
+    }
+    chmod(script.c_str(), 0700);
+    writeTime(static_cast<long>(std::time(nullptr)) - 7000, "broadcast");
+
+    EventLoop loop(4, 32, 64);
+    ChildRunnerOptions childOptions;
+    childOptions.startupGap = std::chrono::milliseconds(0);
+    childOptions.regularGap = std::chrono::milliseconds(0);
+    childOptions.startupWindow = std::chrono::milliseconds(0);
+    ChildProcessRunner children(childOptions);
+    LoggerOptions loggerOptions;
+    loggerOptions.sink = [](LogLevel, const std::string &, bool) {};
+    Logger logger(loggerOptions);
+    LunaClientOptions lunaOptions;
+    lunaOptions.executable = script;
+    LunaClient luna(loop, children, &logger, lunaOptions);
+    NtpClient client(loop, luna, &logger);
+    std::thread loopThread([&loop] { loop.run(); });
+
+    Json config = Json::object();
+    Json ntp = Json::object();
+    ntp.set("server", Json::text("127.0.0.1"));
+    ntp.set("port", Json::numeric(port));
+    config.set("ntp", ntp);
+    // A failed check is thrown after the threads are joined, which a live thread forbids.
+    std::string failure;
+    try {
+        check(client.start(config), "configured native NTP client should start");
+        check(waitFor([&client] { return client.status()["notTakenS"].isNumber(); }),
+              "a clock that stays out is reported");
+        Json status = client.status();
+        check(status["sets"].number() == 0 && status["errors"].number() == 1 &&
+                  !status["setAgoS"].valid(),
+              "a clock that stayed out is not counted as set");
+        check(std::abs(status["notTakenS"].number() - 7000.0) < 5.0,
+              "how far out the clock stayed is reported");
+        check(status["error"].isString() &&
+                  status["error"].string().find("stayed +7000.") != std::string::npos &&
+                  status["error"].string().find("on its broadcast time") != std::string::npos,
+              "the error names how far out the clock stayed and the source it follows");
+
+        // The clock now takes the time: the next sync sets it and clears the report.
+        writeTime(static_cast<long>(std::time(nullptr)), "sdp");
+        client.sync();
+        check(waitFor([&client] { return client.status()["sets"].number() == 1; }),
+              "a clock that takes the time is counted as set");
+        status = client.status();
+        check(status["errors"].number() == 1 && !status["error"].valid() &&
+                  !status["notTakenS"].valid() && status["setAgoS"].isNumber(),
+              "the report is cleared once the clock takes the time");
+    } catch (const std::exception &error) {
+        failure = error.what();
+    }
+
+    client.stop();
+    loop.stop();
+    loopThread.join();
+    stop = true;
+    responder.join();
+    close(server);
+    unlink(script.c_str());
+    unlink(timeFile.c_str());
+    rmdir(created);
+    if (!failure.empty())
+        throw std::runtime_error(failure);
 }
 } // namespace
 
@@ -162,6 +293,7 @@ int main() {
         check(!client.status().valid(), "stopped NTP client has no status");
         unlink(configPath.c_str());
         rmdir(created);
+        checkClockNotTaken();
         std::printf("native NTP client runtime check passed\n");
         return 0;
     } catch (const std::exception &error) {

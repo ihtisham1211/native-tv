@@ -37,6 +37,11 @@ class NtpClient {
                        const service::NtpResult &result);
     void setClock(unsigned long long generation,
                   const service::NtpAnswer &answer);
+    void checkClockTaken(unsigned long long generation,
+                         const service::NtpAnswer &answer);
+    void clockSet(unsigned long long generation, const service::NtpAnswer &answer);
+    void clockNotTaken(unsigned long long generation, double outMs,
+                       const std::string &source);
     void syncFailed(unsigned long long generation, const std::string &message);
     void setError(unsigned long long generation, const std::string &message);
     void schedule(std::chrono::milliseconds delay);
@@ -54,6 +59,9 @@ class NtpClient {
     unsigned sets_ = 0;
     unsigned errors_ = 0;
     double lastSetMonoMs_ = 0;
+    // How far out the clock still was after the last set, while the TV is not taking the time.
+    double notTakenMs_ = 0;
+    bool hasNotTaken_ = false;
     bool running_ = false;
     bool busy_ = false;
     bool appliedOnce_ = false;

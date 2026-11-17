@@ -20,6 +20,8 @@ On the [Server tab](../dashboard/server.md), open **Advanced** and switch on **S
 
 The tab then shows a status line: when the clock was last set and last checked or, if the server did not answer, the reason in red. The TV keeps the time it has, and the server is asked again every 30 seconds.
 
+A TV's time service can accept a time and leave the clock where it was. After each set the clock is read back, and one still 5 seconds or more out is shown in red as not taking the time, with how far out it is. It is not counted as set, and is tried again every hour.
+
 Switching it off stops it and keeps the address, so switching it back on needs no retyping.
 
 The same setting can be made in `/var/lib/tvweb/config.json` on the TV, which the server picks up within a few seconds, with no restart. `enabled` is optional, and on unless it is `false`:

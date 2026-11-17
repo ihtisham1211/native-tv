@@ -1183,6 +1183,16 @@ the server's answer, and the service adds the time since then. Native Tv logs
 one line when it starts, one each time it sets the clock, and one at each
 change of error state.
 
+The service can accept a time and leave the clock where it was (a TV
+reported to Glasshouse took every hourly set and stayed about 6940 s out, see
+[the time service's sources](tv-research.md#the-time-services-sources-webos-443-b8-webos-922-c2)).
+So after each set `time/getSystemTime` is read back. A clock still 5 s or more
+from the time given is reported as not taking it, with the source the TV then
+reads from, is counted as an error and not as a set, and is tried again at the
+next hourly sync. The Server tab's status (`/api/update`) carries how far out it
+stayed as `ntp.notTakenS`.
+With no answer from the read-back, the set counts as done.
+
 ---
 
 ## Counting watch time
