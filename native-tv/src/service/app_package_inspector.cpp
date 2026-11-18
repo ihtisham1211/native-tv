@@ -28,6 +28,7 @@ const uint64_t kControlBytes = 1024ULL * 1024;
 const uint64_t kDataBytes = 2ULL * 1024 * 1024 * 1024;
 const size_t kAppInfoBytes = 64 * 1024;
 const size_t kMaximumEntries = 20000;
+const uint64_t kMaximumLongNameBytes = 4096;
 const size_t kIoBytes = 16 * 1024;
 
 // Made where they are used, as say::msg() remembers what it makes for the language of a request.
@@ -357,7 +358,8 @@ class TarWalker {
 
     bool finish(std::string &error) const {
         if (mode_ == Mode::Body || mode_ == Mode::Padding ||
-            (mode_ == Mode::Header && headerLength_ > 0)) {
+            (mode_ == Mode::Header && headerLength_ > 0) ||
+            !longName_.empty() || !longLink_.empty()) {
             error = truncated();
             return false;
         }
@@ -376,6 +378,10 @@ class TarWalker {
             }
         }
         if (zero) {
+            if (!longName_.empty() || !longLink_.empty()) {
+                error = badTar();
+                return false;
+            }
             mode_ = Mode::End;
             return true;
         }
@@ -400,14 +406,32 @@ class TarWalker {
             return false;
         }
         entry_.type = header_[156] ? static_cast<char>(header_[156]) : '0';
-        if (entry_.type == 'L' || entry_.type == 'K' || entry_.type == 'x' ||
-            entry_.type == 'g' || entry_.type == 'X') {
+        // pax headers can rewrite an entry's path and size; refusing them is safer than
+        // guessing which of those LG's installer honours.
+        if (entry_.type == 'x' || entry_.type == 'g' || entry_.type == 'X') {
             error = unsupported();
             return false;
         }
         if (!parseOctal(header_.data() + 124, 12, entry_.size)) {
             error = badTar();
             return false;
+        }
+        keep_.clear();
+        keepBytes_ = 0;
+        // GNU tar stores a path or link target over 100 characters as an 'L' or 'K' entry
+        // whose body is the text for the next entry, which then goes through the same checks
+        // under that name, as LG's installer unpacks it there.
+        if (entry_.type == 'L' || entry_.type == 'K') {
+            const std::string &pending = entry_.type == 'L' ? longName_ : longLink_;
+            if (entry_.size < 2 || entry_.size > kMaximumLongNameBytes || !pending.empty()) {
+                error = badTar();
+                return false;
+            }
+            keepBytes_ = static_cast<size_t>(entry_.size);
+            left_ = entry_.size;
+            padding_ = (512 - entry_.size % 512) % 512;
+            mode_ = Mode::Body;
+            return true;
         }
         entry_.name = fixedString(header_.data(), 100);
         if (std::memcmp(header_.data() + 257, "ustar", 5) == 0) {
@@ -416,8 +440,12 @@ class TarWalker {
                 entry_.name = prefix + "/" + entry_.name;
         }
         entry_.link = fixedString(header_.data() + 157, 100);
-        keep_.clear();
-        keepBytes_ = 0;
+        if (!longName_.empty())
+            entry_.name = longName_;
+        if (!longLink_.empty())
+            entry_.link = longLink_;
+        longName_.clear();
+        longLink_.clear();
         if (!entryHandler_(entry_, keepBytes_, error))
             return false;
         if (keepBytes_ > entry_.size) {
@@ -434,8 +462,16 @@ class TarWalker {
     }
 
     bool finishBody(std::string &error) {
-        if (!keep_.empty() && !fileHandler_(entry_, keep_, error))
+        if (entry_.type == 'L' || entry_.type == 'K') {
+            const std::string text = fixedString(keep_.data(), keep_.size());
+            if (text.empty()) {
+                error = badTar();
+                return false;
+            }
+            (entry_.type == 'L' ? longName_ : longLink_) = text;
+        } else if (!keep_.empty() && !fileHandler_(entry_, keep_, error)) {
             return false;
+        }
         keep_.clear();
         mode_ = padding_ ? Mode::Padding : Mode::Header;
         return true;
@@ -451,6 +487,8 @@ class TarWalker {
     size_t keepBytes_ = 0;
     std::vector<unsigned char> keep_;
     TarEntry entry_;
+    std::string longName_;
+    std::string longLink_;
     Mode mode_ = Mode::Header;
 };
 

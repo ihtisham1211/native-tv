@@ -638,7 +638,7 @@ async function chooseRemoteKey(btn) {
   const body = v === 'lg' || v === 'nothing' ? { key, action: v } : { key, action: 'open', id: v };
   document.querySelectorAll('#apps-rk-list .rk-pick .rk-opt').forEach(b => { b.disabled = true; });
   btn.classList.add('busy');
-  let error = null;
+  let error = null, note = null;
   try {
     const res = await fetch(api('/api/remotekeys'), {
       method: 'POST',
@@ -647,11 +647,14 @@ async function chooseRemoteKey(btn) {
     });
     const r = await res.json();
     if (!r || !r.ok) error = (r && r.error) || t('common.unknownError', 'unknown error');
+    else if (r.note) note = r.note;
   } catch (e) {
     error = e.message;
   }
   closeRemoteKeyPicker(true);
   if (error) alert(t('apps.remoteKeys.failed', 'Could not change it: {error}', { error }));
+  // A write the TV took in part: the rest stands, and the note says what it left alone.
+  else if (note) alert(note);
   await loadApps();
 }
 

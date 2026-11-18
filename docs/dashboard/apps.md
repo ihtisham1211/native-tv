@@ -87,7 +87,7 @@ On webOS 11 (LG's webOS 26) LG handles keys differently. The streaming buttons, 
 
 The **AI** button is answered by LG's voice assistant itself, which no setting changes, so setting it here switches the voice assistant off: voice search, the AI assistant and the microphone stop working until the button is **As LG has it** again, which switches it back on, as uninstalling does. Native Tv then opens what was chosen about a second after the press. After the TV restarts, the button does nothing until the server has started.
 
-The **Alexa** button set here keeps Alexa from opening until it is **As LG has it** again; LG's voice assistant is left as it is. Native Tv opens what was chosen right after the press, and for 4 s from it no notice is shown on the TV, so that Amazon's "Alexa is loading" does not appear; a notice anything else sends in those seconds is not shown either. How it works is in [webOS 11: LG's own values](../development/implementation.md#webos-11-lgs-own-values).
+The **Alexa** button set here keeps Alexa from opening until it is **As LG has it** again; LG's voice assistant is left as it is. Native Tv opens what was chosen right after the press, and for 4 s from it no notice is shown on the TV, so that Amazon's "Alexa is loading" does not appear; a notice anything else sends in those seconds is not shown either. Some TVs will not let Alexa be stopped from launching (a C3 on webOS 11.2.0, reported to Glasshouse). Where the TV refuses, the change is answered with a note saying so, nothing else about it fails, and the Alexa button is no longer offered until the server restarts. How it works is in [webOS 11: LG's own values](../development/implementation.md#webos-11-lgs-own-values).
 
 ### Hide home screen system apps
 

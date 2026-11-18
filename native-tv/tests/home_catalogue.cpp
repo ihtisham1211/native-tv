@@ -33,7 +33,7 @@ int main() {
         R"({"devices":[
           {"id":"HDMI_1","connected":false},
           {"id":"HDMI_2","connected":true,"subList":[
-            {"id":"SIMPLINK","osdName":"\u00a0AV   Receiver\u00a0","depth":1,"physicalAddress":4096},
+            {"id":"SIMPLINK","osdName":"\u00a0AV   Receiver\u00a0","depth":1,"physicalAddress":4096,"uniqueId":5},
             {"id":"SIMPLINK","osdName":"Game\u2003Console ","depth":2,"physicalAddress":8192},
             {"id":"OTHER","osdName":"ignored","depth":2}
           ]},
@@ -46,6 +46,9 @@ int main() {
     assert(devices[2]["id"].string() == "hdmi2:game-console");
     assert(devices[2]["via"].string() == "AV   Receiver");
     assert(devices[2]["address"].string() == "2.0.0.0");
+    // The id LG's input picker selects a device with, kept where the TV reports one.
+    assert(devices[1]["uniqueId"].isNumber() && devices[1]["uniqueId"].number() == 5);
+    assert(!devices[2].has("uniqueId") && !devices[0].has("uniqueId"));
 
     const Json rawDocument = Json::parse(
         R"({"channels":["channel-1","channel-2"],

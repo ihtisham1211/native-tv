@@ -9402,6 +9402,25 @@ bool HttpFrontDoor::applyBackgroundServiceState(
     return true;
 }
 
+namespace {
+// sam will not block an app that has a launch point: a C3 on webOS 11.2.0 answers the block of
+// amazon.alexa.view "exist in listLaunchPoint: amazon.alexa.view" (measured by Glasshouse).
+bool refusedForLaunchPoint(const LunaReply &reply) {
+    std::string text = reply.response["errorText"].string();
+    std::transform(text.begin(), text.end(), text.begin(),
+                   [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
+    return !reply.response["returnValue"].boolean() &&
+           text.find("exist in listlaunchpoint") != std::string::npos;
+}
+
+Json objectWithout(const Json &blocks, const std::string &appId) {
+    Json kept = Json::object();
+    for (const std::string &name : blocks.keys())
+        if (name != appId) kept.set(name, blocks[name]);
+    return kept;
+}
+} // namespace
+
 bool HttpFrontDoor::reconcileNativeRemoteKeys(bool &wrote,
                                               std::string &error) const {
     wrote = false;
@@ -9599,12 +9618,11 @@ bool HttpFrontDoor::reconcileNativeRemoteKeys(bool &wrote,
     const bool wantsBlocked = map.has("alexa");
     const bool alexaAvailable = replies[3].error.empty() &&
         replies[3].response["returnValue"].boolean();
-    const bool blockAlexa = wantsBlocked && (!recordedBlocked || alexaAvailable);
+    const bool blockAlexa = wantsBlocked && !alexaBlockRefused_ &&
+                            (!recordedBlocked || alexaAvailable);
     const bool releaseAlexa = !wantsBlocked && recordedBlocked;
     if (blockAlexa || releaseAlexa) {
-        Json nextBlocks = Json::object();
-        for (const std::string &name : blockRecord.keys())
-            if (name != alexaApp) nextBlocks.set(name, blockRecord[name]);
+        Json nextBlocks = objectWithout(blockRecord, alexaApp);
         if (blockAlexa) nextBlocks.set(alexaApp, Json::flag(true));
         if (blockAlexa) {
             record.set("blocks", nextBlocks);
@@ -9629,15 +9647,26 @@ bool HttpFrontDoor::reconcileNativeRemoteKeys(bool &wrote,
             });
         const bool alreadyBlocked = blockAlexa &&
             blockError.find("already blocked") != std::string::npos;
-        if (!answered || (!blockReply.response["returnValue"].boolean() &&
-                          !alreadyBlocked)) {
-            error = "the TV did not take the Alexa key change";
-            return false;
-        }
-        wrote = true;
-        if (releaseAlexa) {
-            record.set("blocks", nextBlocks);
+        if (blockAlexa && answered && refusedForLaunchPoint(blockReply)) {
+            // The block was recorded before it was asked for. The TV will not make it, so the
+            // button stays as LG has it, and the rest of the keys are still written.
+            alexaBlockRefused_ = true;
+            if (logger_)
+                logger_->warning("remotekeys: the TV will not block " + alexaApp +
+                                 " (it has a launch point), so the Alexa button stays as LG has it");
+            record.set("blocks", objectWithout(blockRecord, alexaApp));
             if (!persistRecordIfChanged()) return false;
+        } else {
+            if (!answered || (!blockReply.response["returnValue"].boolean() &&
+                              !alreadyBlocked)) {
+                error = "the TV did not take the Alexa key change";
+                return false;
+            }
+            wrote = true;
+            if (releaseAlexa) {
+                record.set("blocks", nextBlocks);
+                if (!persistRecordIfChanged()) return false;
+            }
         }
     }
 
@@ -10348,7 +10377,8 @@ void HttpFrontDoor::setRemoteKey(HttpExchange &exchange) const {
             nativeReplies[5].response["returnValue"].boolean();
         nativeState.voiceConductorAvailable =
             service::backgroundHiddenServiceAvailable("voiceconductor", systemRoot_);
-        nativeState.alexaViewAvailable = nativeReplies[6].error.empty() &&
+        nativeState.alexaViewAvailable = !alexaBlockRefused_ &&
+            nativeReplies[6].error.empty() &&
             nativeReplies[6].response["returnValue"].boolean();
         const Json availableKeys = service::nativeRemoteKeysReadResponse(nativeState);
         if (!availableKeys["supported"].boolean()) {
@@ -10589,13 +10619,13 @@ void HttpFrontDoor::setRemoteKey(HttpExchange &exchange) const {
         const bool wantsBlocked = updatedKeys.has("alexa");
         const bool alexaAppAvailable = nativeReplies[6].error.empty() &&
             nativeReplies[6].response["returnValue"].boolean();
-        const bool blockAlexa = wantsBlocked &&
+        const bool blockAlexa = wantsBlocked && !alexaBlockRefused_ &&
             (!recordedBlocked || alexaAppAvailable);
         const bool releaseAlexa = !wantsBlocked && recordedBlocked;
+        // Said in the answer when the TV will not block Alexa's view.
+        std::string alexaNote;
         if (blockAlexa || releaseAlexa) {
-            Json nextBlocks = Json::object();
-            for (const std::string &name : blockRecord.keys())
-                if (name != alexaApp) nextBlocks.set(name, blockRecord[name]);
+            Json nextBlocks = objectWithout(blockRecord, alexaApp);
             if (blockAlexa) nextBlocks.set(alexaApp, Json::flag(true));
 
             if (blockAlexa) {
@@ -10630,8 +10660,44 @@ void HttpFrontDoor::setRemoteKey(HttpExchange &exchange) const {
                 });
             const bool alreadyBlocked = blockAlexa &&
                 blockError.find("already blocked") != std::string::npos;
-            if (!answered || (!blockReply.response["returnValue"].boolean() &&
-                              !alreadyBlocked)) {
+            if (blockAlexa && answered && refusedForLaunchPoint(blockReply)) {
+                // The block was recorded before it was asked for. The TV will not make it, so
+                // the record and the key are taken back, the button stays as LG has it, and the
+                // rest of the write stands.
+                alexaBlockRefused_ = true;
+                if (logger_)
+                    logger_->warning("remotekeys: the TV will not block " + alexaApp +
+                                     " (it has a launch point), so the Alexa button stays as LG has it");
+                writes.lgRecord.set("blocks", objectWithout(blockRecord, alexaApp));
+                fileError.clear();
+                if (service::nativeRemoteKeysLgRecordHasValues(writes.lgRecord)) {
+                    if (!lgStore.save(writes.lgRecord, &fileError)) {
+                        restoreMapFile();
+                        restoreLgFile();
+                        sendSetupError(exchange, 500,
+                            "Could not save LG key settings" +
+                            (fileError.empty() ? std::string() : ": " + fileError));
+                        return;
+                    }
+                } else if (unlinkJsonFile(lgStore.path()) != 0 && errno != ENOENT) {
+                    restoreMapFile();
+                    restoreLgFile();
+                    sendSetupError(exchange, 500, "Could not clear saved LG key settings");
+                    return;
+                }
+                hasLgValues = service::nativeRemoteKeysLgRecordHasValues(writes.lgRecord);
+                document.set("keys", objectWithout(updatedKeys, "alexa"));
+                if (!mapStore.save(document, &fileError)) {
+                    restoreMapFile();
+                    restoreLgFile();
+                    sendSetupError(exchange, 500, "Could not save the change" +
+                        (fileError.empty() ? std::string() : ": " + fileError));
+                    return;
+                }
+                alexaNote = say::msg("srv.remoteKeys.alexaRefused",
+                    "This TV will not stop Alexa from launching, so the Alexa button stays as LG has it");
+            } else if (!answered || (!blockReply.response["returnValue"].boolean() &&
+                                     !alreadyBlocked)) {
                 restoreMapFile();
                 restoreLgFile();
                 sendSetupError(exchange, 400, say::msg("srv.remoteKeys.chainFailed", "The TV did not take the change"));
@@ -10687,9 +10753,12 @@ void HttpFrontDoor::setRemoteKey(HttpExchange &exchange) const {
             logger_->info("remotekeys: " + key +
                 (action == "lg" ? " restored to LG" : action == "nothing"
                     ? " set to do nothing" : " opens " + id));
+        Json writeAnswer = Json::object();
+        writeAnswer.set("ok", Json::flag(true));
+        if (!alexaNote.empty()) writeAnswer.set("note", Json::text(alexaNote));
         (void)exchange.respond(200,
             {{"Content-Type", "application/json"}, {"Cache-Control", "no-store"}},
-            "{\"ok\":true}");
+            writeAnswer.dump());
         return;
     }
 
@@ -17563,7 +17632,8 @@ void HttpFrontDoor::sendApps(HttpExchange &exchange) const {
         remoteKeysState.appsReply = appsReply.response;
         remoteKeysState.voiceConductorAvailable =
             service::backgroundHiddenServiceAvailable("voiceconductor", systemRoot_);
-        remoteKeysState.alexaViewAvailable = replies[remoteKeysCall + 5].error.empty() &&
+        remoteKeysState.alexaViewAvailable = !alexaBlockRefused_ &&
+            replies[remoteKeysCall + 5].error.empty() &&
             replies[remoteKeysCall + 5].response["returnValue"].boolean();
         const Json remoteKeys =
             service::nativeRemoteKeysReadResponse(remoteKeysState);

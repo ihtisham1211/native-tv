@@ -551,6 +551,9 @@ class HttpFrontDoor {
     mutable std::mutex inputControlMutex_;
     mutable std::mutex systemSettingsControlMutex_;
     mutable std::mutex remoteKeysMutex_;
+    // Set when sam answered the block of Alexa's view "exist in listLaunchPoint" (a C3 on webOS
+    // 11.2): it is not asked again from this start, and the Alexa button is not offered.
+    mutable std::atomic<bool> alexaBlockRefused_{false};
     mutable std::mutex oledControlMutex_;
     mutable std::mutex oledCareCacheMutex_;
     mutable Json oledCareCache_;

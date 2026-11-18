@@ -90,7 +90,7 @@ struct Rig {
         statePath = directory + "/tv.json";
         state = Json::parse(
             "{\"list\":[],\"writes\":[],\"failWrites\":0,\"samCalls\":[],\"samPayloads\":[],"
-            "\"hasBlock\":true,\"failReleases\":0,\"blockAnswerLost\":false,\"blocked\":{},"
+            "\"hasBlock\":true,\"hasRelease\":true,\"failReleases\":0,\"blockAnswerLost\":false,\"blocked\":{},"
             "\"uris\":[],\"appInfo\":{},\"launchPoints\":[[\"a\",\"b\"]],"
             "\"foreground\":\"com.webos.app.home\",\"launches\":[]}");
         const Json given = Json::parse(overrides);
@@ -210,17 +210,18 @@ void testRereadApp() {
         Rig rig;
         check(ok(rig.sam->rereadApp(kScreensaver, rig.context)), "reread");
         const Json tv = rig.tv();
-        check(strings(tv["samCalls"]) == Strings({std::string("blockSystemApp ") + kScreensaver,
+        check(strings(tv["samCalls"]) == Strings({std::string("releaseBlockSystemApp ") + kScreensaver,
+                                                  std::string("blockSystemApp ") + kScreensaver,
                                                   std::string("releaseBlockSystemApp ") + kScreensaver}),
-              "a block then a release");
+              "a release to ask whether sam has one, a block, then a release");
         check(!tv["blocked"][kScreensaver].boolean(), "released");
         check(tv["writes"].size() == 0, "the configd list is not touched");
-        check(!tv["samPayloads"].items()[0].has("forceBlockSystemApp"), "no force flag where the schema lacks it");
+        check(!tv["samPayloads"].items()[1].has("forceBlockSystemApp"), "no force flag where the schema lacks it");
     }
     {   // Firmware whose schema has the force flag is sent it, as false.
         Rig rig("{}", "{\"properties\":{\"forceBlockSystemApp\":{}}}");
         check(ok(rig.sam->rereadApp(kHome, rig.context)), "reread");
-        const Json sent = rig.tv()["samPayloads"].items()[0];
+        const Json sent = rig.tv()["samPayloads"].items()[1];
         check(sent.has("forceBlockSystemApp") && !sent["forceBlockSystemApp"].boolean(), "force flag false");
     }
     {   // Only the two apps sam is asked about.
@@ -229,12 +230,21 @@ void testRereadApp() {
         check(failed(result) && result["error"].string() == "unsupported SAM app id", "other apps refused");
         check(rig.tv()["uris"].size() == 0, "nothing reached the TV");
     }
-    {   // sam without the call (webOS 4): the block is refused, one release goes out quietly.
+    {   // sam without either call (webOS 4): the release is unknown, so nothing is blocked.
         Rig rig("{\"hasBlock\":false}");
         check(failed(rig.sam->rereadApp(kScreensaver, rig.context)), "the caller falls back");
-        check(strings(rig.tv()["samCalls"]) == Strings({std::string("blockSystemApp ") + kScreensaver,
-                                                        std::string("releaseBlockSystemApp ") + kScreensaver}),
-              "after one release");
+        check(strings(rig.tv()["samCalls"]) == Strings({std::string("releaseBlockSystemApp ") + kScreensaver}),
+              "nothing is blocked, only the release asked");
+    }
+    {   // sam with the block and no release (a G3 on webOS 8.4.0, a C2 on 9.2.2, measured by
+        // Glasshouse): nothing is blocked, as nothing could release it, and the answer is kept.
+        Rig rig("{\"hasRelease\":false}");
+        check(failed(rig.sam->rereadApp(kHome, rig.context)), "the caller falls back");
+        check(strings(rig.tv()["samCalls"]) == Strings({std::string("releaseBlockSystemApp ") + kHome}),
+              "only the release asked");
+        check(!rig.tv()["blocked"][kHome].boolean(), "LG's Home is never blocked");
+        check(failed(rig.sam->rereadApp(kScreensaver, rig.context)), "the caller falls back again");
+        check(rig.tv()["samCalls"].size() == 1, "not asked again");
     }
     {   // A block sam made whose answer was lost is released all the same.
         Rig rig("{\"blockAnswerLost\":true}");
@@ -245,7 +255,7 @@ void testRereadApp() {
         Rig rig("{\"failReleases\":2}");
         check(ok(rig.sam->rereadApp(kScreensaver, rig.context)), "reread in the end");
         const Json tv = rig.tv();
-        check(tv["samCalls"].size() == 4, "one block, three releases");
+        check(tv["samCalls"].size() == 5, "the release asked first, one block, three releases");
         check(!tv["blocked"][kScreensaver].boolean(), "released in the end");
     }
     {   // A release sam keeps refusing is reported: the app stays blocked.
@@ -253,13 +263,13 @@ void testRereadApp() {
         const Json result = rig.sam->rereadApp(kScreensaver, rig.context);
         check(failed(result) && result["error"].string().find("could not release") != std::string::npos,
               "the release failure is reported");
-        check(rig.tv()["samCalls"].size() == 4 && rig.tv()["blocked"][kScreensaver].boolean(), "three releases tried");
+        check(rig.tv()["samCalls"].size() == 5 && rig.tv()["blocked"][kScreensaver].boolean(), "three releases tried");
     }
     {   // releaseBlockedApp is the same release, for a caller that blocked the app itself.
-        Rig rig("{\"failReleases\":2}");
+        Rig rig("{\"failReleases\":2,\"blocked\":{\"com.webos.app.home\":true}}");
         check(rig.sam->releaseBlockedApp(kHome, rig.context), "released");
         check(!rig.sam->releaseBlockedApp("netflix", rig.context), "only the two apps");
-        Rig stuck("{\"failReleases\":9}");
+        Rig stuck("{\"failReleases\":9,\"blocked\":{\"com.webos.app.home\":true}}");
         check(!stuck.sam->releaseBlockedApp(kHome, stuck.context), "a refused release is reported");
     }
 }

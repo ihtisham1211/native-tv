@@ -19,6 +19,19 @@ double monotonicMilliseconds() {
                std::chrono::steady_clock::now().time_since_epoch())
         .count();
 }
+
+// The time service can accept a time and leave the clock where it was (a TV that took every
+// hourly set and stayed 6940 s out, reported to Glasshouse). So the clock is read back after
+// each set, and one still this far from the time given did not take it. getSystemTime's utc is
+// whole seconds.
+const double kNotTakenMilliseconds = 5000.0;
+
+std::string signedSeconds(double milliseconds) {
+    std::ostringstream text;
+    text << (milliseconds >= 0 ? "+" : "") << std::fixed << std::setprecision(3)
+         << milliseconds / 1000.0;
+    return text.str();
+}
 } // namespace
 
 NtpClient::NtpClient(EventLoop &loop, LunaClient &luna, Logger *logger)
@@ -133,6 +146,8 @@ void NtpClient::stopClient() {
         appliedOnce_ = false;
         hasLastAnswer_ = false;
         hasLastSet_ = false;
+        hasNotTaken_ = false;
+        notTakenMs_ = 0;
         powerStateKnown_ = false;
         powerWasOn_ = false;
         lastSetMonoMs_ = 0;
@@ -218,6 +233,8 @@ Json NtpClient::status() const {
                                      (monotonicMilliseconds() - lastSetMonoMs_) / 1000.0))
                                : Json());
     result.set("setAtMonoMs", hasLastSet_ ? Json::numeric(lastSetMonoMs_) : Json());
+    result.set("notTakenS", hasNotTaken_ ? Json::numeric(std::round(notTakenMs_ / 1000.0))
+                                         : Json());
     return result;
 }
 
@@ -269,8 +286,10 @@ void NtpClient::completeQuery(unsigned long long generation,
         lastAnswer_ = result.answer;
         hasLastAnswer_ = true;
         shouldSet = !appliedOnce_ || std::abs(result.answer.offsetMs) >= 1000.0;
-        if (!shouldSet)
+        if (!shouldSet) {
             busy_ = false;
+            hasNotTaken_ = false;
+        }
     }
     publishStatus();
     if (shouldSet) {
@@ -303,35 +322,87 @@ void NtpClient::setClock(unsigned long long generation,
                                             reply.response.dump());
                 return;
             }
+            // Still busy: a sync that measured before the read-back would set again.
+            checkClockTaken(generation, answer);
+        });
+    if (!queued)
+        syncFailed(generation, "could not queue a clock update");
+}
+
+// Reads the clock back after a set the service accepted. With no usable answer the set counts as
+// done, as it did before the check.
+void NtpClient::checkClockTaken(unsigned long long generation,
+                                const service::NtpAnswer &answer) {
+    const bool queued = luna_.call(
+        "com.webos.service.systemservice/time/getSystemTime", Json::object(),
+        [this, generation, answer](const LunaReply &reply) {
             {
                 std::lock_guard<std::mutex> lock(mutex_);
                 if (!running_ || generation != generation_)
                     return;
-                busy_ = false;
-                appliedOnce_ = true;
-                ++sets_;
-                lastSetMonoMs_ = monotonicMilliseconds();
-                hasLastSet_ = true;
             }
-            setError(generation, "");
-            if (logger_) {
-                std::ostringstream offset;
-                offset << (answer.offsetMs >= 0 ? "+" : "") << std::fixed
-                       << std::setprecision(3) << answer.offsetMs / 1000.0;
-                service::NtpSettings settings;
-                {
-                    std::lock_guard<std::mutex> lock(mutex_);
-                    settings = settings_;
+            const Json utc = reply.response["utc"];
+            if (reply.error.empty() && utc.isNumber()) {
+                const double outMs = answer.atMs +
+                                     (monotonicMilliseconds() - answer.atMonoMs) -
+                                     utc.number() * 1000.0;
+                if (std::abs(outMs) >= kNotTakenMilliseconds) {
+                    const Json source = reply.response["systemTimeSource"];
+                    clockNotTaken(generation, outMs, source.isString() ? source.string() : "");
+                    return;
                 }
-                logger_->info("ntp: set the clock from " + settings.server +
-                              " (stratum " + std::to_string(answer.stratum) +
-                              "), " + offset.str() + " s");
             }
-            schedule(std::chrono::hours(1));
-            publishStatus();
+            clockSet(generation, answer);
         });
     if (!queued)
-        syncFailed(generation, "could not queue a clock update");
+        clockSet(generation, answer);
+}
+
+void NtpClient::clockSet(unsigned long long generation, const service::NtpAnswer &answer) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (!running_ || generation != generation_)
+            return;
+        busy_ = false;
+        appliedOnce_ = true;
+        hasNotTaken_ = false;
+        ++sets_;
+        lastSetMonoMs_ = monotonicMilliseconds();
+        hasLastSet_ = true;
+    }
+    setError(generation, "");
+    if (logger_) {
+        service::NtpSettings settings;
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            settings = settings_;
+        }
+        logger_->info("ntp: set the clock from " + settings.server +
+                      " (stratum " + std::to_string(answer.stratum) +
+                      "), " + signedSeconds(answer.offsetMs) + " s");
+    }
+    schedule(std::chrono::hours(1));
+    publishStatus();
+}
+
+// The service said yes and the clock did not move: reported, not counted as set, and tried
+// again at the next hourly sync, since asking again sooner would get the same answer.
+void NtpClient::clockNotTaken(unsigned long long generation, double outMs,
+                              const std::string &source) {
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (!running_ || generation != generation_)
+            return;
+        busy_ = false;
+        ++errors_;
+        hasNotTaken_ = true;
+        notTakenMs_ = outMs;
+    }
+    setError(generation, "the TV accepted the time but its clock stayed " +
+                             signedSeconds(outMs) + " s out" +
+                             (source.empty() ? "" : ", on its " + source + " time"));
+    schedule(std::chrono::hours(1));
+    publishStatus();
 }
 
 void NtpClient::syncFailed(unsigned long long generation, const std::string &message) {
@@ -340,6 +411,7 @@ void NtpClient::syncFailed(unsigned long long generation, const std::string &mes
         if (!running_ || generation != generation_)
             return;
         busy_ = false;
+        hasNotTaken_ = false;
         ++errors_;
     }
     setError(generation, message);

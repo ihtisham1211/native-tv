@@ -355,6 +355,8 @@ Json homeCatalogueDevices(const Json &deviceReply) {
                                  ? Json::text(top)
                                  : Json::parse("null"));
             entry.set("address", cecAddress(sub["physicalAddress"]));
+            // The id LG's own input picker passes on to select this device over HDMI-CEC.
+            if (sub["uniqueId"].isNumber()) entry.set("uniqueId", sub["uniqueId"]);
             result.add(entry);
         }
     }

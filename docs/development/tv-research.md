@@ -17,6 +17,24 @@ On the same TV, unplugged HDMI 1 and HDMI 3 returned `connected: true`, but
 sublists. Where present, `hdmiPlugIn` takes precedence over `connected` for
 plug detection. The device list does not report per-device power state.
 
+### Selecting and waking a source through a receiver (G3, webOS 9.2.2)
+
+Measured by [Glasshouse](https://github.com/rorygallagher2024/glasshouse), not repeated with
+Native Tv. LG's installed `InputPicker/Controllers/ConnectionsInterfaces/Interfaces.qml`
+passes a device's EIM `uniqueId` as HDMI launch parameters `{id: "uniqueId", value: "8"}`.
+`inputcommon`'s `DeepLinkHandler.qml` passes them to
+`ExternalDeviceControlInterfaces/SimplinkController.qml`, which calls
+`com.webos.service.eim/cec/setCECUniqueId`. Without the parameters, that controller uses the
+input's `lastUniqueId`, or its first SIMPLINK device. On HDMI 2 with no remembered source, this
+selected the STEREO 70s receiver (id 5), leaving the PS5 (id 8, physical address 2.4.0.0) asleep.
+
+With the PS5 confirmed in rest mode, switching through HDMI 4 and Home and then launching HDMI 2
+with its device id woke it. CEC history showed `Set Stream Path` to 2.4.0.0 and the PS5 replying
+`Report Power Status` with `On`. LG's service sent the CEC Power key itself, so no separate power
+key is needed. A DISPLAY capture showed the receiver's logo even while the PS5 reported On, so
+that picture alone does not establish console power state. The ids match CEC logical addresses
+(receiver 5, PS5 8): 0 is the TV, 15 broadcast, and EIM reports -1 for none.
+
 ## The picture of an input behind Home (G3, webOS 9.2.2)
 
 With a web app on screen, an HDMI input's receiver stays locked to its
@@ -402,6 +420,21 @@ and later have a Flutter one (its log lines come from `flutter-client`). The
 QML has code for LG's webOS 23 (`webOS23Test`, the `webOS23` app list style),
 so a webOS 8 TV may read the same layout file; that has not been tried.
 
+## The time service's sources (webOS 4.4.3, B8; webOS 9.2.2, C2)
+
+Measured by [Glasshouse](https://github.com/rorygallagher2024/glasshouse), not repeated with Native Tv.
+
+`com.webos.service.systemservice/clock/getTime` with `{ "source": name }`
+answers a source's time and priority: `manual` 0, `micom` 1, `broadcast` 2,
+`sdp` 4, with `system` the clock itself and `systemTimeSource` the source it
+follows; `ntp`, `rtc`, `local`, `network` and `user` are "not registered".
+The higher number wins: the B8, with an aerial and a `broadcast` time
+answering, followed `sdp`, as did the C2, which has no broadcast time.
+`clock/setTime` with `source: "sdp"` sets the clock on both. A reporter's TV
+answered every hourly `sdp` set and stayed about 6940 s out, the correction
+the same each hour bar a few seconds a day of drift; what it follows instead
+is not known yet.
+
 ## The clock since boot stops in suspend (webOS 4.4.3, B8)
 
 With Quick Start, the B8 suspends in standby, and `/proc/uptime` and `/proc/stat`'s `btime` leave the suspended time out: rebooted at 07:47 UTC and put in standby twice, it gave its boot as 18:18 the same day. Time since boot, and a boot time worked out from it, are wrong on such a TV after its first standby.
@@ -475,6 +508,15 @@ saver, standby and wake cycles left the picture intact (YouTube reached the
 MAIN sink with `activation: true`). The same calls have run at every boot of an
 LG Home replacement on that C5 since 2026-10-11. A reboot between the two calls
 would leave the app blocked, so they stay together and the release is retried.
+
+Not every sam with the block has the release. A G3 (webOS 8.4.0, firmware 13.40.76) took
+`blockSystemApp` for `com.webos.app.home` and answered `releaseBlockSystemApp` with
+`Unknown method "releaseBlockSystemApp" for category "/"` (-1); LG's Home then answered a
+launch with -101 "not exist" until a reboot cleared the block. A C2 (webOS 9.2.2) answers the
+release the same way, though `/etc/palm/schemas/sam/applicationManager.blockSystemApp.schema`
+is there, so the schema does not say the release is. A release of an app that is not blocked
+changes nothing (a C5 answers `returnValue: true`), so it is asked first, and nothing is
+blocked where it is unknown. Measured by Glasshouse, not repeated with Native Tv.
 
 webOS 11 changes the block's parameters. On a G3 (OLED65G36LA, webOS 11.2.0,
 firmware 43.21.71) `/etc/palm/schemas/sam/applicationManager.blockSystemApp.schema`
@@ -770,7 +812,10 @@ These measurements are from [Glasshouse](https://github.com/rorygallagher2024/gl
   and nothing opened; `getAppInfo` on a blocked app returns `returnValue:
   false`, a second block `errorCode` 1 "already blocked: <id>", and a release
   of an app not blocked `returnValue: true`. The adapter launched the view up
-  to 13 s after a press.
+  to 13 s after a press. A C3 (webOS 11.2.0) refused the block outright,
+  `errorCode` 1 "exist in listLaunchPoint: amazon.alexa.view": the view has a
+  launch point there (`hidden: false`), and sam will not block an app that
+  has one. Measured by Glasshouse, not repeated with Native Tv.
 - **Toasts can be refused, not closed.** `notification/closeToast` with a
   toast's id returned true and the toast stayed its 5 s. After
   `notification/disable` (`exceptions` optional), `createToast` was answered

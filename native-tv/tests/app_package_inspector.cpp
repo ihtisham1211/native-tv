@@ -63,6 +63,13 @@ Bytes tarEntry(const std::string &name, const Bytes &body, char type = '0',
     return result;
 }
 
+// GNU tar's entry for a path ('L') or link target ('K') over 100 characters.
+Bytes longNameEntry(char type, const std::string &text) {
+    Bytes body(text.begin(), text.end());
+    if (!text.empty()) body.push_back(0);
+    return tarEntry("././@LongLink", body, type);
+}
+
 Bytes tarArchive(const std::vector<Bytes> &entries) {
     Bytes result;
     for (const Bytes &entry : entries) append(result, entry);
@@ -201,6 +208,52 @@ int main() {
     writeFile(linkPath, escapingLink);
     assert(!AppPackageInspector::inspect(directory, "link.ipk", result, error));
     assert(error.find("unsafe path") != std::string::npos);
+
+    // GNU long names: an 'L' entry gives the next entry its path, a 'K' entry its link target.
+    const std::string appDirectory = "usr/palm/applications/com.example.app/";
+    const std::string longDirectory = appDirectory + std::string(100, 'd') + "/";
+    const auto inspectExtra = [&](const std::vector<Bytes> &entries) {
+        writeFile(directory + "/long.ipk", validPackage(entries));
+        return AppPackageInspector::inspect(directory, "long.ipk", result, error);
+    };
+    // The header holds only a harmless cut of the path; the real one is 'L'.
+    assert(inspectExtra({longNameEntry('L', longDirectory), tarEntry(longDirectory, Bytes(), '5'),
+                         longNameEntry('L', longDirectory + "file.txt"),
+                         tarEntry(longDirectory, Bytes({'x'}))}));
+    assert(result["apps"].size() == 1);
+    assert(inspectExtra({longNameEntry('L', "usr/palm/applications/com.example.other/" +
+                                                std::string(100, 'd') + "/file.txt"),
+                         tarEntry(longDirectory, Bytes({'x'}))}));
+    assert(result["apps"].size() == 2);
+    assert(result["apps"][1]["id"].string() == "com.example.other");
+    assert(inspectExtra({longNameEntry('K', std::string(100, 'd') + "/file.txt"),
+                         tarEntry(appDirectory + "link", Bytes(), '2', "ok")}));
+    // The long name is checked like any other path.
+    assert(!inspectExtra({longNameEntry('L', "usr/palm/../../etc/passwd"),
+                          tarEntry(appDirectory + "x", Bytes({'x'}))}));
+    assert(error.find("unsafe path") != std::string::npos);
+    assert(!inspectExtra({longNameEntry('K', "../../../../../etc"),
+                          tarEntry(appDirectory + "link", Bytes(), '2', "ok")}));
+    assert(error.find("unsafe path") != std::string::npos);
+    assert(!inspectExtra({longNameEntry('L', "/etc/passwd"), tarEntry(appDirectory + "x", Bytes({'x'}))}));
+    assert(error.find("unsafe path") != std::string::npos);
+    // A long name with no entry after it, two in a row, an empty one and an oversize one are damage.
+    const std::string damaged = "the ipk holds a damaged package archive";
+    for (const std::vector<Bytes> &entries : std::vector<std::vector<Bytes>>{
+             {longNameEntry('L', appDirectory + "a")},
+             {longNameEntry('L', appDirectory + "a"), longNameEntry('L', appDirectory + "b"),
+              tarEntry(appDirectory + "c", Bytes({'x'}))},
+             {longNameEntry('K', "a"), longNameEntry('K', "b"), tarEntry(appDirectory + "c", Bytes({'x'}))},
+             {longNameEntry('L', "")},
+             {tarEntry("././@LongLink", Bytes(2, 0), 'L'), tarEntry(appDirectory + "c", Bytes({'x'}))},
+             {longNameEntry('L', std::string(5000, 'a')), tarEntry(appDirectory + "c", Bytes({'x'}))}}) {
+        assert(!inspectExtra(entries));
+        assert(error == damaged);
+    }
+    // pax headers are still refused.
+    assert(!inspectExtra({tarEntry("././@PaxHeader", Bytes({'x'}), 'x')}));
+    assert(error.find("does not read") != std::string::npos);
+    unlink((directory + "/long.ipk").c_str());
 
     const std::string symlinkPath = directory + "/symlink.ipk";
     assert(symlink(validPath.c_str(), symlinkPath.c_str()) == 0);
