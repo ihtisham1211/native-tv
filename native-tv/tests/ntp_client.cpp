@@ -170,7 +170,9 @@ void checkClockNotTaken() {
         check(std::abs(status["notTakenS"].number() - 7000.0) < 5.0,
               "how far out the clock stayed is reported");
         check(status["error"].isString() &&
-                  status["error"].string().find("stayed +7000.") != std::string::npos &&
+                  // The size is asserted from notTakenS above: the printed offset grows with the seconds
+                  // the test has run (7001.092 was seen), so only its sign and form are checked here.
+                  status["error"].string().find("stayed +70") != std::string::npos &&
                   status["error"].string().find("on its broadcast time") != std::string::npos,
               "the error names how far out the clock stayed and the source it follows");
 
