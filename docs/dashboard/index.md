@@ -10,7 +10,7 @@ The sections are a bar along the bottom on a phone, a rail down the left on a ta
 
 * **Overview**: [Control](control.md) and [Metrics](metrics.md) together, as one screen: what the TV is showing, the volume and power, then the readings
 * **Apps**: [Installed](apps.md) (`apps`), [Catalogue](apps.md#install-homebrew-apps) (`catalogue`), [LG launcher](apps.md#lg-launcher-and-remote) (`homescreen`) and [Native Tv Home](home.md) (`home`)
-* **Display**: [OLED care](oled-care.md) (`oledcare`), [Screen savers](screen-savers.md) (`screensaver`) and [Game mode](game.md) (`game`)
+* **Display**: [OLED care](oled-care.md) (`oledcare`), [Screen savers](screen-savers.md) (`screensaver`, including idle start times) and [Game mode](game.md) (`game`)
 * **Privacy**: [Privacy](privacy.md), screen recognition, ad tracking, data agreements and the blocker
 * **Settings**: [Home Assistant](../integrations/home-assistant.md) (`mqtt`), [Server and backup](server.md) (`server`), [Tools and logs](tools.md) (`tools`), [Advanced](advanced.md) and the [Service menu](service-menu.md) (`servicemenu`)
 

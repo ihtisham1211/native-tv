@@ -33,6 +33,8 @@ The **Live** tab is the TV's own readings as cards: the processor's load with a 
 
 ![Settings on a B3: the sections on the left and the Metrics page on the right](../screenshots/tv-settings.png)
 
+Under **Screen Saver → Options**, **Start after** includes **1 minute** and **2 minutes** where Native Tv can watch remote input. The [Screen savers page](../dashboard/screen-savers.md) describes when those timers run.
+
 * **Up / Down**, or the Magic Remote's wheel: in the list, another section; in the page, through the rows, skipping section headings; from the first row, up to the subsection pills.
 * **Right** or **OK** in the list: into the page. **Left** or **Back** in the page: back to the list. **Back** in the list: close Settings. **Left** and **Right** never change the section. On a row whose value has a chevron on each side, **Left** and **Right** step to the previous and the next value (the way back to the list is **Back**).
 * **Left / Right** on the pills: the previous or next subsection; **Down** returns to the rows. A section opens on the subsection it was left on.

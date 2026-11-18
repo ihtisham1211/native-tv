@@ -648,6 +648,10 @@ bool runIdleCase() {
     timings.powerSettle = std::chrono::milliseconds(20);
     timings.wallNowMs = [&wall]() { return wall; };
     timings.steadyNowMs = [&idle]() { return idle.load(); };
+    timings.idleSaverMinute = std::chrono::milliseconds(250);
+    timings.idleSaverInputAvailable = []() { return true; };
+    std::atomic<bool> idleSaverStateLive{true};
+    timings.idleSaverStateLive = [&idleSaverStateLive]() { return idleSaverStateLive.load(); };
     const double minute = 60000;
 
     const Json settings = Json::parse(
@@ -723,6 +727,40 @@ bool runIdleCase() {
         idle = 400 * minute;
         settle(300);
         check(toasts() == 2 && powerOffs() == 1, "without allowPower the idle power-off does nothing");
+
+        const auto saverStarts = [&]() { return occurrences(readFile(details), "turnOnScreenSaver"); };
+        const auto selectApp = [&](const char *app) {
+            check(loop.post([&, app]() {
+                state.update(state::Event{"application", "app", Json::text(app), wall, false, true});
+            }), "the app change should reach the event loop");
+        };
+        selectApp("hdmi1");
+        check(enforcer->setIdleScreensaverMinutes(1), "the one-minute setting should reach the event loop");
+        settle(550);
+        check(saverStarts() == 0, "the idle screen saver skips HDMI");
+
+        idleSaverStateLive = false;
+        selectApp("netflix");
+        settle(550);
+        check(saverStarts() == 0, "the idle screen saver needs live TV state");
+
+        idleSaverStateLive = true;
+        check(enforcer->setIdleScreensaverMinutes(2), "the two-minute setting should reach the event loop");
+        settle(300);
+        enforcer->noteActivity();
+        settle(300);
+        check(saverStarts() == 0, "a remote key restarts the two-minute countdown");
+        check(waitForOccurrences(details, "turnOnScreenSaver", 1, std::chrono::seconds(3)),
+              "once the idle time elapses Native Tv asks the TV to start the screen saver");
+        settle(600);
+        check(saverStarts() == 1, "the idle request is sent once per idle period");
+
+        check(loop.post([&]() {
+            state.update(state::Event{"media", "snapshot", Json::text("{\"state\":\"playing\"}"), wall, false, true});
+        }), "the playback change should reach the event loop");
+        enforcer->noteActivity();
+        settle(600);
+        check(saverStarts() == 1, "the idle screen saver skips active playback");
         ok = true;
     } catch (const std::exception &error) {
         std::fprintf(stderr, "FAIL: %s\n", error.what());

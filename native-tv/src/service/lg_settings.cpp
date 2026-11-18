@@ -678,6 +678,38 @@ LgSettingWrite lgSettingWrite(const Json &value) {
     return write;
 }
 
+int shortScreenSaverMinutes(const Json &value) {
+    if (value.string() == "1" || (value.isNumber() && value.number() == 1)) return 1;
+    if (value.string() == "2" || (value.isNumber() && value.number() == 2)) return 2;
+    return 0;
+}
+
+Json withShortScreenSaverChoices(const Json &rows, int minutes) {
+    Json result = Json::array();
+    for (Json row : rows.items()) {
+        if (row["id"].string() == "screenSaverTimer") {
+            Json choices = Json::array();
+            Json minute = Json::object();
+            minute.set("value", Json::text("1"));
+            minute.set("label", Json::text(say::msg("srv.lgs.screenSaverTimer.1", "1 minute")));
+            choices.add(minute);
+            Json twoMinutes = Json::object();
+            twoMinutes.set("value", Json::text("2"));
+            twoMinutes.set("label", Json::text(say::msg("srv.lgs.screenSaverTimer.2", "2 minutes")));
+            choices.add(twoMinutes);
+            for (const Json &choice : row["choices"].items()) {
+                if (!shortScreenSaverMinutes(choice["value"])) choices.add(choice);
+            }
+            row.set("choices", choices);
+            if (minutes) row.set("value", Json::text(std::to_string(minutes)));
+            row.set("desc", Json::text(say::msg("srv.lgs.screenSaverTimer.shortDesc",
+                "Native Tv requests the screen saver after 1 or 2 idle minutes. Longer times use LG's timer.")));
+        }
+        result.add(row);
+    }
+    return result;
+}
+
 LgSettingWrite lgSettingsRestoreWrite(const std::string &id,
                                      const Json &value,
                                      const Json &currentRow) {

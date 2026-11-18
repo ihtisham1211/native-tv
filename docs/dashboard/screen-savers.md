@@ -25,7 +25,7 @@ The **Screen savers** tab of the **Display** section, `/?tab=screensaver`, provi
 
 Each mode but the black screen offers dim and bright variants, and visual elements continuously drift across the screen to prevent OLED burn-in or image retention.
 
-**Start after** sets how long the TV sits idle before its screen saver starts: 3, 10, 20 or 30 minutes, the four times LG's own menu offers (any other value stops the screen saver coming at all, so no other is offered). It is LG's `option.screenSaverTimer` setting, shown only on a TV that reports it, and the same row is on the TV app's Screen Saver Options page.
+**Start after** is shown on TVs that report LG's screen-saver timer. The **3 minutes**, **10 minutes**, **20 minutes** and **30 minutes** choices use LG's timer. Where Native Tv can watch remote input, the menu also offers **1 minute** and **2 minutes**. These choices ask the TV to start its screen saver after idle time with no playback, and skip HDMI and live TV. The same choices appear under **Options** on the TV app's Screen Saver page.
 
 A firmware update restores the LG default.
 

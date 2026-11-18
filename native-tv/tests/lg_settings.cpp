@@ -47,7 +47,20 @@ int main() {
         assert(twenty.valid && twenty.category == "option" && twenty.key == "screenSaverTimer" &&
                twenty.storedValue.string() == "20");
         // Any other time, such as 2 or 4, stops the screen saver coming at all on a C5.
+        assert(!lgSettingWrite(Json::parse(R"({"id":"screenSaverTimer","value":"1"})")).valid);
+        assert(!lgSettingWrite(Json::parse(R"({"id":"screenSaverTimer","value":"2"})")).valid);
         assert(!lgSettingWrite(Json::parse(R"({"id":"screenSaverTimer","value":"4"})")).valid);
+        assert(shortScreenSaverMinutes(Json::numeric(1)) == 1);
+        assert(shortScreenSaverMinutes(Json::text("2")) == 2);
+        assert(shortScreenSaverMinutes(Json::flag(true)) == 0);
+        assert(shortScreenSaverMinutes(Json::numeric(2.1)) == 0);
+        const Json rows = withShortScreenSaverChoices(r["rows"], 2);
+        assert(rows[0]["value"].string() == "2");
+        const Json choices = rows[0]["choices"];
+        std::vector<std::string> values;
+        for (const Json &choice : choices.items()) values.push_back(choice["value"].string());
+        assert((values == std::vector<std::string>{"1", "2", "3", "10", "20", "30"}));
+        assert(withShortScreenSaverChoices(Json::array(), 1).size() == 0);
     }
     // 1. Only the rows the TV has come back, one read per category of the section.
     // A B8-like TV: no screen saver ads, no smart tips, no Content Recommendation.

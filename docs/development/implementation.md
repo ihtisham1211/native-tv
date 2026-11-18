@@ -1952,6 +1952,8 @@ The debloating engine (`background_services`, kept by `services_keeper`) switche
 
 ## Screensaver Staging & Boot Persistence
 
+The one- and two-minute idle timers run on the daemon's event loop. Remote key presses, app changes and audio changes restart the countdown. At expiry the timer checks that the live power, app and playback state still allow the TV's `turnOnScreenSaver` request. This leaves LG's `option.screenSaverTimer` at a firmware-supported value.
+
 Custom QML screensavers are staged in `/var/lib/tvweb/screensaver` and bind-mounted over `/usr/palm/applications/com.webos.app.screensaver`.
 
 * **Cold Boot vs Quick Start+**: On Quick Start+ suspend-to-RAM, active bind-mounts persist in memory. On a cold boot (such as after the 4-hour OLED Pixel Cleaning cycle or extended standby on webOS 9 and 10), `/var/lib/webosbrew/init.d/50-tvweb` re-applies the bind-mount if `/var/lib/tvweb/screensaver/.tvweb-screensaver` is present.
