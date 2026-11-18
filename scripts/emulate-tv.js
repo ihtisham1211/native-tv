@@ -6,7 +6,7 @@
  * stand-in luna-send, a fixed system snapshot and a seeded Native Tv Home, allowing
  * developers to preview and interact with:
  *   - The Web Dashboard:      http://localhost:8080/
- *   - The TV App Dashboard:   http://localhost:8080/assets/google-tv/pages/dashboard/index.html
+ *   - The TV setup demo:      http://localhost:8080/assets/google-tv/pages/setup/index.html?demo=1
  *     (the page the Homebrew Channel app opens; the TV's own app is the native client)
  *
  * Usage:
@@ -284,7 +284,8 @@ async function main() {
 
   console.log(`\n✨ TV Emulator is READY! Open these in your browser:\n`);
   console.log(`  🌐 Web Dashboard:      ${base}/`);
-  console.log(`  📺 TV App Dashboard:   ${base}/assets/google-tv/pages/dashboard/index.html`);
+  const setup = `${base}/assets/google-tv/pages/setup/index.html?demo=1`;
+  console.log(`  📺 TV setup demo:      ${setup}`);
   console.log(`\n  (Press Ctrl+C to stop the emulator)\n`);
 
   if (simulatorApp) {
@@ -293,7 +294,7 @@ async function main() {
     const exe = path.join(binDir, fs.readdirSync(binDir)[0]);
     simulator = child.spawn(exe, [
       path.join(__dirname, 'simulator-apps', 'native-tv'),
-      JSON.stringify({ url: `${base}/assets/google-tv/pages/dashboard/index.html` })
+      JSON.stringify({ url: setup })
     ], { stdio: 'ignore' });
   }
 

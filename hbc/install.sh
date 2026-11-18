@@ -41,18 +41,18 @@ web_off() {
 }
 result() {   # action; also whether the dashboard is off, and the old tile's fate
   off=false; web_off && off=true
-  printf '{"ok":true,"action":"%s","version":"%s","webOff":%s,"oldTile":%s}\n' \
-    "$1" "$(version_of "$D/VERSION")" "$off" "${OLD_TILE:-null}"
+  printf '{"ok":true,"action":"%s","version":"%s","webOff":%s}\n' \
+    "$1" "$(version_of "$D/VERSION")" "$off"
 }
 
-# This app is the tile from now on: say so, which also stops the server's own
-# installer offering or refreshing the one deploy.sh added, then retire that
-# one if it is not open. Its answer is passed back for the launch page.
+# Keep the packaged launcher as the update source and register the native app
+# it opens. A TV that refuses registration can still serve the web dashboard.
 adopt() {
   # Records where the app lives, so the server can tell when it is uninstalled.
   dirname "$HERE" > "$D/.from-homebrew-channel"
-  OLD_TILE=$(sh "$D/assets/dashboard-app/install-app.sh" retire 2>/dev/null | tail -1)
-  case "$OLD_TILE" in "{"*) ;; *) OLD_TILE=null ;; esac
+  if ! web_off; then
+    sh "$D/assets/dashboard-app/install-app.sh" ensure >&2
+  fi
 }
 # A link into this app rather than a copy, as the Homebrew Channel asks: once
 # the app is removed the link leads nowhere and nothing runs at boot. Replaces
@@ -198,9 +198,9 @@ have=$(version_of "$D/VERSION")
 # a cold boot the launch page can get here before the boot hook has started it.
 if [ -n "$have" ] && { [ "$have" = "$want" ] || newer "$have" "$want"; }; then
   if [ "$have" = "$want" ]; then sync_native || fail "could not install the native runtime"; fi
-  running || "$D/tvwebctl" start >/dev/null 2>&1
   link_hook
   adopt
+  running || "$D/tvwebctl" start >/dev/null 2>&1
   result started
   exit 0
 fi

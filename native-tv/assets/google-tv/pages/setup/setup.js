@@ -7,7 +7,7 @@
 (function () {
   var FROM_SETTINGS = location.hash === '#ha';
   var IS_DEMO = location.search.indexOf('demo=1') !== -1;
-  var DONE_URL = '/assets/google-tv/pages/dashboard/index.html?tab=' + (FROM_SETTINGS ? 'settings' : 'system');
+  var DONE_URL = FROM_SETTINGS ? '/?tab=server' : '/';
   var stage = document.getElementById('stage');
   var state = null;          // the server's view: network, homeAssistant, handoff
   var screen = null, rows = [], sel = 0, busy = false, poll = null;

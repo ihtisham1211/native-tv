@@ -6915,11 +6915,11 @@ class DaemonRuntimeTests(unittest.TestCase):
                                   "only the service worker may widen its scope")
 
                 connection = http.client.HTTPConnection("127.0.0.1", port, timeout=3)
-                connection.request("GET", "/assets/dashboard.html?tab=apps")
+                connection.request("GET", "/assets/setup.html?demo=1")
                 response = connection.getresponse()
                 self.assertEqual(response.status, 302)
                 self.assertEqual(response.getheader("Location"),
-                                 "/assets/google-tv/pages/dashboard/index.html?tab=apps")
+                                 "/assets/google-tv/pages/setup/index.html?demo=1")
                 response.read()
                 connection.close()
 

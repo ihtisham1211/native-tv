@@ -73,9 +73,9 @@ The setting is the `tvTheme` section of `config.json` (`id`, and `suggested` onc
 
 ### First-run setup wizard
 
-Opening the TV app on a fresh install starts an on-screen setup wizard to configure the TV in a few quick steps with the remote. Whatever the app is opened on (its tile, Home, or a Settings page), it first asks the server whether first-run setup is done, as the browser dashboard always did, and opens the wizard's welcome page when it is not; the first frames wait behind the dark cover for the answer, and a server that is still starting is asked again every two seconds. The Homebrew Channel app's launch page asks the same question before it opens anything, and opens the wizard's pages instead of the dashboard when setup is not done.
+Opening the native TV app on a fresh install starts an on-screen setup wizard to configure the TV with the remote. The native app checks the server's setup state wherever it is opened, including from the Homebrew Channel tile. It shows the welcome page when setup is pending and asks a server that is still starting again every two seconds.
 
-If the setup request through Homebrew Channel fails, the launch page shows the reason or error code when available. **OK** retries setup.
+If the setup request through Homebrew Channel fails, the launcher shows the available reason or error code. If webOS refuses to open the native app after setup, the launcher reports the failure. **OK** retries.
 
 1. **Name this TV**: The keyboard comes up with the name the TV's model gives it: `B3` on an OLED65B3PUA, `C2` on an OLED42C24LA, `UQ8000` on a 55UQ8000, `LGTV` when the model is not known. OK on **Next** keeps it, or type another name. It is the name of the main profile on Home, which the profile editor can change later, and it shows on the summary at once; if the server refuses it, the old name comes back with a message.
 2. **Admin PIN**: Four digits that the TV and the web dashboard ask for before installing or removing apps, changing SSH keys, restoring a backup, restarting or powering off the TV, and the other actions that open the TV to more of the network. **Use 0000** sets the default in one press; the page says that anyone who knows it can use it, so a PIN of the person's own is better, chosen now or changed later on the web dashboard's Server tab. **Choose my own** opens a digit pad for four digits, masked as they are typed, and Next refuses fewer than four. A TV that already has a PIN skips this step, and the steps after it count one fewer.
@@ -109,7 +109,7 @@ All choices made during setup can be changed at any time from the TV app's **Set
 *The final summary screen confirming your settings before opening the dashboard.*
 
 > [!TIP]
-> **Testing the setup wizard**: To try the setup flow without changing the TV, set `"emulateSetup": true` in `/var/lib/tvweb/config.json`: the TV app then opens setup, and its actions change nothing. A browser can open the same screens at `/assets/google-tv/pages/dashboard/index.html?setup=1` on the server's address.
+> **Testing the setup wizard**: Set `"emulateSetup": true` in `/var/lib/tvweb/config.json` to open the native setup flow in demo mode. The browser setup demo is available at `/assets/google-tv/pages/setup/index.html?demo=1` on the server's address.
 
 ### The admin PIN prompt
 
@@ -141,11 +141,11 @@ The **System** section has the sleep timer under **Timers**: each press of OK mo
 
 ### Adding and removing the app
 
-A first install of Native Tv adds the app to the TV's home screen; updating an existing install leaves the home screen alone. The app is the Native Tv client itself, opened on the dashboard screen, and it is brought up to date with the server at each start of the server.
+A first install adds the native app to the TV's home screen. The Homebrew package also supplies a launcher tile that opens the native app and registers it if needed. Installed native apps are refreshed at server start when they are closed.
 
 The app can be added or removed at any time:
 
-* **From the web dashboard**: Go to the **Server** tab and toggle the TV app.
+* **From the web dashboard**: Go to the **Server** tab and toggle the TV app. On a Homebrew package install, opening the package's tile adds the native app again if it was removed.
 * **From deploy.sh**: Pass `--app` to add it or `--no-app` to omit it during installation.
 
 [Native Tv Home](../dashboard/home.md) is this same app opened on its Home screen, so it needs the app on the home screen: with the app removed Home cannot be switched on, and Home that is on gives LG's Home back. Removing the app changes nothing else, since the dashboard server continues to run in the background and reaches any browser on the network regardless. Where a TV model will not take the app, the control is hidden and everything else works as before.
