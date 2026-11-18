@@ -30,7 +30,7 @@ The **Server and backup** tab of the **Settings** section, `/?tab=server`, holds
 
 **TV theme** sets how the screens on the TV look: Google TV, Apple TV or OLED Care. It is the same setting as Settings, TV theme on the TV, kept on the TV and carried by Settings backup. Apple TV's Home is a dock of apps under the current pick, and OLED Care's shows the apps, inputs and panel, without film picks. [The TV app](../apps/tv-app.md#tv-theme) describes the themes.
 
-**App on the TV's home screen** adds or removes [the dashboard's own app](../apps/tv-app.md), which opens it on the TV and is driven by the remote.
+**App on the TV's home screen** adds or removes [the dashboard's own app](../apps/tv-app.md), which opens it on the TV and is driven by the remote. When Native Tv was installed from the Homebrew Channel, its app is the tile and this one is not added unless this switch is turned on, which Native Tv Home needs; it is then kept up to date, and is taken away again by turning the switch off.
 
 ## Advanced
 

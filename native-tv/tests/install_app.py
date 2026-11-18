@@ -56,7 +56,8 @@ class InstallAppTests(unittest.TestCase):
         (root / "bin/luna-send").chmod(0o755)
         self.environment = dict(
             os.environ, PATH=str(root / "bin") + os.pathsep + os.environ["PATH"],
-            TVWEB_APPS_ROOT=str(self.apps), INSTALL_LOG=str(root / "installs"),
+            TVWEB_APPS_ROOT=str(self.apps), TVWEB_DATA_ROOT=str(root / "data"),
+            INSTALL_LOG=str(root / "installs"),
             RUNNING_APPS="", COPYFILE_DISABLE="1")  # no AppleDouble files from a Mac's tar
         self.dashboard = root / "assets/dashboard-app"
         self.splash = root / "assets/splash-app"
@@ -144,6 +145,26 @@ class InstallAppTests(unittest.TestCase):
         self.assertEqual(json.loads(self.run_script("refresh")),
                          {"ok": True, "installed": False, "refreshed": False})
         self.assertFalse(self.installed("com.tvweb.dashboard").exists())
+
+    def test_homebrew_channel_install_retires_the_app_unless_the_owner_added_it(self):
+        data = Path(self.environment["TVWEB_DATA_ROOT"])
+        data.mkdir()
+        (data / ".from-homebrew-channel").write_text("/app\n")
+        # Offered, since Native Tv Home needs it; boot's retire has nothing to take away.
+        self.assertTrue(json.loads(self.run_script("status"))["supported"])
+        self.assertEqual(json.loads(self.run_script("retire"))["reason"], "absent")
+        self.assertEqual(self.run_script("install"), "dashboard added to the home screen")
+        self.assertTrue((data / ".tv-app-kept").is_file())
+        self.put(self.dashboard / "assets/fonts/GoogleSansFlex-Regular.ttf", "font v2")
+        # Added by the owner: boot's retire keeps it and brings it up to date.
+        self.assertEqual(self.run_script("retire"), "dashboard added to the home screen")
+        self.assertTrue(self.installed("com.tvweb.dashboard").is_dir())
+        self.assertEqual((self.installed("com.tvweb.dashboard") /
+                          "assets/fonts/GoogleSansFlex-Regular.ttf").read_text(), "font v2")
+        # Removed, it is retired again and nothing is kept.
+        self.assertEqual(json.loads(self.run_script("remove")), {"ok": True, "installed": False})
+        self.assertFalse((data / ".tv-app-kept").exists())
+        self.assertEqual(json.loads(self.run_script("refresh"))["installed"], False)
 
     def test_web_app_keeps_its_port_and_is_not_touched_by_refresh(self):
         self.run_script("install", self.home)
