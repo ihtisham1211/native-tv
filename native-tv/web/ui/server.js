@@ -404,17 +404,36 @@ function renderBackupDaily(daily, writable) {
   }
 }
 
-// Whether GitHub has a newer release. It only reports: the Homebrew Channel installs it.
+// The update that has been started, as the server last reported it, and the page's wait for its result.
+let releaseSeen = null;
+let releaseWatch = 0;
+const RELEASE_UPDATE_WORKING = ['downloading', 'verifying', 'installing', 'restarting'];
+
+function releaseProgress(u) {
+  const vars = { version: u.version, mb: ((u.receivedBytes || 0) / 1048576).toFixed(1) };
+  return u.state === 'downloading'
+    ? (u.receivedBytes
+      ? t('server.release.update.downloading', 'Downloading version {version}\u2026 {mb} MB', vars)
+      : t('server.release.update.starting', 'Asking GitHub for version {version}\u2026', vars))
+    : u.state === 'verifying' ? t('server.release.update.verifying', 'Checking the download against the checksum of the release\u2026')
+    : u.state === 'installing' ? t('server.release.update.installing', 'Installing the package on the TV\u2026')
+    : t('server.release.update.restarting', 'Restarting the server. This page reloads when it is back.');
+}
+
+// Whether GitHub has a newer release, and, for a server that came from the app package, installing it.
 function renderRelease(r, daily, writable) {
   q('release-row').hidden = q('release-daily-row').hidden = !r;
   if (!r) return;
+  releaseSeen = r;
   updateToggle('release-daily', {
     cls: daily ? 'good' : 'idle',
     label: daily ? t('common.on', 'On') : t('common.off', 'Off'),
     on: !!daily, disabled: !writable
   });
+  const u = r.update || {};
+  const working = RELEASE_UPDATE_WORKING.indexOf(u.state) >= 0;
   const check = q('release-check');
-  check.disabled = !writable || r.checking;
+  check.disabled = !writable || r.checking || working;
   check.textContent = r.checking ? t('server.release.checking', 'Checking\u2026') : t('server.release.check', 'Check for updates');
   const vars = {
     current: r.current, latest: r.latest ? r.latest.version : '', error: r.error || '',
@@ -425,17 +444,64 @@ function renderRelease(r, daily, writable) {
     : r.error ? t('server.release.failed', 'Could not check: {error}. This TV has {current}.', vars)
     : t('server.release.never', 'Not checked yet. This TV has {current}.', vars);
   if (r.error && r.latest) line += ' ' + t('server.release.failedLater', 'The latest check failed: {error}.', vars);
-  q('release-status').textContent = line;
+  // The last update's failure stays beside the release it was for, until it is tried again.
+  if (u.state === 'failed' && r.latest && u.version === r.latest.version)
+    line += ' ' + t('server.release.update.failed', 'The update to version {version} failed: {error}', { version: u.version, error: u.error || '' });
+  q('release-status').textContent = working ? releaseProgress(u) : line;
+  const install = q('release-install');
+  install.hidden = !r.available || !!u.unavailable;
+  install.disabled = !writable || working;
+  install.dataset.version = r.latest ? r.latest.version : '';
+  install.textContent = t('server.release.install', 'Install version {latest}', vars);
   const offer = q('release-offer');
   offer.hidden = !r.available;
-  q('release-hbc').hidden = !r.available || r.fromSource;
   if (!r.available) return;
-  offer.innerHTML = `<div>${esc(r.fromSource
-    ? t('server.release.source', 'This server was built from a git checkout. Pull the release and deploy it again.')
-    : t('server.release.how', 'On the TV, open the Homebrew Channel and update Native Tv. If it is not listed there, install the .ipk.'))}</div>` +
+  offer.innerHTML = `<div>${esc(u.unavailable
+    ? u.unavailable
+    : t('server.release.how', 'Installing downloads the package from GitHub, checks it against the checksum of the release, replaces the Native Tv app on the TV and restarts the server. Settings are kept, and a server that does not start is put back as it was.'))}</div>` +
     `<div><a href="${esc(r.latest.releaseUrl)}" target="_blank" rel="noopener">${esc(t('server.release.notes', 'Release notes'))}</a>` +
     ` &middot; <a href="${esc(r.latest.ipkUrl)}" target="_blank" rel="noopener">${esc(t('server.release.ipk', 'Download the .ipk'))}</a></div>` +
     `<div class="rel-sha">${esc(t('server.release.sha', 'SHA-256 {hash}', { hash: r.latest.sha256 }))}</div>`;
+}
+
+async function installRelease() {
+  const b = q('release-install');
+  const version = b.dataset.version;
+  if (!version || !confirm(t('server.release.install.confirm',
+    'Install version {latest}?\n\nThe package is downloaded from GitHub and checked against the checksum of the release. The Native Tv app on the TV closes while its package is replaced, the server restarts and the settings are kept. If the new server does not start, the old one is put back.',
+    { latest: version }))) return;
+  b.disabled = true;
+  const r = await sendCommand('installRelease', version);
+  if (r && r.ok) {
+    renderServerStatus(r);
+    watchReleaseUpdate(version);
+  } else {
+    loadServerStatus();
+  }
+}
+
+// Follows an update to its end. The server goes away while it restarts, so a
+// failed request is not an answer: the update is over when the server reports the
+// new version, or says it failed, and the page then reloads to take the new scripts.
+function watchReleaseUpdate(version) {
+  const mine = ++releaseWatch;
+  const started = Date.now();
+  const poll = async () => {
+    if (mine !== releaseWatch) return;
+    await loadServerStatus();
+    const r = releaseSeen;
+    if (r && r.current === version) {
+      q('release-status').textContent = t('server.release.update.done', 'Updated to version {version}. Reloading\u2026', { version });
+      setTimeout(() => location.reload(), 1500);
+    } else if (r && r.update && r.update.state === 'failed') {
+      return;
+    } else if (Date.now() - started > 5 * 60 * 1000) {
+      q('release-status').textContent = t('server.release.update.lost', 'The server has not answered for five minutes. Check the TV; the server can be restarted with tvwebctl restart over SSH.');
+    } else {
+      setTimeout(poll, 1500);
+    }
+  };
+  setTimeout(poll, 1000);
 }
 
 async function checkRelease() {

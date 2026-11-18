@@ -364,7 +364,13 @@ reports, the stored value of a switch, choice or number and which values a row t
 from the TV's description (numbers kept as text written as text), a value outside the list shown by its
 own name, a per-port row giving way to the one setting, the greyable rows, rows outside the table refused,
 the sound output names, the value a row shows being the one the TV's dimension names when it differs from the stored one
-(the sound output on a speaker, stored as HDMI ARC), and the backup restore of each kind of row. `native-sam-rescan-manager`
+(the sound output on a speaker, stored as HDMI ARC), the log upload rows, which LG stores as `true` or `false`, read from the `option` category, whose off is recorded
+for putting back, and the backup restore of each kind of row. `test_native_log_uploads_are_held_off` starts the
+daemon with an upload recorded off (`lgsettings-held.json`) and the stand-in TV (`NATIVETV_FAKE_LUNA_MODE=log-uploads`,
+`option` read from `NATIVETV_FAKE_OPTION_SETTINGS_FILE`) reporting it on again: it is written off, as a boolean, 300 ms after
+the start (`TVWEB_HELD_SETTINGS_DELAY_MS`; 60 s on a TV), the one that is off is left alone, the Privacy read has both rows and
+offers the one that is on in its summary, and a switch written off is recorded and one written on is dropped.
+`native-sam-rescan-manager`
 (`tests/sam_rescan_manager.cpp`, with `tests/sam_fake_tv.py` as `luna-send` and a stand-in `/bin/sh` in a fake
 root) covers the blocked-list nudge put back exactly and serialized, a failed restore
 retried, one app reread with a block and a release (refused, lost and repeated releases), the waits for sam,
@@ -420,10 +426,15 @@ settings come from the file in `NATIVETV_FAKE_TIME_SETTINGS_FILE` and a Home app
 shape before any action), `native-config-settings` (the defaults, an empty form's two errors, a broker address with a scheme, path or space and a device name with `<`, `>` or a control character refused, the icon switch) and `native-config`
 (a writer behind a live config lock is waited for, its update kept). The protected ids are held by
 `native-app-list` (an empty id is protected) and `test_native_tile_hiding_flag_and_hidden_list` (the flag file, a hidden list
-with no flag, an explicit 0, protected ids dropped from the list). `native-adblock` holds the built-in tables (both address families for every host, the common ad networks, unique hosts under 24 KiB, the
-playback and platform hosts left reachable, and the clean-up at start of what the removed device-scan switch left: its file and its
-lines in a mounted table) and `native-adblock-manager`
-(`tests/adblock_manager.cpp`) the SDP grace period (a valid clock at restart, a cold boot waiting for SDP, webOS 4 without `timeValid`; the
+with no flag, an explicit 0, protected ids dropped from the list). `native-adblock` holds the built-in tables (both address families for every host, the common ad networks, unique hosts under 24 KiB with the TV's country known and 32 KiB for the Everything tier before it is, the
+playback and platform hosts left reachable), the names refreshed from Glasshouse's lists by tier (and that the Everything tier's stay reachable
+on Ads & telemetry, and that the clock servers, `tv.wiselg.com` and `nextlgsdp.com`, and the one report host the ads tier has under the latter,
+wait for the clock), the country's clock server told from the others (what the AirPlay key check follows), and another tool's `0.0.0.0` lines kept
+through a rewrite of the table (and the table's own dropped), and the clean-up at start of what the removed device-scan switch left (its file and its
+lines in a mounted table), and `native-adblock-manager`
+(`tests/adblock_manager.cpp`) the SDP grace period (a valid clock at restart, a cold boot waiting for SDP, webOS 4 without `timeValid`, the ads
+tier waiting for its report host only, `tv.wiselg.com` blocked with `nextlgsdp.com`, and the AirPlay folder in `/tmp/mfi_key_requested` kept while the
+country's time server is blocked and removed with it, with a file there replaced and a directory with something else in it left; the
 120 s wait for a time from another source is not run). `native-oled-care` covers the OLED protections through
 `oledStatsObject`. Nine targets that check with `assert()` are built with `-UNDEBUG`, as a Release build otherwise
 compiles every check away.
@@ -441,7 +452,7 @@ an install started after the settings save. The suites `test-dashboard-nav.js`, 
 `node native-tv/tests/ui/run.js`. `test-hbc-launch.js` runs the Homebrew Channel app's launch script against a stand-in address, `XMLHttpRequest` and exec bridge, with no `window.PalmSystem`: a server that says first-run setup is needed (`setupNeeded` in `/api/caps`) is opened on the setup pages, one whose setup is done on the dashboard, whether it was already running or the script has just put it in place. `test-i18n.js` runs the string loader (`ui/i18n.js`) against a stand-in page, address bar, storage and network: the language is picked from `?lang=`, then the stored choice, then the browser's (`pt-BR` is `pt-br`'s file, any other `pt-` region is `pt`'s, `fr`, `ru` and the other six pick their own, and Arabic puts `dir="rtl"` on the page); the dictionary is read once, synchronously; English that no longer matches an entry's `from` is shown as it is; `data-t` text and attributes are translated in place; the `X-Native-Tv-Lang` header goes on requests to the TV and not to other sites; and the Server tab's list offers the nine languages, stores a choice and drops `?lang=` before reloading. `test-admin-session.js` runs the fetch wrapper of `ui/core.js` against a stand-in network: the admin session goes out with API requests only, a 403 that says `pin:true` raises the unlock prompt and retries once, a cancelled prompt leaves the refusal, and a 401 raises the passcode screen. `test-ntp-row.js` runs the Server tab's network time status line against the shapes the server sends, among them a clock that stayed out after a set. `test-remote-key-note.js` runs the Apps tab's remote-key change against a plain success, a failure and a success with a note, which the server sends where the TV will not stop Alexa from launching. `test-sam-reread-app.js` runs the boot hook's `sam_reread_app` with only `luna-send` replaced: a release is asked first, and nothing is blocked where sam has none. `test-dashboard-nav.js` holds the phone dashboard's sections and tabs
 against `ui.html` (the 13 panels, five sections, the tab buttons the scripts reveal), the Android wrapper's
 `navState` call, and the `?theme=` and `data-theme` behaviour. `test-hdmi-grid.js` runs `hdmiTable()` from `ui/lgsettings.js` and holds that no column of the HDMI inputs
-table keeps a minimum width: three of them once did (150, 130 and 130 px), which pushed the Audio format column off a 390 px phone. `test-wifi-name.js` runs `tick()` from `ui/readouts.js` against one stats answer and holds that the Network row shows a Wi-Fi name with `&`, `<` or `"` as typed: the row writes its sub-line as text, and a name escaped first showed "Home &amp; Garden". `test-release-card.js` runs `renderRelease()` from `ui/server.js` against the shapes the server sends for the Updates card: a newer release, none, a failed check (beside the last good answer or alone), a build from a git checkout, a check under way, and no release check at all. `test-pwa.js` holds the install contract: `ui.html` links a manifest with a name, the start URL `/`, standalone display, the page's theme colour and 192, 512 and maskable icons that are PNGs of the size they claim, and the service worker (`assets/pwa/sw.js`) answers page navigations only, with an offline page when the TV is unreachable, and never caches.
+table keeps a minimum width: three of them once did (150, 130 and 130 px), which pushed the Audio format column off a 390 px phone. `test-lg-uploads-ui.js` runs `renderLgSettings()` and its click handler from the same file: the Privacy tab's "Log uploads to LG" section shows only where the TV reports an upload setting, counts the switches that are on, has no master switch, and sends `lgSetting` for the row clicked. `test-wifi-name.js` runs `tick()` from `ui/readouts.js` against one stats answer and holds that the Network row shows a Wi-Fi name with `&`, `<` or `"` as typed: the row writes its sub-line as text, and a name escaped first showed "Home &amp; Garden". `test-release-card.js` runs `renderRelease()` from `ui/server.js` against the shapes the server sends for the Updates card: a newer release that can be installed from the card and one that cannot, an update at each stage and one that failed (beside its own release only), none, a failed check (beside the last good answer or alone), a check under way, and no release check at all; then the Install button's confirmation and the page's wait for the server to come back with the new version, or to say it failed. `test-pwa.js` holds the install contract: `ui.html` links a manifest with a name, the start URL `/`, standalone display, the page's theme colour and 192, 512 and maskable icons that are PNGs of the size they claim, and the service worker (`assets/pwa/sw.js`) answers page navigations only, with an offline page when the TV is unreachable, and never caches.
 
 `test-remote-keys-filter.js` runs the TV's key filter (`assets/remotekeys-filter.js`) against stand-ins for the compositor's objects: Screen off, Power off, an app, a media control, OK (key code 28, once per press), and Home Assistant, which does nothing on the TV and is not opened as an app. `test-remote-keys-tiles.js` runs `renderRemoteKeys()` and `toggleRemoteKey()` from `ui/apps.js`: the regional and assistant buttons are grouped (Globoplay and Shahid folded away as buttons of other countries' remotes), a key set to Home Assistant shows so, and Home Assistant is a choice only on a key whose row says it receives the presses, with the microphone's note. `native-remote-buttons` reads every reported button from its evdev code and its Qt code in LG's input log (whole numbers only), through a device file as well, and holds that the Remote Button entity declares each as an event type, since Home Assistant drops an undeclared one. `native-remote-keys-catalog` holds the Movies, Microphone, Globoplay and Shahid rows with their countries, the Ivi, Okko, Kinopoisk and LG Shop rows of webOS 11 (offered only where LG has them switched on, written and put back like the other streaming buttons), OK among the buttons, and the Home Assistant choice (offered only with MQTT on, on the reported keys, with neither control switch needed). `test_native_apps_list_projection_and_context_fallback` in `daemon_runtime.py` sets a key to Home Assistant over HTTP, with MQTT on, and has a key whose presses are not reported refused.
 
@@ -450,7 +461,13 @@ normal calls waiting), a child killed before answering run once more and then gi
 timeout never retried, and calls logged at the debug level only, against a scripted `luna-send`.
 `native-control-command` holds the whole RCU navigation and media key tables. `native-backup` checks
 which daily backup is due (named by the UTC date; none while off or before 2026) and that a pruned
-or temporary one cannot be read. `native-release-check` holds the version comparison (numbers, not text; only x.y.z counts), refuses a manifest that is another app's, malformed or hashless, builds the release links from the version rather than from the manifest, and times the daily check (a day after an answer, an hour after a failure). The runtime suite checks that a sound output change the audio
+or temporary one cannot be read. `native-release-check` holds the version comparison (numbers, not text; only x.y.z counts), refuses a manifest that is another app's, malformed or hashless, builds the release links from the version rather than from the manifest, reads a release's own manifest only when it names that release's package, and times the daily check (a day after an answer, an hour after a failure). `native-release-update` runs the update's state machine (`service/release_update`) against scripted steps: they run in order with the file removed before the app's installer, each failure stops the update there with its reason and nothing after it runs, a manifest that differs from the one the check saw stops it before the download, one update runs at a time, a failed one can be tried again, an installer that returns is a server that did not restart, a shutdown does not wait for the installer, and an update the app's installer put back is reported after the restart. `test_native_release_update_installs_only_a_verified_package` in the runtime suite runs the daemon with a release server on the same computer standing in for GitHub, a stand-in `luna-send` for the TV's app installer and a stand-in `install.sh`: no check yet, a version that is not the latest found, a `deploy.sh` install, a changed manifest, manifests naming another file, version or app, a missing package, a package that does not match the checksum, each leaving the TV as it was, with nothing downloaded left behind and the TV's app installer not called; then an app installer that refuses, one that says it installed what the app's files do not show (the app's `install.sh` is not run), an `install.sh` that refuses, one that returns and one that restarts the server, each with the download gone before `install.sh` ran and the TV given exactly the package that was checked, and an app install refused while the update runs, an update refused while an app install
+works and the confirmation of a waiting install refused while an update does, a staging
+folder that is a link (whose target is left alone and not emptied) or that others can write to,
+and the installer run with the argument `update`. `native-mqtt-command-router` checks that an
+`installRelease` command is not routed, and `native-app-package-fetcher` that
+`downloadHttps` refuses an address that is not https (or `127.0.0.1`) and a sixth redirect while
+the ordinary fetch follows them. The runtime suite checks that a sound output change the audio
 service never reports is answered after 4 s, and that a refused volume change stops `/api/stats`
 offering volume control on that output.
 
@@ -554,7 +571,20 @@ with the fonts, icons and licences it opens (`CLIENT_ASSETS` in
 `runtime.json`, in both the dashboard tile's and the splash's folders. Isolated Homebrew installer
 fixtures exercise fresh install, upgrade with config/layout preserved,
 same-version component repair, newer-runtime preservation and rejection of an
-incomplete or absent payload before installed files change. Package fixtures
+incomplete or absent payload before installed files change. They also run the
+update's safety net against a stand-in `tvwebctl` whose restart writes the
+heartbeat unless the daemon is the broken one the test builds: an upgrade is
+reported once the new server has written it and keeps no copy afterwards; one
+whose server does not come up gets every replaced file back, the old server
+restarted and the reason recorded; one that cannot copy the files it replaces
+changes nothing and restarts nothing; a new attempt forgets the last
+failure; a daemon that writes its heartbeat and then dies, is started again under
+another pid or stops writing it is not up either, and an upgrade is reported only
+after the settle time; two runs at once, a lock left by a gone pid or by a pid from
+another boot, and one held by a live run are each answered or taken over as they
+should be, and the lock goes when a run fails or is stopped by a signal; an update
+that was put back is not tried again by opening the app, only by `update` or a newer
+package; the old files are kept by hard link, and copied where `ln` fails. Package fixtures
 also require an ARM worker and reject missing builds before deployment, and
 `deploy.sh`'s telnet probe is run against a listening and a closed port, with a
 stand-in `nc` and without one: it believes `nc`'s yes, and tries bash's own
@@ -805,7 +835,11 @@ deleted. That is why the files are attached to a draft. A draft that is wrong is
 deleted with its tag (`gh release delete v<version> --cleanup-tag`) and the tag
 pushed again; a published one needs a new version. The update notice in the Server
 tab and the Homebrew Channel's listing read `releases/latest/download/<id>.manifest.json`,
-so a pre-release reaches only people who install its `.ipk` by hand.
+so a pre-release reaches only people who install its `.ipk` by hand. The Server
+tab's **Install** reads `releases/download/v<version>/<id>.manifest.json` and the
+`<id>_<version>_all.ipk` beside it, which `build-ipk.py` writes to the same names:
+a release has to keep them, with the manifest's `ipkUrl` the package's file name
+and its `ipkHash.sha256` the file's.
 
 A release's notes open with a short summary for people using Native Tv, one
 to three plain lines, then a `## Details` heading with the full notes and their

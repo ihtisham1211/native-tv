@@ -6,12 +6,14 @@ import json
 import os
 from pathlib import Path
 import shutil
+import signal
 import socket
 import stat
 import struct
 import subprocess
 import tarfile
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -480,7 +482,31 @@ class InstallerTests(unittest.TestCase):
         self.source.mkdir(parents=True)
         self.install.mkdir()
         self.put(self.source / "VERSION", "9.1.0\n")
-        self.put(self.source / "tvwebctl", '#!/bin/sh\ncase "$1" in status) echo running;; *) echo "$1" >> "$(dirname "$0")/commands";; esac\n', 0o755)
+        # A restart starts a "daemon", a process of its own with a pid file, and writes the
+        # heartbeat a server writes once it is up. What the daemon does is what its file
+        # says: "broken" never starts, "crashing" dies after a second, "flapping" is
+        # started again under another pid after a second (as the watchdog does), "stalled"
+        # stops its heartbeat after a second, and any other keeps running.
+        self.beat = self.root / "tvweb.beat"
+        self.pidfile = self.root / "tvweb.pid"
+        self.environment = dict(os.environ, TVWEB_BEAT=str(self.beat), TVWEB_PIDFILE=str(self.pidfile),
+                                TVWEB_UP_WAIT="2", TVWEB_UPDATE_SETTLE_SECONDS="3")
+        self.put(self.source / "tvwebctl",
+                 '#!/bin/sh\nhere=$(dirname "$0")\n'
+                 'kind() { grep -q "$1" "$here/native/nativetv-daemon"; }\n'
+                 'case "$1" in\n'
+                 '  status) echo running ;;\n'
+                 '  restart) echo restart >> "$here/commands"; rm -f "$TVWEB_BEAT" "$TVWEB_PIDFILE"\n'
+                 '           [ -z "$TVWEB_TEST_RESTART_DELAY" ] || sleep "$TVWEB_TEST_RESTART_DELAY"\n'
+                 '           kind broken && exit 0\n'
+                 '           life=30; kind crashing && life=1\n'
+                 '           sleep "$life" >/dev/null 2>&1 &\n'
+                 '           echo $! > "$TVWEB_PIDFILE"; echo $! >> "$here/pids"; echo 1 > "$TVWEB_BEAT"\n'
+                 '           kind flapping && ( sleep 1; sleep 30 >/dev/null 2>&1 & echo $! > "$TVWEB_PIDFILE"; echo $! >> "$here/pids" ) >/dev/null 2>&1 &\n'
+                 '           kind stalled && ( sleep 1; rm -f "$TVWEB_BEAT" ) >/dev/null 2>&1 &\n'
+                 '           exit 0 ;;\n'
+                 '  *) echo "$1" >> "$here/commands" ;;\n'
+                 'esac\n', 0o755)
         self.put(self.source / "50-tvweb.sh", "#!/bin/sh\n", 0o755)
         self.put(self.source / "assets/dashboard-app/install-app.sh", '#!/bin/sh\necho null\n', 0o755)
         self.put(self.source / "native/nativetv-service", "new runtime", 0o666)
@@ -503,6 +529,15 @@ class InstallerTests(unittest.TestCase):
         self.script.write_text(script)
 
     def tearDown(self):
+        # The stand-in daemons are processes of their own.
+        try:
+            for pid in (self.install / "pids").read_text().split():
+                try:
+                    os.kill(int(pid), signal.SIGKILL)
+                except OSError:
+                    pass
+        except OSError:
+            pass
         self.temporary.cleanup()
 
     def put(self, path, text, mode=0o644):
@@ -519,9 +554,13 @@ class InstallerTests(unittest.TestCase):
         self.put(self.install / "native/nativetv-daemon", "previous daemon", 0o755)
         self.put(self.install / "assets/dashboard-app/install-app.sh", '#!/bin/sh\necho null\n', 0o755)
 
+    def run_script(self, *arguments):
+        result = subprocess.run(["sh", str(self.script), *arguments], capture_output=True, text=True, check=True,
+                                env=self.environment)
+        return json.loads(result.stdout.splitlines()[-1]), result
+
     def run_install(self):
-        result = subprocess.run(["sh", str(self.script)], capture_output=True, text=True, check=True)
-        answer = json.loads(result.stdout.splitlines()[-1])
+        answer, result = self.run_script()
         self.assertTrue(answer["ok"], result.stdout + result.stderr)
         return answer
 
@@ -552,6 +591,231 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(self.run_install()["action"], "upgraded")
         self.assert_runtime()
         self.assertEqual(before, [(self.install / name).read_bytes() for name in ("config.json", "home.json")])
+
+    def test_upgrade_is_reported_once_the_new_server_is_up_and_keeps_no_copy(self):
+        self.existing("9.0.0")
+        started = time.monotonic()
+        self.assertEqual(self.run_install()["action"], "upgraded")
+        # A server that has written its heartbeat is up only once it has gone on running.
+        self.assertGreaterEqual(time.monotonic() - started, 3)
+        self.assertTrue(self.beat.exists())
+        self.assertFalse((self.install / ".previous").exists())
+        self.assertFalse((self.install / ".update-failed").exists())
+
+    def test_new_server_that_does_not_start_is_replaced_by_the_one_it_replaced(self):
+        self.existing("9.0.0")
+        self.put(self.source / "native/nativetv-daemon", "broken daemon", 0o666)
+        self.put(self.install / "assets/page.html", "old page")
+        self.put(self.source / "assets/page.html", "new page")
+        before = {name: (self.install / name).read_bytes()
+                  for name in ("config.json", "home.json", "native/nativetv-daemon",
+                               "native/nativetv-service", "assets/page.html", "VERSION")}
+        answer, _ = self.run_script()
+        self.assertFalse(answer["ok"])
+        self.assertIn("did not start", answer["error"])
+        # Every file the update replaced is back, the data was never touched, and the
+        # old server was started again after the new one failed to come up.
+        self.assertEqual(before, {name: (self.install / name).read_bytes() for name in before})
+        self.assertEqual((self.install / "commands").read_text().split(), ["restart", "restart"])
+        self.assertTrue(self.beat.exists(), "the restored server was started")
+        failed = json.loads((self.install / ".update-failed").read_text())
+        self.assertEqual(failed["version"], "9.1.0")
+        self.assertIn("version 9.0.0 was put back", failed["error"])
+        self.assertFalse((self.install / ".hbc-stage").exists())
+
+    def test_a_server_that_starts_and_then_stops_is_replaced_by_the_one_it_replaced(self):
+        # It writes its heartbeat and is running when the script looks, and then dies, is
+        # started again under another pid, or stops writing: none of those is up.
+        for kind in ("crashing", "flapping", "stalled"):
+            with self.subTest(kind=kind):
+                self.existing("9.0.0")
+                (self.install / "commands").unlink(missing_ok=True)
+                (self.install / ".update-failed").unlink(missing_ok=True)
+                self.put(self.source / "native/nativetv-daemon", kind + " daemon", 0o666)
+                answer, _ = self.run_script()
+                self.assertFalse(answer["ok"], answer)
+                self.assertIn("did not start", answer["error"])
+                self.assertEqual((self.install / "native/nativetv-daemon").read_text(), "previous daemon")
+                self.assertEqual((self.install / "VERSION").read_text().strip(), "9.0.0")
+                self.assertEqual((self.install / "commands").read_text().split(), ["restart", "restart"])
+                failed = json.loads((self.install / ".update-failed").read_text())
+                self.assertEqual(failed["version"], "9.1.0")
+                self.assertIn("version 9.0.0 was put back", failed["error"])
+
+    def test_opening_the_app_does_not_try_an_update_that_was_put_back_again(self):
+        self.existing("9.0.0")
+        self.put(self.source / "native/nativetv-daemon", "broken daemon", 0o666)
+        answer, _ = self.run_script()
+        self.assertFalse(answer["ok"])
+        # The launch page runs it with no argument each time the app is opened: the old
+        # server is left running, and no attempt is made over again.
+        (self.install / "commands").unlink()
+        failed = (self.install / ".update-failed").read_text()
+        answer, _ = self.run_script()
+        self.assertTrue(answer["ok"], answer)
+        self.assertEqual((answer["action"], answer["version"]), ("started", "9.0.0"))
+        self.assertEqual((self.install / "native/nativetv-daemon").read_text(), "previous daemon")
+        self.assertFalse((self.install / "commands").exists(), "nothing was restarted")
+        self.assertEqual((self.install / ".update-failed").read_text(), failed)
+        # The dashboard's Install passes `update`, and tries again, and a newer package is not held back.
+        self.put(self.source / "native/nativetv-daemon", "new daemon", 0o666)
+        answer, _ = self.run_script("update")
+        self.assertEqual(answer["action"], "upgraded")
+        self.assertFalse((self.install / ".update-failed").exists())
+
+    def test_a_package_newer_than_the_one_that_was_put_back_is_installed_on_opening_the_app(self):
+        self.existing("9.0.0")
+        self.put(self.source / "native/nativetv-daemon", "broken daemon", 0o666)
+        self.assertFalse(self.run_script()[0]["ok"])
+        self.put(self.source / "VERSION", "9.2.0\n")
+        self.put(self.source / "native/nativetv-daemon", "new daemon", 0o666)
+        self.assertEqual(self.run_script()[0]["action"], "upgraded")
+        self.assertEqual((self.install / "VERSION").read_text().strip(), "9.2.0")
+
+    def test_the_files_an_update_replaces_are_kept_by_link_not_by_copy(self):
+        # The old files are held where they are, which costs no room while both versions are on
+        # the flash; the new ones go in by rename and leave them alone. After a rollback, which
+        # leaves the kept files in place, they are still the very files that were installed.
+        self.existing("9.0.0")
+        self.put(self.source / "native/nativetv-daemon", "broken daemon", 0o666)
+        installed = {name: (self.install / name).stat().st_ino
+                     for name in ("native/nativetv-daemon", "native/nativetv-service", "VERSION", "config.json")}
+        self.assertFalse(self.run_script()[0]["ok"])
+        previous = self.install / ".previous"
+        for name in ("native/nativetv-daemon", "native/nativetv-service", "VERSION"):
+            self.assertEqual((previous / name).stat().st_ino, installed[name], name)
+        # Data is not among the files kept.
+        self.assertFalse((previous / "config.json").exists())
+        self.assertEqual((previous / "native/nativetv-daemon").read_text(), "previous daemon")
+        self.assertEqual((self.install / "native/nativetv-daemon").read_text(), "previous daemon")
+
+    def without_hard_links(self):
+        shim = self.root / "shim"
+        shim.mkdir(exist_ok=True)
+        # A `ln` that makes symbolic links, for the hook and the lock, and no other.
+        self.put(shim / "ln", '#!/bin/sh\ncase "$1" in -*) exec /bin/ln "$@" ;; *) exit 1 ;; esac\n', 0o755)
+        self.environment["PATH"] = str(shim) + os.pathsep + self.environment["PATH"]
+
+    def test_the_files_are_copied_where_a_link_cannot_be_made(self):
+        self.without_hard_links()
+        self.existing("9.0.0")
+        self.put(self.source / "native/nativetv-daemon", "broken daemon", 0o666)
+        inode = (self.install / "native/nativetv-daemon").stat().st_ino
+        answer, _ = self.run_script()
+        self.assertFalse(answer["ok"])
+        self.assertIn("did not start", answer["error"])
+        previous = self.install / ".previous/native/nativetv-daemon"
+        self.assertEqual(previous.read_text(), "previous daemon")
+        self.assertNotEqual(previous.stat().st_ino, inode)
+        self.assertEqual((self.install / "native/nativetv-daemon").read_text(), "previous daemon")
+
+    def test_update_that_cannot_keep_the_old_version_replaces_nothing(self):
+        if os.geteuid() == 0:
+            self.skipTest("root reads any file")
+        # Neither a link nor a copy of the file can be made.
+        self.without_hard_links()
+        self.existing("9.0.0")
+        unreadable = self.install / "native/nativetv-daemon"
+        unreadable.chmod(0)
+        try:
+            answer, _ = self.run_script()
+        finally:
+            unreadable.chmod(0o755)
+        self.assertFalse(answer["ok"])
+        self.assertIn("keep the version being replaced", answer["error"])
+        self.assertEqual((self.install / "VERSION").read_text().strip(), "9.0.0")
+        self.assertEqual(unreadable.read_text(), "previous daemon")
+        self.assertFalse((self.install / "commands").exists(), "the server was not restarted")
+        self.assertFalse((self.install / ".hbc-stage").exists())
+        self.assertFalse((self.install / ".previous").exists())
+
+    def wait_for_lock(self):
+        lock = self.install / ".install.lock"
+        deadline = time.monotonic() + 10
+        while not os.path.lexists(lock) and time.monotonic() < deadline:
+            time.sleep(0.02)
+        self.assertTrue(os.path.lexists(lock), "the run never took the lock")
+        return lock
+
+    def boot_id(self):
+        try:
+            return Path("/proc/sys/kernel/random/boot_id").read_text().strip()
+        except OSError:
+            return ""
+
+    def test_a_second_run_does_not_touch_an_install_that_is_being_made(self):
+        # The launch page's run starts while the dashboard's is still waiting for its server.
+        self.existing("9.0.0")
+        self.environment["TVWEB_TEST_RESTART_DELAY"] = "2"
+        first = subprocess.Popen(["sh", str(self.script)], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                 text=True, env=self.environment)
+        lock = self.wait_for_lock()
+        answer, _ = self.run_script()
+        self.assertEqual(answer, {"ok": False, "error": "an install is already running"})
+        output, _ = first.communicate(timeout=30)
+        self.assertEqual(json.loads(output.splitlines()[-1])["action"], "upgraded")
+        # One swap and one restart, and the lock goes when the run does.
+        self.assertEqual((self.install / "commands").read_text().split(), ["restart"])
+        self.assertFalse(os.path.lexists(lock))
+        self.assert_runtime()
+
+    def test_a_lock_whose_holder_is_gone_does_not_block_an_install(self):
+        self.existing("9.0.0")
+        gone = subprocess.Popen(["sh", "-c", "exit 0"])
+        gone.wait()
+        os.symlink("%d:%s" % (gone.pid, self.boot_id()), self.install / ".install.lock")
+        self.assertEqual(self.run_install()["action"], "upgraded")
+        self.assertFalse(os.path.lexists(self.install / ".install.lock"))
+
+    def test_a_pid_from_before_a_reboot_does_not_hold_the_lock(self):
+        # After a power cut the pid in the lock may belong to something else now.
+        self.existing("9.0.0")
+        bystander = subprocess.Popen(["sleep", "30"])
+        try:
+            os.symlink("%d:another-boot" % bystander.pid, self.install / ".install.lock")
+            self.assertEqual(self.run_install()["action"], "upgraded")
+        finally:
+            bystander.kill()
+            bystander.wait()
+
+    def test_a_lock_held_by_a_live_run_is_left_alone(self):
+        self.existing("9.0.0")
+        holder = subprocess.Popen(["sleep", "30"])
+        target = "%d:%s" % (holder.pid, self.boot_id())
+        try:
+            os.symlink(target, self.install / ".install.lock")
+            answer, _ = self.run_script()
+            self.assertEqual(answer, {"ok": False, "error": "an install is already running"})
+            self.assertEqual(os.readlink(self.install / ".install.lock"), target)
+            self.assertEqual((self.install / "VERSION").read_text().strip(), "9.0.0")
+            self.assertFalse((self.install / "commands").exists())
+        finally:
+            holder.kill()
+            holder.wait()
+
+    def test_the_lock_is_released_when_a_run_fails_or_is_stopped(self):
+        self.existing("9.0.0")
+        self.put(self.source / "native/nativetv-daemon", "broken daemon", 0o666)
+        answer, _ = self.run_script()
+        self.assertFalse(answer["ok"])
+        self.assertFalse(os.path.lexists(self.install / ".install.lock"), "after a rollback")
+        # A run that is told to stop, while its server restarts, puts nothing in the way of the next.
+        self.put(self.source / "native/nativetv-daemon", "new daemon", 0o666)
+        self.environment["TVWEB_TEST_RESTART_DELAY"] = "1"
+        run = subprocess.Popen(["sh", str(self.script), "update"], stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                               text=True, env=self.environment)
+        lock = self.wait_for_lock()
+        run.terminate()
+        run.communicate(timeout=30)
+        self.assertFalse(os.path.lexists(lock), "after a signal")
+        time.sleep(1.5)  # the stand-in restart that was under way finishes before the folder goes
+
+    def test_a_new_attempt_forgets_the_failure_before_it(self):
+        self.existing("9.0.0")
+        self.put(self.install / ".update-failed", '{"version":"9.1.0","error":"x"}\n')
+        answer, _ = self.run_script("update")
+        self.assertEqual(answer["action"], "upgraded")
+        self.assertFalse((self.install / ".update-failed").exists())
 
     def test_upgrade_from_the_node_server_clears_its_files(self):
         # An install from before the daemon was the whole server: its version is in
@@ -586,7 +850,8 @@ class InstallerTests(unittest.TestCase):
                 source = self.source / "native" / missing
                 content = source.read_bytes()
                 source.unlink()
-                result = subprocess.run(["sh", str(self.script)], capture_output=True, text=True, check=True)
+                result = subprocess.run(["sh", str(self.script)], capture_output=True, text=True, check=True,
+                                        env=self.environment)
                 self.assertFalse(json.loads(result.stdout.splitlines()[-1])["ok"])
                 self.assertEqual((self.install / "VERSION").read_bytes(), before)
                 self.assertEqual((self.install / "native/nativetv-service").read_text(), "previous runtime")
@@ -597,7 +862,8 @@ class InstallerTests(unittest.TestCase):
         self.existing("9.0.0")
         before = (self.install / "VERSION").read_bytes()
         shutil.rmtree(self.source / "native")
-        result = subprocess.run(["sh", str(self.script)], capture_output=True, text=True, check=True)
+        result = subprocess.run(["sh", str(self.script)], capture_output=True, text=True, check=True,
+                                env=self.environment)
         self.assertFalse(json.loads(result.stdout.splitlines()[-1])["ok"])
         self.assertEqual((self.install / "VERSION").read_bytes(), before)
         self.assertEqual((self.install / "native/nativetv-service").read_text(), "previous runtime")

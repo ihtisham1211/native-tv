@@ -80,6 +80,10 @@ MqttControlCommand routeMqttControlTopic(const std::string &topic,
         return result;
 
     std::string action = topic.substr(commandPrefix.size());
+    // Putting a release on the TV needs the token, the admin PIN and the owner's
+    // confirmation in the dashboard, none of which a message to the broker has.
+    if (lower(action) == "installrelease")
+        return result;
     const std::string value = trim(textPayload);
     const Json text = Json::text(value);
     Json controlValue = text;

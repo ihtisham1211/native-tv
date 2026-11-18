@@ -61,7 +61,7 @@ def without_country_learning(calls):
                     call.get("payload", {}).get("keys", []))]
 
 
-def app_install_ipk():
+def app_install_ipk(app_id="com.example.app", version="1.2.3", with_service=True):
     def tar_gzip(entries):
         buffer = io.BytesIO()
         with tarfile.open(fileobj=buffer, mode="w:gz", format=tarfile.USTAR_FORMAT) as archive:
@@ -75,12 +75,11 @@ def app_install_ipk():
                     archive.addfile(info, io.BytesIO(contents))
         return buffer.getvalue()
 
-    app_id = "com.example.app"
-    control = tar_gzip([("./control", b"Package: com.example.app\nVersion: 1.2.3\nArchitecture: all\n")])
+    control = tar_gzip([("./control", ("Package: %s\nVersion: %s\nArchitecture: all\n" % (app_id, version)).encode())])
     elf = bytearray(64)
     elf[:7] = b"\x7fELF\x01\x01\x01"
     elf[18:20] = struct.pack("<H", 40)
-    appinfo = json.dumps({"id": app_id, "title": "Example", "version": "1.2.3",
+    appinfo = json.dumps({"id": app_id, "title": "Example", "version": version,
                           "icon": "icon.png"}).encode("utf-8")
     data = tar_gzip([
         ("./usr/", None),
@@ -89,10 +88,11 @@ def app_install_ipk():
         ("./usr/palm/applications/%s/bin/" % app_id, None),
         ("./usr/palm/applications/%s/appinfo.json" % app_id, appinfo),
         ("./usr/palm/applications/%s/bin/run" % app_id, bytes(elf)),
+    ] + ([
         ("./usr/palm/services/", None),
         ("./usr/palm/services/%s.service/" % app_id, None),
         ("./usr/palm/services/%s.service/run" % app_id, bytes(elf)),
-    ])
+    ] if with_service else []))
 
     def ar_member(name, body):
         fields = [name + "/", "0", "0", "0", "100644", str(len(body))]
@@ -6231,6 +6231,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                                       ("/api/control", {"action": "reboot"}),
                                       ("/api/control", {"action": "powerOff"}),
                                       ("/api/control", {"action": "setDashboardPort", "value": 8090}),
+                                      ("/api/control", {"action": "installRelease", "value": "99.0.0"}),
                                       ("/api/admin/pin", {"pin": "1111"})):
                     status, body, _ = request(path, "POST", payload)
                     self.assertTrue(needs_pin(status, body), (path, payload, status, body))
@@ -10891,6 +10892,431 @@ class DaemonRuntimeTests(unittest.TestCase):
                         process.kill()
                         process.wait(timeout=3)
 
+    def test_native_release_update_installs_only_a_verified_package(self):
+        # The Server tab's Install: the release's manifest and package come from a server on this
+        # computer standing in for GitHub, the TV's app installer is a stand-in luna-send that
+        # replaces the app's files, and the app's payload/install.sh is a stand-in that says how
+        # it went. Every way the update can fail leaves the TV as it was, with the reason shown.
+        binary = Path(sys.argv[1]).resolve()
+        fakeLuna = binary.parent / "native-fake-luna-send"
+        publicPort = unused_port_pair()
+        nodePort = unused_port_pair((publicPort, publicPort + 1))
+        releasePort = unused_port_pair((publicPort, publicPort + 1, nodePort, nodePort + 1))
+        token = "release-update-token"
+        appId = "io.github.ihtisham1211.nativetv"
+        version = "99.0.0"
+        ipkName = "%s_%s_all.ipk" % (appId, version)
+        package = app_install_ipk(appId, version, with_service=False)
+        packageSha = hashlib.sha256(package).hexdigest()
+
+        def manifest(sha=packageSha, ipk=ipkName, id=appId, newVersion=version):
+            return json.dumps({"id": id, "version": newVersion, "ipkUrl": ipk,
+                               "ipkHash": {"sha256": sha}}).encode()
+
+        # What the release server answers, changed between steps; every request it gets is kept.
+        release = {"latest": manifest(), "tag": manifest(), "ipk": package}
+        requested = []
+
+        class ReleaseHandler(BaseHTTPRequestHandler):
+            def do_GET(self):
+                requested.append(self.path)
+                base = "/releases/"
+                body = None
+                if self.path == base + "latest/download/%s.manifest.json" % appId:
+                    body = release["latest"]
+                elif self.path == base + "download/v%s/%s.manifest.json" % (version, appId):
+                    body = release["tag"]
+                elif self.path == base + "download/v%s/%s" % (version, ipkName):
+                    body = release["ipk"]
+                if body is None:
+                    self.send_response(404)
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *_args):
+                pass
+
+        releases = HTTPServer(("127.0.0.1", releasePort), ReleaseHandler)
+        threading.Thread(target=releases.serve_forever, daemon=True).start()
+
+        with tempfile.TemporaryDirectory(prefix="nativetv-release-update-") as folder:
+            root = Path(folder)
+            dataRoot = root / "data"
+            app = root / "apps" / appId
+            staging = root / "update-stage"
+            config = root / "config.json"
+            installLog = root / "dev-install.jsonl"
+            installerRuns = root / "installer-runs"
+            installMode = root / "install-mode"
+            installerMode = root / "installer-mode"
+            for directory in (dataRoot, app / "payload/tvweb", root / "assets", root / "system"):
+                directory.mkdir(parents=True)
+            (root / "proc/net").mkdir(parents=True)
+            (app / "payload/tvweb/VERSION").write_text("0.1.0\n")
+            # install.sh wrote this where it took the server over from the package.
+            (dataRoot / ".from-homebrew-channel").write_text(str(app) + "\n")
+            installer = app / "payload/install.sh"
+            installer.write_text(
+                "#!/bin/sh\n"
+                "echo \"$(cat \"$(dirname \"$0\")/tvweb/VERSION\") staged=$(ls \"$NATIVETV_TEST_STAGING\" | wc -l | tr -d ' ') arg=$1\""
+                " >> \"$NATIVETV_TEST_INSTALLER_RUNS\"\n"
+                "case \"$(cat \"$NATIVETV_TEST_INSTALLER_MODE\")\" in\n"
+                "  restart) printf '{\"ok\":true,\"action\":\"upgraded\"}\\n'; kill -TERM $PPID ;;\n"
+                "  slow) sleep 2; printf '{\"ok\":true,\"action\":\"upgraded\"}\\n' ;;\n"
+                "  room) printf '{\"ok\":false,\"error\":\"there is not enough room to keep the version being replaced\"}\\n' ;;\n"
+                "esac\n")
+            installMode.write_text("installed")
+            installerMode.write_text("restart")
+            installLuna = root / "install-luna-send"
+            installLuna.write_text(
+                "#!/usr/bin/env python3\n"
+                "import json, os, sys, time\n"
+                "args = sys.argv[1:]\n"
+                "uri = next((arg for arg in args if arg.startswith('luna://')), '')\n"
+                "if not uri.endswith('/dev/install'):\n"
+                "    fake = os.environ['NATIVETV_TEST_FAKE_LUNA']\n"
+                "    os.execv(fake, [fake] + args)\n"
+                "payload = json.loads(args[-1])\n"
+                "if payload['id'] != '" + appId + "':\n"
+                "    # Another app's install, kept going while its hold file is there.\n"
+                "    while os.path.exists(os.environ['NATIVETV_TEST_HOLD']):\n"
+                "        time.sleep(0.05)\n"
+                "    print(json.dumps({'returnValue': True, 'statusValue': 10}), flush=True)\n"
+                "    print(json.dumps({'statusValue': 30, 'details': {'packageId': payload['id']}}), flush=True)\n"
+                "    time.sleep(20)\n"
+                "    raise SystemExit\n"
+                "with open(os.environ['NATIVETV_TEST_INSTALL_LOG'], 'a') as output:\n"
+                "    output.write(json.dumps({'payload': payload, 'bytes': os.path.getsize(payload['ipkUrl'])}) + '\\n')\n"
+                "mode = open(os.environ['NATIVETV_TEST_INSTALL_MODE']).read().strip()\n"
+                "if mode == 'failed':\n"
+                "    print(json.dumps({'returnValue': False, 'errorText': 'denied'}), flush=True)\n"
+                "else:\n"
+                "    if mode == 'installed':\n"
+                "        open(os.environ['NATIVETV_TEST_APP_VERSION'], 'w').write('" + version + "\\n')\n"
+                "    print(json.dumps({'returnValue': True, 'statusValue': 10}), flush=True)\n"
+                "    print(json.dumps({'statusValue': 30, 'details': {'packageId': payload['id']}}), flush=True)\n"
+                "    time.sleep(20)\n")
+            installLuna.chmod(0o700)
+            config.write_text(json.dumps({"host": "127.0.0.1", "port": publicPort, "token": token,
+                                          "allowControl": True}))
+            hold = root / "hold-app-install"
+            appPackage = app_install_ipk(with_service=False)
+            # The staging folder starts as a link to a folder with a file in it that must survive.
+            victims = root / "victims"
+            victims.mkdir()
+            (victims / "keep-me").write_text("not the server's to delete")
+            staging.symlink_to(victims)
+            environment = os.environ.copy()
+            environment.update({
+                "TVWEB_NATIVE_INSTALL": "1", "TVWEB_INSTALL_STAGING": str(root / "install-stage"),
+                "NATIVETV_FAKE_LUNA_MODE": "app-install-recovery", "NATIVETV_TEST_HOLD": str(hold),
+                "TVWEB_LUNA_SEND": str(installLuna), "TVWEB_DATA_DIR": str(dataRoot),
+                "TVWEB_PROXY_SECRET": "release-update-secret-0123456789abcdef",
+                "TVWEB_RELEASE_BASE": "http://127.0.0.1:%d" % releasePort,
+                "TVWEB_UPDATE_STAGING": str(staging), "TVWEB_UPDATE_SETTLE_SECONDS": "1",
+                "NATIVETV_TEST_FAKE_LUNA": str(fakeLuna), "NATIVETV_TEST_INSTALL_LOG": str(installLog),
+                "NATIVETV_TEST_INSTALL_MODE": str(installMode), "NATIVETV_TEST_STAGING": str(staging),
+                "NATIVETV_TEST_APP_VERSION": str(app / "payload/tvweb/VERSION"),
+                "NATIVETV_TEST_INSTALLER_RUNS": str(installerRuns),
+                "NATIVETV_TEST_INSTALLER_MODE": str(installerMode)})
+            process = subprocess.Popen(
+                [str(binary), "--config", str(config), "--heartbeat", str(root / "tvweb.beat"),
+                 "--workers", "4", "--listen", "--node-port", str(nodePort),
+                 "--assets-root", str(root / "assets"), "--proc-root", str(root / "proc"),
+                 "--system-root", str(root / "system")],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, env=environment)
+
+            def get(path):
+                req = Request("http://127.0.0.1:%d%s" % (publicPort, path),
+                              headers={"Authorization": "Bearer " + token})
+                with urlopen(req, timeout=15) as response:
+                    return json.loads(response.read())
+
+            def control(action, value=None):
+                req = Request("http://127.0.0.1:%d/api/control" % publicPort,
+                              data=json.dumps({"action": action, "value": value}).encode(),
+                              method="POST",
+                              headers={"Authorization": "Bearer " + token,
+                                       "Content-Type": "application/json"})
+                with urlopen(req, timeout=15) as response:
+                    return json.loads(response.read())
+
+            def call(path, payload=None, data=None, contentType="application/json"):
+                req = Request("http://127.0.0.1:%d%s" % (publicPort, path),
+                              data=json.dumps(payload).encode() if payload is not None else data,
+                              method="POST" if payload is not None or data is not None else "GET",
+                              headers={"Authorization": "Bearer " + token, "Content-Type": contentType})
+                try:
+                    with urlopen(req, timeout=15) as response:
+                        return response.status, json.loads(response.read())
+                except HTTPError as error:
+                    return error.code, json.loads(error.read())
+
+            def app_install_in(states, seconds=10):
+                deadline = time.monotonic() + seconds
+                while time.monotonic() < deadline:
+                    code, snapshot = call("/api/apps/install/status")
+                    if snapshot.get("state") in states:
+                        return snapshot
+                    time.sleep(0.05)
+                self.fail("the app install stayed in %r, wanted %r" % (snapshot, states))
+
+            def update_state():
+                status = get("/api/update")
+                self.assertIsInstance(status.get("release"), dict, status)
+                return status["release"]["update"]
+
+            def finished(timeout=15):
+                deadline = time.monotonic() + timeout
+                while time.monotonic() < deadline:
+                    state = update_state()
+                    if state["state"] in ("failed", "idle"):
+                        return state
+                    time.sleep(0.05)
+                self.fail("the update did not finish: %r" % update_state())
+
+            def attempt():
+                # A fresh check, as the dashboard has just made, then the confirmed install.
+                self.assertTrue(control("checkRelease")["release"]["available"])
+                request_count = len(requested)
+                result = control("installRelease", version)
+                return result, request_count
+
+            def nothing_changed():
+                self.assertFalse(installLog.exists(), "the TV's app installer was called")
+                self.assertFalse(installerRuns.exists(), "the app's installer was run")
+                self.assertEqual(list(staging.glob("*")) if staging.exists() else [], [],
+                                 "the downloaded package was left behind")
+                self.assertEqual((app / "payload/tvweb/VERSION").read_text().strip(), "0.1.0")
+
+            try:
+                deadline = time.monotonic() + 8
+                while time.monotonic() < deadline and process.poll() is None:
+                    try:
+                        urlopen(Request("http://127.0.0.1:%d/api/caps" % publicPort), timeout=2)
+                        break
+                    except (OSError, URLError):
+                        time.sleep(0.03)
+                self.assertIsNone(process.poll(), "daemon exited early")
+                # The release check is wired in a moment after the server first answers.
+                while time.monotonic() < deadline and not isinstance(get("/api/update").get("release"), dict):
+                    time.sleep(0.03)
+
+                # Nothing is checked yet: the install is refused, and GitHub is not asked for the package.
+                state = update_state()
+                self.assertEqual((state["state"], state["unavailable"]), ("idle", None))
+                refused = control("installRelease", version)
+                self.assertFalse(refused["ok"])
+                self.assertIn("check for updates again", refused["error"])
+                self.assertEqual(requested, [])
+
+                # The folder the package waits in has to be the server's own. A link there is not
+                # followed, to download into or to empty, and nor is a folder that others can write to.
+                self.assertTrue(control("checkRelease")["release"]["available"])
+                self.assertEqual([path.name for path in victims.iterdir()], ["keep-me"],
+                                 "the server emptied the folder a link led to")
+                for unsafe in ("link", "open"):
+                    if unsafe == "open":
+                        staging.unlink()
+                        staging.mkdir()
+                        staging.chmod(0o777)
+                    self.assertTrue(control("installRelease", version)["ok"])
+                    state = finished()
+                    self.assertEqual(state["state"], "failed", unsafe)
+                    self.assertIn("is a link, belongs to another user or can be written by others", state["error"])
+                    self.assertEqual([path.name for path in victims.iterdir()], ["keep-me"])
+                    if unsafe == "open":
+                        self.assertEqual(list(staging.glob("*")), [])
+                    self.assertTrue(all(path.endswith(".manifest.json") for path in requested), requested)
+                staging.chmod(0o700)
+                requested.clear()
+
+                # Only the version the owner confirmed, which is the latest found, is installed.
+                self.assertTrue(control("checkRelease")["release"]["available"])
+                for wrong in ("98.0.0", "99.0.1", "", None, 99):
+                    self.assertFalse(control("installRelease", wrong)["ok"], wrong)
+                self.assertTrue(all(path.endswith(".manifest.json") for path in requested), requested)
+                nothing_changed()
+
+                # A deploy.sh install has no app package to update from, and says how it is updated.
+                mark = dataRoot / ".from-homebrew-channel"
+                mark.rename(dataRoot / "mark-away")
+                state = update_state()
+                self.assertIn("by deploying it again", state["unavailable"])
+                refused = control("installRelease", version)
+                self.assertFalse(refused["ok"])
+                self.assertIn("by deploying it again", refused["error"])
+                (dataRoot / "mark-away").rename(mark)
+                self.assertIsNone(update_state()["unavailable"])
+
+                # An app install under way is not cut off by an update: it is refused until the
+                # install has finished.
+                hold.write_text("")
+                code, started = call("/api/apps/install/upload", data=appPackage,
+                                     contentType="application/octet-stream")
+                self.assertEqual(code, 200, started)
+                app_install_in(["awaiting-confirm"])
+                code, confirmed = call("/api/apps/install/confirm", {"jobId": started["install"]["jobId"]})
+                self.assertEqual(code, 200, confirmed)
+                app_install_in(["installing"])
+                self.assertTrue(control("checkRelease")["release"]["available"])
+                busy = control("installRelease", version)
+                self.assertFalse(busy["ok"], busy)
+                self.assertIn("app install is in progress", busy["error"])
+                self.assertIn(update_state()["state"], ("idle", "failed"), "the update started")
+                self.assertEqual([path for path in requested if not path.endswith(".manifest.json")], [])
+                hold.unlink()
+                app_install_in(["installed"])
+                self.assertFalse(installLog.exists(), "another app's install is not the update's")
+                requested.clear()
+
+                # The manifest differs from the one the check saw: nothing is downloaded.
+                release["tag"] = manifest(sha="b" * 64)
+                result, before = attempt()
+                self.assertTrue(result["ok"], result)
+                state = finished()
+                self.assertEqual(state["state"], "failed")
+                self.assertIn("manifest changed", state["error"])
+                self.assertEqual(len(requested), before + 1, "only the manifest was asked for")
+                nothing_changed()
+
+                # A manifest that names another file, another version or another app is not this release's.
+                for bad in (manifest(ipk="other_99.0.0_all.ipk"), manifest(ipk="https://evil.example/x.ipk"),
+                            manifest(newVersion="98.0.0"), manifest(id="org.example.other"), b"not json"):
+                    release["tag"] = bad
+                    result, before = attempt()
+                    self.assertTrue(result["ok"], result)
+                    state = finished()
+                    self.assertEqual(state["state"], "failed", bad)
+                    self.assertEqual(len(requested), before + 1, "the package was fetched for " + repr(bad))
+                    nothing_changed()
+                release["tag"] = manifest()
+
+                # No package at that address.
+                release["ipk"] = None
+                result, _ = attempt()
+                self.assertTrue(result["ok"], result)
+                state = finished()
+                self.assertEqual(state["state"], "failed")
+                self.assertIn("404", state["error"])
+                nothing_changed()
+
+                # A package that is not the one the manifest's checksum is for is never installed.
+                release["ipk"] = package + b"\0"
+                result, _ = attempt()
+                self.assertTrue(result["ok"], result)
+                state = finished()
+                self.assertEqual(state["state"], "failed")
+                self.assertIn("does not match the release", state["error"])
+                nothing_changed()
+                release["ipk"] = package
+
+                # The TV's app installer refuses: the staged package is removed and nothing is run.
+                installMode.write_text("failed")
+                result, _ = attempt()
+                self.assertTrue(result["ok"], result)
+                state = finished()
+                self.assertEqual(state["state"], "failed")
+                self.assertIn("app installer failed: denied", state["error"])
+                self.assertEqual(json.loads(installLog.read_text().splitlines()[0])["bytes"], len(package))
+                self.assertFalse(installerRuns.exists())
+                self.assertEqual(list(staging.glob("*")), [])
+                installLog.unlink()
+
+                # It says installed, but the app on disk is not the new one: the old app's installer is not run.
+                installMode.write_text("unchanged")
+                result, _ = attempt()
+                self.assertTrue(result["ok"], result)
+                state = finished()
+                self.assertEqual(state["state"], "failed")
+                self.assertIn("did not replace the app with version 99.0.0", state["error"])
+                self.assertFalse(installerRuns.exists())
+                self.assertEqual(json.loads(installLog.read_text().splitlines()[0])["payload"]["id"], appId)
+                installLog.unlink()
+
+                # The app's installer cannot start the swap: the reason it gives is shown, and the server stays up.
+                installMode.write_text("installed")
+                installerMode.write_text("room")
+                result, _ = attempt()
+                self.assertTrue(result["ok"], result)
+                state = finished()
+                self.assertEqual(state["state"], "failed")
+                self.assertIn("not enough room to keep the version being replaced", state["error"])
+                # It ran after the package was in and the download removed, and before nothing else.
+                self.assertEqual(installerRuns.read_text().split(), ["99.0.0", "staged=0", "arg=update"])
+                self.assertIsNone(process.poll())
+                installLog.unlink()
+                installerRuns.unlink()
+
+                # An installer that moved the files but left this server running is not a finished update.
+                # While it runs, the update is restarting, and neither a second update nor an app
+                # install may start.
+                installerMode.write_text("slow")
+                # An install that was waiting for its confirmation is not let through either.
+                code, waiting = call("/api/apps/install/upload", data=appPackage,
+                                     contentType="application/octet-stream")
+                self.assertEqual(code, 200, waiting)
+                app_install_in(["awaiting-confirm"])
+                result, _ = attempt()
+                self.assertTrue(result["ok"], result)
+                while update_state()["state"] != "restarting":
+                    time.sleep(0.02)
+                code, late = call("/api/apps/install/confirm", {"jobId": waiting["install"]["jobId"]})
+                self.assertEqual(code, 409, late)
+                self.assertIn("being updated", late["error"])
+                self.assertEqual(app_install_in(["awaiting-confirm"])["jobId"], waiting["install"]["jobId"])
+                self.assertIn("already running", control("installRelease", version)["error"])
+                code, cancelled = call("/api/apps/install/cancel", {"jobId": waiting["install"]["jobId"]})
+                self.assertEqual(code, 200, cancelled)
+                refused = Request("http://127.0.0.1:%d/api/apps/install/url" % publicPort,
+                                  data=json.dumps({"url": "http://127.0.0.1:9/x.ipk"}).encode(),
+                                  method="POST", headers={"Authorization": "Bearer " + token,
+                                                          "Content-Type": "application/json"})
+                with self.assertRaises(HTTPError) as blocked:
+                    urlopen(refused, timeout=10)
+                self.assertEqual(blocked.exception.code, 409)
+                self.assertIn("being updated", json.loads(blocked.exception.read())["error"])
+                state = finished()
+                self.assertIn("did not restart", state["error"])
+                self.assertIsNone(process.poll())
+                installLog.unlink()
+                installerRuns.unlink()
+                (app / "payload/tvweb/VERSION").write_text("0.1.0\n")
+
+                # An installer that restarts the server, as install.sh does through tvwebctl: the
+                # server goes away, with nothing left behind.
+                installerMode.write_text("restart")
+                result, _ = attempt()
+                self.assertTrue(result["ok"], result)
+                try:
+                    process.wait(timeout=20)
+                except subprocess.TimeoutExpired:
+                    self.fail("the app's installer restarted nothing: %r" % update_state())
+                # The staged package went before the installer ran, and the TV was given exactly
+                # the package that was checked.
+                self.assertEqual(installerRuns.read_text().split(), ["99.0.0", "staged=0", "arg=update"])
+                installed = [json.loads(line) for line in installLog.read_text().splitlines()]
+                self.assertEqual(len(installed), 1)
+                self.assertEqual(installed[0]["payload"]["id"], appId)
+                self.assertTrue(installed[0]["payload"]["ipkUrl"].startswith(str(staging)))
+                self.assertEqual(installed[0]["bytes"], len(package))
+                self.assertEqual(list(staging.glob("*")), [])
+                self.assertIn('"upgraded"', (dataRoot / "update.log").read_text())
+            finally:
+                releases.shutdown()
+                if process.poll() is None:
+                    process.send_signal(signal.SIGTERM)
+                    try:
+                        process.communicate(timeout=6)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.communicate(timeout=3)
+
     def test_native_server_tab_controls(self):
         binary = Path(sys.argv[1]).resolve()
         fakeLuna = binary.parent / "native-fake-luna-send"
@@ -11137,6 +11563,119 @@ class DaemonRuntimeTests(unittest.TestCase):
                         if c["uri"] == "com.webos.service.preloadmanager/setPreloadPolicy"]
                 self.assertEqual(live[0]["payload"],
                                  {"application": {"id": "netflix", "isEnabled": False}})
+            finally:
+                if process.poll() is None:
+                    process.send_signal(signal.SIGTERM)
+                    try:
+                        process.communicate(timeout=6)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait(timeout=3)
+
+    def test_native_log_uploads_are_held_off(self):
+        # LG's own start-up writes dbgLogUpload back on (a C5 on webOS 11.2, measured by
+        # upstream Glasshouse): an off chosen on the Privacy tab is recorded, and written
+        # again when a read finds it on.
+        binary = Path(sys.argv[1]).resolve()
+        fakeLuna = binary.parent / "native-fake-luna-send"
+        publicPort = unused_port_pair()
+        nodePort = unused_port_pair((publicPort, publicPort + 1))
+        token = "log-uploads-test-token"
+        with tempfile.TemporaryDirectory(prefix="nativetv-log-uploads-") as folder:
+            root = Path(folder)
+            config = root / "config.json"
+            details = root / "luna-details.jsonl"
+            option = root / "option-settings.json"
+            held = root / "data/lgsettings-held.json"
+            for name in ("assets", "system", "proc", "data"):
+                (root / name).mkdir()
+            # LG has switched the debug log upload on again; the owner had it off.
+            option.write_text(json.dumps({"dbgLogUpload": True, "faultLogUpload": False}))
+            held.write_text(json.dumps({"dbgLogUpload": False}))
+            config.write_text(json.dumps({
+                "host": "127.0.0.1", "port": publicPort, "token": token,
+                "allowControl": True}))
+            environment = os.environ.copy()
+            environment["TVWEB_LUNA_SEND"] = str(fakeLuna)
+            environment["TVWEB_DATA_DIR"] = str(root / "data")
+            environment["TVWEB_PROXY_SECRET"] = "log-uploads-secret-0123456789abcdef"
+            environment["TVWEB_HELD_SETTINGS_DELAY_MS"] = "300"
+            environment["NATIVETV_FAKE_LUNA_MODE"] = "log-uploads"
+            environment["NATIVETV_FAKE_LUNA_DETAILS"] = str(details)
+            environment["NATIVETV_FAKE_OPTION_SETTINGS_FILE"] = str(option)
+            process = subprocess.Popen(
+                [str(binary), "--config", str(config), "--heartbeat", str(root / "beat"),
+                 "--workers", "4", "--listen", "--node-port", str(nodePort),
+                 "--assets-root", str(root / "assets"), "--proc-root", str(root / "proc"),
+                 "--system-root", str(root / "system")],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                env=environment)
+
+            def request(path, payload=None):
+                data = None if payload is None else json.dumps(payload).encode("utf-8")
+                headers = {"Authorization": "Bearer " + token}
+                if data is not None:
+                    headers["Content-Type"] = "application/json"
+                req = Request("http://127.0.0.1:%d%s" % (publicPort, path), data=data,
+                              method="GET" if data is None else "POST", headers=headers)
+                try:
+                    with urlopen(req, timeout=12) as response:
+                        return response.status, json.loads(response.read())
+                except HTTPError as error:
+                    return error.code, json.loads(error.read())
+
+            def writes():
+                if not details.exists():
+                    return []
+                return [json.loads(line)["payload"] for line in details.read_text().splitlines()
+                        if json.loads(line)["uri"] == "com.webos.service.settings/setSystemSettings"
+                        and json.loads(line)["payload"].get("category") == "option"]
+
+            try:
+                deadline = time.monotonic() + 15
+                while time.monotonic() < deadline and process.poll() is None and not writes():
+                    time.sleep(0.2)
+                self.assertIsNone(process.poll(), "daemon exited early")
+                self.assertEqual(writes(), [
+                    {"category": "option", "settings": {"dbgLogUpload": False}}],
+                    "the setting LG switched on again is written off, as the boolean LG stores, "
+                    "and the one that is off is left alone")
+
+                status, privacy = request("/api/privacy")
+                self.assertEqual(status, 200, privacy)
+                rows = {row["id"]: row for row in privacy["lgSettings"]}
+                self.assertEqual(rows["dbgLogUpload"]["section"], "uploads")
+                self.assertEqual(rows["dbgLogUpload"]["type"], "switch")
+                self.assertIs(rows["dbgLogUpload"]["on"], True)
+                self.assertIs(rows["faultLogUpload"]["on"], False)
+                reports = [area for area in privacy["simple"]["areas"] if area["id"] == "reports"][0]
+                self.assertEqual(
+                    [(item["label"], item["action"], item["value"]) for item in reports["items"]
+                     if item.get("action") == "lgSetting"],
+                    [("Debug log upload is on", "lgSetting", {"id": "dbgLogUpload", "on": False})],
+                    "the one-switch-off summary offers a log upload that is on")
+
+                # Off is recorded with the TV taking it; on gives the setting back to LG.
+                before = len(writes())
+                status, body = request("/api/control", {
+                    "action": "lgSetting", "value": {"id": "faultLogUpload", "on": False}})
+                self.assertEqual((status, body), (200, {"ok": True}))
+                self.assertEqual(writes()[before:], [
+                    {"category": "option", "settings": {"faultLogUpload": False}}])
+                self.assertEqual(json.loads(held.read_text()),
+                                 {"dbgLogUpload": False, "faultLogUpload": False})
+                status, body = request("/api/control", {
+                    "action": "lgSetting", "value": {"id": "dbgLogUpload", "on": True}})
+                self.assertEqual((status, body), (200, {"ok": True}))
+                self.assertEqual(writes()[before + 1:], [
+                    {"category": "option", "settings": {"dbgLogUpload": True}}])
+                self.assertEqual(json.loads(held.read_text()), {"faultLogUpload": False},
+                                 "switching it back on drops the record")
+                # An ad switch is "on" or "off", and holds nothing.
+                status, body = request("/api/control", {
+                    "action": "lgSetting", "value": {"id": "homePromotion", "on": False}})
+                self.assertEqual((status, body), (200, {"ok": True}))
+                self.assertEqual(json.loads(held.read_text()), {"faultLogUpload": False})
             finally:
                 if process.poll() is None:
                     process.send_signal(signal.SIGTERM)

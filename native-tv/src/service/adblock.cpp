@@ -8,12 +8,19 @@ namespace service {
 namespace {
 const char *const kMarker =
     "# LG Ad & Telemetry Blackhole (lg-webos-dashboard)";
+const char *const kLegacyMarker =
+    "# LG Ad & Telemetry Blackhole (lg-webos-mqtt)";
+// Heads the lines carried over from other tools: a sinkhole above it in the table's
+// own file is the table's, and one under it another tool's.
+const char *const kKeptHeader = "# Kept from /etc/hosts, where other tools put them";
 
 const std::vector<std::string> kAdHosts = {
-    "ad.lgsmartad.com", "ibis.lgappstv.com", "ibs.lgappstv.com",
+    "ad.lgappstv.com", "ad.lgsmartad.com", "info.lgsmartad.net",
+    "lgad.cjpowercast.com", "ibis.lgappstv.com", "ibs.lgappstv.com",
     "lgsmartad.com", "rdx.lgtvcommon.com", "aic.lgtvcommon.com",
     "smartad.lge.com", "smartclip.com", "smartclip-services.com",
-    "yumenetworks.com", "alphonso.tv", "prov-lg.alphonso.tv",
+    "yumenetworks.com", "alphonso.tv", "lgads.tv", "ad-inserter.alphonso.tv",
+    "config-overlay-ads.alphonso.tv", "prov-lg.alphonso.tv",
     "prov.alphonso.tv", "eulacheck.alphonso.tv", "bl-server.alphonso.tv",
     "clockskew.alphonso.tv", "acrdb.alphonso.tv", "ads.alphonso.tv",
     "api.alphonso.tv", "tvads.alphonso.tv", "sync.alphonso.tv",
@@ -50,13 +57,40 @@ const std::vector<std::string> kAdHosts = {
     "cdn.segment.com", "cdn.segment.io", "api2.amplitude.com",
     "api.amplitude.com", "api-js.mixpanel.com", "api.mixpanel.com",
     "cdn.mxpnl.com", "events.appsflyer.com", "t.appsflyer.com",
-    "app.adjust.com", "sessions.bugsnag.com"
+    "app.adjust.com", "sessions.bugsnag.com",
+    // From Life's Good Without Spying's SmartAd, ACR and APM lists (native-tv/
+    // third_party/adblock-domains/SOURCE.md); their classification is that
+    // project's, not a capture of ours.
+    "ruc.cdpbeacon.lgtvcommon.com", "eic-rum.elsa.lgecloudapm.com",
+    "lgecloudapm.com", "tracking.lgtvsdp.com",
+    // /usr/sbin/remotediag on an OLED77C5PUA (webOS 11.2.0), measured by
+    // upstream Glasshouse, not by us: where it sends screen captures and logs
+    // once LG support starts a session. Nothing else names them.
+    "rone-aic.lge.com", "rone-eic.lge.com", "rone-kic.lge.com",
+    "rone-saic.lge.com", "rone-tv-aic.lge.com", "rone-tv-cic.lge.com",
+    "rone-tv-eic.lge.com", "rone-tv-kic.lge.com", "rone-tv-saic.lge.com"
 };
 
+// The firmware puts a region or the TV's country in front of these (gb.info.
+// lgsmartad.com, aic.cdpbeacon.lgtvcommon.com) and a hosts file matches whole
+// names only, so each is listed with LG's regions and the TV's country; every
+// country would make the table too slow to read on a B8 (upstream measured a
+// lookup in a 74 KB table at about 4 ms there).
 const std::vector<std::string> kRegionalNames = {
-    "info.lgsmartad.com", "rdx2.lgtvsdp.com", "ibs.lgappstv.com",
-    "ibsstat.lgappstv.com", "cdpbeacon.lgtvcommon.com",
-    "cdpsvc.lgtvcommon.com", "wau.lgtvcommon.com"
+    "ad.lgsmartad.com", "info.lgsmartad.com", "ads.lgtvcommon.com",
+    "videoads.lgtvcommon.com", "rdx2.lgtvsdp.com",
+    // sdx's report upload URL on a C4 (webOS 10.3.1): us.rdx2.nextlgsdp.com.
+    // Under the clock servers' domain, so it waits for the clock with them.
+    "rdx2.nextlgsdp.com",
+    // The Content Store posts its request logs, with the wired MAC address, to
+    // <first label of its API host>.elastic.lgwebostv.com.
+    "elastic.lgwebostv.com", "ibs.lgappstv.com", "ibsstat.lgappstv.com",
+    "cdpbeacon.lgtvcommon.com", "cdpbeacon2.lgtvcommon.com",
+    "cdpsvc.lgtvcommon.com", "wau.lgtvcommon.com",
+    // adlogservice, a script LG updates over the air, posts app and channel
+    // use with the TV's MAC address to aic.api.adts.lgtvcommon.com, gated on
+    // the general terms alone (OLED77C5PUA, webOS 11.2.0).
+    "api.adts.lgtvcommon.com"
 };
 const std::vector<std::string> kRegionPrefixes = {"aic", "eic", "kic", "eu"};
 const std::vector<std::string> kFallbackCountries = {
@@ -64,18 +98,86 @@ const std::vector<std::string> kFallbackCountries = {
 };
 const std::vector<std::string> kPlatformHosts = {
     "lgtvsdp.com", "us.lgtvsdp.com", "gb.lgtvsdp.com", "eu.lgtvsdp.com",
-    "ngfts.lge.com", "aic-ngfts.lge.com", "cdplauncher.lgtvcommon.com",
-    "lgchhomeapp.lgtvcommon.com", "lgtviot.com", "api.lgtviot.com",
-    "push.lgtviot.com", "ocp.lgtviot.com", "common.lgthinq.com",
-    "connect-client.lgthinq.com", "ueiwsp.com",
+    "ngfts.lge.com", "aic-ngfts.lge.com", "eic-ngfts.lge.com",
+    "lgchhomeapp.lgtvcommon.com",
+    // Home, account and pairing hosts that also carry tracking, so they stay
+    // in this tier whatever list groups them with tracking.
+    "config.lgtvsdp.com", "thetake.com", "pnv.lgtvcommon.com",
+    "wiseresource.lgtvcommon.com", "qcardservice.lgtvcommon.com",
+    "ruc.homeprv.lgtvcommon.com", "ruc.nudge.lgtvcommon.com",
+    "ruc.recommend.lgtvcommon.com", "ruc.service.lgtvcommon.com",
+    "ruc.wiseconfig.lgtvcommon.com", "ruc.api.lgtviot.com",
+    "ruc.commonpush.lgtviot.com", "ruc.push.lgtviot.com",
+    "ruc.sports.lgtviot.com", "qt2-kic.lgtviot.com", "ruc-op-lss.lgthinq.com",
+    "it-service.lgthinq.com", "lgthinq.com", "lss.lgthinq.com",
+    "noti.lgthinq.com", "prd-api.lgthinq.com",
+    // LG Channels depends on Pluto and Xumo as well as LG's own hosts.
+    "eic.lgchhomeapp.lgtvcommon.com", "app-lgwebos.pluto.tv", "sp.pluto.tv",
+    "tags.tiqcdn.com", "lg-channelplus-eu-beacons.xumo.com",
+    "lg-channelplus-eu-mds.xumo.com", "bss.lgechannel.com", "lgechannel.com",
+    "ueiwsp.com", "www.ueiwsp.com",
     // Amazon's Alexa SDK (libAVSCommon) fetches /generate_204 from it on a
     // timer to tell whether the TV is online, while Alexa runs; blocked,
     // Alexa reads the TV as offline.
-    "avsxappcaptiveportal.com"
+    "avsxappcaptiveportal.com",
+    // Google's push messaging endpoints (Firebase Cloud Messaging): a service
+    // the apps use, not an ad or telemetry host, so apps lose push here.
+    "mtalk.google.com", "device-provisioning.googleapis.com"
 };
+// The ThinQ cloud and LG's account service, so the LG ThinQ app loses the TV
+// on this tier; listed bare and with LG's regions and the TV's country.
+const std::vector<std::string> kPlatformRegional = {
+    "lgtviot.com", "api.lgtviot.com", "ocp.lgtviot.com",
+    "commonpush.lgtviot.com", "push.lgtviot.com", "sports.lgtviot.com",
+    "buddy.lgtviot.com", "lgeapi.com"
+};
+// Blocking the Content Store's interface and recommendations breaks the
+// store. Their documented variants are the country alone, in front.
+const std::vector<std::string> kStoreHosts = {
+    "app.lgwebostv.com", "lgrecommends.lgappstv.com"
+};
+const std::vector<std::string> kHomeHosts = {
+    "cdplauncher.lgtvcommon.com", "homeprv.lgtvcommon.com",
+    "nudge.lgtvcommon.com", "rdl.lgtvcommon.com", "recommend.lgtvcommon.com",
+    "service.lgtvcommon.com", "wiseconfig.lgtvcommon.com"
+};
+const std::vector<std::string> kThinqHosts = {
+    "connect-client.lgthinq.com", "common.lgthinq.com",
+    "iotservice.lgthinq.com", "service.lgthinq.com", "op-lss.lgthinq.com"
+};
+// Home takes these in front as labels (aic.service.lgtvcommon.com); ThinQ and
+// OCP take them joined with a hyphen (aic-connect-client.lgthinq.com).
+const std::vector<std::string> kServicePrefixes = {"aic", "eic", "kic"};
+// The TV sets its clock from the X-Server-Time header of these servers, not
+// NTP (systemTimeSource "sdp": a C2 on webOS 9.2 and a C5 on webOS 11.2,
+// measured by upstream Glasshouse), so they stay reachable until the clock is
+// valid (see adBlockIsSdpName).
 const std::vector<std::string> kSdpHosts = {
     "nextlgsdp.com", "us.nextlgsdp.com", "gb.nextlgsdp.com",
-    "eu.nextlgsdp.com"
+    "de.nextlgsdp.com", "eu.nextlgsdp.com",
+    // The documented macro-regions, and WiseLG's RUC host.
+    "af.nextlgsdp.com", "as.nextlgsdp.com", "la.nextlgsdp.com",
+    "me.nextlgsdp.com", "na.nextlgsdp.com", "eu7.nextlgsdp.com",
+    "ruc.tv.wiselg.com",
+    // The content CDN on webOS 11 (sdx's server list, OLED77C5PUA 11.2.0), a
+    // regional alias seen on a C4 (webOS 10.3.1) and one named in C5 firmware
+    // strings (webOS 10.3.1, no traffic seen).
+    "ngfts.tv.wiselg.com", "eic-gfts.tv.wiselg.com",
+    "dev-ruc-ngfts.tv.wiselg.com"
+};
+// On webOS 11 LG's service platform is <country>.tv.wiselg.com (sign-in,
+// set-up, logging, Home) and <region>.tv.wiselg.com (Content Store, search,
+// app usage statistics, the diagnostics report upload): one host serves them
+// all, so it can only go with the platform, and the clock comes from it too.
+const std::vector<std::string> kSdpRegional = {
+    "tv.wiselg.com", "nextlgsdp.com", "ibs.nextlgsdp.com",
+    "ibsstat.nextlgsdp.com"
+};
+// The countries with a documented <country>7.nextlgsdp.com; none is guessed
+// for the others (there is no de7 or gb7).
+const std::vector<std::string> kSdpVariantCountries = {
+    "au", "br", "cn", "hk", "id", "il", "jp", "kr", "my", "sg", "tw", "us",
+    "vn", "za"
 };
 const std::vector<std::string> kUpdateHosts = {
     "snu.lge.com", "nsu.lge.com", "snu-dev.lge.com", "su-dev.lge.com",
@@ -158,12 +260,52 @@ bool validDomainName(const std::string &name) {
     return true;
 }
 
-bool isSdpName(const std::string &name) {
-    const std::string suffix = "nextlgsdp.com";
+bool isUnder(const std::string &name, const std::string &suffix) {
     return name == suffix ||
         (name.size() > suffix.size() &&
          name.compare(name.size() - suffix.size(), suffix.size(), suffix) == 0 &&
          name[name.size() - suffix.size() - 1] == '.');
+}
+
+bool isSdpName(const std::string &name) {
+    return isUnder(name, "nextlgsdp.com") || isUnder(name, "tv.wiselg.com");
+}
+
+// The TV's country where it is known, otherwise the countries LG is seen using.
+std::vector<std::string> countryPrefixes(const std::string &countryValue) {
+    const std::string country = lower(countryValue);
+    return validCountry(country) ? std::vector<std::string>{country}
+                                 : kFallbackCountries;
+}
+
+std::vector<std::string> regionPrefixes(const std::string &country) {
+    std::vector<std::string> prefixes = kRegionPrefixes;
+    for (const std::string &prefix : countryPrefixes(country))
+        appendUnique(prefixes, prefix);
+    return prefixes;
+}
+
+// Each name bare and then with each prefix in front, once each.
+void appendWithPrefixes(std::vector<std::string> &result,
+                        const std::vector<std::string> &names,
+                        const std::vector<std::string> &prefixes,
+                        char separator = '.') {
+    for (const std::string &name : names) {
+        appendUnique(result, name);
+        for (const std::string &prefix : prefixes)
+            appendUnique(result, prefix + separator + name);
+    }
+}
+
+// The hosts that wait for the clock: the SDP servers, regions and country
+// variants that go with the TV's country.
+std::vector<std::string> sdpHosts(const std::string &country) {
+    std::vector<std::string> result = kSdpHosts;
+    appendWithPrefixes(result, kSdpRegional, regionPrefixes(country));
+    for (const std::string &prefix : countryPrefixes(country))
+        if (contains(kSdpVariantCountries, prefix))
+            appendUnique(result, prefix + "7.nextlgsdp.com");
+    return result;
 }
 
 // A dotted IPv4 address, or false.
@@ -258,32 +400,38 @@ AdBlockParseResult parseAdBlockCustomHosts(const std::string &text) {
     return result;
 }
 
-std::vector<std::string> adBlockAds(const std::string &countryValue) {
+bool adBlockIsSdpName(const std::string &name) { return isSdpName(name); }
+
+bool adBlockBlocksClockServer(const std::vector<std::string> &blocked,
+                              const std::string &country) {
+    for (const std::string &prefix : countryPrefixes(country))
+        if (contains(blocked, prefix + ".nextlgsdp.com") ||
+            contains(blocked, prefix + ".tv.wiselg.com"))
+            return true;
+    return false;
+}
+
+std::vector<std::string> adBlockAds(const std::string &country) {
     std::vector<std::string> result = kAdHosts;
-    const std::string country = lower(countryValue);
-    std::vector<std::string> prefixes = kRegionPrefixes;
-    if (validCountry(country))
-        appendUnique(prefixes, country);
-    else
-        for (const std::string &fallback : kFallbackCountries)
-            appendUnique(prefixes, fallback);
-    for (const std::string &base : kRegionalNames) {
-        appendUnique(result, base);
-        for (const std::string &prefix : prefixes)
-            appendUnique(result, prefix + "." + base);
-    }
+    appendWithPrefixes(result, kRegionalNames, regionPrefixes(country));
     return result;
 }
 
 std::vector<std::string> adBlockPlatform(const std::string &country,
                                          const std::string &serverHost,
                                          bool sdpGraceActive) {
-    (void)country;
     std::vector<std::string> result = kPlatformHosts;
+    appendWithPrefixes(result, kPlatformRegional, regionPrefixes(country));
+    appendWithPrefixes(result, kStoreHosts, countryPrefixes(country));
+    appendWithPrefixes(result, kHomeHosts, kServicePrefixes);
+    appendWithPrefixes(result, {"ocp.lgtviot.com"}, kServicePrefixes, '-');
+    appendWithPrefixes(result, kThinqHosts, kServicePrefixes, '-');
+    std::vector<std::string> later = sdpHosts(country);
+    // The Content Store's host: on webOS 11 it is one of the clock servers.
     if (!serverHost.empty())
-        appendUnique(result, serverHost);
+        appendUnique(isSdpName(serverHost) ? later : result, serverHost);
     if (!sdpGraceActive)
-        for (const std::string &host : kSdpHosts)
+        for (const std::string &host : later)
             appendUnique(result, host);
     return result;
 }
@@ -311,6 +459,10 @@ std::vector<std::string> adBlockOwnList(const std::string &mode,
         for (const std::string &host : platform)
             appendUnique(result, host);
     }
+    // The ads tier has one name under the clock servers' domain too.
+    if (sdpGraceActive)
+        result.erase(std::remove_if(result.begin(), result.end(), isSdpName),
+                     result.end());
     return result;
 }
 
@@ -345,12 +497,21 @@ bool adBlockIsLegacyLookupLine(const std::string &line) {
 
 std::vector<std::string> adBlockForeignHostsLines(
     const std::string &text, const std::vector<std::string> &managedNames) {
+    // In the table's own file its sinkholes are its own until the header of the
+    // kept lines, and another tool's after it. In any other file every sinkhole
+    // is that tool's: Life's Good Without Spying and LG App Update Blocker write
+    // nothing else, and they must outlive the table being rewritten.
+    const bool tableText = text.find(kMarker) != std::string::npos ||
+                           text.find(kLegacyMarker) != std::string::npos;
+    bool othersSinkholes = !tableText;
     std::vector<std::string> kept;
     size_t start = 0;
     while (start <= text.size()) {
         const size_t end = text.find('\n', start);
         const std::string line = trim(text.substr(
             start, end == std::string::npos ? std::string::npos : end - start));
+        if (line == kKeptHeader)
+            othersSinkholes = true;
         if (!line.empty() && line[0] != '#') {
             std::istringstream words(line);
             std::vector<std::string> parts;
@@ -362,9 +523,14 @@ std::vector<std::string> adBlockForeignHostsLines(
                  std::isspace(static_cast<unsigned char>(line[7]))) ||
                 (line.size() > 2 && line.compare(0, 2, "::") == 0 &&
                  std::isspace(static_cast<unsigned char>(line[2])));
-            if (!sinkholeLine && line.find("localhost") == std::string::npos &&
-                line.find("ip6-") == std::string::npos &&
-                !adBlockIsLegacyLookupLine(line)) {
+            if (sinkholeLine) {
+                // Kept even where a tier blocks the same name: the tool's line
+                // has to outlive the tier being switched off.
+                if (othersSinkholes)
+                    appendUnique(kept, line);
+            } else if (line.find("localhost") == std::string::npos &&
+                       line.find("ip6-") == std::string::npos &&
+                       !adBlockIsLegacyLookupLine(line)) {
                 bool isManaged = false;
                 for (size_t i = 1; i < parts.size() && !isManaged; ++i)
                     isManaged = contains(managedNames, lower(parts[i]));
@@ -403,7 +569,7 @@ std::string adBlockHostsTable(const std::string &mode,
             sinkhole(output, host);
     }
     if (!foreignLines.empty()) {
-        output << "\n# Kept from /etc/hosts, where other tools put them\n";
+        output << "\n" << kKeptHeader << "\n";
         for (const std::string &line : foreignLines)
             output << line << '\n';
     }

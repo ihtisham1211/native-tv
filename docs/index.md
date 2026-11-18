@@ -61,7 +61,7 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
 * **[TV themes](apps/tv-app.md#tv-theme).** Google TV, Apple TV (tvOS's Home: a glass dock of landscape app tiles that lift, under the featured title), or OLED Care for OLED panels: true black, dimmed icons, a ring for focus and a layout that moves a few pixels. OLED Care's Home is the apps, the inputs and the panel's hours, with no film picks, and an OLED panel is offered it once.
 * **[Check the game's frame rate](dashboard/game.md).** On TVs with LG's Game Optimizer, the frame rate in large type while the source uses VRR, beside the Optimizer's settings.
 * **[Monitor the hardware](dashboard/metrics.md).** SoC temperature, per-core CPU load, memory, swap, Wi-Fi signal and throughput.
-* **[Hear about updates](dashboard/server.md).** The Server tab says when a newer release is out, when asked or once a day if switched on, and opens the Homebrew Channel on the TV to install it. The TV contacts GitHub only on request.
+* **[Update from the dashboard](dashboard/server.md).** The Server tab says when a newer release is out, when asked or once a day if switched on, and on a TV that has the app package installs it after a confirmation, putting the old files back if the new server does not start. The TV contacts GitHub only on request.
 * **[Back up the settings](dashboard/server.md)** to a file or once a day on the TV, and restore them on the same TV or another.
 * **[Read the TV's logs](dashboard/tools.md)** in one searchable timeline in the browser, with no SSH, and with private details hidden when copied or exported.
 * **[Connect it to Home Assistant](integrations/home-assistant.md).** An MQTT bridge with Discovery exposes the TV as one device; the remote's buttons can trigger automations. [Prometheus metrics](integrations/prometheus.md) and [log forwarding](integrations/syslog.md) are there for monitoring.
@@ -99,5 +99,6 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
 * [NanoSVG](https://github.com/memononen/nanosvg): SVG rendering on the TV (zlib)
 * [QR Code generator](https://www.nayuki.io/page/qr-code-generator-library) by Project Nayuki: the QR codes (MIT)
 * [StevenBlack/hosts](https://github.com/StevenBlack/hosts): the advertising hosts reviewed for the blocker (MIT)
+* [Life's Good Without Spying](https://github.com/lewisdoesstuff/lifesgoodwithoutspying) by Lewis Wood: LG ad, tracking and platform host names in the blocker's lists, by way of Glasshouse (MIT)
 * [Roboto](https://github.com/googlefonts/roboto-3-classic) and [Google Sans Flex](https://github.com/googlefonts/googlesans-flex): fonts (Apache-2.0, OFL-1.1)
 * [Material Design Icons](https://pictogrammers.com/library/mdi/) and [Material Symbols](https://fonts.google.com/icons): icons (Apache-2.0)

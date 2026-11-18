@@ -132,14 +132,29 @@ bool AppPackageFetcher::validUrl(const std::string &url, std::string &error) {
     return true;
 }
 
-bool AppPackageFetcher::download(const std::string &url, const std::string &userAgent,
-                                const std::string &ipPreference, uint64_t maximumBytes,
-                                const AppPackageDownloadSink &sink, long &httpStatus,
-                                AppPackageDownloadFailure &failure,
-                                const AppPackageDownloadCancelled &cancelled) {
+namespace {
+
+// What Native Tv's own updates may be fetched from: https, or http to this computer,
+// which is how the tests stand in for GitHub (TVWEB_RELEASE_BASE only allows that).
+bool onThisComputer(const std::string &url) {
+    return startsWithScheme(url, "http://127.0.0.1:");
+}
+
+// `httpsOnly` is for the update of Native Tv itself, whose package is installed as root:
+// nothing but https is fetched, a redirect may not leave https, and there are few of them.
+bool fetchUrl(bool httpsOnly, const std::string &url, const std::string &userAgent,
+              const std::string &ipPreference, uint64_t maximumBytes,
+              const AppPackageDownloadSink &sink, long &httpStatus,
+              AppPackageDownloadFailure &failure,
+              const AppPackageDownloadCancelled &cancelled) {
     httpStatus = 0;
     failure = AppPackageDownloadFailure();
-    if (!validUrl(url, failure.message)) return false;
+    if (!AppPackageFetcher::validUrl(url, failure.message)) return false;
+    const bool local = onThisComputer(url);
+    if (httpsOnly && !startsWithScheme(url, "https://") && !local) {
+        failure.message = "the address must start with https://";
+        return false;
+    }
     if (!maximumBytes || maximumBytes > kMaximumDownloadBytes) {
         failure.message = "invalid package download size limit";
         return false;
@@ -187,12 +202,14 @@ bool AppPackageFetcher::download(const std::string &url, const std::string &user
         curl_easy_setopt(curl, CURLOPT_LOW_SPEED_LIMIT, 1024L);
         curl_easy_setopt(curl, CURLOPT_LOW_SPEED_TIME, 30L);
         curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1L);
-        curl_easy_setopt(curl, CURLOPT_MAXREDIRS, 50L);
+        curl_easy_setopt(curl, CURLOPT_MAXREDIRS, httpsOnly ? 5L : 50L);
         curl_easy_setopt(curl, CURLOPT_IPRESOLVE, addressFamilies[attempt]);
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-declarations"
-        curl_easy_setopt(curl, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
-        curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+        const long anyHttp = CURLPROTO_HTTP | CURLPROTO_HTTPS;
+        const long secure = httpsOnly && !local ? static_cast<long>(CURLPROTO_HTTPS) : anyHttp;
+        curl_easy_setopt(curl, CURLOPT_PROTOCOLS, secure);
+        curl_easy_setopt(curl, CURLOPT_REDIR_PROTOCOLS, secure);
 #pragma GCC diagnostic pop
         curl_easy_setopt(curl, CURLOPT_PROXY, "");
         curl_easy_setopt(curl, CURLOPT_USERAGENT, userAgent.c_str());
@@ -241,6 +258,26 @@ bool AppPackageFetcher::download(const std::string &url, const std::string &user
         return false;
     }
     return true;
+}
+
+} // namespace
+
+bool AppPackageFetcher::download(const std::string &url, const std::string &userAgent,
+                                 const std::string &ipPreference, uint64_t maximumBytes,
+                                 const AppPackageDownloadSink &sink, long &httpStatus,
+                                 AppPackageDownloadFailure &failure,
+                                 const AppPackageDownloadCancelled &cancelled) {
+    return fetchUrl(false, url, userAgent, ipPreference, maximumBytes, sink, httpStatus, failure,
+                    cancelled);
+}
+
+bool AppPackageFetcher::downloadHttps(const std::string &url, const std::string &userAgent,
+                                      const std::string &ipPreference, uint64_t maximumBytes,
+                                      const AppPackageDownloadSink &sink, long &httpStatus,
+                                      AppPackageDownloadFailure &failure,
+                                      const AppPackageDownloadCancelled &cancelled) {
+    return fetchUrl(true, url, userAgent, ipPreference, maximumBytes, sink, httpStatus, failure,
+                    cancelled);
 }
 
 } // namespace service

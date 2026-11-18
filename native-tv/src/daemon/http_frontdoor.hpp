@@ -18,6 +18,7 @@
 #include "service/home_picture.hpp"
 #include "service/home_open.hpp"
 #include "service/home_recent_apps.hpp"
+#include "service/lg_settings.hpp"
 #include "service/network_rates.hpp"
 #include <atomic>
 #include <chrono>
@@ -35,6 +36,7 @@ namespace service {
 class HistoryRecorder;
 class PiccapStatus;
 class ReleaseChecker;
+class ReleaseUpdate;
 struct BackgroundServiceInfo;
 }
 namespace daemon {
@@ -149,6 +151,13 @@ class HttpFrontDoor {
     // owner's apps are told off again at every switch-on and after boot.
     void resendPreload() const;
     void reapplyPreloadAfterBoot() const;
+    // LG's own start-up writes the log upload settings on again (a C5 on webOS
+    // 11.2 has debug log upload back on after every start), so an off chosen on
+    // the Privacy tab is recorded in lgsettings-held.json and written again: 60 s
+    // after the daemon starts, hourly, and at each switch-on, when a read finds it on.
+    void rememberHeldSetting(const service::LgSettingWrite &write) const;
+    void reapplyHeldSettings() const;
+    void scheduleHeldSettings() const;
     // Live NTP and syslog status for /api/update. The forwarders belong to the
     // daemon's main scope, so it hands the front door their accessors.
     void setStatusProviders(std::function<Json()> ntp, std::function<Json()> syslog);
@@ -157,6 +166,8 @@ class HttpFrontDoor {
     // the opt-in daily check (checkReleaseIfDue, run hourly).
     void setReleaseChecker(service::ReleaseChecker *checker) { releaseChecker_ = checker; }
     bool checkReleaseIfDue(std::string &error) const;
+    // Installs the release the check found, from the Server tab (installRelease).
+    service::ReleaseUpdate *releaseUpdate() const;
     // Where the MQTT bridge stands, when the daemon owns it: {state, detail,
     // sinceMs, lastPublishMs, latencyMs}. Without it /api/settings asks Node.
     void setMqttStatusProvider(std::function<Json()> provider) { mqttStatus_ = std::move(provider); }
@@ -503,6 +514,8 @@ class HttpFrontDoor {
     mutable std::string liveConfigStamp_;
     std::function<Json()> ntpStatus_;
     service::ReleaseChecker *releaseChecker_ = nullptr;
+    mutable std::once_flag releaseUpdateOnce_;
+    mutable std::unique_ptr<service::ReleaseUpdate> releaseUpdate_;
     std::function<Json()> mqttStatus_;
     std::function<Json()> syslogStatus_;
     std::chrono::steady_clock::time_point startedAt_ = std::chrono::steady_clock::now();
@@ -564,6 +577,7 @@ class HttpFrontDoor {
     mutable std::mutex applicationControlMutex_;
     mutable std::mutex quickAccessMutex_;
     mutable std::mutex preloadMutex_;
+    mutable std::mutex heldSettingsMutex_;
     mutable std::mutex quickAccessInputMutex_;
     mutable Json quickAccessInputDevices_ = Json::array();
     mutable std::chrono::steady_clock::time_point quickAccessInputScannedAt_;

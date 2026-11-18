@@ -53,6 +53,28 @@ int main() {
                   !parseLatestRelease("not json", offer, error) && offer.version.empty(),
               "another app's, a malformed or a hashless manifest is refused");
 
+        // A release's own manifest, which an update installs from, must name its own package.
+        const std::string file = "io.github.ihtisham1211.nativetv_0.119.0_all.ipk";
+        const auto manifestNaming = [&](const std::string &version, const std::string &ipk) {
+            return "{\"id\":\"io.github.ihtisham1211.nativetv\",\"version\":\"" + version +
+                   "\",\"ipkUrl\":\"" + ipk + "\",\"ipkHash\":{\"sha256\":\"" + kSha + "\"}}";
+        };
+        check(releasePackageFile("0.119.0") == file, "the package is named as build-ipk.py names it");
+        check(releaseManifestUrl("0.119.0") == "https://github.com/ihtisham1211/native-tv/releases/download/v0.119.0/"
+                                               "io.github.ihtisham1211.nativetv.manifest.json" &&
+                  releaseManifestUrl("").find("/releases/latest/download/") != std::string::npos,
+              "a release's manifest is asked for by its tag, the latest's by the latest link");
+        check(parseReleaseManifest(manifestNaming("0.119.0", file), "0.119.0", offer, error) &&
+                  offer.ipkUrl.find("/download/v0.119.0/" + file) != std::string::npos,
+              "a manifest that names its own package is read");
+        check(!parseReleaseManifest(manifestNaming("0.120.0", file), "0.119.0", offer, error) &&
+                  error.find("0.119.0") != std::string::npos && offer.version.empty(),
+              "another version's manifest is not this release's");
+        check(!parseReleaseManifest(manifestNaming("0.119.0", "https://evil.example/x.ipk"), "0.119.0", offer, error) &&
+                  !parseReleaseManifest(manifestNaming("0.119.0", "../" + file), "0.119.0", offer, error) &&
+                  !parseReleaseManifest(manifestNaming("0.119.0", "other_0.119.0_all.ipk"), "0.119.0", offer, error),
+              "a manifest naming any other file is refused");
+
         long long clock = 1000;
         std::string fetched;
         bool reachable = true;
