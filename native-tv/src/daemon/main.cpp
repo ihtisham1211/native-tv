@@ -1760,8 +1760,12 @@ int main(int argc, char **argv) {
                 if (event.group == "power" && event.key == "systemOn" &&
                     event.value.isBoolean() && event.value.boolean()) {
                     (void)loop.scheduleAfter(std::chrono::milliseconds(20000), refreshHomeTitles);
+                    // And what LG's own start-up switched on again.
                     (void)loop.submitBlocking([&frontDoor]() {
-                        if (frontDoor) frontDoor->resendPreload();
+                        if (frontDoor) {
+                            frontDoor->resendPreload();
+                            frontDoor->reapplyHeldSettings();
+                        }
                     });
                 }
                 if (syslogForwarder && event.group == "power" && event.key == "state")

@@ -99,5 +99,6 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
 * [NanoSVG](https://github.com/memononen/nanosvg): SVG rendering on the TV (zlib)
 * [QR Code generator](https://www.nayuki.io/page/qr-code-generator-library) by Project Nayuki: the QR codes (MIT)
 * [StevenBlack/hosts](https://github.com/StevenBlack/hosts): the advertising hosts reviewed for the blocker (MIT)
+* [Life's Good Without Spying](https://github.com/lewisdoesstuff/lifesgoodwithoutspying) by Lewis Wood: LG ad, tracking and platform host names in the blocker's lists, by way of Glasshouse (MIT)
 * [Roboto](https://github.com/googlefonts/roboto-3-classic) and [Google Sans Flex](https://github.com/googlefonts/googlesans-flex): fonts (Apache-2.0, OFL-1.1)
 * [Material Design Icons](https://pictogrammers.com/library/mdi/) and [Material Symbols](https://fonts.google.com/icons): icons (Apache-2.0)

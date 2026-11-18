@@ -62,6 +62,10 @@ struct DashboardRow {
     const char *column;
     const char *unless;
     bool storeAsString;
+    // A switch LG stores as true or false rather than "on" or "off".
+    bool storeAsBoolean;
+    // LG's own start-up writes this one on again, so an off chosen here is put back.
+    bool holdsOff;
 
     DashboardRow(const char *idValue, const char *sectionValue,
                  const char *categoryValue, const char *keyValue, Kind kindValue,
@@ -71,14 +75,16 @@ struct DashboardRow {
                  const Choice *choicesValue = nullptr, size_t choiceCountValue = 0,
                  bool greyableValue = false, unsigned portValue = 0,
                  const char *columnValue = nullptr, const char *unlessValue = nullptr,
-                 bool storeAsStringValue = false)
+                 bool storeAsStringValue = false, bool storeAsBooleanValue = false,
+                 bool holdsOffValue = false)
         : id(idValue), section(sectionValue), category(categoryValue), key(keyValue),
           kind(kindValue), minimum(minimumValue), maximum(maximumValue),
           titleKey(titleKeyValue), title(titleValue),
           descriptionKey(descriptionKeyValue), description(descriptionValue),
           choices(choicesValue), choiceCount(choiceCountValue),
           greyable(greyableValue), port(portValue), column(columnValue),
-          unless(unlessValue), storeAsString(storeAsStringValue) {}
+          unless(unlessValue), storeAsString(storeAsStringValue),
+          storeAsBoolean(storeAsBooleanValue), holdsOff(holdsOffValue) {}
 };
 
 const Choice kGameGenreChoices[] = {
@@ -166,6 +172,23 @@ const DashboardRow kDashboardRows[] = {
      "srv.lgs.aiSettingsNudge", "Smart tips in Settings",
      "srv.lgs.aiSettingsNudge.desc",
      "Suggested settings shown in LG's Settings menu. LG calls this Smart Tips in Settings."},
+
+    // What the TV may upload to LG, stored as true or false. uploadd, the
+    // diagnostics uploader, subscribes to both and refuses to send while either is
+    // false; PmLogDaemon, prosense and remotediag read faultLogUpload. LG's own
+    // menus have no switch for either. PmLogDaemon writes dbgLogUpload at each boot
+    // from LG's server's answer, so an OLED77C5PUA on webOS 11.2.0 had it true again
+    // after every start (measured by upstream Glasshouse, not by us), with LG's
+    // defaultSettings.json saying false: an off chosen here is recorded and written
+    // again (see lgHeldSetting).
+    {"dbgLogUpload", "uploads", "option", "dbgLogUpload", Kind::Switch, 0, 0,
+     "srv.lgs.dbgLogUpload", "Debug log upload", "srv.lgs.dbgLogUpload.desc",
+     "Lets the TV send its debug logs to LG. Some TVs switch it back on at each start; an off chosen here is kept. Not in LG's own menus.",
+     nullptr, 0, false, 0, nullptr, nullptr, false, true, true},
+    {"faultLogUpload", "uploads", "option", "faultLogUpload", Kind::Switch, 0, 0,
+     "srv.lgs.faultLogUpload", "Fault log upload", "srv.lgs.faultLogUpload.desc",
+     "Lets the TV send crash and fault reports to LG. Not in LG's own menus.",
+     nullptr, 0, false, 0, nullptr, nullptr, false, true, true},
 
     {"screenSaverTimer", "screensaver", "option", "screenSaverTimer", Kind::Choice, 0, 0,
      "srv.lgs.screenSaverTimer", "Start after", "srv.lgs.screenSaverTimer.desc",
@@ -495,7 +518,9 @@ Json dashboardRow(const DashboardRow &definition, const Json &settings,
         row.set("active", Json::flag(false));
 
     if (definition.kind == Kind::Switch) {
-        row.set("on", Json::flag(value.isString() && value.string() == "on"));
+        row.set("on", Json::flag(definition.storeAsBoolean
+            ? value.isBoolean() && value.boolean()
+            : value.isString() && value.string() == "on"));
     } else if (definition.storeAsString) {
         row.set("value", jsNumber(value));
     } else {
@@ -628,7 +653,10 @@ LgSettingWrite lgSettingWrite(const Json &value) {
     const Json selected = value.has("on") ? Json::flag(value["on"].isBoolean() && value["on"].boolean())
                                           : value["value"];
     if (row->kind == Kind::Switch) {
-        write.storedValue = Json::text(selected.isBoolean() && selected.boolean() ? "on" : "off");
+        write.switchedOn = selected.isBoolean() && selected.boolean();
+        write.storedValue = row->storeAsBoolean ? Json::flag(write.switchedOn)
+                                                : Json::text(write.switchedOn ? "on" : "off");
+        write.holdsOff = row->holdsOff;
     } else if (row->kind == Kind::Choice) {
         bool known = false;
         if (selected.isString())
@@ -676,7 +704,10 @@ LgSettingWrite lgSettingsRestoreWrite(const std::string &id,
     if (type == "switch") {
         if (!value.isBoolean())
             return write;
-        write.storedValue = Json::text(value.boolean() ? "on" : "off");
+        write.switchedOn = value.boolean();
+        write.storedValue = dashboard && dashboard->storeAsBoolean
+            ? Json::flag(value.boolean()) : Json::text(value.boolean() ? "on" : "off");
+        write.holdsOff = dashboard && dashboard->holdsOff;
         write.valid = true;
         write.error.clear();
         return write;
@@ -712,6 +743,17 @@ LgSettingWrite lgSettingsRestoreWrite(const std::string &id,
     write.valid = true;
     write.error.clear();
     return write;
+}
+
+bool lgHeldSetting(const std::string &id, LgHeldSetting &held) {
+    const DashboardRow *row = dashboardDefinitionFor(id);
+    if (!row || !row->holdsOff)
+        return false;
+    held.id = row->id;
+    held.category = row->category;
+    held.key = row->key;
+    held.off = row->storeAsBoolean ? Json::flag(false) : Json::text("off");
+    return true;
 }
 
 std::vector<std::string> lgGameSettingCategories() {

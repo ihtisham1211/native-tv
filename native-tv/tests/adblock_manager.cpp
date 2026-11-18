@@ -99,15 +99,18 @@ struct Rig {
         shell("rm -rf '" + directory + "'");
     }
     void setTime(const std::string &reply) { writeFile(timeFile, reply + "\n"); }
-    bool tableBlocksClockHost() const {
-        return readFile(data + "/adblock_hosts").find("nextlgsdp.com") != std::string::npos;
+    // Whether the table sinkholes exactly this name.
+    bool tableBlocks(const std::string &host) const {
+        return readFile(data + "/adblock_hosts").find("0.0.0.0\t" + host + "\n") != std::string::npos;
     }
+    bool tableBlocksClockHost() const { return tableBlocks("nextlgsdp.com"); }
     // The table is rewritten just after the grace period is marked closed.
-    bool blocksClockHostSoon() const {
-        for (int waited = 0; waited < 3000 && !tableBlocksClockHost(); waited += 50)
+    bool blocksSoon(const std::string &host) const {
+        for (int waited = 0; waited < 3000 && !tableBlocks(host); waited += 50)
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
-        return tableBlocksClockHost();
+        return tableBlocks(host);
     }
+    bool blocksClockHostSoon() const { return blocksSoon("nextlgsdp.com"); }
     // True once the grace period has closed, within the time given.
     bool closesWithin(int milliseconds) const {
         for (int waited = 0; waited < milliseconds; waited += 50) {
@@ -129,13 +132,17 @@ void testRestartWithValidTime() {
 void testColdBootWaitsForSdp() {
     Rig rig;
     check(rig.manager->start(), "the manager starts");
-    check(rig.manager->sdpGraceActive() && !rig.tableBlocksClockHost(),
-          "the grace period is open at boot, with the clock host reachable");
+    check(rig.manager->sdpGraceActive() && !rig.tableBlocksClockHost() &&
+              !rig.tableBlocks("tv.wiselg.com") && !rig.tableBlocks("us.tv.wiselg.com"),
+          "the grace period is open at boot, with the clock hosts reachable (tv.wiselg.com "
+          "too, which webOS 11 sets its clock from)");
     std::this_thread::sleep_for(std::chrono::milliseconds(700));
     check(rig.manager->sdpGraceActive(), "it stays open while the time is invalid");
     rig.setTime("{\"returnValue\":true,\"timeValid\":true,\"systemTimeSource\":\"sdp\"}");
     check(rig.closesWithin(7000), "it closes once SDP has set a valid time");
     check(rig.blocksClockHostSoon(), "nextlgsdp.com is blocked once synced");
+    check(rig.tableBlocks("tv.wiselg.com") && rig.tableBlocks("ngfts.tv.wiselg.com"),
+          "tv.wiselg.com is blocked with it");
 }
 
 void testWebOs4OmitsTimeValid() {
@@ -148,12 +155,57 @@ void testWebOs4OmitsTimeValid() {
     check(rig.closesWithin(7000), "a current utc from SDP closes the grace period");
 }
 
-void testAdsTierDoesNotWait() {
+// The ads tier blocks one name under the clock servers' domain, the report upload sdx
+// hands out, and so waits for the clock too, but never blocks the clock hosts themselves.
+void testAdsTierWaitsForItsReportHostOnly() {
     Rig rig;
     writeFile(rig.data + "/adblock_enabled", "ads");
     check(rig.manager->start(), "the manager starts");
     std::this_thread::sleep_for(std::chrono::milliseconds(300));
-    check(!rig.tableBlocksClockHost(), "the ads tier never blocks the clock host");
+    check(rig.manager->sdpGraceActive() && !rig.tableBlocks("rdx2.nextlgsdp.com") &&
+              rig.tableBlocks("ad.lgsmartad.com"),
+          "the ads tier is up at once, less its report host while the clock is not valid");
+    rig.setTime("{\"returnValue\":true,\"timeValid\":true,\"systemTimeSource\":\"sdp\"}");
+    check(rig.closesWithin(7000), "it closes once SDP has set a valid time");
+    check(rig.blocksSoon("rdx2.nextlgsdp.com") && !rig.tableBlocksClockHost() &&
+              !rig.tableBlocks("us.nextlgsdp.com") && !rig.tableBlocks("tv.wiselg.com"),
+          "the report host is blocked once synced, and the clock hosts never are");
+}
+
+// AirPlay's key check goes through the country's clock server: while the table blocks it a
+// folder is kept in /tmp/mfi_key_requested so the TV's daemon skips the check.
+void testAirplayKeyCheckFollowsTheClockServerBlock() {
+    Rig rig;
+    shell("mkdir -p '" + rig.system + "/tmp'");
+    writeFile(rig.data + "/country", "gb");
+    const std::string directory = rig.system + "/tmp/mfi_key_requested";
+    const std::string folder = directory + "/nativetv";
+    const auto exists = [](const std::string &path) { return access(path.c_str(), F_OK) == 0; };
+    check(rig.manager->start(), "the manager starts");
+    std::this_thread::sleep_for(std::chrono::milliseconds(300));
+    check(rig.manager->sdpGraceActive() && !exists(folder),
+          "nothing is held while the clock server is still reachable");
+    rig.setTime("{\"returnValue\":true,\"timeValid\":true,\"systemTimeSource\":\"sdp\"}");
+    check(rig.closesWithin(7000) && rig.blocksClockHostSoon(),
+          "the clock servers are blocked once synced");
+    for (int waited = 0; waited < 3000 && !exists(folder); waited += 50)
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    check(exists(folder), "AirPlay's key check is skipped while gb.nextlgsdp.com is blocked");
+    check(rig.manager->setMode("ads")["ok"].boolean(), "the tier is switched to Ads & telemetry");
+    check(!exists(folder) && !exists(directory),
+          "the folder goes, and its directory, with the clock server back in reach");
+    check(rig.manager->setMode("full")["ok"].boolean() && exists(folder),
+          "and comes back with the Everything tier");
+    check(rig.manager->setMode("off")["ok"].boolean() && !exists(folder),
+          "and goes again with the blocker switched off");
+    // A file the TV left there is replaced by the directory, and one holding anything else is kept.
+    check(rig.manager->setMode("ads")["ok"].boolean() && !exists(directory), "back to nothing held");
+    writeFile(directory, "");
+    check(rig.manager->setMode("full")["ok"].boolean() && exists(folder),
+          "the TV's own marker, a file, makes way for the directory");
+    shell("mkdir '" + directory + "/other'");
+    check(rig.manager->setMode("ads")["ok"].boolean() && !exists(folder) && exists(directory + "/other"),
+          "a directory with something else in it is left in place");
 }
 } // namespace
 
@@ -162,7 +214,8 @@ int main() {
         testRestartWithValidTime();
         testColdBootWaitsForSdp();
         testWebOs4OmitsTimeValid();
-        testAdsTierDoesNotWait();
+        testAdsTierWaitsForItsReportHostOnly();
+        testAirplayKeyCheckFollowsTheClockServerBlock();
         return 0;
     } catch (const std::exception &error) {
         std::fprintf(stderr, "ad-block manager test failed: %s\n", error.what());

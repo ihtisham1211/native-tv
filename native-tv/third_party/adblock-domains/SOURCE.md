@@ -26,3 +26,25 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+## LG and partner host names
+
+The LG, Alphonso, Pluto, Xumo and Google push names in `src/service/adblock.cpp`
+that the list above lacks were taken from the lists of
+[Glasshouse](https://github.com/rorygallagher2024/glasshouse) 0.156.0
+(`server/lib/privacy.js` at commit `e8d01d494e64059fc708f46ca423998930b9c24b`,
+17 November 2026, MIT, Copyright (c) 2026 Rory Gallagher), with the tier each
+one is in. Glasshouse says it classified the SmartAd, screen recognition,
+performance reporting, Home, ThinQ, SDP and LG Channels names against
+[Life's Good Without Spying](https://github.com/lewisdoesstuff/lifesgoodwithoutspying)'s
+domain lists at commit `0057ce44d5b4494ad85cf5975d599c58d5f25871` (MIT,
+Copyright (c) 2026 Lewis Wood), and that notice is kept beside this one in
+[LICENSE-lifesgoodwithoutspying.txt](LICENSE-lifesgoodwithoutspying.txt). Native Tv
+did not review that project's lists itself, and none of these names was seen in
+a capture of ours, apart from those `docs/development/tv-research.md` records
+from a CX and a C5. What Glasshouse measured on its own TVs is marked as such
+there and in the comments of `adblock.cpp`.
+
+Names that LG puts a region or the TV's country in front of are listed bare
+and for LG's regions and the TV's country only, as Glasshouse does, rather than
+for every country that list names.

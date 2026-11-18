@@ -18,6 +18,20 @@ struct LgSettingWrite {
     // The dashboard greys the row out while another input is on screen; LG's
     // service stores a write regardless, so the caller checks the description.
     bool greyable = false;
+    // A switch: whether the write turns it on. With holdsOff, LG's own start-up
+    // writes the row on again, so the caller records an off once the TV took it,
+    // and drops the record for an on.
+    bool switchedOn = false;
+    bool holdsOff = false;
+};
+
+// A row whose off is put back after LG's start-up switches it on again, with
+// what the TV stores for off.
+struct LgHeldSetting {
+    std::string id;
+    std::string category;
+    std::string key;
+    Json off;
 };
 
 // The native control path owns the Game Optimizer settings first. Other LG
@@ -35,6 +49,9 @@ LgSettingWrite lgSettingWrite(const Json &value);
 LgSettingWrite lgSettingsRestoreWrite(const std::string &id,
                                      const Json &value,
                                      const Json &currentRow);
+
+// Whether an id is a row whose off is held, and where the TV keeps it.
+bool lgHeldSetting(const std::string &id, LgHeldSetting &held);
 
 // The Game Optimizer endpoint reads each LG category whole, then asks for
 // descriptions only for settings the TV actually reports.
