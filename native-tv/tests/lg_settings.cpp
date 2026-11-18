@@ -211,6 +211,52 @@ int main() {
         assert(lgSettingsRestoreWrite("blackStabilizer", Json::numeric(7), current).storedValue.dump() == "7");
     }
 
+    // What the TV may upload to LG: stored as true or false, read from the `option` category, and
+    // an off is one LG's own start-up writes back on (upstream Glasshouse's test-lgsettings.js).
+    {
+        assert((lgSettingsCategories({"uploads"}) == std::vector<std::string>{"option"}));
+        assert((lgSettingsKeys("option", {"uploads"}) ==
+                std::vector<std::string>{"dbgLogUpload", "faultLogUpload"}));
+        assert((lgSettingsCategories({"promotions", "uploads"}) ==
+                std::vector<std::string>{"general", "other", "option"}));
+        const Json r = response({"promotions", "uploads"},
+            R"({"option":{"dbgLogUpload":true,"faultLogUpload":false,"livePromotion":"off"}})");
+        assert((ids(r) == std::vector<std::string>{"livePromotion", "dbgLogUpload", "faultLogUpload"}));
+        assert(row(r, "dbgLogUpload")["section"].string() == "uploads");
+        assert(row(r, "dbgLogUpload")["type"].string() == "switch");
+        assert(row(r, "dbgLogUpload")["on"].boolean() && !row(r, "faultLogUpload")["on"].boolean());
+        assert(!row(r, "livePromotion")["on"].boolean());
+        // A TV without the key has no row; the promotions section alone never asks for them.
+        assert((ids(response({"uploads"}, R"({"option":{"dbgLogUpload":true}})")) ==
+                std::vector<std::string>{"dbgLogUpload"}));
+        assert(ids(response({"promotions"}, R"({"option":{"dbgLogUpload":true}})")).empty());
+        // A string is not a boolean: the row reads as off rather than as on.
+        assert(!row(response({"uploads"}, R"({"option":{"dbgLogUpload":"on"}})"), "dbgLogUpload")["on"].boolean());
+
+        const LgSettingWrite off = lgSettingWrite(Json::parse(R"({"id":"dbgLogUpload","on":false})"));
+        assert(off.handled && off.valid && off.category == "option" && off.key == "dbgLogUpload");
+        assert(off.storedValue.isBoolean() && !off.storedValue.boolean());
+        assert(off.holdsOff && !off.switchedOn && !off.greyable);
+        const LgSettingWrite on = lgSettingWrite(Json::parse(R"({"id":"faultLogUpload","on":true})"));
+        assert(on.valid && on.storedValue.isBoolean() && on.storedValue.boolean());
+        assert(on.holdsOff && on.switchedOn);
+        // A promotions switch is still "on" or "off" text, and holds nothing.
+        const LgSettingWrite promotion = lgSettingWrite(Json::parse(R"({"id":"homePromotion","on":false})"));
+        assert(promotion.storedValue.string() == "off" && !promotion.holdsOff && !promotion.switchedOn);
+
+        LgHeldSetting held;
+        assert(lgHeldSetting("dbgLogUpload", held));
+        assert(held.id == "dbgLogUpload" && held.category == "option" && held.key == "dbgLogUpload" &&
+               held.off.isBoolean() && !held.off.boolean());
+        assert(lgHeldSetting("faultLogUpload", held));
+        assert(!lgHeldSetting("homePromotion", held) && !lgHeldSetting("systemPin", held));
+
+        // A backup carries them as booleans too, and is written as the TV stores them.
+        const LgSettingWrite restored = lgSettingsRestoreWrite("dbgLogUpload", Json::flag(false), Json::object());
+        assert(restored.valid && restored.storedValue.isBoolean() && !restored.storedValue.boolean() &&
+               restored.holdsOff);
+    }
+
     // The input names the HDMI rows are shown under.
     {
         const Json inputs = lgSettingsInputNames(Json::parse(

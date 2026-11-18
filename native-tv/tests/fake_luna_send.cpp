@@ -1080,6 +1080,14 @@ int main(int argc, char **argv) {
         reply.set("returnValue", Json::flag(true));
         reply.set("IFA", Json::text(reset ? "fixture-ad-id-after"
                                             : "fixture-ad-id-before"));
+    } else if (mode == "log-uploads" &&
+               uri == "com.webos.service.settings/getSystemSettings") {
+        // The `option` category as the test's file says, so a test can have LG switch a
+        // setting on again; the other categories have nothing.
+        const Json option = readJsonFile(environment("NATIVETV_FAKE_OPTION_SETTINGS_FILE"));
+        reply.set("returnValue", Json::flag(true));
+        reply.set("settings", callPayload["category"].string() == "option" && option.isObject()
+                                  ? option : Json::object());
     } else if (mode == "privacy-read" &&
                uri == "com.webos.settingsservice/getSystemSettings") {
         Json settings = Json::object();
@@ -1193,6 +1201,13 @@ int main(int argc, char **argv) {
                uri == "com.webos.service.tvpower/power/powerOn") {
         reply.set("returnValue", Json::flag(false));
         reply.set("errorText", Json::text("power-on request refused"));
+    } else if (mode == "quick-access" &&
+               uri == "com.webos.service.systemservice/time/getSystemTime") {
+        // A valid clock, so the ad blocker's wait for the clock servers (the ads tier has one
+        // host that waits) ends at its first look and does not poll through the test.
+        reply.set("returnValue", Json::flag(true));
+        reply.set("timeValid", Json::flag(true));
+        reply.set("systemTimeSource", Json::text("sdp"));
     } else if (mode == "remote-keys-native" &&
                uri == "com.webos.service.config/getConfigs") {
         Json configs = Json::object();

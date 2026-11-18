@@ -231,6 +231,32 @@ void models() {
     snapshot("rows-privacy-services",
              describe(settingPages("privacy",
                                    dashboardRows("privacy", data["privacy"], caps, "services"))));
+    {
+        // A TV that reports LG's log upload settings gets a section for them, switched with the
+        // same lgSetting command as the ad rows; one that does not has none.
+        const auto uploadRows = [](const std::vector<MenuRow> &rows) {
+            size_t found = 0;
+            for (const MenuRow &row : rows)
+                found += row.label == "Log uploads to LG" || row.label == "Debug log upload";
+            return found;
+        };
+        check(uploadRows(dashboardRows("privacy", data["privacy"], caps)) == 0,
+              "No log upload settings, no section for them");
+        Json withUploads = Json::parse(data["privacy"].dump());
+        Json settings = withUploads["lgSettings"].isArray() ? withUploads["lgSettings"] : Json::array();
+        settings.add(Json::parse(
+            R"({"id":"dbgLogUpload","section":"uploads","type":"switch","title":"Debug log upload","desc":"Sent to LG.","on":true})"));
+        withUploads.set("lgSettings", settings);
+        const auto rows = dashboardRows("privacy", withUploads, caps);
+        check(uploadRows(rows) == 2, "A log upload setting gets a heading and its row");
+        for (const MenuRow &row : rows)
+            if (row.label == "Debug log upload")
+                check(row.value == "On" && row.state == 1 &&
+                          row.command.body["action"].string() == "lgSetting" &&
+                          row.command.body["value"]["id"].string() == "dbgLogUpload" &&
+                          !row.command.body["value"]["on"].boolean(),
+                      "The row says it is on and its switch turns it off");
+    }
     check(settingGroups().size() == dashboardTabs().size(),
           "Settings lists the ten dashboard sections");
     for (size_t i = 0; i < settingGroups().size(); ++i)

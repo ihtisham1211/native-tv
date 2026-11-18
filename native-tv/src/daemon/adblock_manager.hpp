@@ -32,6 +32,7 @@ class AdBlockManager {
 
   private:
     void learnCountry();
+    void syncAirplayKeyCheck();
     void reconcileSdpGrace();
     void reconcileSdpGraceOnLoop();
     void checkSdpClock(bool firstCheck);

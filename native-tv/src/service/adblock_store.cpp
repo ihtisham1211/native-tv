@@ -33,6 +33,9 @@ const char *const kTableFilename = "adblock_hosts";
 const char *const kLegacyLocalLookupsFilename = "local_lookups";
 const char *const kUpdatesFlagPath = "/var/luna/preferences/webosbrew_block_updates";
 const char *const kHostsPath = "/etc/hosts";
+const char *const kAirplayKeyFlagPath = "/tmp/mfi_key_requested";
+// The folder of ours inside it: what tells our own hold apart from the TV's.
+const char *const kAirplayKeyFolder = "nativetv";
 
 std::string joinPath(const std::string &root, const std::string &path) {
     if (root.empty() || root == "/")
@@ -279,21 +282,21 @@ bool AdBlockStore::tableMounted() const {
 
 bool AdBlockStore::waitsForSdp() const {
     const std::string currentMode = mode();
-    if (currentMode == "full")
-        return true;
     if (currentMode == "off")
         return false;
+    if (currentMode == "full")
+        return true;
+    // The ads tier blocks one name under the clock servers' domain (the report
+    // upload sdx hands out), which waits with them.
+    for (const std::string &name : adBlockAds(country()))
+        if (adBlockIsSdpName(name))
+            return true;
     const AdBlockCustomList custom = customHosts();
     if (!custom.enabled)
         return false;
-    for (const std::string &name : custom.names) {
-        const std::string suffix = "nextlgsdp.com";
-        if (name == suffix ||
-            (name.size() > suffix.size() &&
-             name.compare(name.size() - suffix.size(), suffix.size(), suffix) == 0 &&
-             name[name.size() - suffix.size() - 1] == '.'))
+    for (const std::string &name : custom.names)
+        if (adBlockIsSdpName(name))
             return true;
-    }
     return false;
 }
 
@@ -316,6 +319,57 @@ bool AdBlockStore::updateCountry(const std::string &countryValue,
     if (!tableMounted())
         return true;
     return writeHostsTable(mode(), sdpGraceActive, currentForeignHostsLines(), error);
+}
+
+// AirPlay's first pairing after each power-on has the TV's daemon ask
+// com.webos.service.mfi to check the TV's MFi key with LG, through the country's
+// time server. With that blocked the answer is -5 and the daemon waits 10 s,
+// longer than an iPhone does ("Unable to Connect"; a B4 on webOS 10.3.2,
+// measured by upstream Glasshouse). The daemon skips the check while
+// /tmp/mfi_key_requested exists, and a power-on deletes a file there but not a
+// directory with something in it. So while the table blocks the country's time
+// server the directory is kept, with a folder of ours in it, and once it does
+// not, the folder goes, and the directory if nothing else is in it.
+std::string AdBlockStore::syncAirplayKeyCheck(bool sdpGraceActive,
+                                              std::string *error) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    const std::string directory = rootedSystemPath(kAirplayKeyFlagPath);
+    const std::string folder = directory + "/" + kAirplayKeyFolder;
+    bool wanted = false;
+    if (tableMounted()) {
+        const AdBlockCustomList custom = customHosts();
+        wanted = adBlockBlocksClockServer(
+            adBlockList(mode(), country(), serverHost(), sdpGraceActive,
+                        custom.names.empty() ? nullptr : &custom),
+            country());
+    }
+    struct stat info;
+    const bool exists = ::lstat(directory.c_str(), &info) == 0;
+    if (!wanted) {
+        if (::access(folder.c_str(), F_OK) != 0)
+            return std::string();
+        (void)::rmdir(folder.c_str());
+        // Left if anything else is in it: the TV's or another tool's.
+        (void)::rmdir(directory.c_str());
+        return "AirPlay checks its MFi key with LG again";
+    }
+    // A power-on deletes the TV's own marker, which is a file.
+    if (exists && !S_ISDIR(info.st_mode))
+        (void)::unlink(directory.c_str());
+    if ((!exists || !S_ISDIR(info.st_mode)) &&
+        ::mkdir(directory.c_str(), 0755) != 0 && errno != EEXIST) {
+        if (error)
+            *error = systemError("create", directory);
+        return std::string();
+    }
+    if (::access(folder.c_str(), F_OK) == 0)
+        return std::string();
+    if (::mkdir(folder.c_str(), 0755) != 0) {
+        if (error)
+            *error = systemError("create", folder);
+        return std::string();
+    }
+    return "AirPlay skips LG's MFi key check while the time servers are blocked";
 }
 
 std::string AdBlockStore::country() const {
@@ -396,7 +450,8 @@ Json AdBlockStore::privacyState(bool sdpGraceActive) const {
     const AdBlockCustomList custom = customHosts();
     const std::vector<std::string> full = adBlockOwnList(
         "full", currentCountry, currentHost, sdpGraceActive);
-    const std::vector<std::string> ads = adBlockAds(currentCountry);
+    const std::vector<std::string> ads = adBlockOwnList(
+        "ads", currentCountry, currentHost, sdpGraceActive);
     Json platform = Json::array();
     for (const std::string &name : adBlockPlatform(
              currentCountry, currentHost, sdpGraceActive))

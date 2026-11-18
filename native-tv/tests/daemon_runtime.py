@@ -11146,6 +11146,119 @@ class DaemonRuntimeTests(unittest.TestCase):
                         process.kill()
                         process.wait(timeout=3)
 
+    def test_native_log_uploads_are_held_off(self):
+        # LG's own start-up writes dbgLogUpload back on (a C5 on webOS 11.2, measured by
+        # upstream Glasshouse): an off chosen on the Privacy tab is recorded, and written
+        # again when a read finds it on.
+        binary = Path(sys.argv[1]).resolve()
+        fakeLuna = binary.parent / "native-fake-luna-send"
+        publicPort = unused_port_pair()
+        nodePort = unused_port_pair((publicPort, publicPort + 1))
+        token = "log-uploads-test-token"
+        with tempfile.TemporaryDirectory(prefix="nativetv-log-uploads-") as folder:
+            root = Path(folder)
+            config = root / "config.json"
+            details = root / "luna-details.jsonl"
+            option = root / "option-settings.json"
+            held = root / "data/lgsettings-held.json"
+            for name in ("assets", "system", "proc", "data"):
+                (root / name).mkdir()
+            # LG has switched the debug log upload on again; the owner had it off.
+            option.write_text(json.dumps({"dbgLogUpload": True, "faultLogUpload": False}))
+            held.write_text(json.dumps({"dbgLogUpload": False}))
+            config.write_text(json.dumps({
+                "host": "127.0.0.1", "port": publicPort, "token": token,
+                "allowControl": True}))
+            environment = os.environ.copy()
+            environment["TVWEB_LUNA_SEND"] = str(fakeLuna)
+            environment["TVWEB_DATA_DIR"] = str(root / "data")
+            environment["TVWEB_PROXY_SECRET"] = "log-uploads-secret-0123456789abcdef"
+            environment["TVWEB_HELD_SETTINGS_DELAY_MS"] = "300"
+            environment["NATIVETV_FAKE_LUNA_MODE"] = "log-uploads"
+            environment["NATIVETV_FAKE_LUNA_DETAILS"] = str(details)
+            environment["NATIVETV_FAKE_OPTION_SETTINGS_FILE"] = str(option)
+            process = subprocess.Popen(
+                [str(binary), "--config", str(config), "--heartbeat", str(root / "beat"),
+                 "--workers", "4", "--listen", "--node-port", str(nodePort),
+                 "--assets-root", str(root / "assets"), "--proc-root", str(root / "proc"),
+                 "--system-root", str(root / "system")],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                env=environment)
+
+            def request(path, payload=None):
+                data = None if payload is None else json.dumps(payload).encode("utf-8")
+                headers = {"Authorization": "Bearer " + token}
+                if data is not None:
+                    headers["Content-Type"] = "application/json"
+                req = Request("http://127.0.0.1:%d%s" % (publicPort, path), data=data,
+                              method="GET" if data is None else "POST", headers=headers)
+                try:
+                    with urlopen(req, timeout=12) as response:
+                        return response.status, json.loads(response.read())
+                except HTTPError as error:
+                    return error.code, json.loads(error.read())
+
+            def writes():
+                if not details.exists():
+                    return []
+                return [json.loads(line)["payload"] for line in details.read_text().splitlines()
+                        if json.loads(line)["uri"] == "com.webos.service.settings/setSystemSettings"
+                        and json.loads(line)["payload"].get("category") == "option"]
+
+            try:
+                deadline = time.monotonic() + 15
+                while time.monotonic() < deadline and process.poll() is None and not writes():
+                    time.sleep(0.2)
+                self.assertIsNone(process.poll(), "daemon exited early")
+                self.assertEqual(writes(), [
+                    {"category": "option", "settings": {"dbgLogUpload": False}}],
+                    "the setting LG switched on again is written off, as the boolean LG stores, "
+                    "and the one that is off is left alone")
+
+                status, privacy = request("/api/privacy")
+                self.assertEqual(status, 200, privacy)
+                rows = {row["id"]: row for row in privacy["lgSettings"]}
+                self.assertEqual(rows["dbgLogUpload"]["section"], "uploads")
+                self.assertEqual(rows["dbgLogUpload"]["type"], "switch")
+                self.assertIs(rows["dbgLogUpload"]["on"], True)
+                self.assertIs(rows["faultLogUpload"]["on"], False)
+                reports = [area for area in privacy["simple"]["areas"] if area["id"] == "reports"][0]
+                self.assertEqual(
+                    [(item["label"], item["action"], item["value"]) for item in reports["items"]
+                     if item.get("action") == "lgSetting"],
+                    [("Debug log upload is on", "lgSetting", {"id": "dbgLogUpload", "on": False})],
+                    "the one-switch-off summary offers a log upload that is on")
+
+                # Off is recorded with the TV taking it; on gives the setting back to LG.
+                before = len(writes())
+                status, body = request("/api/control", {
+                    "action": "lgSetting", "value": {"id": "faultLogUpload", "on": False}})
+                self.assertEqual((status, body), (200, {"ok": True}))
+                self.assertEqual(writes()[before:], [
+                    {"category": "option", "settings": {"faultLogUpload": False}}])
+                self.assertEqual(json.loads(held.read_text()),
+                                 {"dbgLogUpload": False, "faultLogUpload": False})
+                status, body = request("/api/control", {
+                    "action": "lgSetting", "value": {"id": "dbgLogUpload", "on": True}})
+                self.assertEqual((status, body), (200, {"ok": True}))
+                self.assertEqual(writes()[before + 1:], [
+                    {"category": "option", "settings": {"dbgLogUpload": True}}])
+                self.assertEqual(json.loads(held.read_text()), {"faultLogUpload": False},
+                                 "switching it back on drops the record")
+                # An ad switch is "on" or "off", and holds nothing.
+                status, body = request("/api/control", {
+                    "action": "lgSetting", "value": {"id": "homePromotion", "on": False}})
+                self.assertEqual((status, body), (200, {"ok": True}))
+                self.assertEqual(json.loads(held.read_text()), {"faultLogUpload": False})
+            finally:
+                if process.poll() is None:
+                    process.send_signal(signal.SIGTERM)
+                    try:
+                        process.communicate(timeout=6)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait(timeout=3)
+
     def test_native_app_tiles_boot_reconciliation(self):
         binary = Path(sys.argv[1]).resolve()
         fakeLuna = binary.parent / "native-fake-luna-send"
