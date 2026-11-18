@@ -76,5 +76,8 @@ Json lgSettingsResponse(const std::vector<std::string> &sections,
                         const Json &inputs);
 Json lgSettingsInputNames(const Json &devices);
 
+int shortScreenSaverMinutes(const Json &value);
+Json withShortScreenSaverChoices(const Json &rows, int minutes);
+
 } // namespace service
 } // namespace nativetv

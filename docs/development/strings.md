@@ -78,7 +78,7 @@ key.
 
 ## Messages from the server
 
-Text the server sends a page - an error, a screen saver's name, an agreement's
+Text the server sends a page - an error, a screen saver's name or timer choice, an agreement's
 description - is written with `say::msg()`, from `native-tv/src/domain/say.hpp`:
 
 ```cpp

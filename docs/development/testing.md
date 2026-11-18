@@ -360,7 +360,9 @@ Optimizer pipeline being asked once. `native-piccap` checks the start-up migrati
 (false becomes PicCap unticked in `mqtt.entities.disabled`, the key and an empty section go) and
 `test_native_start_migrates_the_old_piccap_enabled_key` that the daemon saves it at start.
 
-`native-lg-settings` (`tests/lg_settings.cpp`) covers only the rows the TV
+`native-lg-settings` (`tests/lg_settings.cpp`) checks that the one- and two-minute screen-saver choices stay outside LG's settings writes. `native-screen-time-runtime` (`tests/screen_time_enforcer.cpp`) checks the idle start request, remote-key reset, and the playback, HDMI and live-state guards.
+
+`native-lg-settings` also covers only the rows the TV
 reports, the stored value of a switch, choice or number and which values a row takes, choices and ranges
 from the TV's description (numbers kept as text written as text), a value outside the list shown by its
 own name, a per-port row giving way to the one setting, the greyable rows, rows outside the table refused,

@@ -161,6 +161,8 @@ void ScreenTimeEnforcer::applyOnLoop(const Json &settings) {
 
 void ScreenTimeEnforcer::stop() {
     running_ = false;
+    idleSaverMinutes_ = 0;
+    cancelIdleScreensaver();
     if (idleTimer_) loop_.cancelTimer(idleTimer_);
     idleTimer_ = 0;
     if (checkTimer_) loop_.cancelTimer(checkTimer_);
@@ -207,6 +209,9 @@ bool ScreenTimeEnforcer::startChecks() {
 }
 
 void ScreenTimeEnforcer::onStateChange(const state::Event &event) {
+    if (idleSaverMinutes_ && (event.group == "power" || event.group == "application" ||
+                             event.group == "audio" || event.group == "media"))
+        updateIdleScreensaver(!event.snapshot && (event.group == "application" || event.group == "audio"));
     if (!running_)
         return;
     // What a person does shows in the state: another app or input, the volume, the TV waking up.
@@ -485,7 +490,66 @@ int ScreenTimeEnforcer::idleMinutes() const {
 void ScreenTimeEnforcer::noteActivity() {
     const std::weak_ptr<int> lifetime = lifetime_;
     (void)loop_.post([this, lifetime]() {
-        if (!lifetime.expired()) activityOnLoop();
+        if (!lifetime.expired()) {
+            activityOnLoop();
+            updateIdleScreensaver(true);
+        }
+    });
+}
+
+bool ScreenTimeEnforcer::idleScreensaverAvailable() const {
+    return allowControl_ && timings_.idleSaverInputAvailable && timings_.idleSaverInputAvailable();
+}
+
+bool ScreenTimeEnforcer::setIdleScreensaverMinutes(int minutes) {
+    if (minutes < 0 || minutes > 2) return false;
+    const std::weak_ptr<int> lifetime = lifetime_;
+    return loop_.post([this, lifetime, minutes]() {
+        if (lifetime.expired()) return;
+        idleSaverMinutes_ = minutes;
+        updateIdleScreensaver(true);
+    });
+}
+
+void ScreenTimeEnforcer::cancelIdleScreensaver() {
+    if (idleSaverTimer_) loop_.cancelTimer(idleSaverTimer_);
+    idleSaverTimer_ = 0;
+}
+
+bool ScreenTimeEnforcer::canStartIdleScreensaver() const {
+    const Json snapshot = state_.snapshot();
+    const Json power = snapshot["power"];
+    const std::string powerState = compactState(power["state"].string());
+    const std::string app = snapshot["application"]["app"].string();
+    const Json media = Json::parse(snapshot["media"]["snapshot"].string());
+    const std::string playback = compactState(media["state"].string());
+    return !acting_ && power["systemOn"].boolean() && power["screenOn"].boolean() &&
+           (powerState == "active" || powerState == "on") && !app.empty() &&
+           !names::isHdmiKey(app) && app != "livetv" &&
+           (playback == "idle" || playback == "paused" || playback == "stopped");
+}
+
+void ScreenTimeEnforcer::updateIdleScreensaver(bool activity) {
+    const bool eligible = idleSaverMinutes_ && canStartIdleScreensaver();
+    const bool becameEligible = eligible && !idleSaverEligible_;
+    idleSaverEligible_ = eligible;
+    if (!eligible) {
+        cancelIdleScreensaver();
+        return;
+    }
+    if (!activity && !becameEligible) return;
+    cancelIdleScreensaver();
+    idleSaverTimer_ = loop_.scheduleAfter(timings_.idleSaverMinute * idleSaverMinutes_, [this]() {
+        idleSaverTimer_ = 0;
+        if (!idleScreensaverAvailable() || !canStartIdleScreensaver() ||
+            !timings_.idleSaverStateLive || !timings_.idleSaverStateLive())
+            return;
+        const std::weak_ptr<int> lifetime = lifetime_;
+        (void)command("screensaver.idle-start", "com.webos.service.tvpower/power/turnOnScreenSaver",
+                      Json::object(), "tv-power", false, [this, lifetime](const LunaReply &reply) {
+            if (!lifetime.expired() && logger_ && !reply.response["returnValue"].boolean())
+                logger_->info("screensaver: the TV refused the idle start request");
+        });
     });
 }
 

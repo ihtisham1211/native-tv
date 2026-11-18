@@ -14,6 +14,7 @@ the dashboard first.
 | Change | Where | Undone by |
 | :----- | :---- | :-------- |
 | The server, its config and state | `/var/lib/tvweb` | Uninstalling |
+| One- and two-minute screen-saver timers | `screensaverIdleMinutes` in `/var/lib/tvweb/config.json`. LG's timer keeps its value while Native Tv uses a shorter time | Choosing one of LG's times under **Start after**, or uninstalling |
 | Files of the earlier Node release (`tvweb.js` and `lib/`) | Deleted from `/var/lib/tvweb` by `deploy.sh` and by the daemon at its first start; nothing on the TV runs Node for Native Tv | Not restorable except by installing the Node release again |
 | Overrides for one TV | `/var/lib/tvweb/native.env`, `NAME=value` lines (`TVWEB_*`) that `tvwebctl` loads before it starts the daemon; absent unless created | Deleting the file |
 | Home's shared carousel and boot styles | Named `carousel` and `boot` sections in `/var/lib/tvweb/assets/google-tv/shared/common.css`, inlined into Home | Uninstalling |

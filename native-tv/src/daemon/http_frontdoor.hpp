@@ -293,6 +293,8 @@ class HttpFrontDoor {
     // config.json as it is now. config_ is read once at start, so settings
     // written since (by this daemon or by hand) show only through this.
     Json currentConfigDocument() const;
+    Json screensaverTimerRows(const Json &rows) const;
+    std::string saveIdleScreensaverMinutes(int minutes) const;
     // The TV theme in `document`: its `tvTheme` when that names a theme, else the default.
     static std::string tvThemeId(const Json &document);
     // Whether to offer OLED Care once: an OLED panel, still on the default theme, never asked.
@@ -564,6 +566,7 @@ class HttpFrontDoor {
     mutable bool privacyCacheValid_ = false;
     mutable std::chrono::steady_clock::time_point privacyCachedAt_{};
     mutable std::mutex lgSettingsCacheMutex_;
+    mutable std::mutex screensaverTimerMutex_;
     mutable Json lgSettingsCacheSettings_;
     mutable Json lgSettingsCacheDescriptions_;
     mutable Json lgSettingsCacheDescriptionCoverage_;

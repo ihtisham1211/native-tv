@@ -52,6 +52,7 @@
 #include "service/piccap.hpp"
 #include "service/adblock_store.hpp"
 #include "service/history_recorder.hpp"
+#include "service/lg_settings.hpp"
 #include "service/oled_care.hpp"
 #include "service/remote_keys.hpp"
 #include "service/release_check.hpp"
@@ -1789,13 +1790,25 @@ int main(int argc, char **argv) {
                     std::string(nativeStateEnabled) != "1")
                     throw std::runtime_error(
                         "native screen-time enforcement requires native state and history");
+                ScreenTimeTimings timings;
+                timings.idleSaverInputAvailable = [&remoteButtonsReader, nativeRemoteInputConfigured]() {
+                    return nativeRemoteInputConfigured && remoteButtonsReader && remoteButtonsReader->running();
+                };
+                timings.idleSaverStateLive = [&stateSubscriptions]() {
+                    return stateSubscriptions->isLive("power") && stateSubscriptions->isLive("application") &&
+                           stateSubscriptions->isLive("media");
+                };
                 screenTimeEnforcer.reset(new ScreenTimeEnforcer(
                     loop, stateSubscriptions->cache(), *historyRecorder, luna,
                     dataDirectory(), procRoot, systemRoot,
                     loaded.config.document["screenTime"], loaded.config.allowControl,
-                    loaded.config.allowPower, &logger, ScreenTimeTimings(),
+                    loaded.config.allowPower, &logger, timings,
                     &commandPolicy));
                 screenTimeActivity.store(screenTimeEnforcer.get());
+                const int shortSaver = service::shortScreenSaverMinutes(
+                    loaded.config.document["screensaverIdleMinutes"]);
+                if (shortSaver && !screenTimeEnforcer->setIdleScreensaverMinutes(shortSaver))
+                    logger.warning("screensaver: could not apply idle start time");
             }
             if (stateSubscriptions)
                 volumeCeilingEnforcer.reset(new VolumeCeilingEnforcer(

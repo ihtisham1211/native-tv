@@ -53,7 +53,7 @@ Native Tv grew out of [Glasshouse](https://github.com/rorygallagher2024/glasshou
 * **[Control power and standby](dashboard/advanced.md#power-and-standby).** Stay on the network while off, Quick Boot, Wake-on-LAN, Always Ready, the On and Off timers, and a switch that [blocks LG's firmware updates](dashboard/advanced.md#system-updates), which can take root access away.
 * **[Remap the remote's buttons](dashboard/apps.md#remote-keys).** Point Netflix, Prime Video, Guide and the colour keys at any app, HDMI input or Live TV, or have a button only tell Home Assistant.
 * **[Install the dashboard as an app](dashboard/index.md#install-as-an-app).** A web app manifest and icons put it on a phone's home screen or a computer's app list.
-* **[Replace the screen saver](dashboard/screen-savers.md)** with a clock, starfield, fireworks or the TV's own readings.
+* **[Replace the screen saver](dashboard/screen-savers.md)** with a clock, starfield, fireworks or the TV's own readings. On supported TVs it can start after one or two idle minutes.
 * **[TV report](dashboard/server.md).** The versions, model and which readings the TV answered, with nothing private in them, to paste into an issue.
 * **[Volume ceiling](dashboard/advanced.md#volume-ceiling).** A maximum volume that holds whoever sets it, a lower limit at night and a start-up volume for when the TV comes on.
 * **[Switch the TV off when idle](dashboard/advanced.md#switch-off-when-idle).** After 15 minutes to eight hours with no key press, no change and nothing playing, with a toast a minute before; an HDMI input is never switched off.

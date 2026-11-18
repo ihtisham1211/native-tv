@@ -2239,10 +2239,31 @@ void HttpFrontDoor::sendScreensaverList(HttpExchange &exchange) const {
         screensaverManager_->state(config_.allowControl, allowedAnyway));
     // What LG's own menu sets for the screen saver, such as when it starts; a TV that reports none leaves it empty.
     const Json settingsData = collectLgSettingsData({"screensaver"});
-    response.set("lgSettings", service::lgSettingsResponse(
+    response.set("lgSettings", screensaverTimerRows(service::lgSettingsResponse(
         {"screensaver"}, settingsData["settings"], settingsData["descriptions"],
-        settingsData["dimensions"], Json::object())["rows"]);
+        settingsData["dimensions"], Json::object())["rows"]));
     sendMetricsJson(exchange, response.dump());
+}
+
+Json HttpFrontDoor::screensaverTimerRows(const Json &rows) const {
+    if (!screenTimeEnforcer_ || !screenTimeEnforcer_->idleScreensaverAvailable()) return rows;
+    return service::withShortScreenSaverChoices(rows, service::shortScreenSaverMinutes(
+        currentConfigDocument()["screensaverIdleMinutes"]));
+}
+
+std::string HttpFrontDoor::saveIdleScreensaverMinutes(int minutes) const {
+    const Json previous = currentConfigDocument()["screensaverIdleMinutes"];
+    Json change = Json::object();
+    change.set("screensaverIdleMinutes", minutes ? Json::numeric(minutes) : Json());
+    std::string error;
+    if (!ConfigStore(configPath_).setTopLevel(change, &error)) return error;
+    if (screenTimeEnforcer_ && !screenTimeEnforcer_->setIdleScreensaverMinutes(minutes)) {
+        change.set("screensaverIdleMinutes", previous);
+        if (!ConfigStore(configPath_).setTopLevel(change, &error) && logger_)
+            logger_->error("screensaver: could not restore the previous idle setting: " + error);
+        return say::msg("srv.saver.idleUnavailable", "Native Tv could not start the idle screen saver timer");
+    }
+    return std::string();
 }
 
 void HttpFrontDoor::setStatusProviders(std::function<Json()> ntp,
@@ -10019,9 +10040,10 @@ void HttpFrontDoor::sendLgSettings(HttpExchange &exchange) const {
     sections.erase(std::remove(sections.begin(), sections.end(), std::string()),
                    sections.end());
     const Json data = collectLgSettingsData(sections);
-    const Json response = service::lgSettingsResponse(
+    Json response = service::lgSettingsResponse(
         sections, data["settings"], data["descriptions"], data["dimensions"],
         lgSettingsInputNames());
+    response.set("rows", screensaverTimerRows(response["rows"]));
     sendMetricsJson(exchange, response.dump());
 }
 
@@ -11735,6 +11757,25 @@ void HttpFrontDoor::setControl(HttpExchange &exchange) const {
     const std::string action = payload.isObject() ? payload["action"].string() : "";
     if (adminControlAction(action) && !adminAllowed(exchange))
         return;
+    const Json setting = payload["value"];
+    const bool screensaverTimer = action == "lgSetting" && setting["id"].string() == "screenSaverTimer";
+    std::unique_lock<std::mutex> screensaverTimerLock(screensaverTimerMutex_, std::defer_lock);
+    if (screensaverTimer) {
+        screensaverTimerLock.lock();
+        const Json selected = setting["value"];
+        const int minutes = selected.isString() && !setting.has("on")
+            ? service::shortScreenSaverMinutes(selected) : 0;
+        if (minutes) {
+            if (!screenTimeEnforcer_ || !screenTimeEnforcer_->idleScreensaverAvailable()) {
+                refuseControl(say::msg("srv.saver.idleUnsupported", "Idle screen saver timing is unavailable on this TV"));
+                return;
+            }
+            const std::string error = saveIdleScreensaverMinutes(minutes);
+            if (!error.empty()) refuseControl(error);
+            else sendMetricsJson(exchange, "{\"ok\":true}");
+            return;
+        }
+    }
     {
         Json settingResponse;
         if (serverSettingControl(action, payload["value"], settingResponse)) {
@@ -12963,6 +13004,14 @@ void HttpFrontDoor::setControl(HttpExchange &exchange) const {
     }
     if (succeeded || (oledProtectionAction && oledProtectionWriteAttempted))
         invalidateLgSettingsCache();
+    if (succeeded && screensaverTimer && service::shortScreenSaverMinutes(
+            currentConfigDocument()["screensaverIdleMinutes"])) {
+        const std::string error = saveIdleScreensaverMinutes(0);
+        if (!error.empty()) {
+            refuseControl(error);
+            return;
+        }
+    }
     if (succeeded && lgSettingAction)
         rememberHeldSetting(lgSetting);
     if (succeeded || ((remoteKeyAction || homeKeyAction || sleepTimerAction || quickBootAction || deviceDetectionAction ||
