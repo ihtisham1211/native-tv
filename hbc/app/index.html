@@ -119,9 +119,12 @@ body{display:flex;display:-webkit-flex;align-items:center;-webkit-align-items:ce
       clearTimeout(timer);
       busy = false;
       var reply = {}, result = null;
-      try { reply = JSON.parse(msg); } catch (e) { reply = {}; }
+      try { reply = JSON.parse(msg) || {}; } catch (e) {}
       if (reply.returnValue === false) {
-        return say('The Homebrew Channel would not run the setup. Check that it is installed and up to date.', true);
+        var reason = typeof reply.errorText === 'string' ? reply.errorText.replace(/\s+/g, ' ').trim() : '';
+        if (reason.length > 180) reason = reason.slice(0, 177) + '...';
+        if (!reason && typeof reply.errorCode === 'number') reason = 'Error ' + reply.errorCode;
+        return say('Could not start setup through Homebrew Channel.' + (reason ? ' ' + reason : ''), true);
       }
       var lines = String(reply.stdoutString || '').replace(/\s+$/, '').split('\n');
       try { result = JSON.parse(lines[lines.length - 1]); } catch (e) { result = null; }

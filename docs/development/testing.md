@@ -48,6 +48,7 @@ and a C4 (webOS 9), and receiver and settings dumps. Expected values recorded
 from the former Node server are in `native-tv/tests/fixtures/*.json`.
 
 `node native-tv/tests/ui/run.js [filter]` runs the UI suites.
+`test-hbc-launch.js` checks that a failed setup request through Homebrew Channel shows the available error detail and offers a retry.
 
 ## Native TV checks
 

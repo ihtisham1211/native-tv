@@ -1,6 +1,6 @@
 /**
  * test-hbc-launch.js - The Homebrew Channel app's launch page sends a TV that has not done
- * first-run setup to the setup pages, not to the dashboard.
+ * first-run setup to the setup pages and reports failures from the exec bridge.
  *
  * Runs the page's own script (hbc/app/index.html) against stand-ins for the document, the
  * address, XMLHttpRequest and the Homebrew Channel's exec bridge. The page has no window.PalmSystem
@@ -22,11 +22,12 @@ assert.ok(begin > '<script>'.length && script.indexOf('PalmServiceBridge') !== -
 var INSTALLED = '{"ok":true,"action":"installed","version":"0.124.0","webOff":false}';
 
 // answers: what each /api/caps ask gets, in order (null: nothing answers); the last one repeats.
-function launch(answers, done) {
+function launch(answers, execReply, done) {
   var asked = 0, installs = 0, opened = null;
   var element = function () { return { textContent: '', className: '', addEventListener: function () {} }; };
+  var elements = { status: element(), retry: element(), spinner: element() };
   var sandbox = {
-    document: { getElementById: element, addEventListener: function () {} },
+    document: { getElementById: function (id) { return elements[id]; }, addEventListener: function () {} },
     location: { pathname: '/media/app/index.html', replace: function (url) { opened = url; } },
     window: {},
     Date: Date,
@@ -42,7 +43,7 @@ function launch(answers, done) {
         installs++;
         var bridge = this;
         setImmediate(function () {
-          bridge.onservicecallback(JSON.stringify({ returnValue: true, stdoutString: INSTALLED + '\n' }));
+          bridge.onservicecallback(JSON.stringify(execReply));
         });
       };
     },
@@ -64,7 +65,9 @@ function launch(answers, done) {
   vm.runInNewContext(script, sandbox);
   var waited = 0;
   (function poll() {
-    if (opened || ++waited > 200) return done(opened, installs);
+    if (opened || elements.retry.className === 'on' || ++waited > 200) {
+      return done(opened, installs, elements.status.textContent, elements.retry.className);
+    }
     setTimeout(poll, 5);
   })();
 }
@@ -79,9 +82,30 @@ var cases = [
   ['a server put in place just now whose setup is done opens the dashboard',
     [null, null, null, null, caps(false)], '/assets/google-tv/pages/dashboard.html?tab=system', 1]
 ];
+var refusalCases = [
+  [{ returnValue: false, errorText: ' Denied method call\nfor category / ', errorCode: -1 },
+    'Could not start setup through Homebrew Channel. Denied method call for category /'],
+  [{ returnValue: false, errorText: ' ', errorCode: -1 },
+    'Could not start setup through Homebrew Channel. Error -1'],
+  [{ returnValue: false }, 'Could not start setup through Homebrew Channel.'],
+  [null, 'Setup failed.']
+];
+
+function nextRefusal(i) {
+  if (i === refusalCases.length) return console.log('ALL test-hbc-launch.js assertions passed!\n');
+  launch([null], refusalCases[i][0], function (opened, installs, status, retryClass) {
+    assert.strictEqual(opened, null);
+    assert.strictEqual(installs, 1);
+    assert.strictEqual(status, refusalCases[i][1]);
+    assert.strictEqual(retryClass, 'on');
+    console.log('  ok - ' + status);
+    nextRefusal(i + 1);
+  });
+}
+
 (function next(i) {
-  if (i === cases.length) return console.log('ALL test-hbc-launch.js assertions passed!\n');
-  launch(cases[i][1], function (opened, installs) {
+  if (i === cases.length) return nextRefusal(0);
+  launch(cases[i][1], { returnValue: true, stdoutString: INSTALLED + '\n' }, function (opened, installs) {
     assert.ok(opened, cases[i][0] + ': the page opened nothing');
     assert.ok(opened.indexOf('http://localhost:8080' + cases[i][2]) === 0,
               cases[i][0] + ': opened ' + opened);
