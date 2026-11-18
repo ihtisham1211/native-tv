@@ -101,7 +101,7 @@ std::string homeProbeReason(const Json &verdict) {
     const std::string name = verdict["class"].string();
     if (name == "missing")
         return say::msg("srv.home.probe.missing",
-                        "The Native Tv app is not installed on this TV, so Native Tv Home cannot take LG's Home's place.");
+                        "The Native Tv app is not installed on this TV, so Native Tv Home cannot take LG's Home's place. Switch on App on the TV's home screen, on the Server tab, first.");
     if (name == "unregistered")
         return say::msg("srv.home.probe.unregistered",
                         "The Native Tv app is not on this TV's home screen (it was removed, or never added), so Native Tv Home cannot take LG's Home's place. Switch on App on the TV's home screen, on the Server tab, first.");

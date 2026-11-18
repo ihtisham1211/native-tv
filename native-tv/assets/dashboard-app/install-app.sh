@@ -17,7 +17,8 @@ ACTION=${1:-install}
 SRC=${2:-/var/lib/tvweb/assets/dashboard-app}
 # The same script installs Native Tv Home's app (assets/home-app) and the splash
 # (assets/splash-app), named by the app's own appinfo.json. Only the dashboard's
-# app gives way to the Homebrew Channel's tile: the others have no other.
+# app gives way to the Homebrew Channel's tile, unless the owner adds it there:
+# the others have no other.
 ID=$(sed -n 's/^ *"id": *"\([^"]*\)".*/\1/p' "$SRC/appinfo.json" 2>/dev/null | head -n 1)
 [ -n "$ID" ] || ID=com.tvweb.dashboard
 TYPE=$(sed -n 's/^ *"type": *"\([^"]*\)".*/\1/p' "$SRC/appinfo.json" 2>/dev/null | head -n 1)
@@ -55,9 +56,15 @@ case "$PORT" in ''|*[!0-9]*) PORT=8080 ;; esac
 ported() { sed "s/\(var PORT = \)[0-9]*\(; *\/\/ tvweb:port\)/\1$PORT\2/" "$1"; }
 
 # Set when the server was put in place by the app the Homebrew Channel installs.
-# That app is then the tile, so this one is retired rather than offered.
-HBC_MARK=/var/lib/tvweb/.from-homebrew-channel
-from_hbc() { [ "$ID" = com.tvweb.dashboard ] && [ -f "$HBC_MARK" ]; }
+# That app is then the tile, so this one is retired rather than offered - unless
+# the owner added it there (KEEP): Native Tv Home opens its screens in this app,
+# so it cannot do without it. A kept app is refreshed like any other.
+DATA=${TVWEB_DATA_ROOT:-/var/lib/tvweb}
+HBC_MARK=$DATA/.from-homebrew-channel
+KEEP=$DATA/.tv-app-kept
+kept() { [ "$ID" = com.tvweb.dashboard ] && [ -f "$KEEP" ]; }
+from_hbc() { [ "$ID" = com.tvweb.dashboard ] && [ -f "$HBC_MARK" ] && ! kept; }
+kept && [ "$ACTION" = retire ] && ACTION=refresh
 
 # Take this tile away now the Homebrew Channel app replaces it - but never
 # while it is running. Closing an open app from outside made a webOS 4 TV
@@ -97,7 +104,6 @@ if [ "$ACTION" = status ]; then
   sup=false; [ -f "$SRC/appinfo.json" ] && command -v luna-send >/dev/null 2>&1 && sup=true
   # A native app with no executable beside it (a tree without the ARM payload) has nothing to run.
   [ "$TYPE" = native ] && [ ! -f "$SRC/$MAIN" ] && sup=false
-  from_hbc && sup=false        # the Homebrew Channel app is the tile
   ins=false; installed && ins=true
   printf '{"ok":true,"supported":%s,"installed":%s}\n' "$sup" "$ins"
   exit 0
@@ -105,7 +111,7 @@ fi
 
 if [ "$ACTION" = remove ]; then
   command -v luna-send >/dev/null 2>&1 || { echo '{"ok":false,"error":"not supported on this TV"}'; exit 0; }
-  installed || { echo '{"ok":true,"installed":false}'; exit 0; }
+  installed || { rm -f "$KEEP"; echo '{"ok":true,"installed":false}'; exit 0; }
   RLOG=$(mktemp /tmp/tvweb-rm.XXXXXX) || exit 0
   luna-send -i -w 60000 luna://com.webos.appInstallService/dev/remove \
     "{\"id\":\"$ID\",\"subscribe\":true}" > "$RLOG" 2>&1 &
@@ -120,7 +126,7 @@ if [ "$ACTION" = remove ]; then
   # The service is not always able to finish the job; clearing the directories
   # leaves no tile either way, and sam drops the registration at the next boot.
   rm -rf "$APPDIR" "$PKGDIR" 2>/dev/null
-  rm -f "$RLOG"
+  rm -f "$RLOG" "$KEEP"
   if installed; then echo '{"ok":false,"error":"the TV would not remove it"}'
   else echo '{"ok":true,"installed":false}'; fi
   exit 0
@@ -147,11 +153,6 @@ if [ "$ACTION" = refresh ]; then
   done
   [ -n "$stale" ] || { echo '{"ok":true,"installed":true,"refreshed":false}'; exit 0; }
   ACTION=install
-fi
-
-if from_hbc; then
-  echo "$WHAT app not added: the Homebrew Channel app is on the home screen instead"
-  exit 0
 fi
 
 # The dashboard and Home apps are windows onto the server, so with the dashboard
@@ -226,6 +227,8 @@ done
 kill "$lpid" 2>/dev/null
 
 if grep -q '"state":"installed"' "$LOG" 2>/dev/null; then
+  # Added on a Homebrew Channel install: the owner's choice, so the boot's retire leaves it.
+  [ "$ID" = com.tvweb.dashboard ] && [ -f "$HBC_MARK" ] && : > "$KEEP"
   echo "$WHAT added to the home screen"
 else
   echo "$WHAT app not installed (the dashboard is still served to browsers)"
