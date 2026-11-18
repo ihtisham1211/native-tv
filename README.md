@@ -119,7 +119,7 @@ Native Tv installs from a release package, with no build, or from a computer on 
 1. Root the TV and install the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel). Native Tv does not root the TV.
 2. Download `io.github.ihtisham1211.nativetv_<version>_all.ipk` (about 12 MB) from the [latest release](https://github.com/ihtisham1211/native-tv/releases/latest).
 3. Install it on the TV with [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop) or `ares-install`.
-4. Open the Native Tv app on the TV. It sets the server up and opens the dashboard, and the first run starts the setup wizard.
+4. Open Native Tv on the TV. The package sets up the server and opens the native TV app, which starts with the setup wizard on a first run.
 
 ### Build and install from source
 

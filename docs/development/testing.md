@@ -48,6 +48,7 @@ and a C4 (webOS 9), and receiver and settings dumps. Expected values recorded
 from the former Node server are in `native-tv/tests/fixtures/*.json`.
 
 `node native-tv/tests/ui/run.js [filter]` runs the UI suites.
+`test-hbc-launch.js` checks that the Homebrew launcher opens the native app, attempts setup once if the app is unavailable and offers a retry after a refusal.
 
 ## Native TV checks
 
@@ -447,9 +448,9 @@ that an indented reply split across writes, with a brace inside a string, is rea
 holds the tile-hiding carry-over (the daemon saves `allowTileHiding` at start
 where an install has it running, except on webOS 10 and later without the experimental switch). The runtime
 suite adds the version shown with matching build metadata only and a restart that waits for
-an install started after the settings save. The suites `test-dashboard-nav.js`, `test-dashboard-search.js`, `test-dashboard-view.js`, `test-mqtt-save-ui.js`, `test-i18n.js`, `test-token-url.js`, `test-admin-session.js`, `test-release-card.js`, `test-home-boot.js` and `test-hbc-launch.js` load the shipped sources (`native-tv/web/ui/`,
+an install started after the settings save. The suites `test-dashboard-nav.js`, `test-dashboard-search.js`, `test-mqtt-save-ui.js`, `test-i18n.js`, `test-token-url.js`, `test-admin-session.js`, `test-release-card.js`, `test-home-boot.js` and `test-hbc-launch.js` load the shipped sources (`native-tv/web/ui/`,
 `native-tv/assets/google-tv/`, `native-tv/lifecycle/50-tvweb.sh` and `hbc/app/index.html`) and run on the host with
-`node native-tv/tests/ui/run.js`. `test-hbc-launch.js` runs the Homebrew Channel app's launch script against a stand-in address, `XMLHttpRequest` and exec bridge, with no `window.PalmSystem`: a server that says first-run setup is needed (`setupNeeded` in `/api/caps`) is opened on the setup pages, one whose setup is done on the dashboard, whether it was already running or the script has just put it in place. `test-i18n.js` runs the string loader (`ui/i18n.js`) against a stand-in page, address bar, storage and network: the language is picked from `?lang=`, then the stored choice, then the browser's (`pt-BR` is `pt-br`'s file, any other `pt-` region is `pt`'s, `fr`, `ru` and the other six pick their own, and Arabic puts `dir="rtl"` on the page); the dictionary is read once, synchronously; English that no longer matches an entry's `from` is shown as it is; `data-t` text and attributes are translated in place; the `X-Native-Tv-Lang` header goes on requests to the TV and not to other sites; and the Server tab's list offers the nine languages, stores a choice and drops `?lang=` before reloading. `test-admin-session.js` runs the fetch wrapper of `ui/core.js` against a stand-in network: the admin session goes out with API requests only, a 403 that says `pin:true` raises the unlock prompt and retries once, a cancelled prompt leaves the refusal, and a 401 raises the passcode screen. `test-ntp-row.js` runs the Server tab's network time status line against the shapes the server sends, among them a clock that stayed out after a set. `test-remote-key-note.js` runs the Apps tab's remote-key change against a plain success, a failure and a success with a note, which the server sends where the TV will not stop Alexa from launching. `test-sam-reread-app.js` runs the boot hook's `sam_reread_app` with only `luna-send` replaced: a release is asked first, and nothing is blocked where sam has none. `test-dashboard-nav.js` holds the phone dashboard's sections and tabs
+`node native-tv/tests/ui/run.js`. `test-hbc-launch.js` runs the Homebrew launcher with a stand-in server and webOS service bridge. It covers first run, an existing server, one repair after a launch refusal, and an error if setup or launch still fails. `test-i18n.js` runs the string loader (`ui/i18n.js`) against a stand-in page, address bar, storage and network: the language is picked from `?lang=`, then the stored choice, then the browser's (`pt-BR` is `pt-br`'s file, any other `pt-` region is `pt`'s, `fr`, `ru` and the other six pick their own, and Arabic puts `dir="rtl"` on the page); the dictionary is read once, synchronously; English that no longer matches an entry's `from` is shown as it is; `data-t` text and attributes are translated in place; the `X-Native-Tv-Lang` header goes on requests to the TV and not to other sites; and the Server tab's list offers the nine languages, stores a choice and drops `?lang=` before reloading. `test-admin-session.js` runs the fetch wrapper of `ui/core.js` against a stand-in network: the admin session goes out with API requests only, a 403 that says `pin:true` raises the unlock prompt and retries once, a cancelled prompt leaves the refusal, and a 401 raises the passcode screen. `test-ntp-row.js` runs the Server tab's network time status line against the shapes the server sends, among them a clock that stayed out after a set. `test-remote-key-note.js` runs the Apps tab's remote-key change against a plain success, a failure and a success with a note, which the server sends where the TV will not stop Alexa from launching. `test-sam-reread-app.js` runs the boot hook's `sam_reread_app` with only `luna-send` replaced: a release is asked first, and nothing is blocked where sam has none. `test-dashboard-nav.js` holds the phone dashboard's sections and tabs
 against `ui.html` (the 13 panels, five sections, the tab buttons the scripts reveal), the Android wrapper's
 `navState` call, and the `?theme=` and `data-theme` behaviour. `test-hdmi-grid.js` runs `hdmiTable()` from `ui/lgsettings.js` and holds that no column of the HDMI inputs
 table keeps a minimum width: three of them once did (150, 130 and 130 px), which pushed the Audio format column off a 390 px phone. `test-lg-uploads-ui.js` runs `renderLgSettings()` and its click handler from the same file: the Privacy tab's "Log uploads to LG" section shows only where the TV reports an upload setting, counts the switches that are on, has no master switch, and sends `lgSetting` for the row clicked. `test-wifi-name.js` runs `tick()` from `ui/readouts.js` against one stats answer and holds that the Network row shows a Wi-Fi name with `&`, `<` or `"` as typed: the row writes its sub-line as text, and a name escaped first showed "Home &amp; Garden". `test-release-card.js` runs `renderRelease()` from `ui/server.js` against the shapes the server sends for the Updates card: a newer release that can be installed from the card and one that cannot, an update at each stage and one that failed (beside its own release only), none, a failed check (beside the last good answer or alone), a check under way, and no release check at all; then the Install button's confirmation and the page's wait for the server to come back with the new version, or to say it failed. `test-pwa.js` holds the install contract: `ui.html` links a manifest with a name, the start URL `/`, standalone display, the page's theme colour and 192, 512 and maskable icons that are PNGs of the size they claim, and the service worker (`assets/pwa/sw.js`) answers page navigations only, with an offline page when the TV is unreachable, and never caches.
@@ -785,29 +786,14 @@ config shows there first.
 ## The dashboards in a browser
 
 [`dashboards.yml`](https://github.com/ihtisham1211/native-tv/blob/main/.github/workflows/dashboards.yml) starts the daemon against a stand-in `luna-send`, opens every tab of
-the web dashboard and the TV app in a headless browser, and fails on any
+the web dashboard in a headless browser, and fails on any
 script error or failed request, naming the tab. A 404 for an app's icon is
 not a failure: it is how the server says an app has none, and the stand-in TV's
 installed apps have no icon files. A function a page calls that has gone, or an
 element it reaches for that has moved, breaks only when that tab opens, which
 no unit test does. It also opens the dashboard in each of its nine languages on a phone, checking that the Server tab is translated, the page does not scroll sideways, the language is sent to the server, the Language list offers every language and Arabic is laid out right to left. It runs when the daemon, the pages or the stand-in TV change.
 
-For the TV app dashboard, checks verify the two-column layout geometry (the row list on the left and the hint pane on the right with non-zero dimensions and horizontal adjacency), remote D-pad navigation (`ArrowDown`, `ArrowUp`, `PageDown`), list translateY scrolling with the scroll arrow indicator, tab switching (`ArrowRight`, `ArrowLeft`), and that the OLED Care tab is dropped when running on a non-OLED (LCD) TV profile.
-
-Moved pages checks open the TV pages' old addresses and check that each lands
-on its page in `native-tv/assets/google-tv/pages/`.
-
-TV asset assembly checks visit the three production page folders, including
-setup and its one-time phone form. They assert that CSS and JavaScript arrive
-inline without resource requests, and legacy flat URLs return the pages without another redirect. Route tests
-also reject inline CSS/JS in source HTML, validate shared section names and
-script ordering, and diagnose missing page files. The phone form keeps its
-modern browser styles.
-
-TV polling checks use a virtual clock and delayed responses to verify ten-second
-refreshes, no overlaps, one fresh post-control read, cancellation while hidden and
-immediate resume. Visibility events are
-simulated here; actual webOS visibility behavior needs a real-TV check.
+The browser check also covers the setup demo and its one-time phone form. CSS and JavaScript arrive inline, the setup aliases still work, the retired TV dashboard addresses return 404, and reduced motion and phone handoff are checked in the setup demo.
 
 ## Documentation
 
@@ -907,7 +893,7 @@ NO_MKDOCS_2_WARNING=1 mkdocs build
 node scripts/emulate-tv.js [--port 8080] [--model c2|b8|c3] [--open] [--simulator <app>]
 ```
 
-`--simulator` also opens the TV dashboard page in LG's webOS TV Simulator, given the path to its `.app` (1.5.0 tried, LG's webOS 26, webOS 11 as a TV reports it), and closes it with the emulator. The simulator is an Electron app that runs on Apple Silicon. It shows the pages the Homebrew Channel app opens on the TV, with its virtual remote for the arrow keys, OK and Back, which a desktop browser cannot. It does not run the daemon, the native client or LG's services: it fakes a few Luna services for web apps, so ACR, TV settings and sam behaviour still need a real TV.
+`--simulator` opens the TV setup demo in LG's webOS TV Simulator, given the path to its `.app` (1.5.0 tried, LG's webOS 26, webOS 11 as a TV reports it), and closes it with the emulator. The simulator is an Electron app that runs on Apple Silicon. Its virtual remote sends arrow keys, OK and Back to the setup demo. It does not run the daemon, the native client or LG's services: it fakes a few Luna services for web apps, so ACR, TV settings and sam behaviour still need a real TV.
 
 `scripts/simulator-apps/` holds web apps for the simulator's app list: Native Tv, YouTube (`youtube.leanback.v4`), Netflix (`netflix`), Prime Video (`amazon`) and a Web Browser with an address bar. Each opens the service's website, so the simulator, which has no Widevine, shows Netflix and Prime Video but does not play their protected video. Add each folder once in the simulator's app dialog; it keeps the list. Native Tv opened from that list uses port 8080.
 

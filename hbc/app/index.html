@@ -35,20 +35,22 @@ body{display:flex;display:-webkit-flex;align-items:center;-webkit-align-items:ce
  * small server on the TV, and this app carries that server with it: when the
  * server does not answer with the version this app was built with - never
  * installed, older, or not started yet - the page asks the Homebrew Channel,
- * which runs as root, to put it in place, then opens the dashboard.
+ * which runs as root, to put it in place, then opens the native app.
  */
 (function () {
   var APP_VERSION = '@VERSION@';                // filled in when the app is built
   var PORT = 8080;                              // tvweb:port, rewritten by the server to match config.json
   var BASE = 'http://localhost:' + PORT;
   var EXEC = 'luna://org.webosbrew.hbchannel.service/exec';
+  var LAUNCH = 'luna://com.webos.applicationManager/launch';
+  var CLIENT = 'com.tvweb.dashboard';
   // This page's own directory, which holds the server files under payload/.
   var appDir = decodeURIComponent(location.pathname.replace(/\/[^\/]*$/, ''));
 
   var statusEl = document.getElementById('status');
   var retryBtn = document.getElementById('retry');
   var spinner = document.getElementById('spinner');
-  var busy = false, done = false;
+  var busy = false;
 
   function say(text, stuck) {
     statusEl.textContent = text;
@@ -56,16 +58,35 @@ body{display:flex;display:-webkit-flex;align-items:center;-webkit-align-items:ce
     spinner.className = stuck ? 'spinner off' : 'spinner';
   }
 
-  // A server that says first-run setup is not done is sent to the setup pages from here. This page is
-  // the TV app, so it does not leave that to the dashboard, which only redirects when it finds
-  // window.PalmSystem in a page served from localhost.
-  function open(caps) {
-    if (done) return;
-    done = true;
-    var page = caps && caps.setupNeeded
-      ? '/assets/google-tv/pages/setup/index.html?t='
-      : '/assets/google-tv/pages/dashboard.html?tab=system&t=';
-    location.replace(BASE + page + Date.now());
+  function setupError(text) {
+    busy = false;
+    say(text, true);
+  }
+
+  // The native app reads the setup state itself. A working server can predate the
+  // native tile or have had it removed, so try the package installer once if needed.
+  function openClient(repair) {
+    say('Opening Native Tv…');
+    var finished = false;
+    var timer = setTimeout(function () { finish(false); }, 8000);
+    function finish(opened) {
+      if (finished) return;
+      finished = true;
+      clearTimeout(timer);
+      if (!opened && repair) return install();
+      busy = false;
+      if (!opened) return say('Could not open the Native Tv app.', true);
+      window.close();
+    }
+    try {
+      var bridge = new PalmServiceBridge();
+      bridge.onservicecallback = function (message) {
+        var reply;
+        try { reply = JSON.parse(message); } catch (e) {}
+        finish(reply && reply.returnValue === true);
+      };
+      bridge.call(LAUNCH, JSON.stringify({ id: CLIENT }));
+    } catch (e) { finish(false); }
   }
 
   // Asks the server what it is. cb(caps) with null when nothing answers.
@@ -102,47 +123,54 @@ body{display:flex;display:-webkit-flex;align-items:center;-webkit-align-items:ce
   }
 
   function install() {
-    if (busy) return;
-    busy = true;
     say('Setting up the dashboard…');
     var bridge;
     try { bridge = new PalmServiceBridge(); } catch (e) { bridge = null; }
-    if (!bridge) {
-      busy = false;
-      return say('This TV cannot run the setup. The Homebrew Channel is needed.', true);
-    }
+    if (!bridge) return setupError('This TV cannot run the setup. The Homebrew Channel is needed.');
+    var completed = false;
     var timer = setTimeout(function () {
-      busy = false;
-      say('Setup did not finish.', true);
+      completed = true;
+      setupError('Setup did not finish.');
     }, 120000);
     bridge.onservicecallback = function (msg) {
+      if (completed) return;
+      completed = true;
       clearTimeout(timer);
-      busy = false;
       var reply = {}, result = null;
-      try { reply = JSON.parse(msg); } catch (e) { reply = {}; }
+      try { reply = JSON.parse(msg) || {}; } catch (e) {}
       if (reply.returnValue === false) {
-        return say('The Homebrew Channel would not run the setup. Check that it is installed and up to date.', true);
+        var reason = typeof reply.errorText === 'string' ? reply.errorText.replace(/\s+/g, ' ').trim() : '';
+        if (reason.length > 180) reason = reason.slice(0, 177) + '...';
+        if (!reason && typeof reply.errorCode === 'number') reason = 'Error ' + reply.errorCode;
+        return setupError('Could not start setup through Homebrew Channel.' + (reason ? ' ' + reason : ''));
       }
       var lines = String(reply.stdoutString || '').replace(/\s+$/, '').split('\n');
       try { result = JSON.parse(lines[lines.length - 1]); } catch (e) { result = null; }
       if (!result || !result.ok) {
-        return say('Setup failed' + (result && result.error ? ': ' + result.error : '') + '.', true);
+        return setupError('Setup failed' + (result && result.error ? ': ' + result.error : '') + '.');
       }
       if (result.webOff) {
-        return say('The dashboard is switched off on this TV.', true);
+        return setupError('The dashboard is switched off on this TV.');
       }
       say('Starting…');
       // A fresh start takes a few seconds; allow a generous minute.
       waitFor(60, function (caps) {
-        if (caps === null) return say('The dashboard did not start.', true);
-        open(caps);
+        if (caps === null) return setupError('The dashboard did not start.');
+        openClient(false);
       });
     };
-    bridge.call(EXEC, JSON.stringify({ command: 'sh "' + appDir + '/payload/install.sh"' }));
+    try {
+      bridge.call(EXEC, JSON.stringify({ command: 'sh "' + appDir + '/payload/install.sh"' }));
+    } catch (e) {
+      completed = true;
+      clearTimeout(timer);
+      setupError('Could not start setup through Homebrew Channel.');
+    }
   }
 
   function start() {
-    done = false;
+    if (busy) return;
+    busy = true;
     say('Starting…');
     // A running server of this version or newer opens straight away. Anything
     // else - an older one, or nothing answering after a few seconds - goes to the
@@ -150,7 +178,7 @@ body{display:flex;display:-webkit-flex;align-items:center;-webkit-align-items:ce
     // Setup also runs once for a server of the right version that deploy.sh put
     // there, so this app can take over from the tile deploy.sh added.
     waitFor(4, function (caps) {
-      if (caps && caps.fromHomebrewChannel && !older(caps.version, APP_VERSION)) return open(caps);
+      if (caps && caps.fromHomebrewChannel && !older(caps.version, APP_VERSION)) return openClient(true);
       install();
     });
   }
@@ -164,11 +192,11 @@ body{display:flex;display:-webkit-flex;align-items:center;-webkit-align-items:ce
     return false;
   }
 
-  function retry() { if (!busy) start(); }
-  retryBtn.addEventListener('click', retry);
+  retryBtn.addEventListener('click', start);
+  document.addEventListener('webOSRelaunch', start);
   document.addEventListener('keydown', function (e) {
     var k = e.keyCode || e.which;
-    if (k === 13) retry();
+    if (k === 13) start();
     else if (k === 461) {                  // Back: leave, as everywhere else on the TV
       if (window.PalmSystem && typeof window.PalmSystem.platformBack === 'function') {
         window.PalmSystem.platformBack();

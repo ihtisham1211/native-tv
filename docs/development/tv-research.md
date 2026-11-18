@@ -1934,3 +1934,11 @@ Promotions & tips among them, restarted it, which killed all three until the TV
 was unplugged. On a C2 (webOS 9.2.2) they are in `ls-hubd.service`, the Luna
 hub. `systemd-run --scope` (systemd 250 on the C2) moves a command into a
 transient scope of its own.
+
+## Homebrew Channel setup request (C6H, webOS 11.2.0)
+
+On an OLED83C6HUP with firmware 43.21.98 and Homebrew Channel 0.7.3,
+Native Tv 0.125.0 installed through webOS Dev Manager. On launch and retry,
+the app's request to Homebrew Channel received `Denied method call "exec" for
+category "/"`, even though Homebrew Channel reported root status OK. The
+launcher displayed the refusal before the server setup script ran.

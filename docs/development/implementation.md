@@ -371,10 +371,6 @@ google-tv/
     common.js
     qr.js
   pages/
-    dashboard/
-      index.html
-      dashboard.css
-      dashboard.js
     setup/
       index.html
       setup.css
@@ -388,8 +384,8 @@ google-tv/
 `shared/common.css` is the single source for reusable TV styles: fonts, reset,
 type, themes and components from Google's TV Design Kit. Its named
 `/* @section name */` blocks are selected by each HTML file's `data-sections`
-attribute, in the order listed. The dashboard selects `tokens fonts reset base list tabs chip overlay`, setup
-`tokens fonts reset base button list` and the phone form `reset`. The server
+attribute, in the order listed. Setup selects `tokens fonts reset base button list`
+and the phone form selects `reset`. The server
 includes only those blocks, so sharing a file does not make a page parse the
 entire stylesheet.
 
@@ -410,11 +406,9 @@ customisation. `shared/common.js` owns English text interpolation and HTML
 escaping; `shared/qr.js` owns QR rendering. Shared scripts precede page scripts
 and are joined with explicit statement boundaries.
 
-The old addresses (`/assets/dashboard.html`, `setup.html`, `home.html`)
-answer 302 to the page-folder URLs. The previous flat addresses under
-`/assets/google-tv/pages/` resolve directly
-to the same assembled pages, without an extra redirect. `/assets/qr.js` remains
-an alias for the shared QR helper.
+`/assets/setup.html` redirects to the setup page. The flat setup and phone setup
+addresses under `/assets/google-tv/pages/` resolve directly to the assembled pages.
+The Homebrew launcher opens `com.tvweb.dashboard` through the webOS app manager.
 
 Keep static CSS and JS out of these HTML files. Page-specific styles belong
 beside the markup; reusable rules belong in `shared/common.css`. Runtime values

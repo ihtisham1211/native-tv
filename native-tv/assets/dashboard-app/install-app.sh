@@ -66,6 +66,16 @@ kept() { [ "$ID" = com.tvweb.dashboard ] && [ -f "$KEEP" ]; }
 from_hbc() { [ "$ID" = com.tvweb.dashboard ] && [ -f "$HBC_MARK" ] && ! kept; }
 kept && [ "$ACTION" = retire ] && ACTION=refresh
 
+# A Homebrew package opens this client. Keep a current registered copy and add
+# one if the TV has never had it or it has since been removed.
+if [ "$ACTION" = ensure ]; then
+  ACTION=install
+  if installed; then
+    : > "$KEEP"
+    ACTION=refresh
+  fi
+fi
+
 # Take this tile away now the Homebrew Channel app replaces it - but never
 # while it is running. Closing an open app from outside made a webOS 4 TV
 # relaunch its last input in the background, after which that input would not

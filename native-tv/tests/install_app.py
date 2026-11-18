@@ -166,6 +166,15 @@ class InstallAppTests(unittest.TestCase):
         self.assertFalse((data / ".tv-app-kept").exists())
         self.assertEqual(json.loads(self.run_script("refresh"))["installed"], False)
 
+    def test_homebrew_launcher_registers_and_keeps_its_native_app(self):
+        data = Path(self.environment["TVWEB_DATA_ROOT"])
+        data.mkdir()
+        (data / ".from-homebrew-channel").write_text("/app\n")
+        self.assertEqual(self.run_script("ensure"), "dashboard added to the home screen")
+        self.assertTrue((data / ".tv-app-kept").is_file())
+        self.assertFalse(json.loads(self.run_script("ensure"))["refreshed"])
+        self.assertFalse(json.loads(self.run_script("retire"))["refreshed"])
+
     def test_web_app_keeps_its_port_and_is_not_touched_by_refresh(self):
         self.run_script("install", self.home)
         page = self.installed("com.tvweb.home") / "index.html"

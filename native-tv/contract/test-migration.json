@@ -20,7 +20,7 @@
     "test-controls.js": {"fate": "ported", "native": ["ctest:native-control-command", "ctest:native-command-policy", "runtime:test_native_playback_controls_keep_media_and_input_contracts", "runtime:test_native_power_controls_respect_allow_power", "runtime:test_native_refused_volume_is_noted_in_stats"]},
     "test-dashboard-port.js": {"fate": "ported", "native": ["ctest:native-launcher-sync", "runtime:test_native_dashboard_settings_write_and_restart", "runtime:test_native_server_tab_controls"]},
     "test-dashboard-search.js": {"fate": "ported", "native": ["ctest:native-ui-suites"], "moved": "native-tv/tests/ui/test-dashboard-search.js"},
-    "test-dashboard-view.js": {"fate": "ported", "native": ["ctest:native-ui-suites"], "moved": "native-tv/tests/ui/test-dashboard-view.js"},
+    "test-dashboard-view.js": {"fate": "retired", "reason": "The TV browser dashboard was replaced by the native client."},
     "test-devtools.js": {"fate": "ported", "native": ["ctest:native-devtools-firewall", "runtime:test_native_devtools_firewall_internal_bridge"]},
     "test-fetch.js": {"fate": "ported", "native": ["ctest:native-app-package-fetcher"]},
     "test-game.js": {"fate": "ported", "native": ["ctest:native-game-frame-rate", "runtime:test_native_game_fps_stream_contract", "runtime:test_native_game_without_the_service_is_not_asked_again"]},

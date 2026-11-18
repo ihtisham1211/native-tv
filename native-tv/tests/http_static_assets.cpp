@@ -58,13 +58,14 @@ bool gzipped(const std::string &body) {
 int main() {
     char pattern[] = "/tmp/nativetv-lazy-ui-XXXXXX";
     const std::string root = mkdtemp(pattern);
-    put(root + "/google-tv/pages/dashboard/index.html", "<html>TV dashboard</html>");
     put(root + "/google-tv/pages/setup/index.html", "<html>TV setup</html>");
     const HttpStaticAssets assets(root);
 
-    check(get(assets, "/assets/google-tv/pages/dashboard/index.html", false).status == 200 &&
-              get(assets, "/assets/google-tv/pages/setup/index.html", false).status == 200,
-          "the TV pages are served");
+    check(get(assets, "/assets/google-tv/pages/setup/index.html", false).status == 200,
+          "the TV setup page is served");
+    check(!get(assets, "/assets/dashboard.html", false).handled &&
+              !get(assets, "/assets/google-tv/pages/dashboard/index.html", false).handled,
+          "the retired TV browser dashboard has no route");
     // ui.html appears only now: had a TV page request tried to load the phone page, it
     // would have found it missing and kept it so.
     put(root + "/ui.html",

@@ -883,7 +883,6 @@
     {"pathPrefix": "/assets/", "policy": "Public asset lookup through the configured asset directories; unknown files return 404."}
   ],
   "redirects": [
-    {"path": "/assets/dashboard.html", "target": "/assets/google-tv/pages/dashboard/index.html"},
     {"path": "/assets/setup.html", "target": "/assets/google-tv/pages/setup/index.html"}
   ],
   "notes": [

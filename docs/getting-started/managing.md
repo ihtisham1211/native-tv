@@ -65,7 +65,8 @@ else; see [Security](../administration/security.md#the-release-check).
 The newer `.ipk` from [GitHub releases](https://github.com/ihtisham1211/native-tv/releases)
 can still be installed by hand over the existing one with webOS Dev Manager,
 Homebrew Channel sideload, or `ares-install`; the server follows the updated
-app the next time it is opened, preserving settings. Installing an earlier
+app the next time it is opened, preserving settings. The package registers the
+native TV app if needed and opens it from the Homebrew tile. Installing an earlier
 `.ipk` returns to that release. A release from before the card could install
 only reports; a TV on one of those takes the newer `.ipk` by hand once.
 

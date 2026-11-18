@@ -448,12 +448,10 @@ bool HttpStaticAssets::handle(HttpExchange &exchange) const {
                                       "Bad Request\n")
                    : false;
 
-    // The dashboard app and the Homebrew Channel app installed on a TV open the
-    // pages by their flat names (pages/dashboard.html); each page now lives in a
-    // folder of its own.
+    // Older launchers can still name the setup pages by their flat paths.
     {
         const std::string pages = "/assets/google-tv/pages/";
-        for (const char *name : {"dashboard", "setup", "setup-phone"}) {
+        for (const char *name : {"setup", "setup-phone"}) {
             if (path == pages + name + ".html") {
                 path = pages + name + "/index.html";
                 break;
@@ -492,12 +490,10 @@ bool HttpStaticAssets::handle(HttpExchange &exchange) const {
                                  {"Referrer-Policy", "no-referrer"}}, *page);
     }
 
-    if (path == "/assets/dashboard.html" || path == "/assets/setup.html") {
+    if (path == "/assets/setup.html") {
         if (!supportedMethod(request))
             return false;
-        std::string destination = path == "/assets/dashboard.html"
-                                      ? "/assets/google-tv/pages/dashboard/index.html"
-                                      : "/assets/google-tv/pages/setup/index.html";
+        std::string destination = "/assets/google-tv/pages/setup/index.html";
         if (!request.query.empty())
             destination += "?" + request.query;
         return exchange.respond(302, {{"Location", destination}, {"Cache-Control", "no-store"}}, "");
