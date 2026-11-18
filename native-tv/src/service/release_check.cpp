@@ -17,6 +17,17 @@ const char *const kRepository = "https://github.com/ihtisham1211/native-tv";
 const char *const kAppId = "io.github.ihtisham1211.nativetv";
 const size_t kManifestBytes = 64 * 1024;
 
+// The releases come from GitHub over HTTPS. Tests point them at a server on
+// the same computer through TVWEB_RELEASE_BASE; any other value, which a TV
+// never has, is ignored, so the variable cannot send an update elsewhere.
+std::string repository() {
+    const char *override = std::getenv("TVWEB_RELEASE_BASE");
+    const std::string base = override ? override : "";
+    if (base.compare(0, 17, "http://127.0.0.1:") == 0 || base.compare(0, 18, "https://127.0.0.1:") == 0)
+        return base;
+    return kRepository;
+}
+
 // Digits only, at most nine each: a longer number is not a release this
 // server could have been built from.
 bool splitVersion(const std::string &version, unsigned long parts[3]) {
@@ -69,9 +80,33 @@ bool parseLatestRelease(const std::string &manifestBody, ReleaseOffer &offer,
     offer.sha256 = manifest["ipkHash"]["sha256"].string();
     std::transform(offer.sha256.begin(), offer.sha256.end(), offer.sha256.begin(),
                    [](unsigned char character) { return static_cast<char>(std::tolower(character)); });
-    const std::string tag = std::string(kRepository) + "/releases/";
+    const std::string tag = repository() + "/releases/";
     offer.releaseUrl = tag + "tag/v" + offer.version;
-    offer.ipkUrl = tag + "download/v" + offer.version + "/" + kAppId + "_" + offer.version + "_all.ipk";
+    offer.ipkUrl = tag + "download/v" + offer.version + "/" + releasePackageFile(offer.version);
+    return true;
+}
+
+std::string releasePackageFile(const std::string &version) {
+    return std::string(kAppId) + "_" + version + "_all.ipk";
+}
+
+std::string releaseManifestUrl(const std::string &version) {
+    return repository() + "/releases/" +
+           (version.empty() ? "latest/download/" : "download/v" + version + "/") +
+           kAppId + ".manifest.json";
+}
+
+bool parseReleaseManifest(const std::string &manifestBody, const std::string &version,
+                          ReleaseOffer &offer, std::string &error) {
+    if (!parseLatestRelease(manifestBody, offer, error)) return false;
+    // The file the manifest names is the one build-ipk.py wrote beside it, which
+    // the link above points at; any other name is not this release's package.
+    if (offer.version != version ||
+        Json::parse(manifestBody)["ipkUrl"].string() != releasePackageFile(version)) {
+        offer = ReleaseOffer();
+        error = "the release's manifest does not describe version " + version;
+        return false;
+    }
     return true;
 }
 
@@ -83,7 +118,7 @@ ReleaseFetch fetchOverCurl(const std::string &userAgent,
         long status = 0;
         AppPackageDownloadFailure failure;
         const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(20);
-        const bool fetched = AppPackageFetcher::download(
+        const bool fetched = AppPackageFetcher::downloadHttps(
             url, userAgent, ipPreference ? ipPreference() : std::string(), kManifestBytes,
             [&body](const char *bytes, size_t count) { body.append(bytes, count); return true; },
             status, failure,
@@ -108,8 +143,7 @@ bool ReleaseChecker::check(std::string &error) {
     }
     std::string body;
     ReleaseOffer offer;
-    bool ok = fetch_(std::string(kRepository) + "/releases/latest/download/" + kAppId +
-                         ".manifest.json", body, error) &&
+    bool ok = fetch_(releaseManifestUrl(std::string()), body, error) &&
               parseLatestRelease(body, offer, error);
     std::lock_guard<std::mutex> lock(mutex_);
     checking_ = false;
@@ -128,6 +162,13 @@ bool ReleaseChecker::dailyCheckDue() const {
     return now_() - checkedAt_ >= (error_.empty() ? 24 * 3600 : 3600);
 }
 
+bool ReleaseChecker::newerOffer(ReleaseOffer &offer) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (!haveOffer_ || !releaseIsNewer(offer_.version, releaseVersionOf(serverVersion_))) return false;
+    offer = offer_;
+    return true;
+}
+
 Json ReleaseChecker::status() const {
     std::lock_guard<std::mutex> lock(mutex_);
     Json status = Json::object();
@@ -137,7 +178,7 @@ Json ReleaseChecker::status() const {
     status.set("checking", Json::flag(checking_));
     status.set("checkedAgoS", everChecked_ ? Json::numeric(static_cast<double>(now_() - checkedAt_)) : Json());
     status.set("error", error_.empty() ? Json() : Json::text(error_));
-    status.set("releasesUrl", Json::text(std::string(kRepository) + "/releases"));
+    status.set("releasesUrl", Json::text(repository() + "/releases"));
     Json latest;
     if (haveOffer_) {
         latest = Json::object();

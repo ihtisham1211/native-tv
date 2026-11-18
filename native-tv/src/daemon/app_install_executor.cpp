@@ -73,7 +73,7 @@ bool AppInstallExecutor::run(const std::string &packageId,
                              const std::string &expectedSha256,
                              std::chrono::milliseconds timeout,
                              AppInstallResult &result,
-                             std::string *error) const {
+                             std::string *error, bool allowNativeTv) const {
     result = AppInstallResult();
     if (!validName(packageId)) {
         if (error) *error = "app package id is invalid";
@@ -99,7 +99,7 @@ bool AppInstallExecutor::run(const std::string &packageId,
     service::AppPackagePolicyFailure policyFailure;
     if (!service::AppPackagePolicy::validate(
             packageInfo, service::AppPackagePolicy::systemAppDirectories(),
-            policyFailure)) {
+            policyFailure, allowNativeTv)) {
         if (error) *error = "the ipk is not allowed: " + policyFailure.code;
         return false;
     }

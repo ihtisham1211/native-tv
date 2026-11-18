@@ -15,6 +15,7 @@
 #include "daemon/home_restore_manager.hpp"
 #include "daemon/home_takeover_lifecycle.hpp"
 #include "daemon/install_jobs.hpp"
+#include "daemon/release_update_steps.hpp"
 #include "daemon/screensaver_control.hpp"
 #include "daemon/home_orchestrator.hpp"
 #include "daemon/home_probe_gate.hpp"
@@ -43,6 +44,7 @@
 #include "service/hdmi_inputs.hpp"
 #include "service/ntp.hpp"
 #include "service/release_check.hpp"
+#include "service/release_update.hpp"
 #include "service/kernel_files.hpp"
 #include "service/app_icons.hpp"
 #include "service/app_ids.hpp"
@@ -384,7 +386,7 @@ bool adminRoute(const HttpRequest &request) {
 
 bool adminControlAction(const std::string &action) {
     return action == "reboot" || action == "powerOff" || action == "setDashboardPort" ||
-           action == "setNetworkDebuggerAllowed";
+           action == "setNetworkDebuggerAllowed" || action == "installRelease";
 }
 
 void sendAdminJson(HttpExchange &exchange, int status, const Json &body,
@@ -2380,7 +2382,9 @@ Json HttpFrontDoor::serverStatus() const {
     status.set("backupDaily", backupDaily);
     status.set("ntp", ntpStatus_ ? ntpStatus_() : Json());
     // Named release: /api/update is this very response, from before releases were checked for.
-    status.set("release", releaseChecker_ ? releaseChecker_->status() : Json());
+    Json release = releaseChecker_ ? releaseChecker_->status() : Json();
+    if (release.isObject()) release.set("update", releaseUpdate()->status());
+    status.set("release", release);
     status.set("releaseCheck", Json::flag(document["update"]["check"].isBoolean() &&
                                           document["update"]["check"].boolean()));
 
@@ -2499,6 +2503,29 @@ bool HttpFrontDoor::serverSettingControl(const std::string &action, const Json &
         if (!releaseChecker_) return fail("no release check configured");
         std::string error;
         (void)releaseChecker_->check(error); // a failure is shown by the status, with the reason
+        return answer();
+    }
+    if (action == "installRelease") {
+        // The dashboard names the version it asked the owner to confirm; it is installed only
+        // while it is still the release the last check found.
+        service::ReleaseOffer offer;
+        std::string error;
+        if (!releaseChecker_ || !releaseChecker_->newerOffer(offer) ||
+            !value.isString() || value.string() != offer.version)
+            return fail(say::msg("srv.update.notOffered",
+                                 "that release is not the latest one found; check for updates again"));
+        // An app install in flight, or one being uploaded, is not cut off by the restart.
+        bool installBusy = appInstallUploadReservation_.held();
+        {
+            std::lock_guard<std::mutex> lock(installJobMutex_);
+            installBusy = installBusy ||
+                          (appInstallSnapshotReady_ && appInstallSnapshotWorking(appInstallSnapshot_));
+        }
+        if (installBusy)
+            return fail(say::msg("srv.update.installBusy",
+                                 "an app install is in progress; update Native Tv when it has finished"));
+        if (!releaseUpdate()->start(offer, error)) return fail(error);
+        if (logger_) logger_->info("update: installing release " + offer.version);
         return answer();
     }
     if (action == "setTmdbKey") {
@@ -2778,6 +2805,10 @@ bool HttpFrontDoor::restartServer(unsigned delayMs, std::string &error) const {
                              "an install is in progress; restart when it has finished");
             return false;
         }
+    }
+    if (releaseUpdate()->working()) {
+        error = say::msg("srv.restart.update", "Native Tv is being updated; it restarts itself when that is done");
+        return false;
     }
     const std::string control = dataFilePath(dataRoot_, "tvwebctl");
     if (access(control.c_str(), F_OK) != 0) {
@@ -7177,8 +7208,40 @@ InstallJobs *HttpFrontDoor::installJobs() const {
     return installJobs_.get();
 }
 
+service::ReleaseUpdate *HttpFrontDoor::releaseUpdate() const {
+    std::call_once(releaseUpdateOnce_, [this]() {
+        ReleaseUpdateEnvironment environment;
+        const char *staging = std::getenv("TVWEB_UPDATE_STAGING");
+        environment.stagingDirectory = staging && staging[0]
+            ? staging : "/media/developer/temp/nativetv-update";
+        const char *lunaSend = std::getenv("TVWEB_LUNA_SEND");
+        environment.lunaSendPath = lunaSend && lunaSend[0] ? lunaSend : "/usr/bin/luna-send";
+        environment.dataRoot = dataRoot_;
+        environment.userAgent = "tvweb/" + version_;
+        environment.serverVersion = version_;
+        environment.ipPreference = [this]() { return config_.document["fetch"]["ip"].string(); };
+        environment.children = &children_;
+        // Only the tests shorten the wait for the TV's installer.
+        const char *settle = std::getenv("TVWEB_UPDATE_SETTLE_SECONDS");
+        if (settle && std::atoi(settle) > 0) environment.settleTime = std::chrono::seconds(std::atoi(settle));
+        service::ReleaseUpdateSteps steps = productionReleaseUpdateSteps(environment);
+        // A package left by an update that the server's end cut short.
+        steps.discard();
+        releaseUpdate_.reset(new service::ReleaseUpdate(std::move(steps)));
+    });
+    return releaseUpdate_.get();
+}
+
 bool HttpFrontDoor::startAppInstall(const Json &payload, int &status, Json &response,
                                     std::string &error) const {
+    if (releaseUpdate()->working()) {
+        status = 409;
+        response = Json::object();
+        response.set("ok", Json::flag(false));
+        response.set("error", Json::text(say::msg("srv.install.busy.update",
+                                                  "Native Tv is being updated; install the app when it has finished")));
+        return true;
+    }
     if (!nativeInstallEnabled())
         return proxy_.requestNodeAppInstallStart(payload, status, response, error);
     const InstallReply reply = installJobs()->start(payload);
@@ -9955,6 +10018,10 @@ Json HttpFrontDoor::executeMqttControl(const Json &payload) const {
     if (!payload.isObject() || !payload["action"].isString() ||
         payload["action"].string().empty())
         return failure("control action is invalid");
+    // Whatever routed it here, an MQTT command cannot install a release: the dashboard's
+    // route asks for the token, the admin PIN and the owner's confirmation first.
+    if (payload["action"].string() == "installRelease")
+        return failure("installing a release is not done over MQTT");
 
     const std::string body = payload.dump();
     HttpRequest request;
@@ -14508,6 +14575,14 @@ void HttpFrontDoor::handleAppInstallAction(HttpExchange &exchange,
     }
     Json payload;
     if (!readAppInstallJson(exchange, payload)) return;
+    // A preview that was waiting for its confirmation must not start installing while
+    // Native Tv is being updated; starting an install is refused in startAppInstall.
+    if (action == "confirm" && releaseUpdate()->working()) {
+        sendInstallError(exchange, 409,
+                         say::msg("srv.install.busy.update",
+                                  "Native Tv is being updated; install the app when it has finished"));
+        return;
+    }
     Json actionPayload = payload;
     std::shared_ptr<std::atomic<bool>> nativeDownloadCancellation;
     std::string nativeDownloadJobId;

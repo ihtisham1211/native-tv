@@ -156,7 +156,7 @@ it before exposing it more widely.
 | Setting                        | Browser on the network                                                   | App on the TV | MQTT  |
 | :----------------------------- | :----------------------------------------------------------------------- | :------------ | :---- |
 | `"token": "your-secret-token"` | with `?k=your-secret-token` or `Authorization: Bearer your-secret-token` | works         | works |
-| Admin PIN set                  | install, remove, SSH keys, restore, Home Assistant settings, services, the dashboard port and power need `X-Admin-Session`, from the PIN | asks for the PIN | unaffected |
+| Admin PIN set                  | install, remove, SSH keys, restore, Home Assistant settings, services, the dashboard port, power and installing a Native Tv release need `X-Admin-Session`, from the PIN | asks for the PIN | unaffected |
 | `"host": "0.0.0.0"`            | over IPv4 only                                                           | works         | works |
 | `"host": "127.0.0.1"`          | no — port 8080 is closed to the network                                  | works         | works |
 
@@ -168,10 +168,57 @@ The Server tab's **Check for updates** button, and **Check daily** once switched
 on (`"update": {"check": true}`, off by default), fetch the latest release's
 manifest from `github.com/ihtisham1211/native-tv` over HTTPS. GitHub sees the
 TV's address and the `tvweb/<version>` the request names; no other identifier is
-sent. The answer is only shown: the version and the package's SHA-256 are read
-from it, and the links offered are built from that version, never taken from the
-manifest. The installer still refuses Native Tv's own package, so a release
-cannot install itself; it is installed from the Homebrew Channel.
+sent. The version and the package's SHA-256 are read from the manifest, and the
+links offered are built from that version, never taken from it.
+
+**Install version x.y.z**, on a server that came from the app package, goes on
+from there. It needs controls switched on, the admin PIN when one is set, and a
+confirmation in the dashboard. It then reads the release's own
+manifest again, downloads the `.ipk` it names from the same GitHub release over
+HTTPS (libcurl's certificate checks are on, and the TV's clock has to be right
+for them), refuses the package unless its SHA-256 is the manifest's, and has the
+TV's app installer put it in place before the app's installer, which runs as
+root as the server does, moves the files over. Nothing is installed from an
+address the manifest names: the manifest only supplies the checksum.
+
+The checksum comes from the same release as the package. It detects a damaged
+or truncated download; it does not show who published the release, and the
+package is not signed. Someone who can publish a release on the repository can
+therefore put code on a TV that installs it, which is also true of the
+Homebrew Channel's own updates. The action is one of `/api/control`'s, with its
+token and its JSON and same-origin checks, so a page on another site cannot
+start it, and the dashboard names the version it asks about, which the server
+installs only while it is still the one the last check found. A message to the
+MQTT broker cannot start one: the command router drops `installRelease`, and so
+does the function that carries out an MQTT command, since without an admin PIN
+nothing else on that path asks for anything.
+
+The download is fetched over https only, a redirect may not leave https, and
+five are followed at most. The folder it waits in, `/media/developer/temp/nativetv-update`, has
+to be a real folder of the server's own user that nobody else can write to; a
+link there, or a folder others can write to, stops the update, and the server
+neither writes into it nor empties it. An update does not start while an app
+install is working or being uploaded, and an app install is not started or
+confirmed while an update works.
+
+What this does not cover, as known limits:
+
+- The TV's app installer reads the package by its path after the server has
+  checked it. The folder is closed to others, but the folder's parent,
+  `/media/developer/temp`, is the TV's, and someone who can replace the folder
+  there can still swap the package after the check.
+- The app's `install.sh` can be run before the TV has finished extracting the
+  package, and nothing checks the hashes `runtime.json` lists against the files
+  it copies; it only checks they are all there. The package as a whole is
+  checked by its SHA-256 before it is installed, which does not help a package
+  installed by hand.
+- Restarts of the server by other routes are refused only while the server that
+  started the update is running. The new server knows nothing of the update, so
+  a restart it is given while `install.sh` is still checking it (up to a minute
+  and 12 seconds) is not refused, and makes `install.sh` put the old server back.
+- Installing the package with the TV's app installer is not cut short by a
+  shutdown of the server, and the server's open descriptors are inherited by the
+  installer it starts.
 
 ## Moving from telnet to SSH
 

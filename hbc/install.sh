@@ -8,14 +8,24 @@
 # rather than over SSH. Installs made either way share /var/lib/tvweb, so one
 # made with deploy.sh is upgraded in place, config and all.
 #
-# Prints one JSON line last, which the launch page reads.
+# Prints one JSON line last, which the launch page reads. The server's update passes
+# `update` as its argument.
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 SRC="$HERE/tvweb"
 D=/var/lib/tvweb
 HOOKDIR=/var/lib/webosbrew/init.d
+# What an update replaces, kept for a server that does not start. The names
+# after TVWEB_ are only moved by native-tv/tests/runtime_package.py.
+PREV="$D/.previous"
+BEAT=${TVWEB_BEAT:-/var/run/tvweb.beat}
+PIDFILE=${TVWEB_PIDFILE:-/var/run/tvweb.pid}
+UP_WAIT=${TVWEB_UP_WAIT:-60}
+SETTLE=${TVWEB_UPDATE_SETTLE_SECONDS:-12}
 
 version_of() { tr -d '[:space:]' < "$1" 2>/dev/null; }
+# The version the last update, which was put back, was for.
+failed_version() { sed -n 's/.*"version":"\([^"]*\)".*/\1/p' "$D/.update-failed" 2>/dev/null; }
 # An install from before the daemon was the whole server kept its version in tvweb.js.
 old_version_of() { sed -n "s/^var TVWEB_VERSION = '\([^']*\)';.*/\1/p" "$1/tvweb.js" 2>/dev/null; }
 # Whether dotted version $1 is newer than $2. BusyBox sort has no -V.
@@ -56,6 +66,58 @@ link_hook() {
 }
 fail() { printf '{"ok":false,"error":"%s"}\n' "$1"; exit 0; }
 
+# The files this update is about to replace, kept aside, so that a server which
+# does not come up can be put back. An update goes ahead only when all of them
+# are kept. They are linked rather than copied, which costs no room: the new files
+# go in by rename and leave the old ones as they were, which `.previous` then holds
+# alone. Where a link cannot be made the file is copied.
+keep_previous() {
+  rm -rf "$PREV" "$D/.update-failed"
+  ( cd "$S" && find . -type f ) | while read -r f; do
+    case "$f" in ./50-tvweb.sh) continue ;; esac
+    [ -f "$D/$f" ] || continue
+    mkdir -p "$PREV/$(dirname "$f")" || exit 1
+    ln "$D/$f" "$PREV/$f" 2>/dev/null || cp -p "$D/$f" "$PREV/$f" || exit 1
+  done
+}
+# The server is up once it has written its first heartbeat, which tvwebctl
+# removes when it stops one and the server writes as it finishes starting, and
+# has gone on running for a while: the same process, with its heartbeat still
+# there. A daemon that gets as far as its event loop and then dies, which the
+# watchdog would start again under another pid, is not up.
+came_up() {
+  waited=0
+  while [ ! -s "$BEAT" ]; do
+    [ "$waited" -lt "$UP_WAIT" ] || return 1
+    sleep 1
+    waited=$((waited + 1))
+  done
+  daemon=$(cat "$PIDFILE" 2>/dev/null)
+  case "$daemon" in ''|*[!0-9]*) return 1 ;; esac
+  settled=0
+  while [ "$settled" -lt "$SETTLE" ]; do
+    kill -0 "$daemon" 2>/dev/null || return 1
+    [ "$(cat "$PIDFILE" 2>/dev/null)" = "$daemon" ] || return 1
+    [ -s "$BEAT" ] || return 1
+    sleep 1
+    settled=$((settled + 1))
+  done
+  return 0
+}
+# An update that did not take is undone: the files it replaced go back by rename,
+# as the new ones went in, the old server is started, and what happened is left
+# for the server to show. A first install has nothing to go back to.
+abandon() {
+  if [ -n "$have" ] && [ -d "$PREV" ]; then
+    ( cd "$PREV" && find . -type f ) | while read -r f; do
+      cp -p "$PREV/$f" "$D/$f.new" && mv -f "$D/$f.new" "$D/$f"
+    done
+    printf '{"version":"%s","error":"%s, so version %s was put back"}\n' "$want" "$1" "$have" > "$D/.update-failed"
+    "$D/tvwebctl" restart >/dev/null 2>&1
+  fi
+  fail "$1"
+}
+
 # Same-version app launches also repair a missing or outdated native component.
 # Newer server installs keep their own runtime when an older app is opened.
 runtime_has_file() {
@@ -93,8 +155,41 @@ sync_native() {
   chmod 755 "$D/native/nativetv-daemon" "$D/native/nativetv-service" || return 1
 }
 
+# One run at a time. The launch page can start this while the dashboard's update
+# is still waiting for its server or putting the old one back, and two runs would
+# clear each other's stage and copy of the old files. The lock is a symlink, whose
+# creation is atomic and whose target says who holds it: the pid and the boot it
+# belongs to, so a lock left by a power cut, or by a pid something else has since
+# been given, is taken over.
+LOCK="$D/.install.lock"
+boot_id() { cat /proc/sys/kernel/random/boot_id 2>/dev/null; }
+holder_alive() {   # the lock's target, pid:boot
+  holder_pid=${1%%:*}
+  case "$holder_pid" in ''|*[!0-9]*) return 1 ;; esac
+  [ "${1#*:}" = "$(boot_id)" ] && kill -0 "$holder_pid" 2>/dev/null
+}
+release_lock() { [ "$(readlink "$LOCK" 2>/dev/null)" = "$ME" ] && rm -f "$LOCK"; }
+acquire_lock() {
+  mkdir -p "$D" || fail "could not create $D"
+  if ! ln -s "$ME" "$LOCK" 2>/dev/null; then
+    held=$(readlink "$LOCK" 2>/dev/null)
+    holder_alive "$held" && return 1
+    # Only the lock that was seen to be stale is removed, not one taken meanwhile.
+    [ "$(readlink "$LOCK" 2>/dev/null)" = "$held" ] && rm -f "$LOCK"
+    ln -s "$ME" "$LOCK" 2>/dev/null || return 1
+  fi
+  [ "$(readlink "$LOCK" 2>/dev/null)" = "$ME" ]
+}
+
 [ -f "$SRC/VERSION" ] || fail "the app has no server files in it"
 runtime_complete || fail "the app has an incomplete native runtime"
+# Released on every way out, including a signal, which only a trap sees to. The traps
+# come first: a signal between taking the lock and setting them would leave it behind.
+# Until the lock is this run's they remove nothing.
+ME="$$:$(boot_id)"
+trap release_lock EXIT
+trap 'exit 1' HUP INT TERM
+acquire_lock || fail "an install is already running"
 want=$(version_of "$SRC/VERSION")
 have=$(version_of "$D/VERSION")
 [ -n "$have" ] || have=$(old_version_of "$D")
@@ -110,6 +205,17 @@ if [ -n "$have" ] && { [ "$have" = "$want" ] || newer "$have" "$want"; }; then
   exit 0
 fi
 
+# An update that was put back is not tried again each time the app is opened, which
+# would cost the minute the new server is given every time: opening the app leaves
+# the old server running. The dashboard's Install passes `update`, and so tries again,
+# as does a package newer than the one that failed.
+if [ "$1" != "update" ] && [ -n "$have" ] && [ "$(failed_version)" = "$want" ]; then
+  running || "$D/tvwebctl" start >/dev/null 2>&1
+  link_hook
+  result started
+  exit 0
+fi
+
 # Copied beside the install and renamed into place, never written over: BusyBox's
 # shell reads a script as it runs it, so overwriting tvwebctl would corrupt the
 # watchdog running out of it.
@@ -117,6 +223,10 @@ mkdir -p "$D" || fail "could not create $D"
 S="$D/.hbc-stage"
 rm -rf "$S"
 cp -r "$SRC" "$S" || fail "could not copy the server files"
+if [ -n "$have" ] && ! keep_previous; then
+  rm -rf "$S" "$PREV"
+  fail "there is not enough room to keep the version being replaced"
+fi
 ( cd "$S" && find . -type f ) | while read -r f; do
   case "$f" in ./50-tvweb.sh) continue ;; esac
   mkdir -p "$D/$(dirname "$f")"
@@ -126,7 +236,7 @@ chmod +x "$D/tvwebctl" 2>/dev/null
 # The Node server of earlier releases: nothing runs it now.
 rm -rf "${D:?}/tvweb.js" "${D:?}/lib"
 if [ -f "$D/native/nativetv-service" ] && [ -f "$D/native/nativetv-daemon" ]; then
-  chmod 755 "$D/native/nativetv-daemon" "$D/native/nativetv-service" || fail "could not make native runtimes executable"
+  chmod 755 "$D/native/nativetv-daemon" "$D/native/nativetv-service" || abandon "could not make native runtimes executable"
 fi
 # ares-package stores plain files as 0666. The server runs as root, so nothing
 # else on the TV may be able to change its code.
@@ -143,9 +253,17 @@ chmod 600 "$D/config.json" 2>/dev/null
 
 rm -rf "$S"
 
-[ "$(version_of "$D/VERSION")" = "$want" ] || fail "the new files did not take"
+[ "$(version_of "$D/VERSION")" = "$want" ] || abandon "the new files did not take"
 link_hook
 # Before the restart, so the server starting up finds nothing left to retire.
 adopt
 "$D/tvwebctl" restart >/dev/null 2>&1
-if [ -n "$have" ]; then result upgraded; else result installed; fi
+# An upgrade is reported once the new server is running: the launch page and the
+# dashboard's update both wait on this answer.
+if [ -n "$have" ]; then
+  came_up || abandon "the new server did not start"
+  rm -rf "$PREV"
+  result upgraded
+else
+  result installed
+fi

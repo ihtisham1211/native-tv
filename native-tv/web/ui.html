@@ -2829,9 +2829,9 @@
                   Updates
                 </div>
                 <div class="prot-desc" data-t="server.release.desc">
-                  Asks GitHub whether a newer Native Tv has been released. It
-                  only tells: the update is installed from the Homebrew Channel
-                  on the TV.
+                  Asks GitHub whether a newer Native Tv has been released. A
+                  server that came from the app package installs it from here
+                  after asking; any other is updated by deploying it again.
                 </div>
                 <div class="prot-desc" id="release-status" role="status" aria-live="polite"></div>
                 <div class="prot-desc" id="release-offer" hidden></div>
@@ -2840,12 +2840,11 @@
                 <button
                   type="button"
                   class="pill idle"
-                  id="release-hbc"
-                  onclick="sendCommand('launchApp', 'org.webosbrew.hbchannel')"
-                  data-t="server.release.openHbc"
+                  id="release-install"
+                  onclick="installRelease()"
                   hidden
                 >
-                  Open Homebrew Channel
+                  &mdash;
                 </button>
                 <button
                   type="button"

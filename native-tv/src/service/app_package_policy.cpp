@@ -8,13 +8,17 @@ namespace nativetv {
 namespace service {
 namespace {
 
-bool selfUpdating(const std::string &id) {
+// Packages that must not be replaced from the app installer, which strips the
+// root a package's services were given. Native Tv's own is replaced by its
+// release update, which has no services to lose it, so that alone is allowed through.
+bool selfUpdating(const std::string &id, bool allowNativeTv) {
     static const char *const packageIds[] = {
         "org.webosbrew.hbchannel",
         "io.github.ihtisham1211.nativetv"
     };
     for (const char *packageId : packageIds) {
         const std::string prefix(packageId);
+        if (allowNativeTv && prefix == packageIds[1]) continue;
         if (id == prefix || (id.size() > prefix.size() &&
             id.compare(0, prefix.size(), prefix) == 0 && id[prefix.size()] == '.'))
             return true;
@@ -77,7 +81,7 @@ const std::vector<std::string> &AppPackagePolicy::systemAppDirectories() {
 
 bool AppPackagePolicy::validate(const Json &packageInfo,
                                 const std::vector<std::string> &systemDirectories,
-                                AppPackagePolicyFailure &failure) {
+                                AppPackagePolicyFailure &failure, bool allowNativeTv) {
     failure = AppPackagePolicyFailure();
     if (!packageInfo.isObject() || !packageInfo["package"].isString() ||
         !packageInfo["apps"].isArray() || !packageInfo["services"].isArray())
@@ -105,7 +109,7 @@ bool AppPackagePolicy::validate(const Json &packageInfo,
             return fail(failure, "invalid-metadata", id, package);
         if (id != package && id.compare(0, package.size() + 1, package + ".") != 0)
             return fail(failure, "id-prefix", id, package);
-        if (selfUpdating(id))
+        if (selfUpdating(id, allowNativeTv))
             return fail(failure, "self-updating", id, package);
         if (systemPrefix(id) || appIdIsProtected(id))
             return fail(failure, "protected", id, package);

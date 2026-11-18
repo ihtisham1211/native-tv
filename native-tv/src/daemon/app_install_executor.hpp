@@ -30,7 +30,7 @@ class AppInstallExecutor {
     bool run(const std::string &packageId, const std::string &fileName,
              const std::string &expectedSha256, std::chrono::milliseconds timeout,
              AppInstallResult &result,
-             std::string *error = nullptr) const;
+             std::string *error = nullptr, bool allowNativeTv = false) const;
 
   private:
     ChildProcessRunner &children_;

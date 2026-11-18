@@ -27,6 +27,16 @@ bool releaseIsNewer(const std::string &candidate, const std::string &current);
 bool parseLatestRelease(const std::string &manifestBody, ReleaseOffer &offer,
                         std::string &error);
 
+// The .ipk that release `version` carries, as scripts/build-ipk.py names it.
+std::string releasePackageFile(const std::string &version);
+// Where release `version`'s manifest is, or the latest release's when it is empty.
+std::string releaseManifestUrl(const std::string &version);
+// The manifest of release `version` itself, read as parseLatestRelease reads
+// one and naming this release's package. An update installs from this, not from
+// what a check once saw as the latest.
+bool parseReleaseManifest(const std::string &manifestBody, const std::string &version,
+                          ReleaseOffer &offer, std::string &error);
+
 // GET one small file; false with `error` set when it could not be had.
 using ReleaseFetch = std::function<bool(const std::string &url, std::string &body,
                                         std::string &error)>;
@@ -34,9 +44,8 @@ using ReleaseFetch = std::function<bool(const std::string &url, std::string &bod
 ReleaseFetch fetchOverCurl(const std::string &userAgent,
                            std::function<std::string()> ipPreference);
 
-// Asks GitHub whether a newer release exists. It only reports: installing
-// stays with the Homebrew Channel, since the installer refuses Native Tv's own
-// package.
+// Asks GitHub whether a newer release exists. It only reports; ReleaseUpdate
+// installs one.
 class ReleaseChecker {
   public:
     using Seconds = std::function<long long()>; // monotonic, so a clock step cannot age a check
@@ -50,6 +59,8 @@ class ReleaseChecker {
     // an hour ago.
     bool dailyCheckDue() const;
     Json status() const;
+    // The latest release when it is newer than the server running, else false.
+    bool newerOffer(ReleaseOffer &offer) const;
 
   private:
     const std::string serverVersion_;

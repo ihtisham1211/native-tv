@@ -36,6 +36,7 @@ namespace service {
 class HistoryRecorder;
 class PiccapStatus;
 class ReleaseChecker;
+class ReleaseUpdate;
 struct BackgroundServiceInfo;
 }
 namespace daemon {
@@ -165,6 +166,8 @@ class HttpFrontDoor {
     // the opt-in daily check (checkReleaseIfDue, run hourly).
     void setReleaseChecker(service::ReleaseChecker *checker) { releaseChecker_ = checker; }
     bool checkReleaseIfDue(std::string &error) const;
+    // Installs the release the check found, from the Server tab (installRelease).
+    service::ReleaseUpdate *releaseUpdate() const;
     // Where the MQTT bridge stands, when the daemon owns it: {state, detail,
     // sinceMs, lastPublishMs, latencyMs}. Without it /api/settings asks Node.
     void setMqttStatusProvider(std::function<Json()> provider) { mqttStatus_ = std::move(provider); }
@@ -511,6 +514,8 @@ class HttpFrontDoor {
     mutable std::string liveConfigStamp_;
     std::function<Json()> ntpStatus_;
     service::ReleaseChecker *releaseChecker_ = nullptr;
+    mutable std::once_flag releaseUpdateOnce_;
+    mutable std::unique_ptr<service::ReleaseUpdate> releaseUpdate_;
     std::function<Json()> mqttStatus_;
     std::function<Json()> syslogStatus_;
     std::chrono::steady_clock::time_point startedAt_ = std::chrono::steady_clock::now();
