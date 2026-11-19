@@ -14,6 +14,7 @@
 #include "daemon/home_screen_manager.hpp"
 #include "daemon/home_restore_manager.hpp"
 #include "daemon/home_takeover_lifecycle.hpp"
+#include "daemon/home_takeover_stager.hpp"
 #include "daemon/install_jobs.hpp"
 #include "daemon/release_update_steps.hpp"
 #include "daemon/screensaver_control.hpp"
@@ -3347,31 +3348,21 @@ HomeOrchestrator *HttpFrontDoor::homeOrchestrator() const {
             return file.save(service::normalizeHomeDocument(document), &error);
         };
         deps.supported = [this]() { return homeSupported(false); };
-        deps.clientRunning = [this]() {
+        deps.homeRunning = [this]() {
             LunaReply reply;
             if (!waitForLuna(luna_, "com.webos.applicationManager/running", Json::object(), reply) ||
                 !reply.response["running"].isArray())
                 return -1;
             for (const Json &app : reply.response["running"].items())
-                if (app["id"].string() == kHomeClientApp) return 1;
+                if (app["id"].string() == "com.webos.app.home") return 1;
             return 0;
         };
-        deps.launchClient = [this]() {
+        deps.closeApp = [this](const std::string &appId) {
             Json payload = Json::object();
-            payload.set("id", Json::text(kHomeClientApp));
-            Json params = Json::object();
-            params.set("screen", Json::text("home"));
-            payload.set("params", params);
+            payload.set("id", Json::text(appId));
             LunaReply reply;
-            if (!waitForLuna(luna_, "com.webos.applicationManager/launch", payload, reply)) return Json();
-            Json result = Json::object();
-            const bool opened = reply.response["returnValue"].boolean();
-            result.set("ok", Json::flag(opened));
-            if (!opened) {
-                result.set("error", Json::text(reply.response["errorText"].string()));
-                result.set("unregistered", Json::flag(homeClientRegistration(luna_) == 0));
-            }
-            return result;
+            return waitForLuna(luna_, "com.webos.applicationManager/closeByAppId", payload, reply) &&
+                   reply.response["returnValue"].boolean();
         };
         deps.release = [this]() {
             Json failed = Json::object();
@@ -3394,11 +3385,6 @@ HomeOrchestrator *HttpFrontDoor::homeOrchestrator() const {
                 if (!homeTakeoverMounted(systemRoot_, dataRoot_)) return true;
                 return homeTakeoverLifecycleManager_->holdLgHomePreload(true);
             };
-        // config.json's nativeClient.stubGraceMs tunes the watch without a
-        // rebuild (a TV that starts the client slowly, a test).
-        const Json nativeClient = config_.document["nativeClient"];
-        if (nativeClient["stubGraceMs"].isNumber() && nativeClient["stubGraceMs"].number() > 0)
-            deps.watch.stubGraceMs = static_cast<long long>(nativeClient["stubGraceMs"].number());
         deps.mounted = [this]() { return homeTakeoverMounted(systemRoot_, dataRoot_); };
         deps.escaped = [this]() { return homeEscapeActive_ && homeEscapeActive_->load(); };
         deps.startLayoutAvailable = [this]() {
@@ -3522,7 +3508,13 @@ HomeOrchestrator *HttpFrontDoor::homeOrchestrator() const {
             LunaReply reply;
             (void)waitForLuna(luna_, "com.palm.webappmanager/killApp", payload, reply);
         };
-        deps.removeLegacyApp = [this]() { (void)runTvApp("remove", "home-app"); };
+        deps.removeLegacyApp = [this]() {
+            // Through the developer install service, as install-app.sh removes an app.
+            Json payload = Json::object();
+            payload.set("id", Json::text("com.tvweb.home"));
+            LunaReply reply;
+            (void)waitForLuna(luna_, "com.webos.appInstallService/dev/remove", payload, reply);
+        };
         deps.after = [this](long long delay, std::function<void()> task) {
             return eventLoop_->scheduleAfter(std::chrono::milliseconds(delay), std::move(task));
         };
@@ -3542,8 +3534,7 @@ HomeOrchestrator *HttpFrontDoor::homeOrchestrator() const {
 HomeProbeGate *HttpFrontDoor::homeProbeGate() const {
     std::call_once(homeProbeGateOnce_, [this]() {
         homeProbeGate_.reset(new HomeProbeGate(
-            children_, homeProbeOptions(config_.document, systemRoot_, dataRoot_),
-            [this]() { return homeClientRegistration(luna_); }));
+            children_, homeProbeOptions(config_.document, systemRoot_, dataRoot_, assetsRoot_)));
     });
     return homeProbeGate_.get();
 }
@@ -3551,7 +3542,7 @@ HomeProbeGate *HttpFrontDoor::homeProbeGate() const {
 Json HttpFrontDoor::homeSupported(bool probe) const {
     const Json supported = service::homeStatusSupported(
         homeStatusWebosVersion(systemRoot_),
-        config_.document["allowExperimentalHome"].boolean());
+        service::experimentalHomeAllowed(config_.document));
     if (!supported["ok"].boolean()) return supported;
     return homeSupportedWithProbe(supported, homeProbeGate()->verdict(probe));
 }
@@ -7852,7 +7843,7 @@ void HttpFrontDoor::handleHomeStartupPost(HttpExchange &exchange) const {
 
     const std::string webos = homeStatusWebosVersion(systemRoot_);
     const Json supported = service::homeStatusSupported(
-        webos, config_.document["allowExperimentalHome"].boolean());
+        webos, service::experimentalHomeAllowed(config_.document));
     if (!supported["ok"].boolean()) {
         failure(supported["reason"].string(), 200);
         return;
@@ -15968,9 +15959,10 @@ void HttpFrontDoor::sendHomeStatus(HttpExchange &exchange) const {
         Json payload = Json::object();
         payload.set("id", Json::text("com.webos.app.home"));
         LunaReply app;
+        // sam runs Native Tv Home under the id: the native client's start script.
         if (waitForLuna(luna_, "com.webos.applicationManager/getAppInfo",
                         payload, app))
-            active = app.response["appInfo"]["type"].string() == "web";
+            active = app.response["appInfo"]["main"].string() == kHomeStartScript;
     }
 
     std::string foreground = stateSubscriptions_
@@ -15993,7 +15985,7 @@ void HttpFrontDoor::sendHomeStatus(HttpExchange &exchange) const {
         historyEnabled = historyRecorder_->status()["enabled"].boolean();
     Json response = service::homeStatusProjection(
         rawHome, homeStatusWebosVersion(systemRoot_),
-        config_.document["allowExperimentalHome"].boolean(), active,
+        service::experimentalHomeAllowed(config_.document), active,
         lgHomeOpen, historyEnabled, wallpapers, mainProfileName());
     response.set("writable", Json::flag(config_.allowControl ||
                                          isLoopbackPeer(request.remoteAddress)));
@@ -16824,7 +16816,7 @@ void HttpFrontDoor::handleHomeWallpapersRemove(HttpExchange &exchange) const {
 
     const Json supported = service::homeStatusSupported(
         homeStatusWebosVersion(systemRoot_),
-        config_.document["allowExperimentalHome"].boolean());
+        service::experimentalHomeAllowed(config_.document));
     if (!supported["ok"].boolean()) {
         Json failure = Json::object();
         failure.set("ok", Json::flag(false));

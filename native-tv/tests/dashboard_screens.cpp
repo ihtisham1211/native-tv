@@ -482,6 +482,26 @@ void settings() {
           "A section that says it is absent leaves the list");
     check(!app.snapshot()["loading"].boolean() && app.snapshot()["pages"].number() == 3,
           "Metrics arrive as three subsections");
+    {
+        // A section that was absent last time is asked again on the next opening, and comes back
+        // when it is there now (Home after a server change, with the app left open).
+        FakeTransport again;
+        Application reopened(again, "dashboard");
+        uint32_t at = run(reopened, 16, 300);
+        reply(reopened, "caps", R"({"ok":true})");
+        reply(reopened, "settings:data:home", R"({"ok":true,"available":false})");
+        at = run(reopened, at, 800);
+        check(reopened.snapshot()["sections"].number() == 9, "Home leaves the list when absent");
+        reopened.key(Key::Back);
+        reopened.open("dashboard");
+        at = run(reopened, at, 300);
+        check(again.count("settings:data:home") == 2,
+              "A section kept as absent is asked again on the next opening");
+        reply(reopened, "settings:data:home", section("home"));
+        run(reopened, at, 800);
+        check(reopened.snapshot()["sections"].number() == 10,
+              "A section that is there now comes back into the list");
+    }
     check(app.shows("Settings") && app.shows("Changes apply as soon as they are made.") &&
               app.shows("Load") && app.shows("Memory and storage") && app.shows("This TV"),
           "The list, the title and the subsections' tabs are drawn");
@@ -642,6 +662,15 @@ void settings() {
     check(order.snapshot()["focusId"].string() == "Streamline#1" &&
               order.snapshot()["page"].string() == "Apps",
           "A refresh leaves the focus on the Streamline it was on, not the first one");
+
+    // Hidden apps in an app's menu on Home opens the Home section on its Apps page.
+    FakeTransport hiddenApps;
+    Application hidden(hiddenApps, "dashboard:home/Apps");
+    reply(hidden, "settings:data:home", section("home"));
+    run(hidden, 16, 700);
+    check(hidden.screenName() == "dashboard:home" && zone(hidden) == "rows" &&
+              hidden.snapshot()["page"].string() == "Apps",
+          "A route that names a page opens the section on it, with the focus in its rows");
 }
 
 // Every change shows at once, goes through the layer, and is taken back with a message when the
@@ -1211,6 +1240,52 @@ void idle() {
     }
 }
 
+// The text of the QR code on screen ("" for none): the renderer encodes what follows "qr:".
+std::string qrText(const Scene &scene) {
+    for (const auto &node : scene.nodes)
+        if (node.kind == Node::Kind::Image && node.value.compare(0, 3, "qr:") == 0)
+            return node.value.substr(3);
+    return "";
+}
+// Settings' Address code. The caps the client read as it opened can lack the origin (the
+// dashboard was opened to the network later, or the TV had no address yet), so the code is built
+// from caps read as it opens, and is never a bare path.
+void address() {
+    FakeTransport transport;
+    Application app(transport, "dashboard");
+    uint32_t clock = run(app, 16, 300);
+    reply(app, "caps", R"({"ok":true,"origin":null})");
+    {
+        // The Address row of Settings is what opens the code.
+        Json data = fields({{"network", Json::flag(true)},
+                            {"address", Json::text("192.168.1.239:8080")}});
+        bool found = false;
+        for (const auto &row : dashboardRows("settings", data, Json::object()))
+            found = found || row.command.route == "qr:address";
+        check(found, "Settings' Address row opens the code");
+    }
+    const size_t asked = transport.count("caps");
+    app.open("qr:address");
+    clock = run(app, clock, 100);
+    check(transport.count("caps") == asked + 1, "Opening the code asks the server for the address again");
+    check(qrText(app.frame()).empty() && app.shows("Reading the address…"),
+          "No code is drawn before the address is known");
+    reply(app, "caps", R"({"ok":true,"origin":"http://192.168.1.239:8080","key":"a b&c"})");
+    clock = run(app, clock, 100);
+    check(qrText(app.frame()) == "http://192.168.1.239:8080/?k=a%20b%26c",
+          "The code is the dashboard's full link, with the TV's key, from the fresh caps");
+    check(!app.shows("Reading the address…"), "The code replaces the waiting line");
+
+    app.key(Key::Back);
+    clock = run(app, clock, 100);
+    app.open("qr:address");
+    reply(app, "caps", R"({"ok":true,"origin":null})");
+    clock = run(app, clock, 100);
+    check(qrText(app.frame()).empty() && app.shows("No address"),
+          "Without an origin no code is drawn, and the screen says why");
+    run(app, clock, 100);
+}
+
 } // namespace
 
 int main() {
@@ -1222,6 +1297,7 @@ int main() {
         writes();
         catalog();
         idle();
+        address();
         std::printf("%d dashboard screen checks passed\n", checks);
         return 0;
     } catch (const std::exception &error) {

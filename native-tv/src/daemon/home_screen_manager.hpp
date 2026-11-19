@@ -27,6 +27,11 @@ class HomeScreenManager {
     Json setAddedInputs(const Json &inputs);
     bool stopHome(bool &stopped, std::string *error = nullptr);
     bool restartHome(std::string *error = nullptr);
+    // Ends Native Tv Home's own process (the client sam started as LG's Home),
+    // which stopHome leaves alone. `stopped` says whether one was running.
+    bool stopNativeTvHome(bool &stopped, std::string *error = nullptr);
+    // Whether that process is running.
+    bool nativeTvHomeRunning() const;
 
   private:
     ChildProcessRunner &children_;

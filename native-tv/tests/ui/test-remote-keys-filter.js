@@ -16,7 +16,8 @@ var source = fs.readFileSync(path.join(__dirname, '..', '..', 'assets', 'remotek
 
 var NETFLIX = 1001, RED = 1002, GUIDE = 1003, VOICE = 1006, MOVIES = 1007, OTHER = 4242;
 
-function filter(keys) {
+// `value` adds to nativetv.remoteKeys; `answers` are the bus's replies, by method.
+function filter(keys, value, answers) {
   var sent = [], launched = [], logs = [];
   var context = {
     WebOS: { Key_webOS_Netflix: NETFLIX, Key_webOS_Red: RED, Key_webOS_TVGuide: GUIDE, Key_webOS_Voice: VOICE, Key_webOS_USP: MOVIES },
@@ -24,7 +25,10 @@ function filter(keys) {
     KeyPolicy: { Accepted: 'accepted', NextPolicy: 'next' },
     lunaCall: {
       appId: 'com.webos.starfish.keyfilters',
-      send: function (service, method, payload, callback) { sent.push({ service: service, method: method, payload: payload }); },
+      send: function (service, method, payload, callback) {
+        sent.push({ service: service, method: method, payload: payload });
+        if (answers && answers[method] && callback) callback(JSON.stringify(answers[method]));
+      },
       subscribe: function () {}
     },
     applicationManager: { launch: function (id, params) { launched.push({ id: id, params: params }); } },
@@ -34,7 +38,9 @@ function filter(keys) {
   };
   vm.createContext(context);
   vm.runInContext(source, context);
-  context.__config = JSON.stringify({ configs: { 'nativetv.remoteKeys': { keys: keys } } });
+  var remoteKeys = { keys: keys };
+  for (var field in value || {}) remoteKeys[field] = value[field];
+  context.__config = JSON.stringify({ configs: { 'nativetv.remoteKeys': remoteKeys } });
   vm.runInContext('nativeTvKeysChanged(__config)', context);
   // The calls made while the config was read (the boot service) are not what a key does.
   sent.length = 0;
@@ -114,5 +120,20 @@ var passed = filter({ netflix: 'action:screenOff' });
 assert.strictEqual(passed.press(RED), 'next');
 assert.deepStrictEqual(passed.sent, []);
 console.log('  ok - setting one key to an action leaves the others to LG');
+
+// Home pressed while Native Tv Home is starting is held from LG's filters, and opens Home only once
+// sam runs Native Tv Home (the native client, started by nativetv-home) under LG's Home's id.
+var HOME = 1999;
+var starting = { starting: 'Native Tv Home is starting' };
+var ready = filter({}, starting, { '/getAppInfo': { returnValue: true, appInfo: { id: 'com.webos.app.home', type: 'native', main: 'nativetv-home' } } });
+assert.strictEqual(ready.press(HOME), 'accepted');
+assert.strictEqual(ready.press(HOME, false), 'accepted', 'its release is held too');
+assert.deepStrictEqual(ready.launched, [{ id: 'com.webos.app.home', params: JSON.stringify({ activateType: 'home', launchType: 'homeKey' }) }]);
+assert.strictEqual(ready.press(HOME), 'next', 'later presses are LG\'s');
+var lgs = filter({}, starting, { '/getAppInfo': { returnValue: true, appInfo: { id: 'com.webos.app.home', type: 'native', main: 'flutter-client' } } });
+assert.strictEqual(lgs.press(HOME), 'accepted');
+assert.deepStrictEqual(lgs.launched, [], 'LG\'s own Home is not opened');
+assert.ok(lgs.sent.some(function (call) { return call.method === '/createToast'; }), 'the starting notice is shown');
+console.log('  ok - Home is held while Native Tv Home starts, and opened once sam runs it');
 
 console.log('ALL test-remote-keys-filter.js assertions passed!\n');

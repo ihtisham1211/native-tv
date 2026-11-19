@@ -70,7 +70,6 @@ void HomeOrchestrator::stop() {
     std::lock_guard<std::mutex> lock(mutex_);
     stopped_ = true;
     cancelWakeLocked();
-    cancelStubLocked();
     if (preloadHoldTimer_ && deps_.cancel) deps_.cancel(preloadHoldTimer_);
     preloadHoldTimer_ = 0;
 }
@@ -108,7 +107,7 @@ void HomeOrchestrator::start() {
     if (enabled && !supported["ok"].boolean() && supported["probe"].isObject()) {
         // The version is one it was tried on, the native client is not: Home
         // stays switched on, for the next start or switching it on again, and
-        // LG's is not given up to a stub with nothing behind it.
+        // LG's is not given up to a client that cannot draw.
         giveBack("client", supported["reason"].string());
         return;
     }
@@ -444,106 +443,55 @@ void HomeOrchestrator::syncAutoLaunch() {
     }
 }
 
-// ---------------------------------------------------------------- the native client
+// ---------------------------------------------------------------- Native Tv Home
 
 /*
- * The stub mounted over LG's Home (assets/home-app) only starts the native
- * client, so a client that cannot stay up leaves the TV with a black Home.
- * Nothing here sees the process; the foreground app tells it:
- *  - The client leaves the front and the app manager no longer lists it, while
- *    LG's Home (the stub, which starts it again) or nothing comes to the front.
- *    The Home key also takes the client out of the front, but it stays listed.
- *    Another app coming to the front is the client being left on purpose.
- *  - The stub is in front and the client has not come to the front within the
- *    grace: a client that dies while it starts, or a launch the app manager
- *    refuses, never reaches the front at all.
+ * Native Tv Home is the native client itself, started by sam under LG's Home's
+ * id (home_takeover_stager), so a client that cannot stay up leaves the Home
+ * key with nothing to open. Nothing here sees the process; the foreground app
+ * and sam's running list tell it: Home leaves the front, nothing or an input
+ * (what sam puts in front when the app in front is gone) comes there, and sam
+ * no longer lists Home. An app opened from Home also takes it out of the front,
+ * and sam may close Home in the background later; that is not counted.
  * Standby, a screen that is off, LG's Home opened on purpose and a takeover
  * that is not in place are not watched.
  */
 void HomeOrchestrator::watchForeground(const std::string &was, const std::string &now) {
-    if (!deps_.nowMs || !deps_.clientRunning || !deps_.after || !deps_.blocking) return;
-    if (now == kLgHome) {
-        armStub();
-    } else {
-        std::lock_guard<std::mutex> lock(mutex_);
-        cancelStubLocked();
-    }
-    // The running list is read at once: the stub starts the client again within
-    // a second, and a list read later would show that one.
-    if (was == kHomeClientApp && (now == kLgHome || now.empty()))
-        deps_.blocking([this, now]() { checkClientLeft(now); });
+    if (!deps_.blocking) return;
+    // The running list is read at once: sam starts Home again at the next press
+    // of the key, and a list read later would show that one.
+    if (was == kLgHome && (now.empty() || isInputApp(now)) && deps_.nowMs && deps_.homeRunning &&
+        deps_.after)
+        deps_.blocking([this, now]() { checkHomeLeft(now); });
+    if (now == kLgHome && was != kLgHome && deps_.closeApp)
+        deps_.blocking([this]() { closeTileClient(); });
 }
 
-void HomeOrchestrator::checkClientLeft(const std::string &next) {
-    if (!mayWatch() || deps_.clientRunning() != 0) return;
-    // A standby that closed the client may announce itself after the foreground
+void HomeOrchestrator::checkHomeLeft(const std::string &next) {
+    if (!mayWatch() || deps_.homeRunning() != 0) return;
+    // A standby that closed Home may announce itself after the foreground
     // change; that is one exit, and three within two minutes is not a standby.
-    countExit(std::string("the client was gone as ") + (next.empty() ? "nothing" : "LG's Home") +
+    countExit("Native Tv Home was gone as " + (next.empty() ? std::string("nothing") : next) +
               " came to the front");
 }
 
-void HomeOrchestrator::armStub() {
-    std::lock_guard<std::mutex> lock(mutex_);
-    cancelStubLocked();
-    if (halted_ || foreground_ != kLgHome) return;
-    const unsigned long long token = ++stubToken_;
-    stubWatching_ = true;
-    stubTimer_ = deps_.after(std::min(deps_.watch.stubLaunchMs, deps_.watch.stubGraceMs / 2),
-                             [this, token]() { deps_.blocking([this, token]() { stubLaunch(token); }); });
-}
-
 /*
- * The stub opens the client when it comes to the front. If it is still in front
- * a moment later, the server opens the client itself: that works where the stub
- * could not call the app manager, and it finds out at once whether sam refuses,
- * which it does for an app it was never told of (the owner took the tile off the
- * home screen), where the screen would otherwise stay black for the whole grace.
+ * The Native Tv tile (LG's launcher, the Homebrew Channel's tile, an app key)
+ * opens the same client as an app of its own, com.tvweb.dashboard, beside
+ * Native Tv Home's. Whenever Native Tv Home comes to the front while it holds
+ * the place, that app is closed, so the TV keeps one client running, Home's;
+ * Home's own Native Tv card opens the settings in Home's client. sam answers a
+ * close of an app that is not running with a refusal ("no valid life handler",
+ * webOS 11.2.0), which says nothing here.
  */
-void HomeOrchestrator::stubLaunch(unsigned long long token) {
+void HomeOrchestrator::closeTileClient() {
     {
         std::lock_guard<std::mutex> lock(mutex_);
-        if (!stubWatching_ || stubToken_ != token || foreground_ != kLgHome) return;
-        stubTimer_ = 0;
-    }
-    if (!mayWatch()) return;
-    const Json launched = deps_.launchClient ? deps_.launchClient() : Json();
-    if (launched.isObject() && !launched["ok"].boolean()) {
-        Json variables = Json::object();
-        variables.set("error", Json::text(launched["error"].string("no reason given")));
-        giveBack("client", launched["unregistered"].boolean()
-                               ? homeProbeReason(Json::parse(R"({"class":"unregistered"})"))
-                               : say::msg("srv.home.clientRefused",
-                                          "The TV would not open the Native Tv app ({error}), so Native Tv Home cannot hold LG's Home's place.",
-                                          variables));
-        return;
-    }
-    // Opened, or no answer: the rest of the grace is the client's to come to the front in.
-    std::lock_guard<std::mutex> lock(mutex_);
-    if (!stubWatching_ || stubToken_ != token || halted_) return;
-    const long long first = std::min(deps_.watch.stubLaunchMs, deps_.watch.stubGraceMs / 2);
-    stubTimer_ = deps_.after(deps_.watch.stubGraceMs - first,
-                             [this, token]() { deps_.blocking([this, token]() { stubExpired(token); }); });
-}
-
-void HomeOrchestrator::stubExpired(unsigned long long token) {
-    {
-        std::lock_guard<std::mutex> lock(mutex_);
-        if (!stubWatching_ || stubToken_ != token) return;
-        stubTimer_ = 0;
-        stubWatching_ = false;
         if (foreground_ != kLgHome) return;
     }
     if (!mayWatch()) return;
-    countExit("the client was not in front " + std::to_string(deps_.watch.stubGraceMs / 1000) +
-              " s after LG's Home was");
-    // Still the stub in front: the next failure is counted a grace later.
-    armStub();
-}
-
-void HomeOrchestrator::cancelStubLocked() {
-    if (stubTimer_ && deps_.cancel) deps_.cancel(stubTimer_);
-    stubTimer_ = 0;
-    stubWatching_ = false;
+    if (deps_.closeApp(kHomeClientApp))
+        say("home: the Native Tv app closed as Native Tv Home came to the front; Home has its own");
 }
 
 bool HomeOrchestrator::mayWatch() {
@@ -589,7 +537,6 @@ void HomeOrchestrator::giveBack(const std::string &cause, const std::string &rea
         haltCause_ = cause;
         haltReason_ = reason;
         haltedAt_ = deps_.nowMs ? deps_.nowMs() : 0;
-        cancelStubLocked();
         cancelWakeLocked();
     }
     sayError("home: " + reason + " LG's Home is back until Native Tv restarts or Home is switched on again");
@@ -612,7 +559,6 @@ void HomeOrchestrator::rearm() {
     halted_ = false;
     haltCause_.clear();
     haltReason_.clear();
-    cancelStubLocked();
 }
 
 bool HomeOrchestrator::halted() const {
@@ -623,7 +569,7 @@ bool HomeOrchestrator::halted() const {
 Json HomeOrchestrator::nativeStatus() const {
     const long long now = deps_.nowMs ? deps_.nowMs() : 0;
     Json status = Json::object();
-    status.set("watching", Json::flag(deps_.nowMs && deps_.clientRunning && deps_.after && deps_.blocking));
+    status.set("watching", Json::flag(deps_.nowMs && deps_.homeRunning && deps_.after && deps_.blocking));
     status.set("crashes", breaker_.state(now));
     std::lock_guard<std::mutex> lock(mutex_);
     status.set("halted", Json::flag(halted_));

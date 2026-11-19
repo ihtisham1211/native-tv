@@ -524,7 +524,7 @@ struct Walk {
         ++coverage[name];
         if (name == "home") {
             ++coverage["home tab " + snap["tab"].string()];
-            for (const char *mode : {"navigation", "editing", "editHide", "arranging"})
+            for (const char *mode : {"navigation", "editing", "appMenu", "arranging"})
                 if (snap[mode].boolean())
                     ++coverage[std::string("home ") + mode];
         } else if (name == "details" && snap["depth"].number() >= 2)
@@ -544,13 +544,15 @@ struct Walk {
                    "rows lifted away from the Apps tab");
             expect(!snap["editing"].boolean() || !snap["navigation"].boolean(), "home.editing",
                    "editing apps while the focus is on the bar");
-            expect(!snap["editHide"].boolean() || snap["editing"].boolean(), "home.editing",
-                   "the hide button focused outside editing");
+            expect(!snap["appMenu"].boolean() ||
+                       (!snap["navigation"].boolean() && !snap["editing"].boolean() &&
+                        !snap["arranging"].boolean() && !snap["appMenuItem"].string().empty()),
+                   "home.appMenu", "an app's menu open on the bar, while apps are moved, or with no item");
             const size_t tabCount = tabHits(scene);
             if (tabCount)
                 expect(snap["nav"].number() <= static_cast<double>(tabCount) + 2, "home.nav",
                        "bar focus beyond the bar's stops");
-            if (!snap["navigation"].boolean() && rows > 0 && !snap["editHide"].boolean())
+            if (!snap["navigation"].boolean() && rows > 0)
                 expect(!snap["focusCard"].string().empty(), "home.focus",
                        "the focus is on a card that does not exist (row " +
                            std::to_string(static_cast<int>(snap["row"].number())) + ", column " +
@@ -619,7 +621,7 @@ struct Walk {
                 shown(std::string(sections ? "sec" : "set") + ":row:" + number(snap["focusIndex"].number()),
                       "settings.focusshown", "the settings focus");
         }
-        if (name == "home" && !snap["editHide"].boolean()) {
+        if (name == "home") {
             auto hasHit = [&](const std::string &id) {
                 Rect rect;
                 return hitRect(id, rect);
@@ -648,7 +650,8 @@ struct Walk {
     bool atRest() {
         Json snap = app().snapshot();
         return app().screenName() == "home" && snap["tab"].string() == "home" &&
-               snap["navigation"].boolean() && snap["nav"].number() == 0 && !snap["editing"].boolean() && !snap["arranging"].boolean();
+               snap["navigation"].boolean() && snap["nav"].number() == 0 && !snap["editing"].boolean() &&
+               !snap["appMenu"].boolean() && !snap["arranging"].boolean();
     }
     void backChain() {
         trail.push_back("[backChain]");
@@ -710,7 +713,8 @@ struct Walk {
     bool probe() {
         Json s = app().snapshot();
         if (app().screenName() != "home" || s["navigation"].boolean() || s["editing"].boolean() ||
-            s["arranging"].boolean() || s["rows"].number() == 0 || s["focusCard"].string().empty())
+            s["appMenu"].boolean() || s["arranging"].boolean() || s["rows"].number() == 0 ||
+            s["focusCard"].string().empty())
             return false;
         static const Key pairs[][2] = {{Key::Right, Key::Left}, {Key::Left, Key::Right},
                                        {Key::Down, Key::Up},    {Key::Up, Key::Down}};

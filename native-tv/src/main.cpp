@@ -330,12 +330,12 @@ int main(int argc, char **argv) {
         SDL_SetHint("SDL_WEBOS_ACCESS_POLICY_KEYS_BACK", "true");
         SDL_SetHint("SDL_WEBOS_ACCESS_POLICY_KEYS_EXIT", "true");
         // Registers the app with sam (registerNativeApp), the only way sam can send a running
-        // native app its relaunch: without it a launch of the app behind the Home stub leaves
-        // the stub in front (a black screen) until the client is restarted. Only the client sam
+        // native app its relaunch: without it a launch of the running client (the Home key, when
+        // the client is Native Tv Home) changes nothing until the client is restarted. Only the client sam
         // starts registers: a bounded run (E2E cases, screenshots, `--time`) is started by hand
         // under the jailer, and sam keeps its registration after it exits, so the next launch of
         // the app finds a client that is gone and starts nothing (measured on a B3: the Home
-        // key after such a run stayed on the stub for 5 s and more).
+        // key after such a run opened nothing for 5 s and more).
         if (!opts.duration && opts.time < 0)
             SDL_SetHint("SDL_HINT_WEBOS_REGISTER_APP", "true");
         // Milliseconds from here, written to the --report file, to see where start-up goes.
@@ -392,7 +392,7 @@ int main(int argc, char **argv) {
             const bool stops = fixed || opts.duration;
             const Uint32 stopAt = fixed ? static_cast<Uint32>(opts.time) : opts.duration;
             AppClock clock(fixed, SDL_GetTicks());
-            // OK and Back act when released, unless held for 650 ms: then OK starts editing and
+            // OK and Back act when released, unless held for 650 ms: then OK opens an app's menu and
             // Back opens the recent apps, once, and the release is swallowed.
             Uint32 okAt = 0, backAt = 0;
             bool okDown = false, held = false, backDown = false, backHeld = false, draw = true,

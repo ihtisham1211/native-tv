@@ -14,15 +14,6 @@ struct HomeWatchOptions {
     // This many unexpected exits within the window give LG's Home back.
     int exitLimit = 3;
     long long windowMs = 120000;
-    // How long LG's Home (Native Tv's stub) may be in front before the native
-    // client is, a cold start included, before that is counted as an exit.
-    long long stubGraceMs = 15000;
-    // How long the stub is left to open the client itself before the server opens
-    // it for it, which also finds out whether sam will. The stub's own launch
-    // reaches sam a few ms before its window is in front, when the client still
-    // is, and sam does nothing for it (measured on a B3: the screen stayed black
-    // until the server's launch). This one lands with the stub in front.
-    long long stubLaunchMs = 400;
 };
 
 // Everything the orchestrator reads or asks for. Nothing here is its own: the
@@ -72,16 +63,16 @@ struct HomeOrchestratorDeps {
     std::function<void()> killLegacyApp;
     std::function<void()> removeLegacyApp;
 
-    // The crash watch, off unless all three of these are set. clientRunning:
-    // the native client (the Native Tv tile's app) is in the app manager's running
-    // list, 1 yes, 0 no, -1 unknown. release: LG's Home back in its place with
-    // home.json left as it is (what tvwebctl does when the server stops):
-    // {ok, error}. nowMs: a steady clock.
-    std::function<int()> clientRunning;
-    // Opens the client at its Home screen, as the stub does: {ok, error, unregistered?}
-    // where sam answered (not ok: it refused), an invalid Json where it did not.
-    std::function<Json()> launchClient;
+    // The crash watch, off unless all three of these are set. homeRunning:
+    // Native Tv Home (com.webos.app.home, the native client sam starts as LG's
+    // Home) is in the app manager's running list, 1 yes, 0 no, -1 unknown.
+    // release: LG's Home back in its place with home.json left as it is (what
+    // tvwebctl does when the server stops): {ok, error}. nowMs: a steady clock.
+    std::function<int()> homeRunning;
     std::function<Json()> release;
+    // Closes an app through sam; set to close the Native Tv tile's own client
+    // once it leaves the front while Native Tv Home holds the place.
+    std::function<bool(const std::string &appId)> closeApp;
     std::function<long long()> nowMs;
     HomeWatchOptions watch;
 
@@ -105,9 +96,9 @@ struct HomeOrchestratorDeps {
 // sequence (what earlier builds left, taking LG's Home's place, the starting
 // notice, LG's auto launch), the wake from standby that opens Native Tv Home
 // over the input LG put in front, and LG's auto launch following the screen.
-// It also watches the native client that the Home stub starts: one that keeps
-// failing, or that the probe refused, gives LG's Home back, so no TV is left
-// without a Home. Native Tv's own switching on and off, layout and the ways back
+// It also watches Native Tv Home, the native client sam starts under LG's
+// Home's id: one that keeps failing, or that the probe refused, gives LG's Home
+// back, so no TV is left without a Home. Native Tv's own switching on and off, layout and the ways back
 // to LG's Home are the front door's, and stay there.
 class HomeOrchestrator {
   public:
@@ -135,19 +126,15 @@ class HomeOrchestrator {
     Json nativeStatus() const;
 
   private:
-    // An unexpected exit of the native client is either of two things: it is
-    // gone from the app manager's list as LG's Home (the stub) or nothing comes
-    // to the front, or the stub is still in front after the grace. Three within
+    // An unexpected exit of Native Tv Home: it leaves the front, nothing or an
+    // input comes there, and the app manager no longer lists it. Three within
     // two minutes give LG's Home back.
     void watchForeground(const std::string &was, const std::string &now);
-    void checkClientLeft(const std::string &next);
-    void stubLaunch(unsigned long long token);
-    void armStub();
-    void stubExpired(unsigned long long token);
+    void checkHomeLeft(const std::string &next);
+    void closeTileClient();
     bool mayWatch();
     void countExit(const std::string &why);
     void giveBack(const std::string &cause, const std::string &reason);
-    void cancelStubLocked();
     void armPreloadHold();
     void resendPreloadHold();
 
@@ -181,9 +168,6 @@ class HomeOrchestrator {
     std::string haltCause_;
     std::string haltReason_;
     long long haltedAt_ = 0;
-    bool stubWatching_ = false;
-    unsigned long long stubToken_ = 0;
-    unsigned long long stubTimer_ = 0;
     bool stopped_ = false;
     unsigned long long preloadHoldTimer_ = 0;
     bool preloadRefusalLogged_ = false;

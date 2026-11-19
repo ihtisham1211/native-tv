@@ -140,6 +140,12 @@ body{display:flex;display:-webkit-flex;align-items:center;-webkit-align-items:ce
       try { reply = JSON.parse(msg) || {}; } catch (e) {}
       if (reply.returnValue === false) {
         var reason = typeof reply.errorText === 'string' ? reply.errorText.replace(/\s+/g, ' ').trim() : '';
+        // Homebrew Channel 0.7.3 on webOS 11 refuses every other app. Setup run
+        // once as root grants this app its service, so later updates come through.
+        if (/^Denied method call/.test(reason)) {
+          return setupError('Homebrew Channel refused to run the setup, as it does on webOS 11. ' +
+            'Run it once over SSH as root: sh ' + appDir + '/payload/install.sh');
+        }
         if (reason.length > 180) reason = reason.slice(0, 177) + '...';
         if (!reason && typeof reply.errorCode === 'number') reason = 'Error ' + reply.errorCode;
         return setupError('Could not start setup through Homebrew Channel.' + (reason ? ' ' + reason : ''));

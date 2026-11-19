@@ -85,8 +85,6 @@ assets/ui/oled.js assets/ui/screensavers.js assets/ui/mqtt.js assets/ui/tools.js
 assets/dashboard-app/appinfo.json assets/dashboard-app/packageinfo.json \
 assets/dashboard-app/install-app.sh \
 assets/dashboard-app/assets/icon80.png assets/dashboard-app/assets/icon130.png \
-assets/home-app/appinfo.json assets/home-app/index.html assets/home-app/packageinfo.json \
-assets/home-app/assets/icon80.png assets/home-app/assets/icon130.png \
 assets/splash-app/appinfo.json assets/splash-app/packageinfo.json \
 assets/splash-app/assets/icon80.png assets/splash-app/assets/icon130.png \
 assets/early-service/install.sh assets/early-service/early-start.sh \

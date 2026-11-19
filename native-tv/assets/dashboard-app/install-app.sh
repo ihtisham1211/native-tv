@@ -6,8 +6,9 @@
 # The dashboard's tile is the native client (nativetv-tv with its libraries,
 # fonts and icons, staged beside this script by runtime_payload.py), which
 # opens on the dashboard screen and takes its data from the tvweb server on this
-# TV. The splash is the same client opened on the splash screen. The old
-# Home app (assets/home-app) is still a web page.
+# TV. The splash is the same client opened on the splash screen. Native Tv Home
+# is the same client again, which the server stages under LG's Home's id itself
+# (src/daemon/home_takeover_stager.cpp), not through this script.
 #
 # Only the developer install service takes an unsigned app; the retail one
 # rejects it. That service answers on webOS 9. Where it is absent or the install
@@ -15,10 +16,9 @@
 
 ACTION=${1:-install}
 SRC=${2:-/var/lib/tvweb/assets/dashboard-app}
-# The same script installs Native Tv Home's app (assets/home-app) and the splash
-# (assets/splash-app), named by the app's own appinfo.json. Only the dashboard's
-# app gives way to the Homebrew Channel's tile, unless the owner adds it there:
-# the others have no other.
+# The same script installs the splash (assets/splash-app), named by the app's
+# own appinfo.json. Only the dashboard's app gives way to the Homebrew Channel's
+# tile, unless the owner adds it there: the splash has no other.
 ID=$(sed -n 's/^ *"id": *"\([^"]*\)".*/\1/p' "$SRC/appinfo.json" 2>/dev/null | head -n 1)
 [ -n "$ID" ] || ID=com.tvweb.dashboard
 TYPE=$(sed -n 's/^ *"type": *"\([^"]*\)".*/\1/p' "$SRC/appinfo.json" 2>/dev/null | head -n 1)
@@ -44,27 +44,29 @@ installed() { [ -d "$APPDIR" ]; }
 # refresh both walk this list, so what one copies the other compares. Names are
 # the staged payload's own (letters, digits and ._+-), so they are not quoted.
 app_files() { ( cd "$SRC" && find . -type f ! -name install-app.sh ! -name packageinfo.json ) | sed 's|^\./||' | sort; }
-# The text of file $1 as the TV installs it: the home page carries its port.
-installed_form() { if [ "$1" = index.html ]; then ported "$SRC/$1"; else cat "$SRC/$1"; fi; }
-
-# The app's page opens the dashboard at the port on its `var PORT = n; // tvweb:port`
-# line, which the server keeps in step with config.json at every start. The copy
-# installed here carries the same port, or a refresh would see the server's edit
-# as a stale page and reinstall it, and a fresh install would open the wrong port.
-PORT=$(/var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb 2>/dev/null)
-case "$PORT" in ''|*[!0-9]*) PORT=8080 ;; esac
-ported() { sed "s/\(var PORT = \)[0-9]*\(; *\/\/ tvweb:port\)/\1$PORT\2/" "$1"; }
+# The text of file $1 as the TV installs it: a tileless app's manifest says it
+# is not shown (tileless, below).
+installed_form() {
+  if [ "$1" = appinfo.json ] && tileless; then
+    awk '{ print } /^[ \t]*"id"[ \t]*:/ { print "  \"visible\": false," }' "$SRC/$1"
+  else cat "$SRC/$1"; fi
+}
 
 # Set when the server was put in place by the app the Homebrew Channel installs.
 # That app is then the tile, so this one is retired rather than offered - unless
-# the owner added it there (KEEP): Native Tv Home opens its screens in this app,
-# so it cannot do without it. A kept app is refreshed like any other.
+# the owner added it there (KEEP): the package's tile opens this app, so it
+# cannot do without it. A kept app is refreshed like any other.
 DATA=${TVWEB_DATA_ROOT:-/var/lib/tvweb}
 HBC_MARK=$DATA/.from-homebrew-channel
 KEEP=$DATA/.tv-app-kept
 kept() { [ "$ID" = com.tvweb.dashboard ] && [ -f "$KEEP" ]; }
 from_hbc() { [ "$ID" = com.tvweb.dashboard ] && [ -f "$HBC_MARK" ] && ! kept; }
 kept && [ "$ACTION" = retire ] && ACTION=refresh
+# On a Homebrew Channel install the package's own tile opens this app, so it is
+# registered without a tile, as the splash is: the home screen shows one Native
+# Tv, and LG's edit mode cannot delete the app the tile opens while leaving the
+# package behind.
+tileless() { [ "$ID" = com.tvweb.dashboard ] && [ -f "$HBC_MARK" ]; }
 
 # A Homebrew package opens this client. Keep a current registered copy and add
 # one if the TV has never had it or it has since been removed.
@@ -115,7 +117,9 @@ if [ "$ACTION" = status ]; then
   # A native app with no executable beside it (a tree without the ARM payload) has nothing to run.
   [ "$TYPE" = native ] && [ ! -f "$SRC/$MAIN" ] && sup=false
   ins=false; installed && ins=true
-  printf '{"ok":true,"supported":%s,"installed":%s}\n' "$sup" "$ins"
+  # "managed": the Homebrew package keeps the app, so the dashboards offer no switch for it.
+  managed=false; tileless && managed=true
+  printf '{"ok":true,"supported":%s,"installed":%s,"managed":%s}\n' "$sup" "$ins" "$managed"
   exit 0
 fi
 
@@ -165,8 +169,8 @@ if [ "$ACTION" = refresh ]; then
   ACTION=install
 fi
 
-# The dashboard and Home apps are windows onto the server, so with the dashboard
-# switched off they would open to nothing. The splash has no server dependency.
+# The dashboard app is a window onto the server, so with the dashboard
+# switched off it would open to nothing. The splash has no server dependency.
 CONF=/var/lib/tvweb/config.json
 if [ "$ID" != com.tvweb.splash ] && [ -f "$CONF" ] && tr -d ' \t\r\n' < "$CONF" | grep -q '"web":{[^}]*"enabled":false'; then
   echo "$WHAT app not added: the dashboard is switched off in config.json"

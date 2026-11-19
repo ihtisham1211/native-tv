@@ -150,7 +150,7 @@ bool iconsReady(Pictures *pictures, const std::vector<CardRow> &rows, bool named
 void Application::homeStart() {
     auto &home = state_.home;
     home.arranging = false;
-    home.editing = home.editHide = false;
+    home.editing = home.appMenu = false;
     flow_.entered = false;
     flow_.rowsEntered = 0;
     flow_.pendingTab = -1;
@@ -163,7 +163,7 @@ void Application::homeStart() {
     if (!flow_.beatAt)
         flow_.beatAt = now_ + kBeatMs;
     for (const char *prefix :
-         {"f:", "rx", "rd", "E", "ha", "hx", "dot", "pgx", "dim", "gy", "sy", "lift"})
+         {"f:", "rx", "rd", "E", "ha", "hx", "dot", "pgx", "dim", "gy", "sy", "appmenu"})
         motion_.erasePrefix(prefix);
     home.art = HeroArt();
     home.hero = Card();
@@ -350,9 +350,7 @@ void Application::homeFocus(bool jump) {
             now = "f:gr";
         else if (home.nav == home.tabs.size() + 2)
             now = "f:sr";
-    } else if (home.editing && home.editHide)
-        now = "f:eh"; // the Hide from Home button above the page
-    else if (home.arranging && home.arrangeFocus)
+    } else if (home.arranging && home.arrangeFocus)
         now = home.arrangeFocus == 1 ? "f:ah" : home.arrangeFocus == 2 ? "f:am" : "f:ad"; // the card's buttons
     else if (home.row < home.rows.size() && flow_.pendingTab < 0)
         now = home::id("f", home.row, home.column);

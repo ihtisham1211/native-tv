@@ -715,8 +715,8 @@ int main() {
                   "The last rows end flush with the screen: three stay in view");
         }
 
-        // Editing the apps: holding OK on an app starts it, the arrows swap the app with its
-        // neighbour, and OK, Back or Red ends it with one request. A hidden app keeps its place.
+        // An app's menu: holding OK on an app opens it. Move carries the app, the arrows swap it with
+        // its neighbour and OK or Back saves with one request; Hide hides it at once with one request.
         const char *editCatalogue =
             R"({"ok":true,"apps":[{"id":"a","title":"Alpha"},{"id":"b","title":"Beta"},{"id":"c","title":"Gamma"},{"id":"h","title":"Hidden"}],"devices":[],"channels":[],"order":{"app":["a","h","b","c"],"dev":[]},"layout":{"rows":["app"],"hidden":{"app":["h"]},"sort":{"app":"recent"},"showInputs":false,"showLgHome":false},"profiles":[{"id":"main","name":"Main","active":true}]})";
         const auto layoutWrites = [](const FakeTransport &transport) {
@@ -741,18 +741,37 @@ int main() {
             app.longPress();
             run(app, at, 900); // the page settles under the focus
         };
+        const std::string hiddenToast = "Alpha hidden. Settings, Home, Apps shows it again.";
         {
             FakeTransport transport;
             Application app(transport);
             editable(app, editCatalogue, 0);
-            check(app.snapshot()["editing"].boolean() && textNode(app.scene(), "Moving apps"),
-                  "Holding OK on an app of Home starts editing and the row says so");
+            const Json opened = app.snapshot();
+            check(opened["appMenu"].boolean() && opened["appMenuItem"].string() == "move" &&
+                      !opened["editing"].boolean() && textNode(app.scene(), "Move") &&
+                      textNode(app.scene(), "Hide from Home") && textNode(app.scene(), "Hidden apps") &&
+                      hasHit(app.scene(), "appmenu:2"),
+                  "Holding OK on an app opens its menu: Move, Hide from Home and Hidden apps, Move focused");
+            check(opened["rowHead"].string() == "a,b,c" && opened["focusCard"].string() == "a" &&
+                      !hasHit(app.scene(), "card:0:3"),
+                  "The row stays as it was under the menu");
+            app.key(Key::Ok); // Move
+            check(app.snapshot()["editing"].boolean() && !app.snapshot()["appMenu"].boolean() &&
+                      textNode(app.scene(), "Moving Alpha") && !hasHit(app.scene(), "card:0:3"),
+                  "Move carries the app: the row says so and lists the shown apps only");
+            app.key(Key::Up);
+            app.key(Key::Down);
+            check(app.snapshot()["editing"].boolean() && app.snapshot()["focusCard"].string() == "a" &&
+                      app.snapshot()["rowHead"].string() == "a,b,c",
+                  "Up and Down do nothing while an app is moved");
             app.key(Key::Right);
+            check(app.snapshot()["rowHead"].string() == "b,a,c" && app.snapshot()["focusCard"].string() == "a",
+                  "Right swaps the app with the one after it");
             app.key(Key::Ok);
             const auto writes = layoutWrites(transport);
             check(writes.size() == 1 &&
                       writes[0].dump() == R"({"order":{"app":["b","h","a","c"]}})",
-                  "OK saves the new order, the hidden app where it was, and Your order");
+                  "OK puts the app down and saves the order once, the hidden app where it was");
             check(!app.snapshot()["editing"].boolean() && app.snapshot()["rowHead"].string() == "b,a,c",
                   "The row shows the saved order at once");
         }
@@ -760,21 +779,78 @@ int main() {
             FakeTransport transport;
             Application app(transport);
             editable(app, editCatalogue, 0);
+            app.key(Key::Ok); // Move
             app.key(Key::Right);
             app.key(Key::Back);
             check(layoutWrites(transport).size() == 1 && !app.snapshot()["editing"].boolean(),
-                  "Back ends editing and saves the move");
+                  "Back puts the app down and saves the move");
         }
         {
             FakeTransport transport;
             Application app(transport);
             editable(app, editCatalogue, 0);
-            check(hasHit(app.scene(), "card:0:3"), "The hidden app is on the row while editing");
-            app.key(Key::Ok);
+            app.key(Key::Ok); // Move
+            app.longPress();
             run(app, 3000, 400);
-            check(layoutWrites(transport).empty() && !textNode(app.scene(), "Moving apps") &&
-                      !hasHit(app.scene(), "card:0:3"),
-                  "Ending with no change saves nothing, and the hidden app leaves the row");
+            check(layoutWrites(transport).empty() && !app.snapshot()["editing"].boolean() &&
+                      !textNode(app.scene(), "Moving Alpha"),
+                  "Holding OK again puts the app down, and with no change nothing is saved");
+        }
+        {
+            FakeTransport transport;
+            Application app(transport);
+            editable(app, editCatalogue, 0);
+            app.key(Key::Down);
+            check(app.snapshot()["appMenuItem"].string() == "hide", "Down chooses the next item");
+            app.key(Key::Back);
+            check(!app.snapshot()["appMenu"].boolean() && !app.snapshot()["editing"].boolean() &&
+                      !app.snapshot()["navigation"].boolean() && app.snapshot()["focusCard"].string() == "a" &&
+                      layoutWrites(transport).empty(),
+                  "Back closes the menu and changes nothing");
+            app.longPress();
+            run(app, 3000, 400);
+            app.key(Key::Right);
+            check(!app.snapshot()["appMenu"].boolean() && app.snapshot()["focusCard"].string() == "a" &&
+                      layoutWrites(transport).empty(),
+                  "Left and Right close it too");
+        }
+        {
+            FakeTransport transport;
+            Application app(transport);
+            editable(app, editCatalogue, 0);
+            app.key(Key::Down); // Hide from Home
+            app.key(Key::Ok);
+            auto writes = layoutWrites(transport);
+            check(writes.size() == 1 && writes[0].dump() == R"({"hidden":{"app":["h","a"]}})",
+                  "Hide from Home takes the app off Home at once: it joins the hidden ones, no order is sent");
+            check(app.screenName() == "home" && !app.snapshot()["appMenu"].boolean() &&
+                      !app.snapshot()["editing"].boolean() && app.snapshot()["rowHead"].string() == "b,c" &&
+                      app.snapshot()["focusCard"].string() == "b",
+                  "Home stays, the menu closes and the focus is on the app that took its place");
+            run(app, 3000, 300);
+            check(textNode(app.scene(), hiddenToast) != nullptr, "A toast says where the app is shown again");
+            reply(app, "action", R"({"ok":true})");
+            run(app, 3300, 100);
+            check(textNode(app.scene(), hiddenToast) && !textNode(app.scene(), "Saved"),
+                  "The save's answer leaves that toast up");
+            // The next app is hidden the same way: hold OK on it, Hide.
+            app.longPress();
+            run(app, 3400, 400);
+            check(app.snapshot()["appMenu"].boolean() && app.snapshot()["focusCard"].string() == "b",
+                  "Holding OK on the app that took its place opens that app's menu");
+            app.key(Key::Down);
+            app.key(Key::Ok);
+            writes = layoutWrites(transport);
+            check(writes.size() == 2 && writes[1].dump() == R"({"hidden":{"app":["h","a","b"]}})" &&
+                      app.snapshot()["rowHead"].string() == "c" && app.snapshot()["focusCard"].string() == "c",
+                  "A second app is hidden with one more write");
+            // Hiding on Home leaves the Apps page alone.
+            app.key(Key::Up);
+            app.key(Key::Right);
+            app.key(Key::Ok);
+            run(app, 4000, 1200);
+            check(app.snapshot()["tab"].string() == "apps" && app.snapshot()["rowHead"].string() == "a,b,c",
+                  "Apps hidden on Home are still on the Apps page");
         }
         {
             FakeTransport transport;
@@ -782,57 +858,38 @@ int main() {
             editable(app, editCatalogue, 0);
             app.key(Key::Red);
             const auto writes = layoutWrites(transport);
-            check(writes.size() == 1 && writes[0].dump() == R"({"hidden":{"app":["h","a"]}})",
-                  "Red takes the app off Home: it joins the hidden ones and the order is not sent");
-            check(app.snapshot()["rowHead"].string() == "b,c" && app.snapshot()["focusCard"].string() == "b",
-                  "The hidden app is gone from the row, the focus on the one after it");
-            // Hiding on Home leaves the Apps page alone.
-            app.key(Key::Up);
-            app.key(Key::Right);
-            app.key(Key::Ok);
-            run(app, 4000, 1200);
-            check(app.snapshot()["tab"].string() == "apps" && app.snapshot()["rowHead"].string() == "a,b,c",
-                  "An app hidden on Home is still on the Apps page");
+            check(writes.size() == 1 && writes[0].dump() == R"({"hidden":{"app":["h","a"]}})" &&
+                      !app.snapshot()["appMenu"].boolean() && app.snapshot()["rowHead"].string() == "b,c",
+                  "Red in the menu hides the app too, as a shortcut");
         }
         {
-            // The button above the page hides the focused app (Up from the first row, then OK).
             FakeTransport transport;
             Application app(transport);
             editable(app, editCatalogue, 0);
-            check(textNode(app.scene(), "Hide from Home"), "While editing, a button says Hide from Home");
-            app.key(Key::Up);
-            check(app.snapshot()["editing"].boolean() && app.snapshot()["editHide"].boolean(),
-                  "Up from the row goes to the button, still editing");
+            check(app.activate("appmenu:1") && layoutWrites(transport).size() == 1 &&
+                      app.snapshot()["rowHead"].string() == "b,c",
+                  "A click on Hide from Home hides the app as OK does");
+        }
+        {
+            FakeTransport transport;
+            Application app(transport);
+            editable(app, editCatalogue, 0);
             app.key(Key::Down);
-            check(!app.snapshot()["editHide"].boolean(), "Down from the button returns to the app");
-            app.key(Key::Up);
+            app.key(Key::Down);
+            check(app.snapshot()["appMenuItem"].string() == "hidden", "Hidden apps is the last item");
             app.key(Key::Ok);
-            const auto writes = layoutWrites(transport);
-            check(writes.size() == 1 && writes[0].dump() == R"({"hidden":{"app":["h","a"]}})",
-                  "OK on the button hides the app, as Red does");
+            check(app.screenName() == "dashboard:home" && layoutWrites(transport).empty(),
+                  "Hidden apps opens the Home settings, where hidden apps are shown again");
         }
         {
-            // The apps hidden from Home follow the others while editing, and only take the focus.
+            const std::string noneHidden =
+                replaced(editCatalogue, R"("hidden":{"app":["h"]})", R"("hidden":{"app":[]})");
             FakeTransport transport;
             Application app(transport);
-            editable(app, editCatalogue, 0);
-            app.key(Key::Right);
-            app.key(Key::Right);
-            app.key(Key::Right);
-            check(textNode(app.scene(), "Show on Home"), "On a hidden app the button says Show on Home");
-            app.key(Key::Left);
-            app.key(Key::Right);
-            app.key(Key::Right);
-            check(textNode(app.scene(), "Show on Home") && layoutWrites(transport).empty(),
-                  "A hidden app is not swapped into the order, and Right at the end stays on it");
-            app.key(Key::Ok);
-            const auto writes = layoutWrites(transport);
-            check(writes.size() == 1 &&
-                      writes[0].dump() ==
-                          R"({"order":{"app":["b","c","a","h"]},"hidden":{"app":[]}})",
-                  "OK on a hidden app shows it again, after the app that was carried to the end");
-            check(!textNode(app.scene(), "Show on Home") && app.snapshot()["rowHead"].string() == "b,c,a",
-                  "The button goes when editing ends and the row lists the shown app");
+            editable(app, noneHidden, 0);
+            check(app.snapshot()["appMenu"].boolean() && !textNode(app.scene(), "Hidden apps") &&
+                      hasHit(app.scene(), "appmenu:1") && !hasHit(app.scene(), "appmenu:2"),
+                  "With no app hidden there is no Hidden apps item");
         }
         {
             // LG Home has its own switch.
@@ -842,9 +899,12 @@ int main() {
             FakeTransport transport;
             Application app(transport);
             editable(app, withHome, 0);
-            check(app.snapshot()["focusCard"].string() == "lg-home", "Editing starts on the focused tile");
+            check(app.snapshot()["focusCard"].string() == "lg-home" && app.snapshot()["appMenu"].boolean() &&
+                      !textNode(app.scene(), "Hide from Home") && hasHit(app.scene(), "appmenu:1") &&
+                      !hasHit(app.scene(), "appmenu:2"),
+                  "LG Home's menu has no Hide: Move and Hidden apps only");
             app.key(Key::Red);
-            check(layoutWrites(transport).empty() && !app.snapshot()["editing"].boolean(),
+            check(layoutWrites(transport).empty() && !app.snapshot()["appMenu"].boolean(),
                   "LG Home cannot be hidden from the remote");
         }
         {
@@ -854,9 +914,10 @@ int main() {
             FakeTransport transport;
             Application app(transport);
             editable(app, kindEdit, 0);
+            app.key(Key::Ok);    // Move
             app.key(Key::Right); // a and c are both Movies & TV: they swap
-            app.key(Key::Right); // Beta is Music: the focus passes to it, nothing swaps
-            check(app.snapshot()["focusCard"].string() == "b" && app.snapshot()["rowHead"].string() == "c,a,b",
+            app.key(Key::Right); // Beta is Music: nothing moves
+            check(app.snapshot()["focusCard"].string() == "a" && app.snapshot()["rowHead"].string() == "c,a,b",
                   "An app is swapped with the apps of its kind only");
             app.key(Key::Ok);
             const auto writes = layoutWrites(transport);
@@ -864,22 +925,21 @@ int main() {
                   "A move among the apps of a kind saves their order and keeps the apps by kind");
         }
         {
-            // The Apps page's grid has its own hidden apps: Home hides `h`, the Apps page `b`. While
-            // editing it lists its hidden app, dimmed and last, to be shown again.
+            // The Apps page's grid has its own hidden apps: Home hides `h`, the Apps page `b`.
             const std::string pageCatalogue = replaced(editCatalogue, R"("hidden":{"app":["h"]})",
                                                        R"("hidden":{"app":["h"],"appsTab":["b"]})");
             FakeTransport transport;
             Application app(transport);
             editable(app, pageCatalogue, 1);
-            check(app.snapshot()["editing"].boolean() && app.snapshot()["rowHead"].string() == "a,h,c" &&
-                      hasHit(app.scene(), "card:0:3") && !hasHit(app.scene(), "card:0:4"),
-                  "The Apps page lists the apps hidden on Home but not the ones hidden on it, until editing");
-            check(textNode(app.scene(), "Hide from Apps"), "The Apps page's button says where it hides");
-            app.key(Key::Red);
+            check(app.snapshot()["appMenu"].boolean() && app.snapshot()["rowHead"].string() == "a,h,c" &&
+                      !hasHit(app.scene(), "card:0:3") && textNode(app.scene(), "Hide from Apps"),
+                  "On the Apps page the menu hides from the Apps page, which lists the apps hidden on Home");
+            app.key(Key::Down);
+            app.key(Key::Ok);
             const auto writes = layoutWrites(transport);
             check(writes.size() == 1 && writes[0].dump() == R"({"hidden":{"appsTab":["b","a"]}})" &&
                       app.snapshot()["rowHead"].string() == "h,c",
-                  "Red on the Apps page hides the app there and sends only the Apps page's list");
+                  "Hide on the Apps page hides the app there and sends only the Apps page's list");
             // The apps hidden on the Apps page do not change Home's row.
             app.key(Key::Back);
             run(app, 4000, 600);
@@ -888,26 +948,8 @@ int main() {
                   "An app hidden on the Apps page is still on Home's row");
         }
         {
-            FakeTransport transport;
-            Application app(transport);
-            const std::string pageCatalogue = replaced(editCatalogue, R"("hidden":{"app":["h"]})",
-                                                       R"("hidden":{"app":["h"],"appsTab":["b"]})");
-            editable(app, pageCatalogue, 1);
-            app.key(Key::Right);
-            app.key(Key::Right);
-            app.key(Key::Right);
-            check(textNode(app.scene(), "Show on Apps"), "On an app hidden there the button says Show on Apps");
-            app.key(Key::Ok);
-            const auto writes = layoutWrites(transport);
-            check(writes.size() == 1 &&
-                      writes[0].dump() ==
-                          R"({"order":{"app":["h","c","a","b"]},"hidden":{"appsTab":[]}})" &&
-                      app.snapshot()["rowHead"].string() == "h,c,a",
-                  "OK on it shows the app on the Apps page again, after the apps that were carried to the end");
-        }
-        {
             // Holding OK anywhere but on an app does nothing; Back held is the only way to the
-            // recent apps, and it is ignored while apps or rows are moved.
+            // recent apps, and it is ignored while an app's menu is open.
             FakeTransport transport;
             Application app(transport);
             app.update(0);
@@ -916,20 +958,20 @@ int main() {
             run(app, 16, 1500);
             app.key(Key::Down); // from the apps row to a title of the top picks
             app.longPress();
-            check(app.screenName() == "home" && !app.snapshot()["editing"].boolean() &&
-                      transport.count("recents") == 0,
+            check(app.screenName() == "home" && !app.snapshot()["appMenu"].boolean() &&
+                      !app.snapshot()["editing"].boolean() && transport.count("recents") == 0,
                   "Holding OK on a title does nothing");
             app.key(Key::Up);
             app.key(Key::Up); // the bar
             app.longPress();
-            check(!app.snapshot()["editing"].boolean() && transport.count("recents") == 0,
+            check(!app.snapshot()["appMenu"].boolean() && transport.count("recents") == 0,
                   "Holding OK on the bar does nothing");
             app.key(Key::Down);
             app.longPress();
-            check(app.snapshot()["editing"].boolean(), "Holding OK on an app edits the apps");
+            check(app.snapshot()["appMenu"].boolean(), "Holding OK on an app opens its menu");
             app.longBack();
-            check(app.snapshot()["editing"].boolean() && transport.count("recents") == 0,
-                  "Back held is ignored while apps are edited");
+            check(app.snapshot()["appMenu"].boolean() && transport.count("recents") == 0,
+                  "Back held is ignored while the menu is open");
             app.key(Key::Back);
             app.longBack();
             check(app.screenName() == "quick:recents" && transport.count("recents") == 1,
@@ -1249,9 +1291,12 @@ int main() {
             dock.key(Key::Down);
             dockMs = run(dock, dockMs + 16, 600);
             dock.longPress();
+            check(dock.snapshot()["appMenu"].boolean() && dock.snapshot()["rows"].number() == 3,
+                  "Holding OK on a tile of the dock opens its menu, and the rows stay as they are");
+            dock.key(Key::Ok); // Move
             check(dock.snapshot()["editing"].boolean() && dock.snapshot()["rows"].number() == 2 &&
                       dock.snapshot()["rowCards"].number() == 9 && dock.snapshot()["focusCard"].string() == "a1",
-                  "Holding OK edits the apps as one row, without Search and Settings");
+                  "Move carries the app along the apps as one row, without Search and Settings");
             dockMs = run(dock, dockMs + 16, 900);
             check(std::fabs(dockMotion.value("sy") + kit::look::dockEditLift) < .5,
                   "The row is lifted clear of the hint keys while it is edited");
@@ -1267,8 +1312,9 @@ int main() {
             check(dock.snapshot()["row"].number() == 1 && dock.snapshot()["focusCard"].string() == "a8",
                   "The eighth app is the fourth tile of the second row");
             dock.longPress();
+            dock.key(Key::Ok); // Move
             check(dock.snapshot()["editing"].boolean() && dock.snapshot()["focusCard"].string() == "a8",
-                  "Editing starts on the app that was focused");
+                  "Moving starts on the app that was focused");
             dock.key(Key::Ok);
             check(!dock.snapshot()["editing"].boolean() && dock.snapshot()["row"].number() == 1 &&
                       dock.snapshot()["focusCard"].string() == "a8",

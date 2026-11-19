@@ -55,10 +55,16 @@ struct HomeState {
     bool carrying = false;     // ... and the focused app on it is picked up: Left and Right move it
     bool carryingKind = false; // ... or the card is picked up: Up and Down move it
     int arrangeFocus = 0;      // 0 the card's apps; 1 Hide, 2 Move kind, 3 Done, the buttons above them
-    // Editing the apps (a long press on an app): the arrows swap it with its neighbour, OK or Back
-    // saves, Up from the first row reaches the button that hides it (`editHide`; Show on Home for
-    // an app that was hidden) and Red does the same. Home's row lists the hidden apps, dimmed, last.
-    bool editing = false, editHide = false;
+    // Holding OK on an app opens its menu, anchored to it: `appMenuItems` are "move", "hide" (not
+    // for LG Home) and "hidden" (while the list has hidden apps), `appMenuItem` the focused one and
+    // `appMenuApp` the app it was opened on. Up and Down choose, OK acts, Back, Left and Right close.
+    bool appMenu = false;
+    size_t appMenuItem = 0;
+    std::vector<std::string> appMenuItems;
+    std::string appMenuApp;
+    // Moving an app (Move in its menu): Left and Right swap it with its neighbour of the same kind,
+    // OK or Back puts it down and saves. The row lists the shown apps only.
+    bool editing = false;
     std::vector<Tab> tabs;
     std::vector<CardRow> rows;
     Card hero;                 // the card the hero is showing or about to show
@@ -120,6 +126,9 @@ class Application : private ScreenHost {
     ViewState state_;
     bool dirty_ = true, active_ = true, running_ = true;
     uint32_t now_ = 0, refreshAt_ = 0, toastUntil_ = 0, confirmUntil_ = 0;
+    // The pending save already shows its own toast (an app hidden, and where to show it again):
+    // its answer does not replace it with "Saved".
+    bool saveToastShown_ = false;
     // Whether the server has said if first-run setup is done (/api/caps). Until it does, the
     // question is asked again every two seconds, and the client's own first frames stay behind the
     // ink cover for at most 2.5 s so the page that is about to be replaced is not seen.
@@ -214,6 +223,9 @@ class Application : private ScreenHost {
     void resolvePictures();
     void buildFrame();
     void askCaps();
+    // The code Settings' Address opens: the dashboard's link from the caps just read, or why there
+    // is none.
+    void showAddress();
     // Shows the theme the server names (caps, then every catalogue answer), unless a change of the
     // person's is still being saved, and opens the one-time offer of OLED Care when the server sends it.
     void followTheme(const Json &data);
@@ -251,9 +263,15 @@ class Application : private ScreenHost {
     void saveApps(const std::string &list, const std::vector<std::string> &shown, bool moved,
                   bool hiddenChanged, const Json &hiddenNow, const Json &kinds);
     std::string editedList() const;
+    void homeAppMenuOpen();
+    void homeAppMenuKey(Key key);
+    void homeAppMenuSelect(size_t item);
+    void homeAppMenuAct();
+    void homeAppMenuClose();
+    void homeHideApp();
     void homeEditStart();
     void homeEditKey(Key key);
-    void homeEditDone(bool toggle);
+    void homeEditDone();
 
   public:
     // Follows a route as a key press would ("home", "quick", "search", or a registered screen's).
@@ -275,7 +293,7 @@ class Application : private ScreenHost {
         dirty_ = true;
     }
     void key(Key key);
-    // OK held: on Home it starts editing the apps or lifts a kind's row; elsewhere it does nothing.
+    // OK held: on Home it opens the focused app's menu or lifts a kind's row; elsewhere it does nothing.
     void longPress();
     // Back held: on Home it opens the recent apps, the only way to them; a tap of Back never does.
     void longBack();

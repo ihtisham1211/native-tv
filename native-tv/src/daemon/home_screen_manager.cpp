@@ -951,5 +951,74 @@ bool HomeScreenManager::stopHome(bool &stopped, std::string *error) {
                             allowExperimental_);
     return current.stopHome(stopped, error);
 }
+
+namespace {
+std::vector<std::string> nulSeparated(const std::string &text) {
+    std::vector<std::string> parts;
+    size_t start = 0;
+    while (start < text.size()) {
+        const size_t end = text.find('\0', start);
+        parts.push_back(text.substr(start, end == std::string::npos ? std::string::npos : end - start));
+        if (end == std::string::npos) break;
+        start = end + 1;
+    }
+    return parts;
+}
+
+// The client started by the staged start script: nativetv-tv with LG's Home's
+// id as its APPID, or run from the staged directory or the mount over LG's.
+bool isNativeTvHome(const std::string &procRoot, pid_t pid) {
+    const std::string base = procRoot + "/" + std::to_string(pid);
+    std::ifstream commandFile((base + "/cmdline").c_str(), std::ios::in | std::ios::binary);
+    const std::string command((std::istreambuf_iterator<char>(commandFile)),
+                              std::istreambuf_iterator<char>());
+    const std::vector<std::string> args = nulSeparated(command);
+    if (args.empty()) return false;
+    const std::string &program = args[0];
+    const size_t slash = program.find_last_of('/');
+    if ((slash == std::string::npos ? program : program.substr(slash + 1)) != "nativetv-tv")
+        return false;
+    if (program.find("/com.webos.app.home/") != std::string::npos ||
+        program.find("/home-takeover/") != std::string::npos)
+        return true;
+    std::ifstream environmentFile((base + "/environ").c_str(), std::ios::in | std::ios::binary);
+    const std::string environment((std::istreambuf_iterator<char>(environmentFile)),
+                                  std::istreambuf_iterator<char>());
+    for (const std::string &entry : nulSeparated(environment))
+        if (entry == std::string("APPID=") + kHomeId) return true;
+    return false;
+}
+
+std::vector<pid_t> nativeTvHomePids(const std::string &procRoot) {
+    std::vector<pid_t> result;
+    DIR *directory = opendir(procRoot.c_str());
+    if (!directory) return result;
+    while (struct dirent *entry = readdir(directory)) {
+        char *end = nullptr;
+        const long parsed = std::strtol(entry->d_name, &end, 10);
+        if (!end || *end || parsed <= 1) continue;
+        if (isNativeTvHome(procRoot, static_cast<pid_t>(parsed)))
+            result.push_back(static_cast<pid_t>(parsed));
+    }
+    closedir(directory);
+    return result;
+}
+} // namespace
+
+bool HomeScreenManager::stopNativeTvHome(bool &stopped, std::string *error) {
+    const std::vector<pid_t> pids = nativeTvHomePids(procRoot_);
+    stopped = !pids.empty();
+    for (pid_t pid : pids) {
+        if (kill(pid, SIGTERM) != 0 && errno != ESRCH) {
+            if (error) *error = "could not stop Native Tv Home";
+            return false;
+        }
+    }
+    return true;
+}
+
+bool HomeScreenManager::nativeTvHomeRunning() const {
+    return !nativeTvHomePids(procRoot_).empty();
+}
 } // namespace daemon
 } // namespace nativetv

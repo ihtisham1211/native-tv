@@ -33,6 +33,24 @@ struct StatusPanel {
 };
 void statusPanel(Paint paint, const StatusPanel &panel);
 
+// A small menu laid over a page beside the item it is for (an app's menu on Home): a panel in
+// `surface3` with the `lg` radius and a raised shadow, one row per item with its icon and label in
+// `labelL`. The focused row takes `focusFill` with `onFocus` ink and the row scale, as a settings row
+// does. `appear` 0..1 fades it in and grows it from `scale::press` about the edge nearest its item.
+struct MenuItem {
+    std::string id, icon, label;
+    float focus = 0;
+};
+struct PopupMenu {
+    float x = 0, y = 0; // the panel's top left; menuSize() gives its size
+    std::vector<MenuItem> items;
+    float appear = 1;
+    bool above = false; // the panel is above its item, so it grows up from its bottom edge
+};
+// The panel's width and height for `items`: as wide as its longest label needs.
+Rect menuSize(Paint paint, const std::vector<MenuItem> &items);
+void popupMenu(Paint paint, const PopupMenu &menu);
+
 // A "key cap" and what it does, for the hint line at the foot of a page; returns the width used.
 float keyHint(Paint paint, float x, float y, const std::string &key, const std::string &action,
              const std::string &id = "");

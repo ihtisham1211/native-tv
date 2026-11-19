@@ -397,6 +397,52 @@ void testStopHome() {
     check(rig.manager->restartHome(nullptr), "restartHome is the same stop");
 }
 
+// Native Tv Home's own process, which stopHome leaves alone: the client the staged
+// start script runs with LG's Home's id as its APPID.
+void testStopNativeTvHome() {
+    Rig rig("11.2.0");
+    const pid_t home = sleeper(), mounted = sleeper(), tile = sleeper(), lg = sleeper();
+    const auto nulJoined = [](const std::vector<std::string> &parts) {
+        std::string joined;
+        for (const std::string &part : parts) joined += part + '\0';
+        return joined;
+    };
+    const struct { pid_t pid; std::string cmdline; std::string environ; } entries[] = {
+        {home, nulJoined({"./nativetv-tv", "{\"nid\":\"com.webos.app.home\"}"}),
+         nulJoined({"PATH=/bin", "APPID=com.webos.app.home"})},
+        {mounted, nulJoined({"/usr/palm/applications/com.webos.app.home/nativetv-tv"}), nulJoined({"PATH=/bin"})},
+        {tile, nulJoined({"/media/developer/apps/usr/palm/applications/com.tvweb.dashboard/nativetv-tv"}),
+         nulJoined({"APPID=com.tvweb.dashboard"})},
+        {lg, nulJoined({"/usr/bin/flutter-client", "-i", "com.webos.app.home"}), nulJoined({"APPID=com.webos.app.home"})}};
+    for (const auto &entry : entries) {
+        const std::string directory = rig.proc + "/" + std::to_string(entry.pid);
+        shell("mkdir -p '" + directory + "'");
+        writeFile(directory + "/cmdline", entry.cmdline);
+        writeFile(directory + "/environ", entry.environ);
+    }
+    check(rig.manager->nativeTvHomeRunning(), "Native Tv Home is found running");
+    bool stopped = false;
+    std::string error;
+    const bool done = rig.manager->stopNativeTvHome(stopped, &error);
+    int status = 0;
+    const bool homeSignalled = waitpid(home, &status, 0) == home && WIFSIGNALED(status) && WTERMSIG(status) == SIGTERM;
+    status = 0;
+    const bool mountedSignalled =
+        waitpid(mounted, &status, 0) == mounted && WIFSIGNALED(status) && WTERMSIG(status) == SIGTERM;
+    const bool tileAlive = waitpid(tile, &status, WNOHANG) == 0;
+    const bool lgAlive = waitpid(lg, &status, WNOHANG) == 0;
+    kill(tile, SIGKILL);
+    kill(lg, SIGKILL);
+    waitpid(tile, &status, 0);
+    waitpid(lg, &status, 0);
+    check(done && stopped, "Native Tv Home was stopped: " + error);
+    check(homeSignalled && mountedSignalled, "by its APPID, or run from LG's Home's folder");
+    check(tileAlive && lgAlive, "the tile's client and LG's Home were left alone");
+    shell("rm -rf '" + rig.proc + "'/*");
+    check(!rig.manager->nativeTvHomeRunning(), "and nothing is running after");
+    check(rig.manager->stopNativeTvHome(stopped, nullptr) && !stopped, "nothing running is not an error");
+}
+
 Json hide(Rig &rig, const std::vector<std::string> &parts) {
     Json result;
     for (const std::string &part : parts) result = rig.manager->setPart(part, false);
@@ -530,6 +576,7 @@ int main() {
         testStartLayout();
         testInputs();
         testStopHome();
+        testStopNativeTvHome();
         testWebos10();
     } catch (const std::exception &error) {
         fprintf(stderr, "home_screen_manager: %s\n", error.what());

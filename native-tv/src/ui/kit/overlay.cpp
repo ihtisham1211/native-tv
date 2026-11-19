@@ -116,6 +116,60 @@ void statusPanel(Paint paint, const StatusPanel &panel) {
         spinner(paint, {box.x + 36, box.y + box.h - 36 - 40, 40, 40}, panel.loadingMs, color::onSurface2);
 }
 
+namespace {
+// The panel's inset around its rows, a row's height, the room either side of a row's content and
+// between its icon and label. The icon is as tall as the label's type.
+constexpr float menuInset = space::x8;
+constexpr float menuRowH = space::x64;
+constexpr float menuPadX = space::x24;
+constexpr float menuIconGap = space::x16;
+} // namespace
+
+Rect menuSize(Paint paint, const std::vector<MenuItem> &items) {
+    float widest = 0;
+    for (const MenuItem &item : items)
+        widest = std::max(widest, paint.glyphs.measure(item.label, type::labelL));
+    const float row = menuPadX + type::labelL.px + menuIconGap + widest + menuPadX;
+    return {0, 0, 2 * menuInset + row, 2 * menuInset + menuRowH * static_cast<float>(items.size())};
+}
+
+void popupMenu(Paint paint, const PopupMenu &menu) {
+    const float appear = focus::clamp01(menu.appear);
+    if (appear <= .002f || menu.items.empty())
+        return;
+    Scene &scene = paint.scene;
+    Rect box = menuSize(paint, menu.items);
+    box.x = menu.x;
+    box.y = menu.y;
+    const Transform grow = focus::transformAt(box, focus::mix(motion::scale::press, 1, appear),
+                                              menu.above ? focus::Pivot{.5f, 1} : focus::Pivot{.5f, 0});
+    Group group(scene, {appear, 0}, &grow);
+    Node &panel = scene.shape(box, color::surface3, radius::lg);
+    panel.ring = {1, 0, alpha::outline};
+    panel.shadow = {0, elevation::raised.dy, elevation::raised.blur, 0, {0, 0, 0, elevation::raised.alpha}};
+    const float icon = type::labelL.px;
+    for (size_t i = 0; i < menu.items.size(); ++i) {
+        const MenuItem &item = menu.items[i];
+        const float amount = focus::clamp01(item.focus);
+        const Rect row = {box.x + menuInset, box.y + menuInset + menuRowH * static_cast<float>(i),
+                          box.w - 2 * menuInset, menuRowH};
+        const focus::Look look = focus::lookAt(row, motion::scale::row, amount);
+        const Transform lift = focus::transformAt(row, look.scale);
+        Group rowGroup(scene, Enter(), look.scale != 1 ? &lift : nullptr);
+        if (amount > .002f)
+            scene.shape(row, focus::withAlpha(color::focusFill, amount), radius::md);
+        focus::ringOnFocus(scene, row, radius::md, amount);
+        const Color ink = focus::inkAt(color::onSurface, color::onFocus, amount);
+        const float middle = row.y + row.h / 2;
+        paint.glyphs.icon(scene, {row.x + menuPadX, middle - icon / 2, icon, icon}, item.icon, ink);
+        const float labelX = row.x + menuPadX + icon + menuIconGap;
+        text(paint, {labelX, middle - type::labelL.line / 2, row.x + row.w - labelX, type::labelL.line},
+             item.label, type::labelL, ink);
+        if (!item.id.empty())
+            scene.hits.push_back({look.rect, item.id});
+    }
+}
+
 float keyHint(Paint paint, float x, float y, const std::string &key, const std::string &action,
               const std::string &id) {
     Scene &scene = paint.scene;

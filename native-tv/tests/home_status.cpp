@@ -17,6 +17,12 @@ int main() {
     assert(!support["ok"].boolean());
     support = homeStatusSupported("11.0.0", true);
     assert(support["ok"].boolean() && support["experimental"].boolean());
+    // Offered on webOS 11 unless config.json switches it off.
+    assert(nativetv::service::experimentalHomeAllowed(Json::parse("{}")));
+    assert(nativetv::service::experimentalHomeAllowed(
+        Json::parse(R"({"allowExperimentalHome":true})")));
+    assert(!nativetv::service::experimentalHomeAllowed(
+        Json::parse(R"({"allowExperimentalHome":false})")));
     support = homeStatusSupported("10.3.1", false);
     assert(support["ok"].boolean() && support["experimental"].boolean());
     support = homeStatusSupported("", false);

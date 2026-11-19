@@ -1,3 +1,4 @@
+#include "domain/say.hpp"
 #include "ui/application.hpp"
 #include "ui/controller_helpers.hpp"
 #include "ui/home_layout.hpp"
@@ -55,6 +56,8 @@ void Application::key(Key key) {
             }
         } else if (home.arranging) {
             homeArrange(key);
+        } else if (home.appMenu) {
+            homeAppMenuKey(key);
         } else if (home.editing) {
             homeEditKey(key);
         } else if (home.rows.empty()) {
@@ -165,8 +168,10 @@ void Application::click(float x, float y) {
                         argument = colon == std::string::npos ? "" : id.substr(colon + 1);
             size_t index = static_cast<size_t>(std::atoi(argument.c_str()));
             if (type == "tab") {
+                if (state_.home.appMenu)
+                    homeAppMenuClose();
                 if (state_.home.editing)
-                    homeEditDone(false);
+                    homeEditDone();
                 if (screen_) {
                     barFocus_ = state_.home.navigation = true;
                     state_.home.nav = index;
@@ -177,8 +182,10 @@ void Application::click(float x, float y) {
                 state_.home.nav = index;
                 key(Key::Ok);
             } else if (type == "tool") {
+                if (state_.home.appMenu)
+                    homeAppMenuClose();
                 if (state_.home.editing)
-                    homeEditDone(false);
+                    homeEditDone();
                 route(index == 0   ? "profiles"
                       : index == 1 ? "quick"
                       : index == 2 ? "search"
@@ -197,10 +204,16 @@ void Application::click(float x, float y) {
                         }
                     }
                 }
-            } else if (type == "edit") {
-                if (state_.home.editing)
-                    homeEditDone(true);
+            } else if (type == "appmenu") {
+                if (state_.home.appMenu && index < state_.home.appMenuItems.size()) {
+                    homeAppMenuSelect(index);
+                    homeAppMenuAct();
+                    if (state_.screen == Screen::Home && !screen_)
+                        homeFocus();
+                }
             } else if (type == "card") {
+                if (state_.home.appMenu)
+                    homeAppMenuClose(); // a click beside the menu closes it, then acts as ever
                 state_.home.navigation = false;
                 state_.home.row = index;
                 state_.home.column =
@@ -230,7 +243,8 @@ void Application::click(float x, float y) {
     // bar's band brings the bar in, and the next click acts on it.
     if (state_.screen == Screen::Home && !screen_ && !state_.home.tabs.empty() &&
         home::onDock(state_.home.tabs[state_.home.tab].key) && !state_.home.navigation &&
-        !state_.home.editing && !state_.home.arranging && y < kit::look::barTop + kit::look::barH + 40) {
+        !state_.home.editing && !state_.home.appMenu && !state_.home.arranging &&
+        y < kit::look::barTop + kit::look::barH + 40) {
         state_.home.navigation = true;
         state_.home.nav = state_.home.tab;
         homeFocus();
@@ -252,27 +266,30 @@ void Application::longPress() {
     auto &home = state_.home;
     if (flow_.pendingTab >= 0)
         return; // the page is about to be swapped: a hold now would start on the one that is leaving
-    if (home.arranging)
-        return; // the hold that lifted the row is not a second request for the recent apps
+    if (home.arranging || home.appMenu)
+        return; // the hold that lifted the row or opened the menu is not a second request
     if (home.editing) {
-        homeEditDone(false); // the hold that started the edit is not a second request for it
+        homeEditDone(); // a hold while an app is moved puts it down
         return;
     }
     // On the Apps tab with the apps sorted by kind, holding OK lifts the focused row as a card whose
-    // apps are edited and which can be moved among the kinds; on any other app it starts editing the
-    // apps; anywhere else it does nothing (the recent apps are Back held).
+    // apps are edited and which can be moved among the kinds; on any other app it opens the app's
+    // menu; anywhere else it does nothing (the recent apps are Back held).
     if (!home.navigation && !home.tabs.empty() &&
         home.tabs[home.tab].key == "apps" && home.rows.size() > 1) {
         homeKindEditStart();
         return;
     }
+    // Search and Settings among a dock's apps are not apps: they have no menu.
     if (!home.navigation && home.row < home.rows.size() && home::isApps(home.rows[home.row]) &&
-        home.column < home.rows[home.row].cards.size()) {
-        homeEditStart();
+        home.column < home.rows[home.row].cards.size() &&
+        home.rows[home.row].cards[home.column].id.compare(0, 5, "tool:") != 0) {
+        homeAppMenuOpen();
     }
 }
 void Application::longBack() {
-    if (state_.screen != Screen::Home || state_.home.arranging || state_.home.editing)
+    if (state_.screen != Screen::Home || state_.home.arranging || state_.home.editing ||
+        state_.home.appMenu)
         return; // the hold is not a request for the recent apps while rows or apps are moved
     route("recents");
 }
@@ -283,16 +300,120 @@ void Application::longBack() {
 std::string Application::editedList() const {
     return state_.home.tabs[state_.home.tab].key == "apps" ? "appsTab" : "app";
 }
+// Opens the focused app's menu: Move, Hide (not for LG Home, which has its own switch) and, while
+// this list hides any app, Hidden apps, which opens the settings where they are shown again.
+void Application::homeAppMenuOpen() {
+    auto &home = state_.home;
+    const Card &card = home.rows[home.row].cards[home.column];
+    home.appMenuItems = {"move"};
+    if (card.id != "lg-home")
+        home.appMenuItems.push_back("hide");
+    bool anyHidden = false;
+    for (const Card &other : appsRow(state_.catalogue, state_.guide, true, editedList()).cards)
+        anyHidden = anyHidden || other.hidden;
+    if (anyHidden)
+        home.appMenuItems.push_back("hidden");
+    home.appMenu = true;
+    home.appMenuApp = card.id;
+    for (size_t i = 0; i < home.appMenuItems.size(); ++i)
+        motion_.set(home::id("f:mi", i), i == 0 ? 1 : 0);
+    home.appMenuItem = 0;
+    motion_.play("appmenu", Tween(0, 1, kit::motion::ms::fast, Easing::out()));
+    dirty_ = true;
+}
+void Application::homeAppMenuKey(Key key) {
+    auto &home = state_.home;
+    // The menu is the app's it was opened on; a refresh that took that app from under it closes it.
+    if (home.row >= home.rows.size() || home.column >= home.rows[home.row].cards.size() ||
+        home.rows[home.row].cards[home.column].id != home.appMenuApp) {
+        homeAppMenuClose();
+        return;
+    }
+    if (key == Key::Up && home.appMenuItem > 0)
+        homeAppMenuSelect(home.appMenuItem - 1);
+    else if (key == Key::Down && home.appMenuItem + 1 < home.appMenuItems.size())
+        homeAppMenuSelect(home.appMenuItem + 1);
+    else if (key == Key::Ok)
+        homeAppMenuAct();
+    else if (key == Key::Red || key == Key::Delete) {
+        // A shortcut for the remotes that have it; Hide in the menu does the same.
+        homeAppMenuClose();
+        homeHideApp();
+    } else if (key == Key::Left || key == Key::Right)
+        homeAppMenuClose();
+}
+void Application::homeAppMenuSelect(size_t item) {
+    auto &home = state_.home;
+    if (item >= home.appMenuItems.size() || item == home.appMenuItem)
+        return;
+    motion_.tween(home::id("f:mi", home.appMenuItem), 0, kit::motion::ms::focus, Easing::out());
+    motion_.tween(home::id("f:mi", item), 1, kit::motion::ms::focus, Easing::out());
+    home.appMenuItem = item;
+    dirty_ = true;
+}
+void Application::homeAppMenuAct() {
+    auto &home = state_.home;
+    if (home.appMenuItem >= home.appMenuItems.size()) {
+        homeAppMenuClose();
+        return;
+    }
+    const std::string item = home.appMenuItems[home.appMenuItem];
+    homeAppMenuClose();
+    if (item == "move")
+        homeEditStart();
+    else if (item == "hide")
+        homeHideApp();
+    else if (item == "hidden") // the settings' Home section, on its Apps page, shows them again
+        route("dashboard:home/" + say::msg("home.row.apps", "Apps"));
+}
+void Application::homeAppMenuClose() {
+    auto &home = state_.home;
+    home.appMenu = false;
+    motion_.set("appmenu", 0);
+    for (size_t i = 0; i < home.appMenuItems.size(); ++i)
+        motion_.set(home::id("f:mi", i), 0);
+    dirty_ = true;
+}
+// Hides the focused app from this list and saves at once. The focus keeps its place, so it lands
+// on the app that takes it; the toast says where the app is shown again.
+void Application::homeHideApp() {
+    auto &home = state_.home;
+    if (home.row >= home.rows.size() || home.column >= home.rows[home.row].cards.size())
+        return;
+    const Card card = home.rows[home.row].cards[home.column];
+    if (card.id.compare(0, 5, "tool:") == 0)
+        return;
+    if (card.id == "lg-home") {
+        toast("LG Home is switched off with Show LG Home in the Home settings.");
+        return;
+    }
+    // A request already out would make this one wait in vain (execute drops it): the hide would show
+    // and then come back on the next refresh.
+    if (state_.busy) {
+        toast("Still saving the last change. Try again in a moment.");
+        return;
+    }
+    const std::string list = editedList();
+    Json hiddenNow = Json::array();
+    for (const auto &id : hiddenIds(state_.catalogue, list).items())
+        if (id.string() != card.id)
+            hiddenNow.add(id);
+    hiddenNow.add(Json::text(card.id));
+    toast(card.title + " hidden. Settings, Home, " + say::msg("home.row.apps", "Apps") +
+          " shows it again.");
+    saveApps(list, std::vector<std::string>(), false, true, hiddenNow, Json());
+    saveToastShown_ = state_.busy; // the request went out: its answer keeps this toast
+}
+// Move in an app's menu: the app is carried along its row until OK or Back puts it down.
 void Application::homeEditStart() {
     auto &home = state_.home;
+    if (home.row >= home.rows.size() || home.column >= home.rows[home.row].cards.size())
+        return;
     home.editing = true;
-    home.editHide = false;
-    // The row also lists the apps hidden from it, last and dimmed, so that one can be shown again:
-    // Home's row those hidden on Home, the Apps page those hidden on the Apps page.
     const std::string focused = home.rows[home.row].cards[home.column].id;
     if (home::onDock(home.tabs[home.tab].key)) {
-        // The dock's rows of six are edited as the one row they came from, with the apps hidden from
-        // Home after them; Search and Settings are not apps, so they leave it until the save.
+        // The dock's rows of six are edited as the one row they came from; Search and Settings are
+        // not apps, so they leave it until the save.
         size_t first = home.row, last = home.row;
         while (first > 0 && home::isApps(home.rows[first - 1]))
             --first;
@@ -303,102 +424,59 @@ void Application::homeEditStart() {
         home.row = first;
     }
     CardRow &row = home.rows[home.row];
-    row.cards = appsRow(state_.catalogue, state_.guide, true, editedList()).cards;
+    row.cards = appsRow(state_.catalogue, state_.guide, false, editedList()).cards;
     home.column = 0;
     for (size_t i = 0; i < row.cards.size(); ++i)
         if (row.cards[i].id == focused)
             home.column = i;
-    motion_.tween("lift", 1, kit::motion::ms::fast, Easing::out());
     homeFocus();
     dirty_ = true;
 }
+// Left and Right swap the carried app with its neighbour of the same kind; OK puts it down.
 void Application::homeEditKey(Key key) {
     auto &home = state_.home;
-    if (home.row >= home.rows.size()) {
-        homeEditDone(false);
+    if (home.row >= home.rows.size() || home.rows[home.row].cards.empty()) {
+        homeEditDone();
         return;
     }
     auto &cards = home.rows[home.row].cards;
-    if (key == Key::Red || key == Key::Delete) {
-        homeEditDone(true);
-        return;
-    }
-    if (home.editHide) {
-        // The button above the page: OK hides (or shows) the app, Down goes back to moving it.
-        if (key == Key::Ok)
-            homeEditDone(true);
-        else if (key == Key::Down)
-            home.editHide = false;
-        return;
-    }
     home.column = clampIndex(home.column, cards.size());
     if (key == Key::Ok) {
-        // OK on an app that was hidden shows it; on any other it saves the order.
-        homeEditDone(cards[home.column].hidden);
+        homeEditDone();
         return;
     }
-    if (key == Key::Up) {
-        home.editHide = true;
+    if (key != Key::Left && key != Key::Right)
         return;
-    }
-    long target = static_cast<long>(home.column);
-    if (key == Key::Left)
-        target -= 1;
-    else if (key == Key::Right)
-        target += 1;
-    if (target < 0 || target >= static_cast<long>(cards.size()) ||
-        target == static_cast<long>(home.column))
+    const long target = static_cast<long>(home.column) + (key == Key::Left ? -1 : 1);
+    if (target < 0 || target >= static_cast<long>(cards.size()))
         return;
-    // Hidden apps only take the focus, and so do apps of another kind (an app stays among its kind);
-    // the others swap places.
-    const Card &from = cards[home.column], &to = cards[static_cast<size_t>(target)];
-    if (!from.hidden && !to.hidden && kindOf(from) == kindOf(to))
-        std::swap(cards[home.column], cards[static_cast<size_t>(target)]);
+    // An app stays among its kind, so the apps sorted by kind stay sorted.
+    if (kindOf(cards[home.column]) != kindOf(cards[static_cast<size_t>(target)]))
+        return;
+    std::swap(cards[home.column], cards[static_cast<size_t>(target)]);
     home.column = static_cast<size_t>(target);
 }
-// Ends editing and saves in one request. `toggle` hides the focused app, or shows it again when it
-// is one of the hidden ones. The rows are rebuilt from the catalogue as the save leaves it.
-void Application::homeEditDone(bool toggle) {
+// Puts the carried app down and saves the order in one request, if it changed. The rows are rebuilt
+// from the catalogue as the save leaves it.
+void Application::homeEditDone() {
     auto &home = state_.home;
-    home.editing = home.editHide = false;
-    motion_.tween("lift", 0, kit::motion::ms::fast, Easing::out());
+    home.editing = false;
     dirty_ = true;
-    if (home.row >= home.rows.size() || home.column >= home.rows[home.row].cards.size()) {
+    if (home.row >= home.rows.size()) {
         rebuildHome();
         return;
     }
-    const auto &cards = home.rows[home.row].cards;
-    const std::string focused = cards[home.column].id;
-    const bool focusedHidden = cards[home.column].hidden;
-    if (toggle && !focusedHidden && focused == "lg-home") {
-        toast("LG Home is switched off with Show LG Home in the Home settings.");
-        toggle = false;
-    }
-    // The ids on screen in their new order; the app being shown joins them, last.
     std::vector<std::string> shown, expected;
-    for (const Card &card : cards)
-        if (!card.hidden && !(toggle && card.id == focused))
-            shown.push_back(card.id);
+    for (const Card &card : home.rows[home.row].cards)
+        shown.push_back(card.id);
     const std::string list = editedList();
     for (const Card &card : appsRow(state_.catalogue, state_.guide, false, list).cards)
-        if (!(toggle && card.id == focused))
-            expected.push_back(card.id);
-    if (toggle && focusedHidden) {
-        shown.push_back(focused);
-        expected.push_back(focused);
-    }
-    const bool moved = shown != expected;
-    if (!moved && !toggle) {
-        rebuildHome(); // drops the hidden apps that were listed, and takes any refresh meanwhile
+        expected.push_back(card.id);
+    if (shown == expected) {
+        rebuildHome(); // takes any refresh meanwhile, and the dock's rows of six again
         return;
     }
-    Json hiddenNow = Json::array();
-    for (const auto &id : hiddenIds(state_.catalogue, list).items())
-        if (!(toggle && focusedHidden && id.string() == focused))
-            hiddenNow.add(id);
-    if (toggle && !focusedHidden)
-        hiddenNow.add(Json::text(focused));
-    saveApps(list, shown, moved, toggle, hiddenNow, Json());
+    saveApps(list, shown, true, false, Json(), Json());
 }
 // Saves the apps' order (`shown`: every app on the list in its new order), the hidden apps and, when
 // given, the kinds' order, in one request. The catalogue shows the save at once; the server's answer

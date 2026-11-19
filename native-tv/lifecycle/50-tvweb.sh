@@ -194,21 +194,21 @@ webos_major=$(sed -n 's/.*webOS[^0-9]*\([0-9][0-9]*\)\..*/\1/p' /etc/issue 2>/de
 # mounts, as anything that opens Home before it opens LG's. LG's Home may have
 # started by now, in the background, on the empty layout the server left it on
 # webOS 9, so anything opening Home before now showed black; once sam
-# reads the mounted manifest it is stopped, and the TV opens Native Tv Home's
-# page as Home from then on. Where sam does not take it, LG's files go back
+# reads the mounted manifest it is stopped, and sam starts Native Tv Home (the
+# native client, staged by the server) as Home from then on. Where sam does not take it, LG's files go back
 # under it, its own layout too, and it restarts on that. The server does the
 # same at its start, for a hook that did not run.
 # On webOS 10 and 11 LG's Home is a Flutter app run as
-# "flutter-client -i com.webos.app.home"; webOS 11 only with
-# allowExperimentalHome in config.json. sam ignores the nudge there (above), so
-# the app is reread with a block and release first.
+# "flutter-client -i com.webos.app.home"; webOS 11 unless config.json sets
+# "allowExperimentalHome": false. sam ignores the nudge there (above), so the
+# app is reread with a block and release first.
 homeapp=/usr/palm/applications/com.webos.app.home
 homestage=/var/lib/tvweb/home-takeover
 home_os=0
 [ "$webos_major" = "9" ] && home_os=1
 [ "$webos_major" = "10" ] && home_os=1
 if [ "$webos_major" = "11" ]; then
-  grep -q '"allowExperimentalHome"[[:space:]]*:[[:space:]]*true' /var/lib/tvweb/config.json 2>/dev/null && home_os=1
+  grep -q '"allowExperimentalHome"[[:space:]]*:[[:space:]]*false' /var/lib/tvweb/config.json 2>/dev/null || home_os=1
 fi
 # A block and release cut short leaves Home blocked across boots, as for the
 # screen saver below, so it is released at every boot where it is ever blocked.
@@ -296,7 +296,7 @@ legacy_home_takeover() {
   else
     home_reread() { sam_reread_app com.webos.app.home; }
   fi
-  if home_reread && { bootlog "Native Tv Home: sam reread"; sam_reports com.webos.app.home '"type": *"web"'; }; then
+  if home_reread && { bootlog "Native Tv Home: sam reread"; sam_reports com.webos.app.home '"main": *"nativetv-home"'; }; then
     for pid in $(lg_home_pids); do kill "$pid" 2>/dev/null; done
     bootlog "Native Tv Home is in LG's Home's place"
     home_open_at_boot
@@ -334,7 +334,7 @@ native_home_takeover() {
 }
 
 home_takeover_boot() {
-  if [ -f "$homestage/appinfo.json" ] || [ -f /var/lib/tvweb/assets/home-app/index.html ]; then
+  if [ -f "$homestage/appinfo.json" ] || [ -f /var/lib/tvweb/assets/dashboard-app/nativetv-tv ]; then
     if [ -x "$DAEMON_BIN" ]; then
       bootlog "Native Tv Home: checking native lifecycle"
       native_home_takeover

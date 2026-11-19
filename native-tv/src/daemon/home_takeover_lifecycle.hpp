@@ -13,7 +13,9 @@ class HomeTakeoverManager;
 class LunaClient;
 class SamRescanManager;
 
-// Sequences the Home mount with SAM's firmware-specific manifest reread.
+// Sequences the Home mount with sam's firmware-specific manifest reread, then
+// stops whatever ran under LG's Home's id before: LG's Home, the web stand-in of
+// earlier releases, or Native Tv Home itself when it gives the place back.
 class HomeTakeoverLifecycleManager {
   public:
     HomeTakeoverLifecycleManager(HomeScreenManager &homeScreen,
@@ -44,6 +46,8 @@ class HomeTakeoverLifecycleManager {
                 const CommandPolicyContext &context);
     bool waitForManifest(bool nativeTvManifest);
     void rollbackTakeover(const CommandPolicyContext &context);
+    std::string foregroundApp();
+    void stopEarlierInstances();
 
     HomeScreenManager &homeScreen_;
     HomeTakeoverManager &takeover_;

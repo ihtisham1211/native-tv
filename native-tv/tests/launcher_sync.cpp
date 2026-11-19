@@ -115,7 +115,7 @@ int main() {
     const struct {
         size_t id;
         const char *page;
-    } shipped[] = {{1, "native-tv/assets/home-app/index.html"}, {2, "hbc/app/index.html"}};
+    } shipped[] = {{2, "hbc/app/index.html"}};
     for (const auto &app : shipped) {
         const std::string html = read(std::string(NATIVETV_REPO_ROOT) + "/" + app.page);
         write(index(app.id), html);

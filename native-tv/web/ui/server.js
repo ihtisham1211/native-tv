@@ -596,14 +596,15 @@ async function toggleNetworkDebugger() {
 /*
  * Offered here because an in-place update installs no app: it copies files and
  * runs nothing, so without this the only way to get the tile is to re-run
- * deploy.sh. Hidden where the TV will not take an unsigned app.
+ * deploy.sh. Hidden where the TV will not take an unsigned app, and on a
+ * Homebrew Channel install, where the package keeps the app (`managed`).
  */
 let tvAppBusy = false;
 
 function renderTvApp(d) {
   const row = q('tvapp-row');
   if (!row) return;
-  row.hidden = !(d && d.supported);
+  row.hidden = !(d && d.supported) || !!d.managed;
   updateToggle('tvapp-btn', {
     cls: d.installed ? 'good' : 'idle',
     label: d.installed ? t('server.tvApp.added', 'Added') : t('server.tvApp.notAdded', 'Not added'),

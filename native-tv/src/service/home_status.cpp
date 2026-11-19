@@ -11,6 +11,10 @@ Json profileColours() {
 }
 } // namespace
 
+bool experimentalHomeAllowed(const Json &config) {
+    return config["allowExperimentalHome"].boolean(true);
+}
+
 Json homeStatusSupported(const std::string &version, bool allowExperimental) {
     Json result = Json::object();
     result.set("webos", Json::text(version));

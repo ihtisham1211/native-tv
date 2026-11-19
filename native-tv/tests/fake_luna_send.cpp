@@ -388,10 +388,14 @@ int main(int argc, char **argv) {
         std::ifstream typeInput(typePath.c_str());
         std::string type;
         std::getline(typeInput, type);
+        // "nativetv": sam read Native Tv Home's manifest; "web": an earlier
+        // release's stand-in; anything else LG's own Home.
         Json appInfo = Json::object();
         appInfo.set("id", Json::text("com.webos.app.home"));
-        appInfo.set("type", Json::text(type.empty() ? "native" : type));
-        if (type == "web") {
+        appInfo.set("type", Json::text(type == "web" ? "web" : "native"));
+        appInfo.set("main", Json::text(type == "nativetv" ? "nativetv-home"
+                                       : type == "web" ? "index.html" : "flutter-client"));
+        if (type == "web" || type == "nativetv") {
             Json category = Json::array();
             category.add(Json::text("home"));
             appInfo.set("appCategory", category);
@@ -414,13 +418,23 @@ int main(int argc, char **argv) {
         const std::string refusePath =
             environment("NATIVETV_FAKE_HOME_TAKEOVER_REFUSE");
         if (refusePath.empty() || ::access(refusePath.c_str(), F_OK) != 0) {
+            // sam reads the manifest in LG's Home's directory, mounted or not.
+            std::string read = "native";
+            if (::access(mountedPath.c_str(), F_OK) == 0) {
+                const Json manifest = readJsonFile(
+                    environment("NATIVETV_FAKE_HOME_TAKEOVER_APPINFO"));
+                read = manifest["type"].string() == "web" ? "web"
+                       : manifest["type"].string() == "native" &&
+                               manifest["main"].string() == "nativetv-home"
+                           ? "nativetv" : "native";
+            }
             std::ofstream typeOutput(typePath.c_str(), std::ios::out | std::ios::trunc);
-            typeOutput << (::access(mountedPath.c_str(), F_OK) == 0
-                ? "web\n" : "native\n");
+            typeOutput << read << '\n';
         }
         reply.set("returnValue", Json::flag(true));
     } else if (homeTakeoverMode &&
-               uri == "com.palm.webappmanager/killApp") {
+               (uri == "com.palm.webappmanager/killApp" ||
+                uri == "com.webos.applicationManager/closeByAppId")) {
         reply.set("returnValue", Json::flag(true));
     } else if (mode == "screensaver-boot" &&
                uri == "com.webos.applicationManager/getAppInfo" &&
@@ -487,7 +501,8 @@ int main(int argc, char **argv) {
                callPayload["id"].string() == "com.webos.app.home") {
         Json appInfo = Json::object();
         appInfo.set("id", Json::text("com.webos.app.home"));
-        appInfo.set("type", Json::text("web"));
+        appInfo.set("type", Json::text("native"));
+        appInfo.set("main", Json::text("nativetv-home"));
         reply.set("returnValue", Json::flag(true));
         reply.set("appInfo", appInfo);
     } else if (mode == "home-now" &&

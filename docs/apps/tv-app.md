@@ -54,7 +54,7 @@ A change shows the moment OK is pressed: the switch has already slid and a faint
 * **Apple TV** (`n-apple-tv`) is in the manner of tvOS. Apps are landscape tiles, six across, each filled by the app's icon with the logo whole; the focused one lifts on a soft shadow with a diagonal light across it, and its name appears under it. Corners are rounder and the accent is green.
   * **Home** is laid out as tvOS's Home. The current pick fills the screen, with its source line, title, facts and summary at the top left and its dots above the dock. The apps are one dark glass dock of six tiles at the bottom, with the next row showing under it. The dock's tiles carry no names, not even the focused one. Search (when title search is on) and Settings, which opens Quick settings, are tiles that take the dock's last places, so it holds the first four apps, Search and Settings, or the first five apps and Settings without search. Down from the dock raises the page until the dock is the top row of a grid: the rest of the apps six to a row, then Top picks and the feed's other rows with their titles. A tile below the dock shows its name only while it is focused, so **Show app names** has no effect on this Home.
   * **The top bar** rests as one glass pill at the top right with the clock and the profile, and fades as the page rises. Up from the first row, or a click in the band at the top of the screen, brings the whole bar in: the profile, the tabs in one glass capsule at the middle, Search, Settings and the clock. Down takes it away.
-  * **Editing the apps** (holding OK on one) shows them as one row, lifted clear of the hint keys; Search and Settings leave it until the edit ends.
+  * **Moving an app** (Move in the menu that holding OK on it opens) shows the apps as one row, lifted clear of the hint keys; Search and Settings leave it until the app is put down, and have no menu of their own.
   * **The other screens**: Apps, Inputs, Live, Settings, Details, Quick settings and the profile screen keep their layouts in the Apple TV colours, with the whole bar. The [design notes](../development/material-3-expressive.md#n-apple-tv) give each value and its reason.
 
   ![Apple TV Home at rest: the featured title at the top left and the dock of apps](../screenshots/tv-home-apple-tv.jpg)
@@ -77,7 +77,7 @@ The setting is the `tvTheme` section of `config.json` (`id`, and `suggested` onc
 
 Opening the native TV app on a fresh install starts an on-screen setup wizard to configure the TV with the remote. The native app checks the server's setup state wherever it is opened, including from the Homebrew Channel tile. It shows the welcome page when setup is pending and asks a server that is still starting again every two seconds.
 
-If the setup request through Homebrew Channel fails, the launcher shows the available reason or error code. If webOS refuses to open the native app after setup, the launcher reports the failure. **OK** retries.
+If the setup request through Homebrew Channel fails, the launcher shows the available reason or error code. Homebrew Channel 0.7.3 refuses the request on webOS 11 (`Denied method call "exec"`), and the launcher then shows the command that runs setup once over SSH as root; that run grants the app Homebrew Channel's service, so later opens and updates go through ([Installing](../getting-started/install.md#troubleshooting)). If webOS refuses to open the native app after setup, the launcher reports the failure. **OK** retries.
 
 1. **Name this TV**: The keyboard comes up with the name the TV's model gives it: `B3` on an OLED65B3PUA, `C2` on an OLED42C24LA, `UQ8000` on a 55UQ8000, `LGTV` when the model is not known. OK on **Next** keeps it, or type another name. It is the name of the main profile on Home, which the profile editor can change later, and it shows on the summary at once; if the server refuses it, the old name comes back with a message.
 2. **Admin PIN**: Four digits that the TV and the web dashboard ask for before installing or removing apps, changing SSH keys, restoring a backup, restarting or powering off the TV, and the other actions that open the TV to more of the network. **Use 0000** sets the default in one press; the page says that anyone who knows it can use it, so a PIN of the person's own is better, chosen now or changed later on the web dashboard's Server tab. **Choose my own** opens a digit pad for four digits, masked as they are typed, and Next refuses fewer than four. A TV that already has a PIN skips this step, and the steps after it count one fewer.
@@ -125,7 +125,7 @@ Once a PIN is set, the server refuses the actions it guards until it is given th
 
 In Settings, the **Settings** section gives the web dashboard's address, with a QR code to scan on a phone (OK on the address), and the TV's DNS name under it where the home network's DNS has one. Opening the web dashboard to the network or closing it restarts the server, and the TV app waits until it answers again.
 
-Scanning the code automatically pairs the phone with the TV, passing the access token if one is configured, allowing the dashboard to be opened without typing an IP address with the remote.
+Scanning the code automatically pairs the phone with the TV, passing the access token if one is configured, allowing the dashboard to be opened without typing an IP address with the remote. The code holds the full link (`http://<address>:<port>/`), read from the server as the code opens; while the web dashboard is closed to the network, or the TV has no network address, the screen says so instead of showing a code.
 
 ### Installing apps and system app hiding
 
@@ -135,7 +135,7 @@ The **Apps** section lists the apps installed from outside LG's store, each with
 
 ### Native Tv Home
 
-The **Home** section sets up [Native Tv Home](../dashboard/home.md) from the TV, as the browser dashboard's Home tab does, and is left out on a TV Native Tv Home is not offered on. It has the on/off switch (a second press confirms), a way to open Native Tv Home while it is on, the order of its rows, then a section for each row in that order: a **Kinds** list for the apps, where OK moves a kind up one, then apps and inputs each shown or hidden (an app has two switches, one for Native Tv Home's Your apps row and one for the Apps tab, which keep separate lists), and the channels added, each removed with OK, with **Add channels** listing the TV's channels not yet on Home. Then **Reset the layout**. Apps are moved and hidden on Native Tv Home itself, by holding OK on an app ([editing the apps](../dashboard/home.md#editing-the-apps)), and the other tiles on the browser dashboard's Home tab; with the apps by kind, holding OK on a row of the Apps screen lifts it, Up and Down move it, OK saves and Back puts it back.
+The **Home** section sets up [Native Tv Home](../dashboard/home.md) from the TV, as the browser dashboard's Home tab does, and is left out on a TV Native Tv Home is not offered on. It has the on/off switch (a second press confirms), a way to open Native Tv Home while it is on, the order of its rows, then a section for each row in that order: a **Kinds** list for the apps, where OK moves a kind up one, then apps and inputs each shown or hidden (an app has two switches, one for Native Tv Home's Your apps row and one for the Apps tab, which keep separate lists), and the channels added, each removed with OK, with **Add channels** listing the TV's channels not yet on Home. Then **Reset the layout**. Apps are moved and hidden on Native Tv Home itself, from the menu that holding OK on an app opens ([editing the apps](../dashboard/home.md#editing-the-apps)), whose **Hidden apps** item opens this section on its Apps page, and the other tiles on the browser dashboard's Home tab; with the apps by kind, holding OK on a row of the Apps screen lifts it, Up and Down move it, OK saves and Back puts it back.
 
 ### Sleep timer and power
 
@@ -143,11 +143,11 @@ The **System** section has the sleep timer under **Timers**: each press of OK mo
 
 ### Adding and removing the app
 
-A first install adds the native app to the TV's home screen. The Homebrew package also supplies a launcher tile that opens the native app and registers it if needed. Installed native apps are refreshed at server start when they are closed.
+An SSH install adds the native app to the TV's home screen as a tile of its own. A Homebrew Channel install has one tile, the package's, which opens the native app and registers it if needed; the native app itself is registered without a tile, so LG's edit mode cannot remove it on its own, and removing the package's tile uninstalls Native Tv. Installed native apps are refreshed at server start when they are closed. [Native Tv Home](../dashboard/home.md) runs a copy of the app of its own as the TV's Home and does not need the tile; while it holds Home, the app opened from its tile is closed when Native Tv Home comes back to the front.
 
 The app can be added or removed at any time:
 
-* **From the web dashboard**: Go to the **Server** tab and toggle the TV app. On a Homebrew package install, opening the package's tile adds the native app again if it was removed.
+* **From the web dashboard**: Go to the **Server** tab and toggle the TV app (SSH installs). On a Homebrew package install there is no switch; opening the package's tile adds the native app again if it was removed.
 * **From deploy.sh**: Pass `--app` to add it or `--no-app` to omit it during installation.
 
 [Native Tv Home](../dashboard/home.md) is this same app opened on its Home screen, so it needs the app on the home screen: with the app removed Home cannot be switched on, and Home that is on gives LG's Home back. Removing the app changes nothing else, since the dashboard server continues to run in the background and reaches any browser on the network regardless. Where a TV model will not take the app, the control is hidden and everything else works as before.

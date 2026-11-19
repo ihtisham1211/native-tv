@@ -15,6 +15,8 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 SRC="$HERE/tvweb"
 D=/var/lib/tvweb
 HOOKDIR=/var/lib/webosbrew/init.d
+LS2_DEV=/var/luna-service2-dev
+LS_CONTROL=/usr/sbin/ls-control
 # What an update replaces, kept for a server that does not start. The names
 # after TVWEB_ are only moved by native-tv/tests/runtime_package.py.
 PREV="$D/.previous"
@@ -63,8 +65,33 @@ link_hook() {
   chmod -R go-w "$(dirname "$HERE")" 2>/dev/null
   chmod +x "$SRC/50-tvweb.sh" 2>/dev/null
   mkdir -p "$HOOKDIR" && ln -sf "$SRC/50-tvweb.sh" "$HOOKDIR/50-tvweb"
+  grant_exec
 }
 fail() { printf '{"ok":false,"error":"%s"}\n' "$1"; exit 0; }
+
+# Lets this app's page call the Homebrew Channel's service. Homebrew Channel
+# 0.7.3 opens it to the `public` group, which webOS 11 no longer gives apps, so
+# the page's exec is refused there and only this script, run as root over SSH,
+# can set things up. The grant names this app alone and is a manifest of its
+# own: installing the app rewrites the app's client-permissions file, and
+# ls-hubd skips a manifest it has already loaded, so an edit to that file does
+# not take.
+grant_exec() {
+  dev=$LS2_DEV
+  app=$(basename "$(dirname "$HERE")")
+  case "$app" in ''|*[!A-Za-z0-9._-]*) return 0 ;; esac
+  [ -f "$dev/manifests.d/org.webosbrew.hbchannel.json" ] || return 0
+  perm="$dev/client-permissions.d/$app.hbchannel.json"
+  manifest="$dev/manifests.d/$app.hbchannel.json"
+  want_perm="{\"$app-*\":[\"org.webosbrew.hbchannel.service.group\"]}"
+  want_manifest="{\"version\":\"1.0.0\",\"id\":\"$app.hbchannel\",\"clientPermissionFiles\":[\"$perm\"]}"
+  [ "$(cat "$perm" 2>/dev/null)" = "$want_perm" ] &&
+    [ "$(cat "$manifest" 2>/dev/null)" = "$want_manifest" ] && return 0
+  mkdir -p "$dev/client-permissions.d" &&
+    echo "$want_perm" > "$perm" &&
+    echo "$want_manifest" > "$manifest" &&
+    "$LS_CONTROL" scan-volatile-dirs >/dev/null 2>&1
+}
 
 # The files this update is about to replace, kept aside, so that a server which
 # does not come up can be put back. An update goes ahead only when all of them

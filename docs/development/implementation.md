@@ -1660,10 +1660,12 @@ The client applies the theme in `Application::followTheme`, from caps and from e
 ## Native Tv Home
 
 `home_orchestrator` and the `home_*_manager` modules run a home screen of Native Tv's own in place of LG's, opt-in
-from the dashboard's Home tab (webOS 9; webOS 10 and 11 with `allowExperimentalHome`). The screens are the native client's
-(`nativetv-tv`, run as the Native Tv tile's app `com.tvweb.dashboard`, the one native app sam is told of, which opens the dashboard unless a screen is named). LG's Home's place is held by a small web app with no screen, whose files are
-`assets/home-app/index.html` and its icons: it asks sam to open the client at its Home screen, and is black until the client is in
-front. There is no web page for Home; the client's Home screen is all of it.
+from the dashboard's Home tab (webOS 9 and 10; webOS 11 unless `allowExperimentalHome` is false). Native Tv Home is the native
+client itself (`nativetv-tv`), which sam starts under LG's Home's own id, so the Home key opens it as it opens LG's Home: pressed on
+Native Tv Home it changes no window, and from an input Home is on screen 390 ms after the press with nothing in between (an
+OLED83C6HUP, webOS 11.2.0; [research](tv-research.md#native-tv-home-as-lgs-home-c6-webos-1120)). Earlier releases held the place
+with a black web page that opened the client as the Native Tv tile's app, and the TV showed that page for 105-115 ms at every
+press, a black blink. There is no web page for Home; the client's Home screen is all of it.
 
 Where Native Tv Home cannot start, the server starts without it and
 logs why, rather than not starting at all (on a G5 a missing Home module had
@@ -1674,10 +1676,19 @@ Home's place with no server to serve it. The Home routes are not served, and uni
 keeps the server, since it cannot tell whether Native Tv Home holds LG's
 Home's place.
 
-Switched on, that app runs under LG's Home's own id. `home_takeover_stager`
-stages it in `/var/lib/tvweb/home-takeover` with an `appinfo.json` naming
-`com.webos.app.home` (type `web`, `visible` false, `appCategory` `["home"]`
-as LG's has it), bind-mounts the directory over
+Switched on, `home_takeover_stager` stages it in `/var/lib/tvweb/home-takeover`:
+the client's files from the dashboard app's payload (`assets/dashboard-app`,
+the executable with its libraries, assets and licences, without that app's
+manifest and installer), a start script, `nativetv-home`, and an
+`appinfo.json` naming `com.webos.app.home` (type `native`, `main`
+`nativetv-home`, `visible` false, `appCategory` `["home"]` as LG's has it).
+sam starts a native app under LG's Home's id itself, as root, without the
+jailer and with no `APPID` in its environment; LG's SDL names the window from
+`APPID`, and without it the window is never shown, so the script sets it and
+`exec`s the client. The client opens on its Home screen, as for any launch
+that does not name another (`platform/client_launch.cpp`; sam's parameters
+carry `nid` `com.webos.app.home` and `launchType` `homeKey`), and registers
+with sam, so later presses reach it as relaunches. The manager bind-mounts the directory over
 `/usr/palm/applications/com.webos.app.home`, and has sam read it again
 (`sam_rescan_manager`): with the nudge on webOS 9, and with a block and release
 of the one app on webOS 10, which ignores the nudge. On webOS 10 the Home
@@ -1686,22 +1697,35 @@ button opens the default app of the `home` category, which sam takes from that
 ([research](tv-research.md#native-tv-home-on-webos-10-g5-webos-1031)).
 A server finding it mounted with a manifest sam has not read, as after an
 upgrade or an interrupted reread, checks sam's copy and has it read again. If sam
-does not report the home category, LG's Home is put back and the switch fails.
+does not report the app as native, started by `nativetv-home`, in the home
+category, LG's Home is put back and the switch fails.
+The native client in that place has been tried on webOS 11.2.0 only. webOS 9
+and 10 take the same steps; LG's Home is a native app there too (webOS 9's
+own, webOS 10's a Flutter runner), and earlier releases put a web page in its
+place on both, so the mount, the reread and stopping the old instance are
+the tried part, and sam starting a native app under the id is not.
 Everything on the TV that means Home opens that id: the
 Home button (surface-manager, `hotKey`), Back out of the last app (sam's
 `last_input_handler`), waking on Home (`bootManager`), so all of them open
 Native Tv Home, with nothing to correct afterwards and no setting changed
 ([research](tv-research.md#replacing-lgs-home-under-its-id-webos-922-g3)).
-The staged files are rewritten at every server start, so a new release reaches
-the page without a remount; the view reloads itself when the server's build
-changes.
+The staged copy is brought in line with the release's client at every
+takeover, server starts included, without a remount. A file whose size, time
+and mode match its source is taken as current; any other is compared and, if
+it differs, replaced by rename, so a client running from the copy keeps the
+files it mapped. What the copy does not have (an earlier release's web page
+and its picture) is deleted, and the manifest is written last. A Native Tv
+Home still running from replaced files is stopped unless it is in front; one
+in front runs them until it next starts.
 
 The order matters. sam tells a native app from a web one by the manifest it
 last read, and switching it while the old instance runs leaves it unable to
 close that instance or start the new one, with the screen black. So the mount
 changes and sam reads it first, and only then is the old instance stopped:
-LG's process is killed, or the web page is killed through WebAppMgr's
-`killApp` (`closeByAppId` only sends it to the background). Where that
+LG's process is killed, an earlier release's web page is ended through
+WebAppMgr's `killApp` (`closeByAppId` only sends it to the background), and
+giving the place back ends Native Tv Home's process
+(`HomeScreenManager::stopNativeTvHome`, found by its executable and `APPID`). Where that
 instance was in front, sam's `last_input_handler` opens Home again about a
 second later, as the new app.
 
@@ -1743,8 +1767,9 @@ taken. The Home key itself is answered
 earlier still, by the remote key filter (`remote_keys_reconciler`), which the
 compositor loads from configd before any startup hook: while
 `nativetv.remoteKeys` carries `starting`, a Home press is kept from LG's
-filters, press and release, and the filter asks sam for LG's Home's type; while
-it is not yet `web` it shows `starting` as a toast, and once it is, it opens
+filters, press and release, and the filter asks sam for LG's Home's manifest;
+until sam runs Native Tv Home under the id (`main` `nativetv-home`) it shows
+`starting` as a toast, and once it does, it opens
 Home and leaves later presses to LG's filters for the rest of the boot. A
 `genericTimer` set in the filter's `init()` ends the hold 90 s after the filter
 loads, so a TV where Native Tv no longer runs, with `starting` left in
@@ -1759,59 +1784,60 @@ the remote-button worker, and the native client failing, below) unmount and open
 the last does not come back by itself. The next app in front, or a
 short press of Home on LG's Home, mounts it again. The app in front comes from
 the live state's `application` group, which Native Tv Home starts itself
-while it is on, as the MQTT bridge starts the groups only with a broker. The stub waits on
-black; being LG's Home's app, it cannot open LG's Home itself, so the server does, when the client has failed.
+while it is on, as the MQTT bridge starts the groups only with a broker. Native Tv Home, being
+LG's Home's app, cannot open LG's Home itself, so the server does, when it has failed.
 `tvwebctl stop`, and the watchdog after a third restart in ten minutes, run
 `nativetv-daemon --release-home`, which unmounts without switching Native Tv
 Home off, so the server takes the place again when it runs.
 A failed layout restore retains its backup and reports failure for a later retry.
 
-**The client has to hold Home.** The stub has no page to fall back to, so nothing takes LG's Home's place
-for a client that cannot run, and LG's Home comes back for one that cannot stay up.
+**The client has to hold Home.** Nothing takes LG's Home's place for a client that cannot run, and LG's Home
+comes back for one that cannot stay up.
 
-- *The app.* Only an app sam was told of can be launched, and the install tells it of the tile's app,
-  `com.tvweb.dashboard`, alone (a copy only staged in the apps folder, as `com.tvweb.native` was, is refused:
-  "Luna service rejected the command"). The owner can take the tile off the home screen, so
-  `homeClientRegistration` asks sam (`getAppInfo`, which answers an unknown id with "Invalid appId") at every switch-on
-  and start, ahead of any kept probe verdict. `com.tvweb.native` is deleted at start.
+- *One client.* The Native Tv tile (LG's launcher, the Homebrew Channel's tile) opens the same client as an app of
+  its own, `com.tvweb.dashboard`. Native Tv Home does not need that app: it is staged from the payload, whether the
+  tile is on the home screen or not. While Native Tv Home holds the place, the orchestrator closes the tile's client
+  (`closeByAppId`) whenever Native Tv Home comes to the front, so the TV keeps one client running, Home's (sam refuses
+  the close of an app that is not running, "no valid life handler"); Home's own Native Tv card opens
+  Settings in Home's client (`catalogueRow`, below). `com.tvweb.native`, the developer client earlier builds staged, is
+  deleted at start.
 - *The probe.* `nativetv-tv --probe` (platform/probe.hpp) opens the client's window and context, draws one frame and reads a
-  pixel back. `home_probe_gate` runs it, through `jailer` as `deploy.py` starts the client where there is one, with a
-  15 s limit, and exit 10 and 11 tried again (the display may still be coming up). The orchestrator's `supported` is the webOS
-  version, the app and the probe; the switch-on route probes afresh, the server's start and the boot hook's `--takeover-home` use a
+  pixel back. `home_probe_gate` runs `assets/dashboard-app/nativetv-tv`, the copy Home is staged from, as sam runs Home: as
+  root, without the jailer, with `XDG_RUNTIME_DIR=/tmp/xdg` and no `APPID`, so its window is never shown (exit 0 on the C6,
+  webOS 11.2.0). It has a 15 s limit, and exit 10 and 11 are tried again (the display may still be coming up). The
+  orchestrator's `supported` is the webOS version and the probe; the switch-on route probes afresh, the server's start and the boot hook's `--takeover-home` use a
   kept verdict. A refusal at the switch-on is an error with the reason; at start it gives LG's Home the place
   and leaves Home switched on (`nativeHome.cause` is `client`), where a webOS version that is not offered still switches
   Home off. `/var/lib/tvweb/native-probe.json` keeps ok, 12 and 13 for the client file's size and time and the firmware.
-- *The watch.* The daemon cannot see the process, so the foreground app tells it. The client leaves the front for LG's Home (the stub,
-  which starts it again) or for nothing, and sam's running list read at once no longer has it: an exit. The Home key also takes it out of
-  the front, but it stays listed. The stub in front 15 s after it came, with the client not in front: an exit, and one more each
-  15 s it stays. 0.4 s after the stub came, if it is still in front, the server opens the client itself, as the stub does: the stub's
-  own launch reaches sam a few ms before its window is in front, when the client still is, and sam does nothing for it, so on the
-  Home key this is what brings a running client back (measured on a B3: black for 2.6 s while this waited 2.5 s). A refusal (sam does not know the app) gives LG's Home back at once, not three exits
-  later. Another app coming to the front, standby, a screen that is off, LG's Home opened on purpose and a takeover that is not in
-  place are not watched. `home_crash_breaker` gives LG's Home back at the third exit within two minutes, as `tvwebctl stop` does
+- *The watch.* The daemon cannot see the process, so the foreground app tells it. Native Tv Home leaves the front for an input,
+  which sam puts in front when the app in front is gone, and sam's running list read at once no longer has it: an exit. An input
+  chosen from Home leaves Home listed. An app opened from Home also takes it out of the front, and sam may close Home behind it
+  (seen once, as YouTube started); that is not counted. The live state drops an empty foreground app, so a front with nothing in
+  it is never seen, and a client that dies before its window is shown, or that sam starts again in its own place, changes no
+  foreground app and is not counted: the probe is what keeps a client that cannot draw out. Standby, a screen that is off, LG's
+  Home opened on purpose and a takeover that is not in place are not watched. `home_crash_breaker` gives LG's Home back at the third exit within two minutes, as `tvwebctl stop` does
   (`--release-home`: home.json is left as it is), clears the Home key's starting notice and puts LG's auto launch back. The
   escape's return and the wake open find it halted; the server's restart, or switching Home on or off, starts it over.
 - *The registration.* sam can only send a running native app its `relaunch` over the connection the app opens with
   `registerNativeApp`; LG's SDL does it when `SDL_HINT_WEBOS_REGISTER_APP` is set, which the client does in `main.cpp`
   before `SDL_Init`, but only for the client sam starts: a bounded run (`--duration-ms`, `--time`: the E2E cases and
   `scripts/tv-screenshot.sh`) is started by hand under the jailer, and sam keeps the registration of such a run after it
-  exits, so the next launch of the app found a client that was gone and started none (the Home key stayed on the stub).
-  Without the registration a launch of the client behind the stub left the stub in front for good: the log showed the
-  launch at 0, 15 and 30 s, and no window change.
-- *The preload manager.* On webOS 10 and later it launches `com.webos.app.home` now and then, which with the stub under that
-  id brings Native Tv Home in front of the app being watched (upstream Glasshouse measured three launches in 90 s during a 4K
-  stream on a B4, webOS 10.3.2; we have not seen it). While the stub has the place,
+  exits, so the next launch of the app found a client that was gone and started none. Without the registration a launch of
+  the running client changed nothing: the web page earlier releases put in LG's Home's place stayed in front, and the log
+  showed the launch at 0, 15 and 30 s with no window change.
+- *The preload manager.* On webOS 10 and later it launches `com.webos.app.home` now and then, which with Native Tv Home under
+  that id brings it in front of the app being watched (upstream Glasshouse measured three launches in 90 s during a 4K
+  stream on a B4, webOS 10.3.2; we have not seen it). While Native Tv Home has the place,
   `HomeTakeoverLifecycleManager::holdLgHomePreload` tells the preload manager not to keep LG's Home loaded
   (`setPreloadPolicy`, `isEnabled` false), after a takeover that worked, and lets it again (`isEnabled` true) after a release that
   unmounted something, so a release of a place that was not held sets nothing. The policy is the preload manager's own and is lost
   when it restarts, so the orchestrator (where the lifecycle manager says the TV needs it) sends it again each minute and when
-  the screen comes on, while the stub is mounted and LG's Home is not open on purpose, under the same lock as the switch. A cold
+  the screen comes on, while Native Tv Home is mounted and LG's Home is not open on purpose, under the same lock as the switch. A cold
   start where the preload manager starts after the server can see LG's Home preloaded once, until the next minute. A TV that
   refuses it (a C5, webOS 11.2.0, did every time upstream) is asked each minute and the log says so once.
-- *The Home key.* It reaches LG's filters and opens `com.webos.app.home`, the stub, which asks for the client's Home screen again each time
-  it is shown (`visibilitychange`, `webOSRelaunch`) and never while hidden. The client is meant to go to its Home screen on any launch or
-  return to the front, so that it does not depend on sam passing the new parameters to a client that is running. The app is also the
-  tile's, so Home's recent apps leave it out, as they do the other apps that are Home itself. Its tile in the apps rows is the client itself, so `catalogueRow` (domain/home.cpp) makes OK on it the client's `dashboard` route, Settings, instead of an `/api/home/open` launch: sam would be asked for the app already in front and nothing would change.
+- *The Home key.* It reaches LG's filters and opens `com.webos.app.home`, Native Tv Home: a relaunch of the running client, or
+  a cold start, with Home on screen about 0.5 s after the press. Home's recent apps leave out the tile's app, as they do the other
+  apps that are Home itself. Its tile in the apps rows is the client itself, so `catalogueRow` (domain/home.cpp) makes OK on it the client's `dashboard` route, Settings, instead of an `/api/home/open` launch: sam would be asked for the app already in front and nothing would change.
 
 Earlier builds made a separate app, `com.tvweb.home`, the TV's Home
 through `defaultApps.home`, the start-up app settings and the remote key
@@ -1845,20 +1871,23 @@ order, which `/api/home/layout` saves after dropping unknown keys and appending
 missing ones; the TV client builds one row per non-empty kind from them, and a
 long press on a row of the Apps screen moves it, posting the new `kinds`.
 
-Editing the apps (a long press on an app of Home's apps row, or on the Apps page when it has one kind) saves in one `/api/home/layout` request: `order.app`
-(`orderAfterMove` in `domain/home.cpp`, which leaves the hidden apps where they were), and `hidden.app` (Home's row) or
-`hidden.appsTab` (the Apps page) when one was hidden or shown. The two lists are independent:
+A long press on an app of Home's apps row, or of the Apps page when it has one kind, opens the app's menu. Each change from it is
+one `/api/home/layout` request: Move sends `order.app` when the app is put down (`orderAfterMove` in `domain/home.cpp`, which
+leaves the hidden apps where they were), and Hide sends the whole `hidden.app` (Home's row) or `hidden.appsTab` (the Apps page)
+list with the app added. While an earlier request is unanswered a hide is refused with a message, since `execute` drops a
+write while one is pending. The two lists are independent:
 `home_profiles.cpp` keeps `hidden.appsTab` next to `hidden.app`, seeds it from `hidden.app` the first time a layout without it is
 normalised (so what was hidden, LG's promotions included, stays hidden on the Apps page), and gives a reset and a new profile the
 same defaults in both. The client's `catalogueRow` leaves out the list that applies (`hiddenIds`: `app`, `dev`, `ch` or
 `appsTab`; a catalogue with no `appsTab` falls back to `app`, as the seed does). `appsRow(…, withHidden, list)` lists the hidden
-apps of that list, flagged, last, and is used while editing, Home's row with `app` and the Apps page with `appsTab`. The order
+apps of that list, flagged, last: the Apps page's kind card shows them, and the app menu offers Hidden apps when there are any,
+Home's row with `app` and the Apps page with `appsTab`. The order
 is shared by both. An app hidden under Hide home screen system apps is dropped from the catalogue itself
 (`homeCatalogueApps` skips launch points that are not visible), so it is on neither list's page whatever the lists say. The client
 applies the saved values to its copy of the catalogue at once, and the next read replaces them.
 
 The client reads OK and Back by the rule webOS uses for the Home button's long press ([remote keys](#remote-control-keys-and-the-home-launcher-across-webos-versions)): both act when
-released, unless held for 650 ms, when OK calls `Application::longPress` (editing the apps or lifting a kind's row) and Back
+released, unless held for 650 ms, when OK calls `Application::longPress` (an app's menu or lifting a kind's row) and Back
 calls `Application::longBack` (the recent apps) once and the release is swallowed. Key repeats are ignored for both. A tap of
 Back never opens the recent apps: on Home it goes to the first tab, up to the first row and the bar and stops there
 (`Application::back`). Scripts run by the end-to-end cases hold the keys with `{"longPress": true}` and `{"longBack": true}`.

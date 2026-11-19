@@ -122,6 +122,20 @@ def probe_stand_in(folder, exit_code=0):
     return client
 
 
+def stage_client_stand_in(folder):
+    """The dashboard app as a package stages it: the shipped manifest, installer and icons, with
+    stand-ins for the client and a library, font and licence, as runtime_payload.py adds them."""
+    folder = Path(folder)
+    shutil.copytree(Path(__file__).resolve().parent.parent / "assets/dashboard-app", folder)
+    for name, text in (("nativetv-tv", "#!/bin/sh\nexit 0\n"), ("libcurl.so.4", "curl"),
+                       ("LICENSE-json-c.txt", "json-c"), ("runtime.json", "{}"),
+                       ("assets/fonts/GoogleSansFlex-Regular.ttf", "font")):
+        (folder / name).parent.mkdir(parents=True, exist_ok=True)
+        (folder / name).write_text(text)
+    (folder / "nativetv-tv").chmod(0o644)  # a Homebrew package's copies come out without the bit
+    return folder
+
+
 class DaemonRuntimeTests(unittest.TestCase):
     def test_help_and_runtime_lifecycle(self):
         binary = Path(sys.argv[1]).resolve()
@@ -8592,8 +8606,8 @@ class DaemonRuntimeTests(unittest.TestCase):
         world.system = root / "system"
         world.proc = root / "proc"
         world.proc.mkdir()
-        # The stub that ships, staged by the daemon over LG's Home.
-        shutil.copytree(Path(__file__).resolve().parent.parent / "assets/home-app", world.assets / "home-app")
+        # The dashboard app's payload as a package stages it, which the daemon stages over LG's Home.
+        stage_client_stand_in(world.assets / "dashboard-app")
         systemBin = world.system / "bin"
         systemBin.mkdir(parents=True)
         (systemBin / "sh").symlink_to("/bin/sh")
@@ -8670,6 +8684,7 @@ class DaemonRuntimeTests(unittest.TestCase):
             "NATIVETV_FAKE_LUNA_MODE": mode,
             "NATIVETV_FAKE_HOME_TAKEOVER_TYPE": str(world.samType),
             "NATIVETV_FAKE_HOME_TAKEOVER_MOUNTED": str(world.mounted),
+            "NATIVETV_FAKE_HOME_TAKEOVER_APPINFO": str(world.appDirectory / "appinfo.json"),
             "NATIVETV_FAKE_HOME_TAKEOVER_REFUSE": str(root / "sam-refuse"),
             "NATIVETV_FAKE_LUNA_DETAILS": str(world.details),
             "NATIVETV_FAKE_LUNA_FOREGROUND_FILE": str(world.foreground),
@@ -8845,12 +8860,11 @@ class DaemonRuntimeTests(unittest.TestCase):
             self.assertFalse(world.mounted.exists())
 
     def test_native_home_crash_breaker(self):
-        """A native client that keeps failing gives LG's Home back, and Home is not taken again until restart."""
+        """Native Tv Home that keeps failing gives LG's Home back, and Home is not taken again until restart."""
         publicPort = unused_port_pair()
         with tempfile.TemporaryDirectory(prefix="nativetv-home-breaker-") as folder:
             world = self._home_world(Path(folder), publicPort, "home-breaker-token",
-                                     "home-breaker-secret-0123456789abcdef", "home-breaker",
-                                     nativeClient={"stubGraceMs": 1500})
+                                     "home-breaker-secret-0123456789abcdef", "home-breaker")
             (world.data / "home.json").write_text(json.dumps({"enabled": True}))
             process = self._start_home_daemon(world, orchestrator=True)
 
@@ -8862,8 +8876,12 @@ class DaemonRuntimeTests(unittest.TestCase):
                 return [json.loads(line) for line in world.details.read_text().splitlines()] \
                     if world.details.exists() else []
 
+            def closed():
+                return [call for call in calls() if call["uri"] == "com.webos.applicationManager/closeByAppId"]
+
             def home():
                 return self._home_api(world, "/api/home")[1]
+            HOME = "com.webos.app.home"
             try:
                 # The start takes the place once the probe has passed.
                 self._wait_until(world.mounted.exists, 10, "the start did not take LG's Home's place")
@@ -8871,40 +8889,52 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertEqual(len(world.mountLog.read_text().splitlines()), 1)
                 self.assertTrue(home()["nativeHome"]["watching"])
                 self.assertFalse(home()["nativeHome"]["halted"])
-                # The stub opens the Native Tv tile's app, the one sam is told of, and the watch follows that app.
-                stub = (world.data / "home-takeover/index.html").read_text()
-                self.assertIn("var APP_ID = 'com.tvweb.dashboard'", stub)
-                self.assertNotIn("com.tvweb.native", stub)
-                front("com.tvweb.native", [])                           # the retired developer client is not it
-                time.sleep(0.4)
-                front("com.webos.app.home", [])
-                time.sleep(0.6)
-                self.assertEqual(home()["nativeHome"]["crashes"]["recentExits"], 0)
-                front("com.webos.app.netflix", [])
 
-                # Neither the Home key nor opening an app is a failure.
+                # Neither an app nor an input opened from Home is a failure: sam still lists Home.
                 for _ in range(3):
-                    front("com.tvweb.dashboard", ["com.tvweb.dashboard"])
+                    front(HOME, [HOME])
                     time.sleep(0.4)
-                    front("com.webos.app.home", ["com.tvweb.dashboard"])   # the Home key: the client stays listed
-                    time.sleep(0.6)
-                front("com.tvweb.dashboard", ["com.tvweb.dashboard"])
-                time.sleep(0.6)
-                front("com.webos.app.netflix", [])                      # an app opened from Home
+                    front("com.webos.app.netflix", [HOME, "com.webos.app.netflix"])
+                    time.sleep(0.4)
+                    front(HOME, [HOME])
+                    time.sleep(0.4)
+                    front("com.webos.app.hdmi1", [HOME])
+                    time.sleep(0.4)
+                # Nor Home closed by sam behind an app it opened.
+                front(HOME, [HOME])
+                time.sleep(0.4)
+                front("com.webos.app.netflix", ["com.webos.app.netflix"])
                 time.sleep(1.0)
                 status = home()["nativeHome"]
                 self.assertFalse(status["halted"], status)
                 self.assertEqual(status["crashes"]["recentExits"], 0, status)
                 self.assertTrue(world.mounted.exists())
 
-                # The client dies while it is in front, three times: LG's Home comes back.
-                for attempt in range(3):
-                    front("com.tvweb.dashboard", ["com.tvweb.dashboard"])
+                # The Native Tv tile's own client is closed as Native Tv Home comes to the front: Home has its own.
+                self.assertTrue(closed(), "each return of Home asks sam to close the tile's client")
+                time.sleep(0.5)                       # the close for the last return of Home has landed
+                before = len(closed())
+                front("com.tvweb.dashboard", [HOME, "com.tvweb.dashboard"])
+                time.sleep(0.4)
+                self.assertEqual(len(closed()), before, "not while it is in front")
+                front(HOME, [HOME, "com.tvweb.dashboard"])
+                self._wait_until(lambda: len(closed()) > before, 8, "the tile's client was not closed")
+                self.assertEqual(closed()[-1]["payload"], {"id": "com.tvweb.dashboard"})
+
+                # Home dies while it is in front, three times: LG's Home comes back.
+                # A running list the stand-in answers too late (a loaded host) is not a crash, so a crash
+                # that was not counted is repeated, at most twice.
+                for attempt in range(5):
+                    counted = home()["nativeHome"]["crashes"]["recentExits"]
+                    front(HOME, [HOME])
                     time.sleep(0.5)
-                    front("com.webos.app.home", [])
-                    if attempt < 2:
-                        self._wait_until(lambda n=attempt + 1: home()["nativeHome"]["crashes"]["recentExits"] >= n,
-                                         8, "crash %d was not counted" % (attempt + 1))
+                    front("com.webos.app.livetv", [])   # sam puts the last input in front
+                    deadline = time.monotonic() + 6
+                    while time.monotonic() < deadline and not home()["nativeHome"]["halted"] and \
+                            home()["nativeHome"]["crashes"]["recentExits"] <= counted:
+                        time.sleep(0.1)
+                    if home()["nativeHome"]["halted"]:
+                        break
                 self._wait_until(lambda: not world.mounted.exists(), 12, "LG's Home was not given back")
                 self.assertEqual(world.appDirectory.resolve(), world.originalHome.resolve())
                 status = home()
@@ -8918,12 +8948,12 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self._wait_until(lambda: not remote.exists() or "starting" not in json.loads(remote.read_text()),
                                  8, "the Home key's starting notice was not cleared")
 
-                # Not taken again: the client coming and going, and the stub left in front, do nothing.
+                # Not taken again: Home coming and going does nothing.
                 released = len(world.mountLog.read_text().splitlines())
-                front("com.tvweb.dashboard", ["com.tvweb.dashboard"])
+                front(HOME, [HOME])
                 time.sleep(0.5)
-                front("com.webos.app.home", [])
-                time.sleep(4.0)
+                front("com.webos.app.livetv", [])
+                time.sleep(2.0)
                 self.assertEqual(len(world.mountLog.read_text().splitlines()), released)
                 self.assertFalse(world.mounted.exists())
                 self.assertTrue(home()["nativeHome"]["halted"])
@@ -8936,13 +8966,6 @@ class DaemonRuntimeTests(unittest.TestCase):
                 status = home()["nativeHome"]
                 self.assertFalse(status["halted"], status)
                 self.assertEqual(status["crashes"]["recentExits"], 0)
-
-                # A stub that stays in front with no client behind it is a failure too: the third gives LG's Home back.
-                front("com.webos.app.home", [])
-                self._wait_until(lambda: not world.mounted.exists(), 15, "a stub left in front was not given up")
-                status = home()["nativeHome"]
-                self.assertTrue(status["halted"], status)
-                self.assertEqual(status["cause"], "crashLoop")
             finally:
                 output = self._stop_daemon(process)
             self.assertIn("home: Native Tv's Home screen stopped 3 times within 120 seconds.", output)
@@ -8971,20 +8994,19 @@ class DaemonRuntimeTests(unittest.TestCase):
             finally:
                 self._stop_daemon(process)
 
-    def test_native_home_client_registration(self):
-        """Home needs the Native Tv tile's app known to sam: refused at switch-on, and given up at once if it goes."""
+    def test_native_home_needs_no_tile(self):
+        """Native Tv Home is staged from the client's files: the Native Tv tile need not be on the home screen."""
         publicPort = unused_port_pair()
-        with tempfile.TemporaryDirectory(prefix="nativetv-home-registered-") as folder:
-            world = self._home_world(Path(folder), publicPort, "home-registered-token",
-                                     "home-registered-secret-0123456789abcdef", "home-breaker",
-                                     nativeClient={"stubGraceMs": 30000})
+        with tempfile.TemporaryDirectory(prefix="nativetv-home-tileless-") as folder:
+            world = self._home_world(Path(folder), publicPort, "home-tileless-token",
+                                     "home-tileless-secret-0123456789abcdef", "home-breaker")
             # The developer client an earlier release staged goes at start; the tile's app stays.
             apps = world.system / "media/developer/apps/usr/palm"
             for name in ("applications/com.tvweb.native", "applications/com.tvweb.dashboard", "packages/com.tvweb.native"):
                 (apps / name).mkdir(parents=True)
             (apps / "applications/com.tvweb.native/nativetv-tv").write_text("old")
             (apps / "applications/com.tvweb.dashboard/nativetv-tv").write_text("tile")
-            world.unregistered.write_text("")
+            world.unregistered.write_text("")       # sam does not know com.tvweb.dashboard
             process = self._start_home_daemon(world)
             try:
                 self._wait_until(lambda: not (apps / "applications/com.tvweb.native").exists(), 10,
@@ -8992,90 +9014,35 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertFalse((apps / "packages/com.tvweb.native").exists())
                 self.assertTrue((apps / "applications/com.tvweb.dashboard/nativetv-tv").is_file())
 
-                # The tile is off the home screen: switching on is refused, saying how to put it back.
-                status, answer = self._home_api(world, "/api/home/enable", post=True)
-                self.assertFalse(answer["ok"], answer)
-                self.assertIn("home screen", answer["error"])
-                self.assertIn("Server tab", answer["error"])
-                self.assertFalse(world.mountLog.exists(), "nothing is mounted for a client sam will not open")
-                self.assertFalse(world.clientCalls.exists(), "and the probe is not opened for it")
-                status, answer = self._home_api(world, "/api/home")
-                self.assertEqual(answer["nativeClient"]["class"], "unregistered", answer)
-                self.assertFalse(answer["enabled"])
-
-                # Back on the home screen: the same switch works.
-                world.unregistered.unlink()
                 status, answer = self._home_api(world, "/api/home/enable", post=True)
                 self.assertEqual(answer, {"ok": True}, answer)
                 self.assertTrue(world.mounted.exists())
+                self.assertEqual(world.samType.read_text().strip(), "nativetv", "sam reads Native Tv Home's manifest")
                 status, answer = self._home_api(world, "/api/home/disable", post=True)
                 self.assertTrue(answer["ok"], answer)
                 self.assertFalse(world.mounted.exists())
-
-                # The boot hook's takeover asks sam too.
-                (world.data / "home.json").write_text(json.dumps({"enabled": True}))
-                world.unregistered.write_text("")
-                refused = subprocess.run(world.command("--takeover-home"), capture_output=True, text=True,
-                                         env=world.environment, timeout=30)
-                self.assertEqual(refused.returncode, 4, refused.stdout + refused.stderr)
-                self.assertFalse(world.mounted.exists())
-                world.unregistered.unlink()
-                allowed = subprocess.run(world.command("--takeover-home"), capture_output=True, text=True,
-                                         env=world.environment, timeout=30)
-                self.assertEqual(allowed.returncode, 0, allowed.stdout + allowed.stderr)
-                self.assertTrue(world.mounted.exists())
-                released = subprocess.run(world.command("--release-home"), capture_output=True, text=True,
-                                          env=world.environment, timeout=30)
-                self.assertEqual(released.returncode, 0, released.stdout + released.stderr)
+                self.assertEqual(world.samType.read_text().strip(), "native", "and LG's again after")
             finally:
                 self._stop_daemon(process)
 
-            # Home is on and in place; the owner takes the tile off. The next time the stub comes to the front
-            # (the Home key from an input) LG's Home is given back at once, not after three graces.
+            # The boot hook's takeover does not ask for the tile either.
             (world.data / "home.json").write_text(json.dumps({"enabled": True}))
-            process = self._start_home_daemon(world, orchestrator=True)
+            allowed = subprocess.run(world.command("--takeover-home"), capture_output=True, text=True,
+                                     env=world.environment, timeout=30)
+            self.assertEqual(allowed.returncode, 0, allowed.stdout + allowed.stderr)
+            self.assertTrue(world.mounted.exists())
+            released = subprocess.run(world.command("--release-home"), capture_output=True, text=True,
+                                      env=world.environment, timeout=30)
+            self.assertEqual(released.returncode, 0, released.stdout + released.stderr)
+            self.assertFalse(world.mounted.exists())
 
-            def front(appId, listed=()):
-                world.running.write_text(json.dumps({"running": [{"id": app} for app in listed]}))
-                world.foreground.write_text(json.dumps({"appId": appId}))
-
-            def home():
-                return self._home_api(world, "/api/home")[1]
-            try:
-                self._wait_until(world.mounted.exists, 10, "the start did not take LG's Home's place")
-                front("com.webos.app.hdmi1")
-                time.sleep(0.5)
-                world.unregistered.write_text("")
-                front("com.webos.app.home")                              # the Home key, from HDMI
-                started = time.monotonic()
-                self._wait_until(lambda: not world.mounted.exists(), 6, "LG's Home was not given back at once")
-                self.assertLess(time.monotonic() - started, 6)
-                status = home()
-                self.assertTrue(status["nativeHome"]["halted"], status)
-                self.assertEqual(status["nativeHome"]["cause"], "client")
-                self.assertIn("home screen", status["nativeHome"]["reason"])
-                self.assertEqual(status["nativeHome"]["crashes"]["recentExits"], 0,
-                                 "one refusal, not three exits, is what did it")
-                self.assertTrue(status["enabled"], "Home stays switched on")
-            finally:
-                output = self._stop_daemon(process)
-            self.assertIn("is not on this TV's home screen", output)
-
-            # A start that finds the tile gone does not take the place at all.
-            (world.data / "home.json").write_text(json.dumps({"enabled": True}))
-            process = self._start_home_daemon(world, orchestrator=True)
-            try:
-                self._wait_until(lambda: home()["nativeHome"]["halted"], 10, "the start did not give it up")
-                self.assertEqual(home()["nativeHome"]["cause"], "client")
-                self.assertFalse(world.mounted.exists())
-                # Put the tile back, switch Home on again: the watch starts over and the place is taken.
-                world.unregistered.unlink()
-                status, answer = self._home_api(world, "/api/home/enable", post=True)
-                self.assertEqual(answer, {"ok": True}, answer)
-                self.assertTrue(world.mounted.exists())
-                self.assertFalse(home()["nativeHome"]["halted"])
-            finally:
-                self._stop_daemon(process)
+            # Without the client's files there is nothing to stage: refused, not mounted.
+            (world.assets / "dashboard-app/nativetv-tv").unlink()
+            missing = subprocess.run(world.command("--takeover-home"), capture_output=True, text=True,
+                                     env=world.environment, timeout=30)
+            self.assertNotEqual(missing.returncode, 0, missing.stdout + missing.stderr)
+            self.assertIn("files are not on this TV", missing.stdout + missing.stderr)
+            self.assertFalse(world.mounted.exists())
 
     def test_native_home_startup_route(self):
         binary = Path(sys.argv[1]).resolve()
@@ -10776,8 +10743,6 @@ class DaemonRuntimeTests(unittest.TestCase):
             assets = root / "assets"
             calls = root / "tvapp-calls"
             (assets / "dashboard-app").mkdir(parents=True)
-            (assets / "home-app").mkdir()
-            (assets / "home-app/appinfo.json").write_text("{}")
             (assets / "splash-app").mkdir()
             (assets / "splash-app/appinfo.json").write_text("{}")
             (assets / "dashboard-app/install-app.sh").write_text(
@@ -15271,9 +15236,9 @@ class DaemonRuntimeTests(unittest.TestCase):
             assets = root / "assets"
             systemRoot = root / "system"
             procRoot = root / "proc"
-            source = assets / "home-app"
+            source = assets / "dashboard-app"
             sourceAssets = source / "assets"
-            sourceAssets.mkdir(parents=True)
+            (sourceAssets / "fonts").mkdir(parents=True)
             systemBin = systemRoot / "bin"
             systemBin.mkdir(parents=True, exist_ok=True)
             (systemBin / "sh").symlink_to("/bin/sh")
@@ -15294,12 +15259,17 @@ class DaemonRuntimeTests(unittest.TestCase):
                 "else\n"
                 "  rm -f \"" + str(earlyManifest) + "\"\n"
                 "fi\n")
-            (source / "index.html").write_text(
-                "<html><script>var PORT = 8080; // tvweb:port\n"
-                "var BASE = 'http://localhost:' + PORT;</script></html>\n")
+            # The dashboard app's payload: its own manifest, package manifest and installer are not
+            # Home's; the client, its libraries and assets are.
             (source / "appinfo.json").write_text('{"id":"must-not-be-staged"}\n')
+            (source / "packageinfo.json").write_text('{"id":"must-not-be-staged"}\n')
+            (source / "install-app.sh").write_text("exit 1\n")
+            (source / "nativetv-tv").write_text("client v1")
+            (source / "nativetv-tv").chmod(0o644)
+            (source / "libcurl.so.4").write_bytes(b"curl")
             (sourceAssets / "icon80.png").write_bytes(b"icon-80")
             (sourceAssets / "icon130.png").write_bytes(b"icon-130")
+            (sourceAssets / "fonts/GoogleSansFlex-Regular.ttf").write_bytes(b"font")
             originalHome = root / "lg-home"
             originalHome.mkdir()
             (originalHome / "appinfo.json").write_text('{"id":"com.webos.app.home","type":"native"}\n')
@@ -15360,6 +15330,7 @@ class DaemonRuntimeTests(unittest.TestCase):
             environment["NATIVETV_FAKE_LUNA_MODE"] = "home-takeover"
             environment["NATIVETV_FAKE_HOME_TAKEOVER_TYPE"] = str(samHomeType)
             environment["NATIVETV_FAKE_HOME_TAKEOVER_MOUNTED"] = str(mountedMarker)
+            environment["NATIVETV_FAKE_HOME_TAKEOVER_APPINFO"] = str(appDirectory / "appinfo.json")
             environment["NATIVETV_FAKE_HOME_TAKEOVER_REFUSE"] = str(samRefuse)
             environment["NATIVETV_FAKE_LUNA_DETAILS"] = str(root / "luna-details.jsonl")
             environment["TVWEB_DATA_DIR"] = str(dataRoot)
@@ -15434,7 +15405,8 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertEqual(body["result"], {
                     "ok": True, "changed": True, "mounted": True, "already": False
                 })
-                self.assertEqual(samHomeType.read_text().strip(), "web")
+                self.assertEqual(samHomeType.read_text().strip(), "nativetv",
+                                 "sam reads the native manifest the takeover staged")
                 self.assertTrue(mountedMarker.exists())
                 samCalls = [json.loads(line) for line in
                             (root / "luna-details.jsonl").read_text().splitlines()]
@@ -15450,15 +15422,26 @@ class DaemonRuntimeTests(unittest.TestCase):
                 status, body = request("stopLgHome")
                 self.assertEqual(status, 200, body)
                 self.assertEqual(body["result"], {"ok": True, "stopped": True})
-                self.assertEqual((staged / "index.html").read_text(),
-                    "<html><script>var PORT = %d; // tvweb:port\n"
-                    "var BASE = 'http://localhost:' + PORT;</script></html>\n"
-                    % publicPort)
+                # Native Tv Home is the client itself: its files, a start script and a native manifest.
+                self.assertEqual(sorted(str(path.relative_to(staged)) for path in staged.rglob("*")
+                                        if path.is_file()),
+                                 ["appinfo.json", "assets/fonts/GoogleSansFlex-Regular.ttf",
+                                  "assets/icon130.png", "assets/icon80.png", "libcurl.so.4",
+                                  "nativetv-home", "nativetv-tv"])
+                self.assertEqual((staged / "nativetv-tv").read_text(), "client v1")
+                self.assertEqual((staged / "nativetv-tv").stat().st_mode & 0o777, 0o755)
+                self.assertEqual(int((staged / "nativetv-tv").stat().st_mtime),
+                                 int((source / "nativetv-tv").stat().st_mtime))
                 self.assertEqual((staged / "assets/icon80.png").read_bytes(), b"icon-80")
+                self.assertEqual((staged / "assets/icon80.png").stat().st_mode & 0o777, 0o644)
+                script = staged / "nativetv-home"
+                self.assertEqual(script.stat().st_mode & 0o777, 0o755)
+                self.assertIn("export APPID=com.webos.app.home\n", script.read_text())
+                self.assertIn('exec "$(dirname "$0")/nativetv-tv" "$@"\n', script.read_text())
                 appInfo = json.loads((staged / "appinfo.json").read_text())
                 self.assertEqual(appInfo, {
                     "id": "com.webos.app.home", "version": "1.0.0",
-                    "vendor": "tvweb", "type": "web", "main": "index.html",
+                    "vendor": "tvweb", "type": "native", "main": "nativetv-home",
                     "title": "Home", "icon": "assets/icon80.png",
                     "largeIcon": "assets/icon130.png", "iconColor": "#000000",
                     "bgColor": "#000000", "resolution": "1920x1080",
@@ -15466,6 +15449,8 @@ class DaemonRuntimeTests(unittest.TestCase):
                     "appCategory": ["home"]
                 })
                 self.assertEqual(appDirectory.resolve(), staged.resolve())
+                # The client staged with the source's time is not read again: a start does not copy 7 MB twice.
+                stagedClient = (staged / "nativetv-tv").stat().st_ino
 
                 status, body = request()
                 self.assertEqual(status, 200, body)
@@ -15474,18 +15459,23 @@ class DaemonRuntimeTests(unittest.TestCase):
                 })
                 self.assertEqual(len(mountLog.read_text().splitlines()), 1,
                                  "an existing takeover must not mount twice")
-                (source / "index.html").write_text(
-                    "<html><script>var PORT = 8080; // tvweb:port\n"
-                    "var BASE = 'http://localhost:' + PORT;</script><p>v2</p></html>\n")
+                self.assertEqual((staged / "nativetv-tv").stat().st_ino, stagedClient)
+                # A new release's client replaces the staged one by rename, and what the web stand-in
+                # of an earlier release left there goes.
+                (source / "nativetv-tv").write_text("client v2")
+                later = (source / "nativetv-tv").stat().st_mtime + 10
+                os.utime(source / "nativetv-tv", (later, later))
+                (staged / "index.html").write_text("<html></html>")
+                (staged / "home-snapshot.jpg").write_bytes(b"jpeg")
                 status, body = request()
                 self.assertEqual(status, 200, body)
                 self.assertEqual(body["result"], {
                     "ok": True, "changed": True, "mounted": True, "already": True
                 })
-                self.assertEqual((staged / "index.html").read_text(),
-                    "<html><script>var PORT = %d; // tvweb:port\n"
-                    "var BASE = 'http://localhost:' + PORT;</script><p>v2</p></html>\n"
-                    % publicPort)
+                self.assertEqual((staged / "nativetv-tv").read_text(), "client v2")
+                self.assertNotEqual((staged / "nativetv-tv").stat().st_ino, stagedClient)
+                self.assertFalse((staged / "index.html").exists())
+                self.assertFalse((staged / "home-snapshot.jpg").exists())
 
                 keptLayout = root / "data/home-takeover-lg-layout"
                 keptLayout.mkdir()
@@ -15658,7 +15648,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                             "the boot entry point should use the native lifecycle")
             self.assertEqual(appDirectory.resolve(),
                              (dataRoot / "home-takeover").resolve())
-            self.assertEqual(samHomeType.read_text().strip(), "web")
+            self.assertEqual(samHomeType.read_text().strip(), "nativetv")
             webos11Layout = systemRoot / "mnt/lg/cmn_data/manifest/home_layoutShelfView.xml"
             self.assertEqual(
                 webos11Layout.read_text(), originalLayout,

@@ -8,7 +8,7 @@ namespace daemon {
 class ChildProcessRunner;
 
 // Runs the packaged install-app.sh for the TV apps: the dashboard tile and the
-// splash, which are the native client, and the old Home app, still a web page.
+// splash, which are the native client.
 // The script keeps the developer install service details; this wraps it the
 // way the server did: one action, the last line of output read back as JSON.
 class TvAppManager {
@@ -16,7 +16,7 @@ class TvAppManager {
     TvAppManager(ChildProcessRunner &children, std::string assetsRoot);
 
     // action: status, install, remove, refresh or retire. appDir names another
-    // app the script installs ("home-app", "splash-app"); empty is the dashboard.
+    // app the script installs ("splash-app"); empty is the dashboard.
     Json run(const std::string &action, const std::string &appDir = std::string());
 
     // Brings the installed native client apps up to date with the release: the
