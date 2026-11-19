@@ -53,7 +53,8 @@ const Entry kTable[] = {
     {"com.seeky91.immichtv", "home"},
     // Tools
     {"com.webos.app.browser", "tools"}, {"org.webosbrew.hbchannel", "tools"},
-    {"com.tvweb.dashboard", "tools"}, {"facebook", "tools"}, {"instagram", "tools"},
+    {"com.tvweb.dashboard", "tools"}, {"io.github.ihtisham1211.nativetv", "tools"},
+    {"facebook", "tools"}, {"instagram", "tools"},
     {"reddit", "tools"}, {"x", "tools"}, {"twitter", "tools"},
     {"org.webosbrew.custom-screensaver", "tools"}, {"org.webosbrew.piccap", "tools"},
     {"org.webosbrew.hyperhdr.loader", "tools"}, {"org.webosbrew.hyperion.ng.loader", "tools"},

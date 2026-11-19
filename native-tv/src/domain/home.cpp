@@ -116,6 +116,8 @@ Json hiddenIds(const Json &catalogue, const std::string &list) {
 }
 namespace {
 const char *const kClientApp = "com.tvweb.dashboard";
+// On a Homebrew Channel install the client has no tile; the package's tile opens it.
+const char *const kPackageApp = "io.github.ihtisham1211.nativetv";
 bool contains(const Json &values, const std::string &id) {
     for (const auto &value : values.items())
         if (value.string() == id)
@@ -166,7 +168,7 @@ CardRow catalogueRow(const std::string &kind, const Json &catalogue, const Json 
         }
         // The Native Tv tile is this client: it is already in front while Home shows it, so a
         // launch would change nothing. It opens the settings the tile opens from LG's launcher.
-        card.command = kind == "app" && id == kClientApp
+        card.command = kind == "app" && (id == kClientApp || id == kPackageApp)
                            ? navigate("dashboard")
                            : post(Operation::OpenHomeItem,
                                   fields({{"kind", Json::text(id == "lg-home" ? "lg" : kind)},

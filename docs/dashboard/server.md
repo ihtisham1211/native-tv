@@ -30,7 +30,7 @@ The **Server and backup** tab of the **Settings** section, `/?tab=server`, holds
 
 **TV theme** sets how the screens on the TV look: Google TV, Apple TV or OLED Care. It is the same setting as Settings, TV theme on the TV, kept on the TV and carried by Settings backup. Apple TV's Home is a dock of apps under the current pick, and OLED Care's shows the apps, inputs and panel, without film picks. [The TV app](../apps/tv-app.md#tv-theme) describes the themes.
 
-**App on the TV's home screen** adds or removes [the native TV app](../apps/tv-app.md). The Homebrew package registers the native app at setup and opens it from its launcher tile. If the native app was removed, opening the Homebrew launcher registers it again when webOS allows it.
+**App on the TV's home screen** adds or removes [the native TV app](../apps/tv-app.md) on an SSH install. A Homebrew Channel install has no such switch: the package registers the native app at setup without a tile of its own and opens it from the package's tile, so the home screen shows one Native Tv. If the native app was removed, opening the Homebrew launcher registers it again when webOS allows it.
 
 ## Advanced
 

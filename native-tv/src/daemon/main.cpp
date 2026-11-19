@@ -49,6 +49,7 @@
 #include "domain/names.hpp"
 #include "domain/say_translation.hpp"
 #include "platform/client_config.hpp"
+#include "service/home_status.hpp"
 #include "service/piccap.hpp"
 #include "service/adblock_store.hpp"
 #include "service/history_recorder.hpp"
@@ -1126,9 +1127,8 @@ int main(int argc, char **argv) {
                 children, systemRoot, dataDirectory(), procRoot,
                 loaded.config.document["allowHomeLayout"].boolean()));
             homeTakeoverManager.reset(new HomeTakeoverManager(
-                children, assetsRoot + "/home-app",
-                dataDirectory() + "/home-takeover", systemRoot,
-                loaded.config.port));
+                children, assetsRoot + "/dashboard-app",
+                dataDirectory() + "/home-takeover", systemRoot));
             samRescanManager.reset(new SamRescanManager(commandPolicy, children,
                                                         systemRoot, &logger));
             homeTakeoverLifecycleManager.reset(new HomeTakeoverLifecycleManager(
@@ -1173,7 +1173,7 @@ int main(int argc, char **argv) {
                     return 3;
                 }
                 if (!homeScreenManager->supportsTakeover(
-                        loaded.config.document["allowExperimentalHome"].boolean())) {
+                        service::experimentalHomeAllowed(loaded.config.document))) {
                     logger.info("Home takeover skipped: firmware is unsupported or experimental Home is disabled");
                     return 4;
                 }
@@ -1193,11 +1193,10 @@ int main(int argc, char **argv) {
                 if (firmware.isString())
                     context.firmwareVersion = firmware.string();
                 if (takeoverHome) {
-                    // The stub that takes LG's Home's place has no page of its own to
-                    // show, so sam has to know the client and it has to be able to draw.
+                    // Native Tv Home is the native client: it has to be able to draw.
                     HomeProbeGate probeGate(children, homeProbeOptions(loaded.config.document,
-                                                                       systemRoot, dataDirectory()),
-                                            [&luna]() { return homeClientRegistration(luna); });
+                                                                       systemRoot, dataDirectory(),
+                                                                       assetsRoot));
                     const Json probe = probeGate.verdict(false);
                     if (!probe["ok"].boolean()) refusal = probe;
                 }

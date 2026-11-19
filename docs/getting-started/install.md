@@ -12,7 +12,7 @@ Each [release](https://github.com/ihtisham1211/native-tv/releases) carries the H
 1. Root the TV and install the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel).
 2. Download `io.github.ihtisham1211.nativetv_<version>_all.ipk` from the [latest release](https://github.com/ihtisham1211/native-tv/releases/latest).
 3. Install it on the TV with [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop) or `ares-install`.
-4. Open Native Tv on the TV. The launcher installs and starts the server, registers the native TV app and opens it. On a first run the native app opens the [setup wizard](#option-1-on-screen-setup-in-the-tv-app).
+4. Open Native Tv on the TV. The launcher installs and starts the server, registers the native TV app and opens it. On a first run the native app opens the [setup wizard](#option-1-on-screen-setup-in-the-tv-app). On webOS 11 with Homebrew Channel 0.7.3 the launcher cannot run setup itself the first time; it shows the SSH command to run once instead ([Troubleshooting](#troubleshooting)).
 
 A package install updates itself later: the Server tab's **Updates** card installs a newer release, and [Managing](managing.md#updating) says what that changes. The rest of this page, from the quick start on, builds the server from a clone and installs it over SSH instead.
 
@@ -197,7 +197,7 @@ Advanced settings can be adjusted in `config.json` or through the dashboard's Se
 | `ntp.server` | `""` | Hostname of an NTP server (e.g., `"pool.ntp.org"`) to synchronize the TV's clock on boot and hourly. |
 | `syslog.server` | `""` | Remote syslog server address to forward TV and Native Tv logs over RFC 5424 UDP (port `514`). |
 | `allowTileHiding` | `false` | Experimental: allows hiding built-in LG system tiles and apps on the home screen. |
-| `allowExperimentalHome` | `false` | Experimental: offers [Native Tv Home](../dashboard/home.md) on webOS 11, where it is untried. |
+| `allowExperimentalHome` | `true` | Experimental: offers [Native Tv Home](../dashboard/home.md) on webOS 11. `false` stops offering it there. |
 | `allowExperimentalScreensavers` | `false` | Experimental: allows custom QML screensavers on webOS 12 and newer, which are untried there. Named `allowOnWebos10` before 0.105; that name is still read, and renamed when the server starts. |
 | `allowNetworkDebugger` | `false` | Exposes the webOS app inspector on port `9998` over the local network for developers using `ares-inspect`. |
 | `iconServer` | `false` | Serves installed apps' icons, read-only and without a token, at `http://<tv-ip>:8082/icons/<appId>.png` (the dashboard's port plus two), for launchers on other devices. Home Assistant's Launch App select then lists each icon's address in `app_icons`. Also switched from the Home Assistant tab. |
@@ -228,5 +228,13 @@ Logging verbosity is the `logging.level` setting (`quiet`, `info` or `debug`); t
 ## Troubleshooting
 
 * **Connection refused during install.** The installer tries key-based SSH first, then telnet, and never prompts for an SSH password. If SSH has no key for the TV, make sure telnet is toggled **ON** in the TV's Homebrew Channel app settings, or run `native-tv/lifecycle/deploy.sh <tv-ip> --telnet` to connect directly over telnet.
+* **"Homebrew Channel refused to run the setup" or `Denied method call "exec" for category "/"` when opening Native Tv.** Homebrew Channel 0.7.3 offers its service only to the `public` group, which webOS 11 no longer gives apps. Run the setup once as root over SSH:
+
+    ```bash
+    ssh root@<tv-ip>
+    sh /media/developer/apps/usr/palm/applications/io.github.ihtisham1211.nativetv/payload/install.sh
+    ```
+
+    It installs and starts the server, and grants the Native Tv app Homebrew Channel's service, so from then on the launcher sets up and starts the server itself, after a package update too. Reinstalling the package keeps the grant.
 * **Nothing on port 8080.** On the TV, `/var/lib/tvweb/tvwebctl status` says whether the server is running and `/var/lib/tvweb/tvweb.log` says why it is not.
 * **Panel hours and OLED Care missing on an OLED TV**, or showing on an LCD one. Panel detection went the wrong way: set `"panel": "oled"` or `"panel": "lcd"` in `native-tv/lifecycle/config.json` before a first deploy, or in `/var/lib/tvweb/config.json` on a TV that already has one.

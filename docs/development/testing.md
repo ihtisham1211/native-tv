@@ -11,7 +11,7 @@ something is wrong, and Home Assistant and the TV's own browser fail quietly.
 
 | Check | What it catches |
 | :--- | :--- |
-| `check-es5.py` | ES6 syntax, or a call or CSS the TV browser lacks, in the pages the TV shows (`native-tv/assets/google-tv/`, the Home app). The phone dashboard is not restricted. |
+| `check-es5.py` | ES6 syntax, or a call or CSS the TV browser lacks, in the pages the TV shows (`native-tv/assets/google-tv/`). The phone dashboard is not restricted. |
 | `check-ui-ids.py` | An element the dashboard's script reaches for that the page no longer has. |
 | `check-strings.py` | Dashboard text or a `say::msg` message without a key, one key used for two different texts, and a dictionary in `native-tv/assets/i18n/` that does not parse, holds a key nothing uses, or has placeholders or markup that differ from its English, or a language `i18n.js` lists without a file or a name. Translations made from English that has since changed are reported, not failed. [Strings](strings.md) has the rules. |
 | `check-screensavers.py` | Screen saver QML that the TV's QtQuick version cannot load. |
@@ -392,13 +392,15 @@ front door runs it after both.
 `native-launcher-sync` (`tests/launcher_sync.cpp`) covers the port and the appinfo of the installed launcher pages:
 the `var PORT = n; // tvweb:port` line of each installed launcher page follows the dashboard port, idempotently,
 skipping absent or unmarked pages and ports outside 1-65535, `appinfo.json` gets `resolution` 1920x1080, and the
-pages that ship (the Home app's and the Homebrew Channel app's; the dashboard tile is a native app with no page)
-carry the marker at port 8080; the daemon runs it at every start. `native-tv-app-manager`
+page that ships (the Homebrew Channel app's; the dashboard tile and Native Tv Home are the native client, with no page)
+carries the marker at port 8080; the daemon runs it at every start. `native-tv-app-manager`
 (`tests/tv_app_manager.cpp`) runs `TvAppManager` against a stand-in `install-app.sh`: the last line is the answer,
 and the start-up refresh covers the tile and then the splash. `native-install-app` (`tests/install_app.py`) runs the
 real `install-app.sh` against a stand-in `luna-send` that unpacks the package it builds: a native app is installed
 whole (executable bit, fonts, icons, libraries, licences) and not offered without its executable, a refresh leaves a
-current app alone, replaces a stale one and waits while the app is open, and a web app keeps its port line. The port refusals are in
+current app alone, replaces a stale one and waits while the app is open. On a
+Homebrew Channel install the native app is registered with `"visible": false` and reported `managed`, one added with a
+tile before is reinstalled without it, and the splash's manifest is left as it is. The port refusals are in
 `test_native_server_tab_controls`. `native-devtools-firewall` (`tests/devtools_firewall.cpp`, scripted `iptables`/`ip6tables` in a fake root)
 covers the rule per family, `closed`, `open`, `unsupported` and `off`, the tools found in
 `/sbin`, and `allowNetworkDebugger` taking a rule out.
@@ -457,7 +459,7 @@ against `ui.html` (the 13 panels, five sections, the tab buttons the scripts rev
 `navState` call, and the `?theme=` and `data-theme` behaviour. `test-hdmi-grid.js` runs `hdmiTable()` from `ui/lgsettings.js` and holds that no column of the HDMI inputs
 table keeps a minimum width: three of them once did (150, 130 and 130 px), which pushed the Audio format column off a 390 px phone. `test-lg-uploads-ui.js` runs `renderLgSettings()` and its click handler from the same file: the Privacy tab's "Log uploads to LG" section shows only where the TV reports an upload setting, counts the switches that are on, has no master switch, and sends `lgSetting` for the row clicked. `test-wifi-name.js` runs `tick()` from `ui/readouts.js` against one stats answer and holds that the Network row shows a Wi-Fi name with `&`, `<` or `"` as typed: the row writes its sub-line as text, and a name escaped first showed "Home &amp; Garden". `test-release-card.js` runs `renderRelease()` from `ui/server.js` against the shapes the server sends for the Updates card: a newer release that can be installed from the card and one that cannot, an update at each stage and one that failed (beside its own release only), none, a failed check (beside the last good answer or alone), a check under way, and no release check at all; then the Install button's confirmation and the page's wait for the server to come back with the new version, or to say it failed. `test-pwa.js` holds the install contract: `ui.html` links a manifest with a name, the start URL `/`, standalone display, the page's theme colour and 192, 512 and maskable icons that are PNGs of the size they claim, and the service worker (`assets/pwa/sw.js`) answers page navigations only, with an offline page when the TV is unreachable, and never caches.
 
-`test-remote-keys-filter.js` runs the TV's key filter (`assets/remotekeys-filter.js`) against stand-ins for the compositor's objects: Screen off, Power off, an app, a media control, OK (key code 28, once per press), and Home Assistant, which does nothing on the TV and is not opened as an app. `test-remote-keys-tiles.js` runs `renderRemoteKeys()` and `toggleRemoteKey()` from `ui/apps.js`: the regional and assistant buttons are grouped (Globoplay and Shahid folded away as buttons of other countries' remotes), a key set to Home Assistant shows so, and Home Assistant is a choice only on a key whose row says it receives the presses, with the microphone's note. `native-remote-buttons` reads every reported button from its evdev code and its Qt code in LG's input log (whole numbers only), through a device file as well, and holds that the Remote Button entity declares each as an event type, since Home Assistant drops an undeclared one. `native-remote-keys-catalog` holds the Movies, Microphone, Globoplay and Shahid rows with their countries, the Ivi, Okko, Kinopoisk and LG Shop rows of webOS 11 (offered only where LG has them switched on, written and put back like the other streaming buttons), OK among the buttons, and the Home Assistant choice (offered only with MQTT on, on the reported keys, with neither control switch needed). `test_native_apps_list_projection_and_context_fallback` in `daemon_runtime.py` sets a key to Home Assistant over HTTP, with MQTT on, and has a key whose presses are not reported refused.
+`test-remote-keys-filter.js` runs the TV's key filter (`assets/remotekeys-filter.js`) against stand-ins for the compositor's objects: Screen off, Power off, an app, a media control, OK (key code 28, once per press), and Home Assistant, which does nothing on the TV and is not opened as an app; and Home pressed while Native Tv Home is starting, held from LG's filters, with the starting notice until sam reports Native Tv Home's `main` (`nativetv-home`) for `com.webos.app.home`, and then opened. `test-remote-keys-tiles.js` runs `renderRemoteKeys()` and `toggleRemoteKey()` from `ui/apps.js`: the regional and assistant buttons are grouped (Globoplay and Shahid folded away as buttons of other countries' remotes), a key set to Home Assistant shows so, and Home Assistant is a choice only on a key whose row says it receives the presses, with the microphone's note. `native-remote-buttons` reads every reported button from its evdev code and its Qt code in LG's input log (whole numbers only), through a device file as well, and holds that the Remote Button entity declares each as an event type, since Home Assistant drops an undeclared one. `native-remote-keys-catalog` holds the Movies, Microphone, Globoplay and Shahid rows with their countries, the Ivi, Okko, Kinopoisk and LG Shop rows of webOS 11 (offered only where LG has them switched on, written and put back like the other streaming buttons), OK among the buttons, and the Home Assistant choice (offered only with MQTT on, on the reported keys, with neither control switch needed). `test_native_apps_list_projection_and_context_fallback` in `daemon_runtime.py` sets a key to Home Assistant over HTTP, with MQTT on, and has a key whose presses are not reported refused.
 
 `native-luna` also covers the urgent call's one extra slot (one key press at a time, ahead of the
 normal calls waiting), a child killed before answering run once more and then given up on, a
@@ -492,16 +494,15 @@ daemon reads what earlier builds left only with the flag.
 `native-home-crash-breaker` checks the count that gives LG's Home back when the native client keeps
 failing: three exits within two minutes trip it, two do not, an exit a window old is forgotten, and a
 tripped breaker stays tripped (more exits, and time, do not clear it) until it is reset. The same
-executable as `native-home-orchestrator` goes on to run the watch itself on the virtual clock: three crashes (the client
-gone from the running list as LG's Home comes to the front) and three grace periods with the stub left
-in front each give LG's Home back once, clear the Home key's starting notice and put auto launch back; a client sam refuses
-(it does not know the app, or would not open it) is given up as the server opens it for the stub, 0.4 s after the stub came, with
-no exit counted; the Home key (client still
-listed), another app opened from Home, a running list that cannot be read, a client that comes up inside the grace,
-standby, a screen that is off, LG's Home opened on purpose, no takeover in place and Home switched off count nothing; a
-tripped orchestrator takes nothing again (no wake open, no later crash counts) until `rearm()`; a failed release is
-logged; `stop()` leaves no timer; and a probe that refuses at start gives LG's Home the place without switching Home
-off, where a webOS version that is not offered still switches it off. Where the TV needs it (webOS 10 and later), the
+executable as `native-home-orchestrator` goes on to run the watch itself on the virtual clock: three crashes (Native Tv
+Home gone from the running list as nothing, or an input, comes to the front) give LG's Home back once, clear the Home key's
+starting notice and put auto launch back; an input or an app opened from Home (Home still listed), an app opened with Home
+closed behind it, a running list that cannot be read, standby, a screen that is off, LG's Home opened on purpose, no
+takeover in place and Home switched off count nothing; the Native Tv tile's own client is closed whenever Native Tv Home
+comes to the front (a refusal, the app not running, is not logged), and left alone while it is in front and without
+Native Tv Home in place; a tripped orchestrator takes nothing again (no wake open, no later crash counts) until `rearm()`; a failed release
+is logged; and a probe that refuses at start gives LG's Home the place without switching Home off, where a webOS version
+that is not offered still switches it off. Where the TV needs it (webOS 10 and later), the
 preload manager is told not to keep LG's Home loaded once a minute, and when the screen comes on, only while Home holds
 the place and LG's Home is not open on purpose, not after LG's Home was given back, and a refusal is logged once; with no
 such dependency (webOS 9) no timer runs. The takeover lifecycle test in the runtime suite checks the calls
@@ -515,21 +516,22 @@ tried again (a display that comes up on the third try passes, one that never doe
 not, a verdict that cannot change (ok, 12, 13) is kept in memory and on disk for the same file and firmware and asked
 again for another file, firmware or `force`, one that may be timing (10, 11, a timeout) is never kept, what the status
 route reports follows the file (a replaced client is not reported as refused), and a refusal gives `supported` the
-reason with the exit in it. An app sam does not know is refused ahead of any kept verdict, each time it is asked, and without
-a probe run; a missing file is refused before sam is asked. The runtime suite adds `test_native_home_probe_gate` (the dashboard's
+reason with the exit in it. By default the client is the dashboard app's payload (`assets/dashboard-app/nativetv-tv`), run
+directly, with `XDG_RUNTIME_DIR` where the TV has `/tmp/xdg`. The runtime suite adds `test_native_home_probe_gate` (the dashboard's
 switch-on refused with the exit, the status route's `supported` and `nativeClient` (a refusal that may be timing leaves the switch
 offered), the switch-on probing again, the boot
 hook's `--takeover-home` exiting 4 on a refusal and on no client file, and the kept verdict sparing the boot's probe) and
 `test_native_home_crash_breaker` (the daemon against the stand-in `luna-send`: foreground and running lists
-scripted from files; the Home key and an app opened from Home counting nothing, three crashes and then three stubs left
-in front each giving LG's Home back with Home still on and the notice cleared, nothing taking the place again, switching
-Home on again doing so, a restart doing so, and a probe that now refuses giving it back at start; the stub staged
-over LG's Home names `com.tvweb.dashboard`, and the retired `com.tvweb.native` counts as nothing) and
-`test_native_home_client_registration` (the tile off the home screen: the switch-on refused with the Server tab
-named, nothing mounted and no probe run, `--takeover-home` exiting 4, the switch working again once the tile is back;
-with Home on, the Home key from an input finding the app refused and LG's Home given back within seconds with no exit
-counted, and a restart doing the same; the developer client `com.tvweb.native` deleted at start with its package folder, the
-tile's app kept).
+scripted from files; apps and inputs opened from Home, and Home closed behind an app, counting nothing; the tile's client
+closed with `closeByAppId` as Home comes back, and not while it is in front; three crashes giving LG's Home back with Home still on and the notice
+cleared, nothing taking the place again, switching Home on again doing so, a restart doing so, and a probe that now
+refuses giving it back at start) and `test_native_home_needs_no_tile` (with sam not knowing `com.tvweb.dashboard`, the
+switch-on and `--takeover-home` still take the place, sam reading Native Tv Home's manifest and LG's again after; a
+payload without the client refused with nothing mounted; the developer client `com.tvweb.native` deleted at start with
+its package folder, the tile's app kept). `test_native_home_takeover_lifecycle` checks what is staged: the client's files
+without the dashboard app's manifest, package manifest and installer, the executable made 0755 with the source's time, the
+`nativetv-home` script that sets `APPID`, and the native manifest sam must report; an unchanged copy left as it is, a new
+client replacing the old file by rename, and an earlier release's `index.html` and `home-snapshot.jpg` deleted.
 
 `native-retired-files` also checks `removeRetiredApps`: the developer client's two folders go whole and count once,
 the tile's app and a missing apps folder are left alone.
@@ -549,9 +551,9 @@ descriptions, with the same ids and states, with `es`; an error from `/api/contr
 
 The end-to-end cases (`native-tv/tests/e2e`, run against a real TV with `NATIVETV_TV_HOST`) run the client as the tile's
 app. Four flow cases (`E2E-080` to `E2E-083`, `requires: ["takeover"]`, so only with `--allow takeover`) switch Home on,
-send the Home key from an HDMI input and check the Native Tv app is in front within 5 s and stays, send Back and Home on the
-native Home and check it holds, and switch Home off and close the client Home started (one left running refuses every case
-that starts one). They run `native-tv/tests/e2e/scripts/home-flow.js` under the TV's Node, which calls the
+send the Home key from an HDMI input and check Native Tv Home (`com.webos.app.home`, the native client) is in front within 5 s
+and stays, send Back and Home on Native Tv Home and check it stays in front, and switch Home off and close the Native Tv app
+(one left running refuses every case that starts one). They run `native-tv/tests/e2e/scripts/home-flow.js` under the TV's Node, which calls the
 server on loopback (no token) and reads the app in front from the app manager; the steps are a closed vocabulary that
 `run.py --check` enforces, and the flow script itself runs on the host against a stand-in server and `luna-send` in
 `test_runner.py`.
@@ -672,9 +674,9 @@ Down moves it, and Back saves the kinds' order; then it is moved back and saved 
 (POSTs need `control`), which the runner sends before the client starts, and a `cleanup` flow, which it sends even when the run
 failed, so `E2E-120` starts and ends with the kinds in their default order. The script's
 `longPress` step is the client's hold of OK and `longBack` its hold of Back (650 ms on a real remote), and a Home checkpoint
-reports the client's snapshot: `tab`, `row`, `rowGroup` (the kind of the focused row), `arranging`, `editing`, `editHide`,
+reports the client's snapshot: `tab`, `row`, `rowGroup` (the kind of the focused row), `arranging`, `editing` (an app is moved), `appMenu`, `appMenuItem` (`move`, `hide` or `hidden`),
 `focusCard` (the id of the focused card) and `rowHead` (the first three card ids of the focused row). `E2E-178` is a client run
-that changes the server too: on the Apps tab a long press starts editing the apps, the Hide from Apps button hides one, and the
+that changes the server too: on the Apps tab a long press opens an app's menu, its Hide from Apps item hides the app, and the
 grid and the server's `hidden.appsTab` list both lose it while `hidden.app` (Home's row) is left alone; `E2E-182` changes nothing and checks the Back keys (a tap goes back and stops at the
 bar, a hold opens the recent apps). `E2E-123` is the reboot case: the one that restarts the TV, run only with `--allow reboot`, which then reads
 back what was set (Native Tv Home, the TMDB key, the privacy and screen saver values) once the server has been up for 40 s.
@@ -717,7 +719,7 @@ the texture memory, the checkpoints the script took and the size of the capture.
 | E2E-106, 107 | LG rows round-trip: the ad switches, sound mode, balance, automatic volume and Bluetooth speaker mode (106); the Game Optimizer rows (107). Each is set, read back from the TV's settings service and put back (`api`, `control`) | |
 | E2E-110 to 119 | The rest of the settings, each set through the server, read back and put back: privacy switches and the ad blocker (110); screen saver and brightness (111); OLED protections, screen shift, logo dimming and the service menu lock (112); app preload and saved web pages, with the id the add gives (113); watch time and screen-time limits (114); NTP server (115); a damaged backup refused (116); an SSH key added and removed, the TV's own keys untouched (117); a 22 KB catalogue app installed and uninstalled (118); volume, mute, brightness, picture mode, energy saving and the sleep timer, from the test B3's own levels (119) (`api`, `control`) | |
 | E2E-120 | Arranging the kinds on the Apps tab: a long press lifts a row as a card, Move kind and Down move it, Back saves, a second long press, Move kind and Up move it back and Back saves; the order is reset after (`control`, `before`, `cleanup`) | `home` |
-| E2E-178 | Editing the apps on the Apps tab: a long press starts it, the Hide from Apps button hides an app, and the grid and the server's `hidden.appsTab` list lose it while Home's `hidden.app` stays as it was; the order and both hidden lists are put back after, on the B3's six hidden apps (`control`, `before`, `cleanup`) | `home` |
+| E2E-178 | Hiding an app on the Apps tab: a long press opens its menu, Hide from Apps hides the app, and the grid and the server's `hidden.appsTab` list lose it while Home's `hidden.app` stays as it was; the order and both hidden lists are put back after, on the B3's six hidden apps (`control`, `before`, `cleanup`) | `home` |
 | E2E-121, 122 | A TMDB key that is not 32 hex digits (a word, 20 digits, a number) is refused; `kind: title` is no longer a way to open a feed title (`api`, `control`) | |
 | E2E-125 | OK on Dark room mode in the TV's Game settings steps it Off, Level 1, Level 2, Off through the server and leaves it off (`control`, `cleanup`) | `dashboard:game` |
 | E2E-130 to 149, 160 to 166 | Every switch and choice of the TV's Settings groups, pressed through the TV's own screen and put back: Game (130, 131), OLED Care (132), Screen Saver brightness (133), Privacy (134), System with the timers and IP control (135, 136, 149), Home (137 to 140 and 145: the Apps page lists each app twice, once for Home's row and once for the Apps tab, so the walk is five runs), Apps (141, 142: they need the TV's Apps page to list at least 10 and 9 switches, so a TV with fewer background services listed fails them on the count only); the actions Reset the layout (143), Cancel a scheduled refresher (144) and Reset the advertising ID (148) are pressed once; the service menu lock (146), the Native Tv Home takeover (147) and each of the seven screen savers (160 to 166) are pressed and read back through the server (`control`) | `dashboard:<group>` |

@@ -67,9 +67,9 @@ Json success(bool changed, bool mounted, bool already) {
 HomeTakeoverManager::HomeTakeoverManager(ChildProcessRunner &children,
                                          std::string sourceRoot,
                                          std::string stagingRoot,
-                                         std::string systemRoot, int port)
+                                         std::string systemRoot)
     : children_(children),
-      stager_(std::move(sourceRoot), stagingRoot, port),
+      stager_(std::move(sourceRoot), stagingRoot),
       stagingRoot_(std::move(stagingRoot)),
       systemRoot_(std::move(systemRoot)),
       appDirectory_(rooted(systemRoot_, "/usr/palm/applications/com.webos.app.home")) {}

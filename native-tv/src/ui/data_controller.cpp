@@ -144,6 +144,8 @@ void Application::response(const Response &response) {
     dirty_ = true;
     if (response.channel == "action") {
         state_.busy = false;
+        const bool toastShown = saveToastShown_;
+        saveToastShown_ = false;
         if (!response.ok() || !data.valid() || (data.has("ok") && !data["ok"].boolean())) {
             toast(data["error"].string("That did not work. Try again."));
             refresh();
@@ -169,7 +171,7 @@ void Application::response(const Response &response) {
             services_.read("install", Operation::InstallStatus);
             rebuildMenu();
         } else if (pending_.operation != Operation::OpenHomeItem &&
-                   pending_.operation != Operation::Recents)
+                   pending_.operation != Operation::Recents && !toastShown)
             toast("Saved");
         if (pending_.operation == Operation::Recents && state_.screen == Screen::Quick &&
             state_.menu.level == "recents") {
@@ -206,6 +208,8 @@ void Application::response(const Response &response) {
         state_.caps = data;
         capsAnswered_ = true;
         followTheme(data);
+        if (state_.screen == Screen::Qr)
+            showAddress();
         // The rule of the old dashboard page: a server that says setup is needed opens setup first,
         // whichever screen the client was asked for. A setup screen already open (Settings'
         // phone link, or setup itself) stays: it is where the person was sent.

@@ -106,8 +106,8 @@ browser and may use modern JavaScript.
   native client's (`src/ui`); there is no web Home page. English only
   (`shared/common.js`). `native-tv/assets/dashboard-app/` is the TV app
   itself (a native app: the C++ client opened on the dashboard screen, with
-  `install-app.sh` for it and the other apps), `native-tv/assets/home-app/` the
-  black stub that opens the client's Home screen, `native-tv/assets/splash-app/`
+  `install-app.sh` for it and the other apps; Native Tv Home stages a copy of it
+  under LG's Home's id, `home_takeover_stager`), `native-tv/assets/splash-app/`
   the splash the boot key filter opens.
 - `native-tv/assets/screensavers/` - QML.
 - `native-tv/lifecycle/` - `tvwebctl` (start, stop and watchdog on the TV),

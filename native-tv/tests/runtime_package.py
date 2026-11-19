@@ -525,6 +525,10 @@ class InstallerTests(unittest.TestCase):
         script = (ROOT.parent / "hbc/install.sh").read_text()
         script = script.replace("D=/var/lib/tvweb\n", "D=" + str(self.install) + "\n")
         script = script.replace("HOOKDIR=/var/lib/webosbrew/init.d", "HOOKDIR=" + str(self.root / "hooks"))
+        self.ls2 = self.root / "luna-service2-dev"
+        self.put(self.root / "ls-control", '#!/bin/sh\necho "$@" >> "$(dirname "$0")/ls-control.log"\n', 0o755)
+        script = script.replace("LS2_DEV=/var/luna-service2-dev", "LS2_DEV=" + str(self.ls2))
+        script = script.replace("LS_CONTROL=/usr/sbin/ls-control", "LS_CONTROL=" + str(self.root / "ls-control"))
         self.script = self.payload / "install.sh"
         self.script.write_text(script)
 
@@ -584,6 +588,24 @@ class InstallerTests(unittest.TestCase):
         self.assertEqual(self.run_install()["action"], "installed")
         self.assert_runtime()
         self.assertEqual(json.loads((self.install / "config.json").read_text()), {"host": "127.0.0.1"})
+
+    def test_the_app_is_granted_the_homebrew_channel_service_once(self):
+        # The app's directory is "app" here, so the grant names that app.
+        self.put(self.ls2 / "manifests.d/org.webosbrew.hbchannel.json", "{}\n")
+        self.run_install()
+        permissions = self.ls2 / "client-permissions.d/app.hbchannel.json"
+        self.assertEqual(json.loads(permissions.read_text()),
+                         {"app-*": ["org.webosbrew.hbchannel.service.group"]})
+        self.assertEqual(json.loads((self.ls2 / "manifests.d/app.hbchannel.json").read_text()),
+                         {"version": "1.0.0", "id": "app.hbchannel",
+                          "clientPermissionFiles": [str(permissions)]})
+        self.run_install()
+        self.assertEqual((self.root / "ls-control.log").read_text(), "scan-volatile-dirs\n")
+
+    def test_no_grant_without_the_homebrew_channel(self):
+        self.run_install()
+        self.assertFalse((self.ls2 / "client-permissions.d").exists())
+        self.assertFalse((self.root / "ls-control.log").exists())
 
     def test_upgrade_preserves_state(self):
         self.existing("9.0.0")

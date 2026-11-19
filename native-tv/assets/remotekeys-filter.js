@@ -159,13 +159,14 @@ function nativeTvAction(name) {
     if (uri) lunaCall.send("com.webos.service.tvpower", uri, "{}", function () {});
 }
 
-// Opens Home once the app manager runs Native Tv Home under its id, and
-// says it is starting until then. The key has been kept from LG's filters.
+// Opens Home once the app manager runs Native Tv Home under its id (the native
+// client started by nativetv-home; a web page in earlier releases), and says
+// it is starting until then. The key has been kept from LG's filters.
 function nativeTvHomePressed() {
     lunaCall.send("com.webos.applicationManager", "/getAppInfo", JSON.stringify({ "id": "com.webos.app.home" }), function (payload) {
         try {
             var r = typeof payload === "string" ? JSON.parse(payload) : payload;
-            if (r && r.appInfo && r.appInfo.type === "web") {
+            if (r && r.appInfo && (r.appInfo.main === "nativetv-home" || r.appInfo.type === "web")) {
                 nativeTvHomeReady = true;
                 applicationManager.launch("com.webos.app.home", JSON.stringify({ "activateType": "home", "launchType": "homeKey" }));
                 return;

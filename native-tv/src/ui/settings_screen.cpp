@@ -54,8 +54,9 @@ bool optionalGroup(const std::string &key) {
 
 class SettingsScreen final : public ScreenView {
   public:
-    // `group` is the section the route names, or empty for the first one.
-    explicit SettingsScreen(const std::string &group)
+    // `group` is the section the route names, or empty for the first one; `page` the title of the
+    // section's page to open on, or empty for the first one.
+    SettingsScreen(const std::string &group, const std::string &page)
         : groups_(settingGroups()), sections_("sec", {listViewport(), kListX, kListW - 16, true}),
           rows_("set", {rowsViewport(false), kPaneX, kPaneW - kRowReach, false}) {
         for (size_t i = 0; i < groups_.size(); ++i)
@@ -63,6 +64,8 @@ class SettingsScreen final : public ScreenView {
                 section_ = i;
                 zone_ = Zone::Rows;
                 forced_ = group;
+                if (!page.empty())
+                    lastPage_[group] = page;
             }
     }
     // The names the older scripts and tests know the dashboard by: the list, or a section.
@@ -456,7 +459,9 @@ class SettingsScreen final : public ScreenView {
                 if (kept->second["available"].valid() && !kept->second["available"].boolean())
                     hidden_.insert(key);
             }
-            if (optionalGroup(key) && i != section_ && !data_.count(key))
+            // Asked even when kept: a kept "not here" would otherwise outlive a server change that
+            // brings the section back while the app stays open.
+            if (optionalGroup(key) && i != section_)
                 host.services().read(dataChannel(key), operationOf(i));
         }
     }
@@ -478,9 +483,10 @@ class SettingsScreen final : public ScreenView {
         if (good)
             host.memory()["settings.data." + key] = data;
         bool gone = good && data["available"].valid() && !data["available"].boolean();
+        bool back = good && !gone && hidden_.erase(key) > 0;
         if (gone)
             hidden_.insert(key);
-        if (probing || gone) {
+        if (probing || gone || back) {
             rebuildSections(host, Reset::Keep);
             if (gone && key == groups_[section_].key && key != forced_) {
                 // The section that was showing does not exist here: the next one shows.
@@ -904,12 +910,18 @@ class SettingsScreen final : public ScreenView {
 
 std::unique_ptr<ScreenView> makeSettingsScreen(const std::string &route) {
     if (route == "dashboard" || route == "settings" || route == "tab:settings")
-        return std::unique_ptr<ScreenView>(new SettingsScreen(""));
+        return std::unique_ptr<ScreenView>(new SettingsScreen("", ""));
     if (route.compare(0, 10, "dashboard:") == 0) {
-        std::string key = route.substr(10);
+        // "dashboard:home/Apps" opens the Home section on its page titled Apps.
+        std::string key = route.substr(10), page;
+        const size_t slash = key.find('/');
+        if (slash != std::string::npos) {
+            page = key.substr(slash + 1);
+            key.erase(slash);
+        }
         for (const SettingGroup &group : settingGroups())
             if (group.key == key)
-                return std::unique_ptr<ScreenView>(new SettingsScreen(key));
+                return std::unique_ptr<ScreenView>(new SettingsScreen(key, page));
     }
     return nullptr;
 }

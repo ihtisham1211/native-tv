@@ -220,7 +220,9 @@ void rows(kit::Paint paint, const Frame &frame, float top = 0) {
         }
         kit::Row label;
         label.index = static_cast<int>(ri);
-        label.label = home.editing && ri == home.row && home::isApps(row) ? "Moving apps" : row.title;
+        label.label = home.editing && ri == home.row && home::isApps(row) && home.column < row.cards.size()
+                          ? "Moving " + row.cards[home.column].title
+                          : row.title;
         if (home.arranging && home.carrying && ri == home.row && home.column < row.cards.size())
             label.label = "Moving " + row.cards[home.column].title;
         label.dim = static_cast<float>(motion.value(home::id("rd", ri)));
@@ -314,9 +316,8 @@ void rows(kit::Paint paint, const Frame &frame, float top = 0) {
     }
 }
 
-// While the apps are edited the Apps page makes room, above its first row, for the button that
-// hides the focused app.
-constexpr float kEditLift = 64;
+// The top of the hint keys at the foot of the page.
+constexpr float kHintTop = 998;
 // The hint keys on a band of ink, so a row that reaches the bottom passes under them.
 void hintBand(kit::Paint paint, const std::vector<kit::Hint> &hints) {
     Node &band = paint.scene.shape({0, 900, kit::canvas::width, 180}, kit::color::ink);
@@ -328,7 +329,61 @@ void hintBand(kit::Paint paint, const std::vector<kit::Hint> &hints) {
     band.gradient.at[1] = .5f;
     band.gradient.color[2] = kit::focus::withAlpha(kit::color::ink, 0);
     band.gradient.at[2] = 1;
-    kit::hintBar(paint, {kit::canvas::safeX, 998, 0, 30}, hints);
+    kit::hintBar(paint, {kit::canvas::safeX, kHintTop, 0, 30}, hints);
+}
+
+// Where the focused item rests on screen, as rows() places it, before its focus scale.
+Rect focusedItem(const Frame &frame) {
+    const HomeState &home = frame.state.home;
+    const std::string &tab = home.tabs[home.tab].key;
+    const bool dock = home::onDock(tab);
+    Rect rest = home::item(home.rows[home.row], home.row, home.column,
+                           home::namesShown(tab, frame.state.catalogue["layout"]), dock);
+    rest.x += static_cast<float>(frame.motion.value(home::id("rx", home.row)));
+    rest.y += static_cast<float>(frame.motion.value("sy")) +
+              (tab == "apps" ? layout::appsTop - kit::look::homeTop : 0);
+    return rest;
+}
+
+// The focused app's menu (a long press on it): below the app, clear of its name, where it fits
+// above the hint keys; above the app otherwise.
+void appMenu(kit::Paint paint, const Frame &frame) {
+    const HomeState &home = frame.state.home;
+    if (!home.appMenu || home.row >= home.rows.size() ||
+        home.column >= home.rows[home.row].cards.size())
+        return;
+    const bool onApps = home.tabs[home.tab].key == "apps";
+    std::vector<kit::MenuItem> items;
+    for (size_t i = 0; i < home.appMenuItems.size(); ++i) {
+        const std::string &key = home.appMenuItems[i];
+        kit::MenuItem item;
+        item.id = "appmenu:" + std::to_string(i);
+        item.icon = key == "move" ? "arrowright" : key == "hide" ? "eyeoff" : "eye";
+        item.label = key == "move"   ? "Move"
+                     : key == "hide" ? (onApps ? "Hide from Apps" : "Hide from Home")
+                                     : "Hidden apps";
+        item.focus = static_cast<float>(frame.motion.value(home::id("f:mi", i)));
+        items.push_back(item);
+    }
+    const Rect size = kit::menuSize(paint, items);
+    const Rect app = focusedItem(frame);
+    // The focused circle and the name under it, at their focus scale.
+    const float middle = app.y + app.h / 2, scale = kit::motion::scale::app;
+    const float bottom =
+        middle + (app.h / 2 + kit::layout::appNameGap + kit::type::labelM.line) * scale;
+    const float top = middle - app.h / 2 * scale;
+    kit::PopupMenu menu;
+    menu.items = items;
+    menu.appear = static_cast<float>(frame.motion.value("appmenu"));
+    menu.y = bottom + kit::space::x16;
+    if (menu.y + size.h > kHintTop - kit::space::x16) {
+        menu.y = top - kit::space::x16 - size.h;
+        menu.above = true;
+    }
+    menu.x = std::max(kit::canvas::safeX,
+                      std::min(app.x + app.w / 2 - size.w / 2,
+                               kit::canvas::width - kit::canvas::safeX - size.w));
+    kit::popupMenu(paint, menu);
 }
 
 // The Apps page with its apps grouped by kind: rows as on Home from under the bar, which pass
@@ -336,11 +391,10 @@ void hintBand(kit::Paint paint, const std::vector<kit::Hint> &hints) {
 void appRows(kit::Paint paint, const Frame &frame) {
     const HomeState &home = frame.state.home;
     const Motion &motion = frame.motion;
-    const float lift = kEditLift * static_cast<float>(motion.value("lift"));
     bool clipped = motion.value("sy") < -.5;
     if (clipped)
-        paint.scene.pushClip({0, layout::appsTop + lift - 16, kit::canvas::width, kit::canvas::height});
-    rows(paint, frame, layout::appsTop - kit::look::homeTop + lift);
+        paint.scene.pushClip({0, layout::appsTop - 16, kit::canvas::width, kit::canvas::height});
+    rows(paint, frame, layout::appsTop - kit::look::homeTop);
     if (clipped)
         paint.scene.popClip();
     if (home.arranging) {
@@ -434,24 +488,12 @@ void drawHome(kit::Paint paint, const Frame &frame) {
                               kit::type::body, kit::color::onSurface2);
         }
     }
-    if (home.editing && home.row < home.rows.size() && home.column < home.rows[home.row].cards.size()) {
-        // Editing the apps: the button above the page hides the focused app, or shows it again when
-        // it was one of the hidden ones; Red does the same.
-        const bool hidden = home.rows[home.row].cards[home.column].hidden;
-        // Home's row and the Apps page each have their own hidden apps.
-        const bool onApps = home.tabs[home.tab].key == "apps";
-        const std::string label = hidden ? (onApps ? "Show on Apps" : "Show on Home")
-                                         : (onApps ? "Hide from Apps" : "Hide from Home");
-        hintBand(paint, {{"", "Move"}, {"OK", "Done"}, {"Red", label}});
-        kit::PillButton hide;
-        hide.rest = {kit::canvas::width - kit::canvas::safeX - 380, 136, 380, 56};
-        hide.id = "edit:hide";
-        hide.label = label;
-        hide.icon = hidden ? "eye" : "eyeoff";
-        hide.focus = static_cast<float>(motion.value("f:eh"));
-        kit::pillButton(paint, hide);
-    }
+    if (home.appMenu)
+        hintBand(paint, {{"Up/Down", "Choose"}, {"OK", "Select"}, {"Back", "Close"}});
+    else if (home.editing)
+        hintBand(paint, {{"Left/Right", "Move"}, {"OK", "Done"}});
     drawTopBar(paint, frame, static_cast<int>(home.tab));
+    appMenu(paint, frame);
     float fault = static_cast<float>(motion.value("fault"));
     if (fault > .002f)
         banner(paint, fault);

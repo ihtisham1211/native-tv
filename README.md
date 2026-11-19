@@ -119,7 +119,7 @@ Native Tv installs from a release package, with no build, or from a computer on 
 1. Root the TV and install the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel). Native Tv does not root the TV.
 2. Download `io.github.ihtisham1211.nativetv_<version>_all.ipk` (about 12 MB) from the [latest release](https://github.com/ihtisham1211/native-tv/releases/latest).
 3. Install it on the TV with [webOS Dev Manager](https://github.com/webosbrew/dev-manager-desktop) or `ares-install`.
-4. Open Native Tv on the TV. The package sets up the server and opens the native TV app, which starts with the setup wizard on a first run.
+4. Open Native Tv on the TV. The package sets up the server and opens the native TV app, which starts with the setup wizard on a first run. On webOS 11, Homebrew Channel 0.7.3 refuses that first setup (`Denied method call "exec"`), so the setup has to run once over SSH: the launcher shows the command, and the [installation guide](https://ihtisham1211.github.io/native-tv/getting-started/install/#troubleshooting) has it.
 
 ### Build and install from source
 
@@ -200,7 +200,7 @@ Installing and running Native Tv needs no account or key: the dashboard, the TV 
 | TMDB API key | The film and series rows: titles, posters, details and trailers. Without it Home shows only what is on the TV | The browser dashboard: Apps, **Native Tv Home** tab, **Films and series** (or `"tmdbKey"` in `config.json`) |
 | YouTube Data API key | The **Trending on YouTube** row | The same tab, **Trending on YouTube** (or `"youtubeKey"` in `config.json`) |
 
-The TV app has no field for either key. The Native Tv Home tab (`http://<tv-ip>:8080/?tab=home`) appears only on TVs where Native Tv Home is offered: webOS 9 and 10, and webOS 11 once `"allowExperimentalHome": true` is set.
+The TV app has no field for either key. The Native Tv Home tab (`http://<tv-ip>:8080/?tab=home`) appears only on TVs where Native Tv Home is offered: webOS 9, 10 and 11 (on webOS 11 unless `"allowExperimentalHome": false` is set).
 
 **Get a TMDB key** (free):
 

@@ -717,7 +717,7 @@
       "csrf": "application/json content type and same-origin Origin/Host comparison when Origin is present; requires allowControl unless from TV loopback",
       "bodyLimit": {"max": null, "unit": "no explicit cap; body is drained"},
       "owner": "native",
-      "notes": "The daemon answers the web Home view's heartbeat with its build id, enabled flag, wallpapers and layout version. The watchdog that returned to LG's Home when the view stopped beating belongs to the web view and is retired with it; the native Home client has its own lifecycle."
+      "notes": "The daemon answers the Home client's heartbeat with its build id, enabled flag, wallpapers and layout version. The watchdog that returned to LG's Home when the web view stopped beating was retired with it; Native Tv Home's crash watch is daemon/home_orchestrator.cpp's."
     },
     {
       "paths": ["/api/home/wallpapers/upload"],

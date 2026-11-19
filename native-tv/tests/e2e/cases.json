@@ -1096,7 +1096,7 @@
     {
       "id": "E2E-080",
       "title": "Home takeover on",
-      "purpose": "Switching Native Tv Home on takes LG's Home's place: the switch is accepted (the client is on the home screen and passes its probe), nothing is halted, and the stub is mounted.",
+      "purpose": "Switching Native Tv Home on takes LG's Home's place: the switch is accepted (the client passes its probe), nothing is halted, and sam runs the native client under LG's Home's id.",
       "kind": "flow",
       "screen": "",
       "env": {},
@@ -1148,7 +1148,7 @@
     {
       "id": "E2E-081",
       "title": "Home key from an HDMI input",
-      "purpose": "With Home on and an HDMI input in front, the Home key does not strand the screen between the stub and the input: the Native Tv app is in front within 5 s and stays, and LG's Home has not been given back.",
+      "purpose": "With Home on and an HDMI input in front, the Home key opens Native Tv Home, the native client under LG's Home's id: it is in front within 5 s and stays, and LG's Home has not been given back.",
       "kind": "flow",
       "screen": "",
       "env": {},
@@ -1187,11 +1187,11 @@
           }
         },
         {
-          "foreground": "com.tvweb.dashboard",
+          "foreground": "com.webos.app.home",
           "withinMs": 5000
         },
         {
-          "stays": "com.tvweb.dashboard",
+          "stays": "com.webos.app.home",
           "forMs": 4000
         },
         {
@@ -1207,7 +1207,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback and reads the app in front from the app manager.",
-        "Run: check Home is on; launch com.webos.app.hdmi1 through POST /api/control and wait for it in front; send the Home key (POST /api/control rcu home, which opens com.webos.app.home as the key does); wait for com.tvweb.dashboard in front within 5 s and for it to stay 4 s; check nativeHome.halted is still false.",
+        "Run: check Home is on; launch com.webos.app.hdmi1 through POST /api/control and wait for it in front; send the Home key (POST /api/control rcu home, which opens com.webos.app.home as the key does); wait for com.webos.app.home (Native Tv Home) in front within 5 s and for it to stay 4 s; check nativeHome.halted is still false.",
         "Judge each step; the first that fails ends the flow.",
         "Delete the lock folder."
       ],
@@ -1219,7 +1219,7 @@
     {
       "id": "E2E-082",
       "title": "Home and Back on Native Tv Home",
-      "purpose": "On the native Home screen Back does nothing and the Home key shows the stub and returns to the Native Tv app within 5 s; the app is in front throughout and LG's Home is not given back.",
+      "purpose": "On Native Tv Home Back does nothing and the Home key leaves it in front: com.webos.app.home, the native client, stays in front throughout, no exit is counted and LG's Home is not given back.",
       "kind": "flow",
       "screen": "",
       "env": {},
@@ -1256,7 +1256,7 @@
           "wait": 1500
         },
         {
-          "foreground": "com.tvweb.dashboard",
+          "foreground": "com.webos.app.home",
           "withinMs": 5000
         },
         {
@@ -1267,7 +1267,7 @@
           }
         },
         {
-          "stays": "com.tvweb.dashboard",
+          "stays": "com.webos.app.home",
           "forMs": 3000
         },
         {
@@ -1281,11 +1281,7 @@
           "wait": 1500
         },
         {
-          "foreground": "com.tvweb.dashboard",
-          "withinMs": 5000
-        },
-        {
-          "stays": "com.tvweb.dashboard",
+          "stays": "com.webos.app.home",
           "forMs": 3000
         },
         {
@@ -1302,7 +1298,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback and reads the app in front from the app manager.",
-        "Wake the panel first (a key on a dark one only wakes it). Run: check Home is on; send Home, give the stub 1.5 s to come and go, and wait for com.tvweb.dashboard within 5 s (the stub is LG's Home's id while Home is on, so a read taken before it arrives would pass at once and the stub then fail the check that follows); send Back and check it stays 3 s; send Home again, wait the same, check it is back within 5 s and stays 3 s; check nativeHome.halted is false and no exit was counted.",
+        "Wake the panel first (a key on a dark one only wakes it). Run: check Home is on; send Home, wait 1.5 s and for com.webos.app.home (Native Tv Home) within 5 s; send Back and check it stays 3 s; send Home again, wait the same and check it stays 3 s; check nativeHome.halted is false and no exit was counted.",
         "Judge each step; the first that fails ends the flow.",
         "Delete the lock folder."
       ],
@@ -1314,7 +1310,7 @@
     {
       "id": "E2E-083",
       "title": "Home takeover off",
-      "purpose": "Switching Native Tv Home off gives LG's Home its place back: the switch is accepted, Home is off and the stub is unmounted, and the Home key no longer opens the Native Tv app The client Home started is closed, so the cases after it can run.",
+      "purpose": "Switching Native Tv Home off gives LG's Home its place back: the switch is accepted, Home is off and Native Tv Home is unmounted and stopped, and the Home key opens LG's Home. The Native Tv app is closed too, so the cases after it can run.",
       "kind": "flow",
       "screen": "",
       "env": {},
@@ -1369,7 +1365,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
         "Read the server's port: /var/lib/tvweb/native/nativetv-service port --data-root /var/lib/tvweb (the access token is never read).",
         "Send scripts/home-flow.js with this case's flow to the TV's Node over ssh (node - PORT); it calls the server on the TV's loopback and reads the app in front from the app manager.",
-        "Run: POST /api/home/disable, wait 2 s, check enabled and active are false; send Home and check com.webos.app.home (LG's) is in front within 5 s and stays 3 s; close the Native Tv app Home had started, since a client left running refuses every case that starts one.",
+        "Run: POST /api/home/disable, wait 2 s, check enabled and active are false; send Home and check com.webos.app.home (LG's) is in front within 5 s and stays 3 s; close the Native Tv app, since a client left running refuses every case that starts one (switching off has already stopped Native Tv Home's own).",
         "Judge each step; the first that fails ends the flow.",
         "Delete the lock folder."
       ],
@@ -6801,7 +6797,7 @@
     {
       "id": "E2E-178",
       "title": "Hiding an app on the Apps tab leaves Home's row alone",
-      "purpose": "On the Apps tab with the apps in Your order, a long press on an app starts editing with a Hide from Apps button above the grid: Up reaches it and OK takes the app off the Apps tab, and the grid no longer lists it (the next app is first). The server's `hidden.appsTab` list then holds it, and Home's own list stays as it was: after Back to the Home tab, its Your apps row still starts with the same app. The case starts and ends with no custom order and the same six apps hidden on Home's row and on the Apps tab (the B3's own, which leave LG Channels shown). The checks name the B3's first apps (Discovery, LG Channels, Netflix); a TV whose first apps differ does not pass.",
+      "purpose": "On the Apps tab with the apps in Your order, a long press on an app opens its menu: Down reaches Hide from Apps and OK takes the app off the Apps tab, and the grid no longer lists it (the next app is first). The server's `hidden.appsTab` list then holds it, and Home's own list stays as it was: after Back to the Home tab, its Your apps row still starts with the same app. The case starts and ends with no custom order and the same six apps hidden on Home's row and on the Apps tab (the B3's own, which leave LG Channels shown). The checks name the B3's first apps (Discovery, LG Channels, Netflix); a TV whose first apps differ does not pass.",
       "kind": "run",
       "requires": [
         "control"
@@ -6844,7 +6840,7 @@
         "Take the lock folder /tmp/nativetv-e2e.lock (mkdir).",
         "Read the server's port from the TV, as deploy.py does (the access token is never read).",
         "POST /api/home/layout with the apps in Your order and the six hidden apps on both Home's row and the Apps tab.",
-        "Send the script over ssh and run the client for the case's time through the app's jailer: Up twice and Right reach the Apps tab, OK opens it on the first app; a long press starts editing, Up reaches the Hide from Apps button and OK hides the app; Back returns to the Home tab and Up reaches its apps row.",
+        "Send the script over ssh and run the client for the case's time through the app's jailer: Up twice and Right reach the Apps tab, OK opens it on the first app; a long press opens the app's menu, Down reaches Hide from Apps and OK hides the app; Back returns to the Home tab and Up reaches its apps row.",
         "Read the report and judge the checkpoints, then read the server's catalogue: the first app is in the Apps tab's hidden list.",
         "Always, even after a failure: POST /api/home/layout with an empty app order and the six hidden apps on both lists again; delete the script and the lock folder."
       ],
@@ -6864,17 +6860,17 @@
           },
           {
             "name": "button",
-            "path": "editing",
+            "path": "appMenu",
             "equals": true
           },
           {
             "name": "button",
-            "path": "editHide",
-            "equals": true
+            "path": "appMenuItem",
+            "equals": "hide"
           },
           {
             "name": "hidden",
-            "path": "editing",
+            "path": "appMenu",
             "equals": false
           },
           {

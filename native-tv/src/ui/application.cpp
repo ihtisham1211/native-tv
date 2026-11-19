@@ -446,7 +446,10 @@ Json Application::snapshot() const {
         value.set("nav", Json::numeric(home.nav));
         value.set("arranging", Json::flag(home.arranging));
         value.set("editing", Json::flag(home.editing));
-        value.set("editHide", Json::flag(home.editHide));
+        value.set("appMenu", Json::flag(home.appMenu));
+        value.set("appMenuItem", Json::text(home.appMenu && home.appMenuItem < home.appMenuItems.size()
+                                                ? home.appMenuItems[home.appMenuItem]
+                                                : ""));
         value.set("focusCard", Json::text(home.row < home.rows.size() &&
                                                   home.column < home.rows[home.row].cards.size()
                                               ? home.rows[home.row].cards[home.column].id

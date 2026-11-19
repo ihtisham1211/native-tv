@@ -61,7 +61,6 @@ class InstallAppTests(unittest.TestCase):
             RUNNING_APPS="", COPYFILE_DISABLE="1")  # no AppleDouble files from a Mac's tar
         self.dashboard = root / "assets/dashboard-app"
         self.splash = root / "assets/splash-app"
-        self.home = root / "assets/home-app"
         for app, identifier in ((self.dashboard, "com.tvweb.dashboard"),
                                 (self.splash, "com.tvweb.splash")):
             self.put(app / "appinfo.json", json.dumps({
@@ -75,10 +74,6 @@ class InstallAppTests(unittest.TestCase):
             self.put(app / "assets/fonts/GoogleSansFlex-Regular.ttf", "font")
             self.put(app / "assets/icons/material/home.svg", "<svg/>")
         self.put(self.dashboard / "install-app.sh", SCRIPT.read_text(), 0o755)
-        self.put(self.home / "appinfo.json", json.dumps({
-            "id": "com.tvweb.home", "type": "web", "main": "index.html"}, indent=2))
-        self.put(self.home / "packageinfo.json", json.dumps({"id": "com.tvweb.home"}))
-        self.put(self.home / "index.html", "<script>var PORT = 9999; // tvweb:port</script>")
 
     def put(self, path, text, mode=0o644):
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -96,7 +91,7 @@ class InstallAppTests(unittest.TestCase):
 
     def test_status_needs_the_client_executable(self):
         self.assertEqual(json.loads(self.run_script("status")),
-                         {"ok": True, "supported": True, "installed": False})
+                         {"ok": True, "supported": True, "installed": False, "managed": False})
         (self.dashboard / "nativetv-tv").unlink()
         self.assertEqual(json.loads(self.run_script("status"))["supported"], False)
         self.assertIn("app files not found", self.run_script("install"))
@@ -113,7 +108,7 @@ class InstallAppTests(unittest.TestCase):
         self.assertTrue(os.access(app / "nativetv-tv", os.X_OK))
         self.assertTrue((self.apps / "packages/com.tvweb.dashboard/packageinfo.json").is_file())
         self.assertEqual(json.loads(self.run_script("status")),
-                         {"ok": True, "supported": True, "installed": True})
+                         {"ok": True, "supported": True, "installed": True, "managed": False})
 
     def test_splash_is_installed_from_its_own_folder(self):
         self.assertEqual(self.run_script("install", self.splash),
@@ -174,12 +169,34 @@ class InstallAppTests(unittest.TestCase):
         self.assertTrue((data / ".tv-app-kept").is_file())
         self.assertFalse(json.loads(self.run_script("ensure"))["refreshed"])
         self.assertFalse(json.loads(self.run_script("retire"))["refreshed"])
+        # The package's tile opens it, so it has none of its own, and no switch is offered.
+        manifest = json.loads((self.installed("com.tvweb.dashboard") / "appinfo.json").read_text())
+        self.assertIs(manifest["visible"], False)
+        self.assertEqual(manifest["id"], "com.tvweb.dashboard")
+        self.assertIs(json.loads(self.run_script("status"))["managed"], True)
 
-    def test_web_app_keeps_its_port_and_is_not_touched_by_refresh(self):
-        self.run_script("install", self.home)
-        page = self.installed("com.tvweb.home") / "index.html"
-        self.assertIn("var PORT = 8080; // tvweb:port", page.read_text())
-        self.assertEqual(json.loads(self.run_script("refresh", self.home))["refreshed"], False)
+    def test_homebrew_install_takes_the_tile_off_an_app_added_before(self):
+        # An app added with a tile by an earlier release is reinstalled without one at the next refresh.
+        self.assertEqual(self.run_script("install"), "dashboard added to the home screen")
+        self.assertNotIn("visible", json.loads(
+            (self.installed("com.tvweb.dashboard") / "appinfo.json").read_text()))
+        data = Path(self.environment["TVWEB_DATA_ROOT"])
+        data.mkdir()
+        (data / ".from-homebrew-channel").write_text("/app\n")
+        (data / ".tv-app-kept").write_text("")
+        self.assertEqual(self.run_script("refresh"), "dashboard added to the home screen")
+        self.assertIs(json.loads(
+            (self.installed("com.tvweb.dashboard") / "appinfo.json").read_text())["visible"], False)
+        self.assertFalse(json.loads(self.run_script("refresh"))["refreshed"])
+
+    def test_homebrew_install_leaves_the_splash_manifest_as_it_is(self):
+        data = Path(self.environment["TVWEB_DATA_ROOT"])
+        data.mkdir()
+        (data / ".from-homebrew-channel").write_text("/app\n")
+        self.assertEqual(self.run_script("install", self.splash),
+                         "native startup splash added to the home screen")
+        self.assertEqual((self.installed("com.tvweb.splash") / "appinfo.json").read_text(),
+                         (self.splash / "appinfo.json").read_text())
 
 
 if __name__ == "__main__":

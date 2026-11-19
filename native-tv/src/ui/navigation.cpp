@@ -99,13 +99,33 @@ void Application::route(const std::string &path) {
         motion_.set("rcx", 0);
         motion_.play("rec", Tween(0, 1, kit::motion::ms::fast, Easing::out()));
     } else if (path == "qr:address") {
+        // The address is asked for again: the caps read when the client opened can predate the
+        // dashboard being opened to the network (setup or Settings) or the TV's network address
+        // (a client opened at boot), and an origin missing from them made a code of just "/".
         state_.screen = Screen::Qr;
-        state_.qr = state_.caps["origin"].string() + "/";
-        if (state_.caps.has("key"))
-            state_.qr += "?k=" + encode(state_.caps["key"].string());
+        state_.menu = MenuState();
+        state_.menu.rows.push_back(option("Reading the address…", Command()));
+        services_.read("caps", Operation::Capabilities);
     }
     rebuildMenu();
     refresh();
+    dirty_ = true;
+}
+void Application::showAddress() {
+    state_.menu = MenuState();
+    state_.qr.clear();
+    // The server sends an origin only while the dashboard is open to the network and the TV has
+    // an address; the key only to this TV.
+    const std::string origin = state_.caps["origin"].string();
+    if (!origin.empty()) {
+        state_.qr = origin + "/";
+        if (state_.caps.has("key"))
+            state_.qr += "?k=" + encode(state_.caps["key"].string());
+    } else
+        state_.menu.rows.push_back(
+            option("No address", Command(), "",
+                   "The web dashboard is not open to the home network, or the TV has no network "
+                   "address yet. Back returns to Settings."));
     dirty_ = true;
 }
 void Application::execute(const Command &command) {
@@ -176,8 +196,10 @@ void Application::back() {
                 dirty_ = true;
             } else
                 homeArrangeDone();
-        } else if (state_.home.editing)
-            homeEditDone(false);
+        } else if (state_.home.appMenu)
+            homeAppMenuClose(); // nothing changes
+        else if (state_.home.editing)
+            homeEditDone();
         else if (state_.home.tab != 0 || flow_.pendingTab > 0) {
             state_.home.navigation = false;
             state_.home.nav = 0;

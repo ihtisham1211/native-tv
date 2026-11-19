@@ -1033,6 +1033,30 @@ about:blank`) in front.
   launches the last app (`LAUNCH_LASTAPP on_foreground_null`). A Home that
   comes back that way closes the screen saver as it opens.
 
+## The screen saver timer and the native client (C6, webOS 11.2.0)
+
+Measured on 19 November 2026 on an OLED83C6HUP, Start after 3 minutes:
+
+- **screenmanager's idle time is a nopd timer.** nopd keeps
+  `[TIMER]ScreenSaver:180` (repeat, 180 s; the number is Start after in
+  seconds), and screenmanager restarts it with `com.webos.service.nop/
+  removeNopTimer` `{"timerId": "[TIMER]ScreenSaver:180", "option": "reset"}` at
+  every foreground app change (sam's `getForegroundAppInfo`) and every 30 s
+  while something plays full screen. `ls-monitor -f com.webos.service.nop`
+  shows the calls and their sender.
+- **screenmanager and nopd log to `/var/log/dbg-log`**, not to
+  `/var/log/messages`: the foreground app, video windows, media play states,
+  the multiview state and each `removeNopTimer` with its caller. The file
+  rotates every few minutes (`dbg-log.0.gz` to `.2.gz`).
+- **The native client does not hold it off.** LG's screen saver came 178.6 s
+  after the last Home press with `com.tvweb.dashboard` in front, opened by the
+  app under LG's Home's id, and 179 s after the last key over LG's own Home.
+  With the client in front and no key for 100 s, nothing called
+  `removeNopTimer`. LG's SDL (2.0.14) has a `ScreensaverTimer` thread that
+  sends the same reset (`resetScreensaverTimer`, next to the gamepad state
+  `ExistGamepadInput`), but the client, which starts only SDL's video, timer
+  and events, has no such thread.
+
 ## sam losing the screen saver app (webOS 9.2.2, C2)
 
 On 2026-10-17 a C2 with a custom screen saver mounted over
@@ -1162,6 +1186,73 @@ The webOS 9 entries above describe the home app's CRIU checkpoint. On a CX:
   took ("sam had not caught up").
 - The TV has no `/etc/issue`. `/etc/starfish-release` has
   `Rockhopper release 10.3.1-3006`, and `/etc/os-release` `VERSION_ID=10.3.1`.
+
+## The Home key over Native Tv Home (C6, webOS 11.2.0)
+
+Measured on 19 November 2026 on an OLED83C6HUP with Native Tv Home in LG's
+Home's place, pressing Home by writing key 773 to `LGE RCU` (`event0`) and
+capturing the screen (`capture/executeOneShot`, `DISPLAY`, 320x180) every
+25 ms from the press. LG's Home's place was then held by a web page that
+opened the client as the Native Tv tile's app, `com.tvweb.dashboard`; the
+next section is the native client in that place.
+
+- **Every press hides the app in front, Native Tv Home too.** The key filter
+  launches `com.webos.app.home` (caller `com.webos.starfish.keyfilters`), the
+  client's window goes `visible: false` and the page under Home's id `visible:
+  true` in the same millisecond, and the client is back 105 to 115 ms later
+  (`NL_VSC`). On a black page that is a black blink, three or four captures
+  long, also with Native Tv Home already on screen.
+- **A transparent page does not show what it hid.** With `"transparent":
+  true` in the page's `appinfo.json`, which sam reported after a block and
+  release, and a transparent body, the captures were still black.
+- **A picture on the page does.** With a capture of Native Tv Home as the
+  page's background, zero to one capture of five was black, and none once the
+  picture was a good one: the page's own frame is shown, painted while it was
+  hidden.
+- **The page hears both events.** Shown again, it gets `visibilitychange` and
+  `webOSRelaunch`, so a page launching the client on each launched it twice
+  per press.
+
+## Native Tv Home as LG's Home (C6, webOS 11.2.0)
+
+Measured on the same OLED83C6HUP (firmware 43.21.98) with the native client
+itself staged under LG's Home's id: its files, a start script and an
+`appinfo.json` with `type` `native`, `main` the script and `appCategory`
+`["home"]`, bind-mounted over `/usr/palm/applications/com.webos.app.home`, the
+same key 773 and 25 ms captures.
+
+- **sam starts a native app under LG's Home's id as root.** No jailer, its
+  stderr to `/dev/null`, and no `APPID` in its environment. LG's libSDL2 names
+  the window from `APPID`; without it the window is never shown (no `NL_VSC`,
+  the foreground app ""). A start script that sets
+  `APPID=com.webos.app.home` and `exec`s the client is enough. The client
+  gets `{"nid":"com.webos.app.home",...,"launchType":"homeKey"}` as its
+  argument.
+- **The swap works as for the web page.** Files changed, then a block and
+  release of `com.webos.app.home` for sam to read them, then the old instance
+  stopped (`killApp` for a web page, a kill for a native process). sam then
+  reports `type` `native` and `main` the script.
+- **Home on Native Tv Home changes nothing.** No `NL_VSC` window event, no
+  black capture, the same process.
+- **Home from an input shows it at once.** From HDMI 3, HDMI was hidden and
+  Native Tv Home shown 3 ms apart, 390 ms after the press, with nothing in
+  between. With no client running, Home was on screen about 0.5 s after the
+  press.
+- **sam may close it in the background.** The client was once restarted
+  behind an app, most likely closed by sam as YouTube started.
+- **What keeps LG's Home resident is configuration under its id.**
+  `/etc/palm/sam-conf.json` lists `com.webos.app.home` in `NoJailApps` (why
+  it runs without the jailer), and `/etc/palm/sam-conf-tv.json` in
+  `BootTimeApps` (started at boot, before any hook mounts over it) and
+  `CRIUSupportApps` (restored from a checkpoint). The preload manager's
+  `/etc/palm/webos-preload-manager-conf.json` has it in `allowedApps`, which
+  Native Tv Home holds off on webOS 10 and later. Native Tv Home gets the
+  jail rule by its id, but it is mounted after the boot start and is not
+  preloaded, so it starts at the first press after the takeover and after
+  sam has closed it.
+- **The probe needs neither the jailer nor `APPID`.** `nativetv-tv --probe`
+  run as root with `XDG_RUNTIME_DIR=/tmp/xdg` exited 0 (Mali-G510, OpenGL ES
+  3.2) and its window was not shown over the app in front.
 
 ## What the TV opens as it starts (G5, webOS 10.3.1)
 
@@ -1941,4 +2032,42 @@ On an OLED83C6HUP with firmware 43.21.98 and Homebrew Channel 0.7.3,
 Native Tv 0.125.0 installed through webOS Dev Manager. On launch and retry,
 the app's request to Homebrew Channel received `Denied method call "exec" for
 category "/"`, even though Homebrew Channel reported root status OK. The
-launcher displayed the refusal before the server setup script ran.
+launcher displayed the refusal before the server setup script ran. The
+service logged `LS_REQUIRES_SECURITY` ("Service security groups don't allow
+method call") for the client `io.github.ihtisham1211.nativetv-<WebAppMgr pid>`:
+the check is made in the called service's process, against the groups ls-hubd
+gives the caller.
+
+Homebrew Channel 0.7.3 maps its service to `org.webosbrew.hbchannel.service.group`
+and `ares.webos.cli` (`api-permissions.d/org.webosbrew.hbchannel.service.api.json`)
+and to `public` (`...api.public.json`, written by its `elevate-service`). A
+developer app gets the groups of `/usr/share/luna-service2/allowed_groups.json`'s
+`public` list, plus the `<service>.group` of a service in its own package, and
+none of these. webOS 11 no longer gives apps `public`; upstream's fix
+(webosbrew/webos-homebrew-channel PR 233, merged after 0.7.3, in throwaway96's
+0.8.0-rc1) maps the service to `lunabus.query` as well, which developer apps have.
+Upstream issue 255 has the same refusal from other apps on webOS 11.
+
+Measured on the C6H with a copy of `luna-send` given a role of its own in
+`/var/luna-service2-dev` (trust level `public`, `-m` naming it):
+
+- With the groups appinstalld wrote for Native Tv, the call to `exec` is
+  refused with the same text; with `org.webosbrew.hbchannel.service.group`
+  added, or as `luna-send-pub` (groups `ares.webos.cli` and `public`), it runs
+  as root.
+- A second manifest whose client-permissions file gives the app's name pattern
+  only that group takes effect after `ls-control scan-volatile-dirs`; ls-hubd
+  merges it with the app's own file.
+- Editing the app's own client-permissions file does not take:
+  `scan-volatile-dirs` logs `Skipping already loaded manifest` and keeps what it
+  loaded. Reinstalling the app rewrites that file and leaves a second
+  manifest in place.
+- `requiredACG` in `appinfo.json` naming `org.webosbrew.hbchannel.service.group`
+  gives a dev install an empty client-permissions list (the group is not in
+  `allowed_groups.json`), and `requiredPermissions` is ignored.
+
+With the second manifest in place (written by the package's `install.sh`, run
+once over SSH), the launcher's `exec` ran `install.sh` 4 s after the app was
+opened, with the server stopped, and the server started; the WebAppMgr process
+had been running since before the grant, and Homebrew Channel's service was not
+restarted.

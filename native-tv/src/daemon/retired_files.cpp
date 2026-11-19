@@ -42,6 +42,11 @@ const char *const kFiles[] = {
     "assets/ui/update.js", "lib/updater.js",
     // The dashboard tile was a web page before it became the native client.
     "assets/dashboard-app/index.html",
+    // The web stand-in that held LG's Home's place and opened the client; Native
+    // Tv Home is the client itself now, staged from assets/dashboard-app.
+    "assets/home-app/appinfo.json", "assets/home-app/index.html",
+    "assets/home-app/packageinfo.json", "assets/home-app/assets/icon80.png",
+    "assets/home-app/assets/icon130.png",
     // The Node server of the releases before the daemon was the whole server.
     "tvweb.js", "lib/adblock-domains.js", "lib/apps.js", "lib/backup.js", "lib/children.js",
     "lib/config_lock.js", "lib/controls.js", "lib/devtools.js", "lib/fetch.js",
@@ -61,11 +66,11 @@ const char *const kFiles[] = {
     "lib/util.js", "lib/version.js"};
 // Emptied by the removals above; removed only if nothing else is in them.
 const char *const kFolders[] = {"assets/google-tv/components", "assets/google-tv/pages/kit",
-                                "assets/google-tv/pages/dashboard", "assets/google-tv/pages/home", "lib"};
+                                "assets/google-tv/pages/dashboard", "assets/google-tv/pages/home",
+                                "assets/home-app/assets", "assets/home-app", "lib"};
 
 // The developer client, com.tvweb.native, which only deploy.py ever put on the
-// TV and which sam was never told of. The Home stub opens the Native Tv tile's
-// app (com.tvweb.dashboard) instead.
+// TV and which sam was never told of.
 const char *const kApps[] = {"com.tvweb.native"};
 
 int removeEntry(const char *path, const struct stat *, int, struct FTW *) {

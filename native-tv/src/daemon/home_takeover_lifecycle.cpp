@@ -2,6 +2,7 @@
 
 #include "daemon/home_screen_manager.hpp"
 #include "daemon/home_takeover_manager.hpp"
+#include "daemon/home_takeover_stager.hpp"
 #include "daemon/luna.hpp"
 #include "daemon/sam_rescan_manager.hpp"
 #include "service/preload.hpp"
@@ -141,15 +142,51 @@ bool HomeTakeoverLifecycleManager::appInfo(Json &info) {
     return true;
 }
 
+// sam's reading of the app under LG's Home's id: Native Tv Home's manifest
+// (native, started by its script), the web stand-in earlier releases staged in
+// its place, or else LG's own.
+namespace {
+bool nativeTvHomeManifest(const Json &info) {
+    return info["type"].isString() && info["type"].string() == "native" &&
+           info["main"].isString() && info["main"].string() == kHomeStartScript;
+}
+
+bool ownManifest(const Json &info) {
+    return nativeTvHomeManifest(info) ||
+           (info["type"].isString() && info["type"].string() == "web");
+}
+} // namespace
+
 bool HomeTakeoverLifecycleManager::manifestAccepted(bool nativeTvManifest) {
     Json info;
     if (!appInfo(info) || !info["type"].isString()) return false;
-    const bool isWeb = info["type"].string() == "web";
-    if (!nativeTvManifest) return !isWeb;
+    if (!nativeTvManifest) return !ownManifest(info);
     const Json category = info["appCategory"];
-    return isWeb && category.isArray() && category.items().size() == 1 &&
-           category.items()[0].isString() &&
+    return nativeTvHomeManifest(info) && category.isArray() &&
+           category.items().size() == 1 && category.items()[0].isString() &&
            category.items()[0].string() == "home";
+}
+
+std::string HomeTakeoverLifecycleManager::foregroundApp() {
+    LunaReply reply;
+    if (!lunaCall(luna_, "com.webos.applicationManager/getForegroundAppInfo",
+                  Json::object(), reply))
+        return std::string();
+    return reply.response["appId"].string();
+}
+
+// Whatever ran under LG's Home's id before sam read the manifest that is there
+// now, ended once sam has read it: a process sam no longer has the manifest of
+// left a launch hanging for 8 s and the screen black (a G3, webOS 9.2.2). The
+// web stand-in of earlier releases is ended through WebAppMgr; a native Native
+// Tv Home is a process of its own.
+void HomeTakeoverLifecycleManager::stopEarlierInstances() {
+    Json payload = Json::object();
+    payload.set("appId", Json::text(kHomeId));
+    LunaReply ignored;
+    (void)lunaCall(luna_, "com.palm.webappmanager/killApp", payload, ignored);
+    bool stopped = false;
+    (void)homeScreen_.stopNativeTvHome(stopped);
 }
 
 bool HomeTakeoverLifecycleManager::waitForManifest(bool nativeTvManifest) {
@@ -182,9 +219,9 @@ void HomeTakeoverLifecycleManager::rollbackTakeover(
     (void)homeScreen_.startLayout(false);
     (void)takeover_.release();
     Json info;
-    if (appInfo(info) && info["type"].isString() &&
-        info["type"].string() == "web")
-        (void)reread(false, context);
+    if (appInfo(info) && ownManifest(info)) (void)reread(false, context);
+    bool stopped = false;
+    (void)homeScreen_.stopNativeTvHome(stopped);
 }
 
 Json HomeTakeoverLifecycleManager::takeover(
@@ -192,9 +229,21 @@ Json HomeTakeoverLifecycleManager::takeover(
     std::lock_guard<std::mutex> lock(mutex_);
     const Json mounted = takeover_.takeover();
     if (!mounted["ok"].boolean()) return mounted;
-    if (!manifestAccepted(true) && !reread(true, context)) {
+    const bool reading = !manifestAccepted(true);
+    if (reading && !reread(true, context)) {
         rollbackTakeover(context);
         return failure("sam did not take Native Tv Home as Home");
+    }
+    if (reading) {
+        // sam had LG's manifest (its process is stopped below) or the web
+        // stand-in of an earlier release.
+        stopEarlierInstances();
+    } else if (mounted["changed"].boolean() && foregroundApp() != kHomeId) {
+        // A new release's client: one started from the files it replaced is
+        // stopped, so the next Home press starts this one. One in front is left
+        // to be replaced at its next start.
+        bool stopped = false;
+        (void)homeScreen_.stopNativeTvHome(stopped);
     }
 
     const Json layout = homeScreen_.startLayout(blankStartLayout);
@@ -229,14 +278,10 @@ Json HomeTakeoverLifecycleManager::release(
     if (!released["ok"].boolean()) return released;
 
     Json info;
-    if (appInfo(info) && info["type"].isString() &&
-        info["type"].string() == "web" && !reread(false, context))
+    if (appInfo(info) && ownManifest(info) && !reread(false, context))
         return failure("sam did not take LG's Home back");
 
-    Json payload = Json::object();
-    payload.set("appId", Json::text(kHomeId));
-    LunaReply ignored;
-    (void)lunaCall(luna_, "com.palm.webappmanager/killApp", payload, ignored);
+    stopEarlierInstances();
     // Only where Native Tv Home was in its place: there the policy was held.
     if (!released["already"].boolean()) (void)holdLgHomePreload(false);
     return released;

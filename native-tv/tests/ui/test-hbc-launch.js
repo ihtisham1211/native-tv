@@ -87,8 +87,11 @@ var cases = [
     'Could not open the Native Tv app.']
 ];
 var refusalCases = [
-  [{ returnValue: false, errorText: ' Denied method call\nfor category / ', errorCode: -1 },
-    'Could not start setup through Homebrew Channel. Denied method call for category /'],
+  [{ returnValue: false, errorText: ' Denied method call\n"exec" for category "/" ', errorCode: -1 },
+    'Homebrew Channel refused to run the setup, as it does on webOS 11. ' +
+    'Run it once over SSH as root: sh /media/app/payload/install.sh'],
+  [{ returnValue: false, errorText: 'Service is not running', errorCode: -1 },
+    'Could not start setup through Homebrew Channel. Service is not running'],
   [{ returnValue: false, errorText: ' ', errorCode: -1 },
     'Could not start setup through Homebrew Channel. Error -1'],
   [{ returnValue: false }, 'Could not start setup through Homebrew Channel.'],

@@ -22,8 +22,6 @@ extern char **environ;
 namespace nativetv {
 namespace daemon {
 namespace {
-const char *const kClientDirectory = "/media/developer/apps/usr/palm/applications/com.tvweb.dashboard";
-
 std::string rooted(const std::string &root, const std::string &path) {
     if (root.empty() || root == "/") return path;
     size_t end = root.size();
@@ -101,13 +99,7 @@ std::string homeProbeReason(const Json &verdict) {
     const std::string name = verdict["class"].string();
     if (name == "missing")
         return say::msg("srv.home.probe.missing",
-                        "The Native Tv app is not installed on this TV, so Native Tv Home cannot take LG's Home's place. Switch on App on the TV's home screen, on the Server tab, first.");
-    if (name == "unregistered")
-        return say::msg("srv.home.probe.unregistered",
-                        "The Native Tv app is not on this TV's home screen (it was removed, or never added), so Native Tv Home cannot take LG's Home's place. Switch on App on the TV's home screen, on the Server tab, first.");
-    if (name == "unasked")
-        return say::msg("srv.home.probe.unasked",
-                        "The TV did not say whether the Native Tv app is on its home screen, so Native Tv Home cannot take LG's Home's place.");
+                        "The Native Tv app's files are not on this TV, so Native Tv Home cannot take LG's Home's place. Installing Native Tv again puts them back.");
     if (name == "timeout")
         return say::msg("srv.home.probe.timeout",
                         "The Native Tv app's start-up check did not finish in time, so Native Tv Home cannot take LG's Home's place.");
@@ -137,26 +129,23 @@ std::string homeProbeReason(const Json &verdict) {
 }
 
 HomeProbeOptions homeProbeOptions(const Json &config, const std::string &systemRoot,
-                                  const std::string &dataRoot) {
+                                  const std::string &dataRoot, const std::string &assetsRoot) {
     const Json section = config["nativeClient"];
     HomeProbeOptions options;
+    const std::string assets = assetsRoot.empty() ? std::string("/var/lib/tvweb/assets") : assetsRoot;
     options.clientPath = section["path"].isString() && !section["path"].string().empty()
                              ? section["path"].string()
-                             : rooted(systemRoot, std::string(kClientDirectory) + "/nativetv-tv");
+                             : assets + "/dashboard-app/nativetv-tv";
     if (section["probeCommand"].isArray()) {
         for (const Json &argument : section["probeCommand"].items())
             if (argument.isString()) options.command.push_back(argument.string());
-    } else {
-        // Started as deploy.py starts it: the jail's own launcher and the display socket.
-        const std::string jailer = rooted(systemRoot, "/usr/bin/jailer");
-        if (access(jailer.c_str(), X_OK) == 0) {
-            const size_t slash = options.clientPath.rfind('/');
-            options.command = {jailer, "-t", "native_devmode", "-i", kHomeClientApp, "-p",
-                               slash == std::string::npos ? "." : options.clientPath.substr(0, slash),
-                               options.clientPath, "--probe"};
-            options.environment.push_back("XDG_RUNTIME_DIR=/tmp/xdg");
-        }
     }
+    // sam starts Home as root without the jailer, and so does the probe; it
+    // needs the compositor's socket. Without APPID its window is never shown,
+    // so the check is not seen (webOS 11.2.0, exit 0).
+    struct stat display;
+    if (stat(rooted(systemRoot, "/tmp/xdg").c_str(), &display) == 0 && S_ISDIR(display.st_mode))
+        options.environment.push_back("XDG_RUNTIME_DIR=/tmp/xdg");
     if (section["probeTimeoutMs"].isNumber()) {
         const double wanted = section["probeTimeoutMs"].number();
         options.timeout = std::chrono::milliseconds(
@@ -167,40 +156,8 @@ HomeProbeOptions homeProbeOptions(const Json &config, const std::string &systemR
     return options;
 }
 
-int homeClientRegistration(LunaClient &luna) {
-    struct Completion {
-        std::mutex mutex;
-        std::condition_variable condition;
-        bool done = false;
-        LunaReply reply;
-    };
-    const std::shared_ptr<Completion> completion = std::make_shared<Completion>();
-    Json payload = Json::object();
-    payload.set("id", Json::text(kHomeClientApp));
-    if (!luna.call("com.webos.applicationManager/getAppInfo", payload,
-                   [completion](const LunaReply &reply) {
-                       std::lock_guard<std::mutex> lock(completion->mutex);
-                       completion->reply = reply;
-                       completion->done = true;
-                       completion->condition.notify_one();
-                   }))
-        return -1;
-    std::unique_lock<std::mutex> lock(completion->mutex);
-    if (!completion->condition.wait_for(lock, std::chrono::seconds(5), [&completion] { return completion->done; }))
-        return -1;
-    const LunaReply &reply = completion->reply;
-    if (reply.timedOut || !reply.error.empty() || !reply.response["returnValue"].isBoolean()) return -1;
-    if (reply.response["returnValue"].boolean()) return 1;
-    // The wording the app manager answers an id it does not know with.
-    std::string text = reply.response["errorText"].string();
-    std::transform(text.begin(), text.end(), text.begin(),
-                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-    return text.find("invalid appid") != std::string::npos ? 0 : -1;
-}
-
-HomeProbeGate::HomeProbeGate(ChildProcessRunner &children, HomeProbeOptions options,
-                             std::function<int()> registration)
-    : children_(children), options_(std::move(options)), registration_(std::move(registration)) {}
+HomeProbeGate::HomeProbeGate(ChildProcessRunner &children, HomeProbeOptions options)
+    : children_(children), options_(std::move(options)) {}
 
 // What identifies the client file: its size and time. Empty where it cannot be run.
 std::string HomeProbeGate::clientKey() const {
@@ -256,13 +213,6 @@ Json HomeProbeGate::verdict(bool force) {
     };
     if (key.empty()) {
         remember(verdictOf("missing", -1));
-        return known();
-    }
-    // Asked every time, before any kept verdict: the owner can take the tile off
-    // the home screen, after which sam refuses to open the app at all.
-    const int registered = registration_ ? registration_() : 1;
-    if (registered < 1) {
-        remember(verdictOf(registered == 0 ? "unregistered" : "unasked", -1));
         return known();
     }
     JsonFile cache(options_.cachePath, 64 * 1024);

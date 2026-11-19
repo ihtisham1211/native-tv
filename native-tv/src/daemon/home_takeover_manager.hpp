@@ -10,12 +10,13 @@ namespace nativetv {
 namespace daemon {
 class ChildProcessRunner;
 
-// Owns staging and the bind-mount boundary for the hidden LG Home replacement.
-// HomeTakeoverLifecycleManager sequences SAM rereads and rollback around it.
+// Owns staging and the bind mount that puts Native Tv Home (the native client,
+// home_takeover_stager) in LG's Home's place. HomeTakeoverLifecycleManager
+// sequences sam's rereads, stopping the old instance and rollback around it.
 class HomeTakeoverManager {
   public:
     HomeTakeoverManager(ChildProcessRunner &children, std::string sourceRoot,
-                        std::string stagingRoot, std::string systemRoot, int port);
+                        std::string stagingRoot, std::string systemRoot);
 
     Json takeover();
     Json release();
