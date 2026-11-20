@@ -103,6 +103,8 @@ void Application::refresh() {
         services_.read("install", Operation::InstallStatus);
     } else {
         services_.read("catalogue", Operation::HomeCatalogue);
+        if (state_.screen == Screen::Qr && addressWaiting_)
+            services_.read("caps", Operation::Capabilities);
         if (state_.screen == Screen::Home) {
             refreshedTheme_ = kit::themeId();
             // A theme without a feed asks neither TMDB nor YouTube for one; it asks for the panel.
@@ -201,6 +203,17 @@ void Application::response(const Response &response) {
                 fields({{"ok", Json::flag(false)},
                         {"error", Json::text("The server did not answer. Press OK to retry.")}});
             rebuildMenu();
+        } else if (response.channel == "caps" && state_.screen == Screen::Qr && addressWaiting_) {
+            // The caps already held still name the address; without them, OK (or the next
+            // refresh) asks again.
+            if (state_.caps.valid())
+                showAddress();
+            else {
+                state_.menu = MenuState();
+                state_.menu.rows.push_back(option("Could not read the address",
+                                                  navigate("qr:address"), "",
+                                                  "The server did not answer. Press OK to retry."));
+            }
         }
         return;
     }

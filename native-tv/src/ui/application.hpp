@@ -133,6 +133,8 @@ class Application : private ScreenHost {
     // question is asked again every two seconds, and the client's own first frames stay behind the
     // ink cover for at most 2.5 s so the page that is about to be replaced is not seen.
     bool capsAnswered_ = false, holdForCaps_ = false;
+    // The address code is waiting for a caps answer: each refresh asks again until one comes.
+    bool addressWaiting_ = false;
     // The one-time offer of OLED Care was opened this run; the server stops sending it once answered.
     bool themeOffered_ = false;
     const char *shownTheme_ = nullptr; // the theme the Home art's wash was last reset for
