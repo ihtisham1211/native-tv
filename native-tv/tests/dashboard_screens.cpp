@@ -1285,6 +1285,42 @@ void address() {
           "Without an origin no code is drawn, and the screen says why");
     run(app, clock, 100);
 }
+// A caps read that fails does not leave the code's screen waiting: without caps it says so and OK
+// asks again; with caps held it draws the address from them; the refresh asks again meanwhile.
+void addressUnanswered() {
+    FakeTransport transport;
+    Application app(transport, "dashboard");
+    uint32_t clock = run(app, 16, 300);
+    app.open("qr:address");
+    clock = run(app, clock, 100);
+    reply(app, "caps", "{}", 500);
+    clock = run(app, clock, 100);
+    check(!app.shows("Reading the address…") && app.shows("Could not read the address"),
+          "A failed caps read replaces the waiting line with a retry");
+    size_t asked = transport.count("caps");
+    app.key(Key::Ok);
+    clock = run(app, clock, 100);
+    check(transport.count("caps") > asked && app.shows("Reading the address…"),
+          "OK on the failure asks for the address again");
+    reply(app, "caps", R"({"ok":true,"origin":"http://192.168.1.239:8080"})");
+    clock = run(app, clock, 100);
+    check(qrText(app.frame()) == "http://192.168.1.239:8080/", "The retry's answer draws the code");
+
+    app.key(Key::Back);
+    clock = run(app, clock, 100);
+    app.open("qr:address");
+    clock = run(app, clock, 100);
+    asked = transport.count("caps");
+    clock = run(app, clock, 10500);
+    check(transport.count("caps") > asked, "The screen's refresh asks again while it waits");
+    reply(app, "caps", "{}", 500);
+    clock = run(app, clock, 100);
+    check(qrText(app.frame()) == "http://192.168.1.239:8080/",
+          "A failed read falls back to the address in the caps already held");
+    asked = transport.count("caps");
+    run(app, clock, 10500);
+    check(transport.count("caps") == asked, "Once the code is drawn the refresh stops asking");
+}
 
 } // namespace
 
@@ -1298,6 +1334,7 @@ int main() {
         catalog();
         idle();
         address();
+        addressUnanswered();
         std::printf("%d dashboard screen checks passed\n", checks);
         return 0;
     } catch (const std::exception &error) {

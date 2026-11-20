@@ -7,6 +7,7 @@ void Application::route(const std::string &path) {
     confirmId_.clear();
     services_.cancel("menu");
     state_.qr.clear();
+    addressWaiting_ = false;
     clearPicture();
     bool fromRecents = isRecents();
     const std::string origin = screen_ ? currentRoute_ : state_.screen == Screen::Home ? "home" : "";
@@ -105,13 +106,14 @@ void Application::route(const std::string &path) {
         state_.screen = Screen::Qr;
         state_.menu = MenuState();
         state_.menu.rows.push_back(option("Reading the address…", Command()));
-        services_.read("caps", Operation::Capabilities);
+        addressWaiting_ = true; // refresh() below sends the read
     }
     rebuildMenu();
     refresh();
     dirty_ = true;
 }
 void Application::showAddress() {
+    addressWaiting_ = false;
     state_.menu = MenuState();
     state_.qr.clear();
     // The server sends an origin only while the dashboard is open to the network and the TV has
