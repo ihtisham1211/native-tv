@@ -87,10 +87,20 @@ ScreenTimeEnforcer::ScreenTimeEnforcer(
     const JsonFileResult saved = switchedOffFile_.load();
     if (!saved.error.empty() && logger_)
         logger_->warning("screentime: could not read switched-off state: " + saved.error);
+    // Each marker names its window: a TV kept off through the day and switched on in the next
+    // bedtime gets that bedtime's toast and minute, not the blanking meant for the last one. Up to
+    // 0.126 the marker was `true`, with no window; it is dropped, since honouring it could be that
+    // case, and dropping it costs one toast and minute before the TV is switched off again.
     const Json switched = saved.value["switchedOff"];
-    for (const char *id : {"daily", "bedtime"})
-        if (switched[id].isBoolean() && switched[id].boolean())
-            switchedOff_[id] = true;
+    bool legacy = false;
+    for (const char *id : {"daily", "bedtime"}) {
+        if (switched[id].isString() && !switched[id].string().empty())
+            switchedOff_[id] = switched[id].string();
+        else if (switched[id].isBoolean())
+            legacy = true;
+    }
+    if (legacy)
+        saveSwitchedOff();
 
     const std::weak_ptr<int> lifetime = lifetime_;
     state_.onChange([this, lifetime](const state::Event &event) {
@@ -141,15 +151,7 @@ void ScreenTimeEnforcer::applyOnLoop(const Json &settings) {
         loop_.cancelTimer(checkTimer_);
     checkTimer_ = 0;
     running_ = false;
-    cancelPending();
-    if (settleTimer_) loop_.cancelTimer(settleTimer_);
-    if (verifyTimer_) loop_.cancelTimer(verifyTimer_);
-    if (screenSaverTimer_) loop_.cancelTimer(screenSaverTimer_);
-    if (powerTimer_) loop_.cancelTimer(powerTimer_);
-    settleTimer_ = verifyTimer_ = 0;
-    screenSaverTimer_ = powerTimer_ = 0;
-    settling_ = false;
-    acting_ = false;
+    cancelActions();
     warned_.clear();
     warnedDay_.clear();
     clearSwitchedOff();
@@ -167,6 +169,13 @@ void ScreenTimeEnforcer::stop() {
     idleTimer_ = 0;
     if (checkTimer_) loop_.cancelTimer(checkTimer_);
     checkTimer_ = 0;
+    cancelActions();
+}
+
+// Drops every action under way, so that none outlives the limits that started it: the timers are
+// cancelled, and a Luna reply still to come is ignored by its generation.
+void ScreenTimeEnforcer::cancelActions() {
+    ++actionGeneration_;
     cancelPending();
     if (settleTimer_) loop_.cancelTimer(settleTimer_);
     if (verifyTimer_) loop_.cancelTimer(verifyTimer_);
@@ -174,6 +183,12 @@ void ScreenTimeEnforcer::stop() {
     if (powerTimer_) loop_.cancelTimer(powerTimer_);
     settleTimer_ = verifyTimer_ = 0;
     screenSaverTimer_ = powerTimer_ = 0;
+    settling_ = false;
+    cancelKeyPress();
+    acting_ = false;
+}
+
+void ScreenTimeEnforcer::cancelKeyPress() {
     if (keyTimer_) loop_.cancelTimer(keyTimer_);
     keyTimer_ = 0;
     if (keyFd_ >= 0) {
@@ -182,7 +197,6 @@ void ScreenTimeEnforcer::stop() {
         keyFd_ = -1;
     }
     keyCallback_ = std::function<void(bool)>();
-    acting_ = false;
 }
 
 bool ScreenTimeEnforcer::startChecks() {
@@ -287,6 +301,18 @@ ScreenTimeEnforcer::Assessment ScreenTimeEnforcer::assess() {
     result.today = history_.totals(todayFromMs, nowMs);
     result.screenOn = result.key != "screen_off";
     result.tv = service::screenTimeTvDue(settings_, result.localClockMs, result.today);
+    result.tvWindow = result.day;
+    if (result.tv.due && result.tv.id == "bedtime" &&
+        service::screenTimeBedtime(settings_, result.localClockMs).startedYesterday) {
+        struct tm yesterday = local;
+        yesterday.tm_mday -= 1;
+        yesterday.tm_hour = 12; // midday: a day without a midnight (a DST change at 00:00) still has one
+        yesterday.tm_isdst = -1;
+        const time_t noon = std::mktime(&yesterday);
+        result.tvWindow = noon == static_cast<time_t>(-1) ? std::string() : localDay(yesterday);
+        if (result.tvWindow.empty())
+            return result;
+    }
     if (result.screenOn)
         result.app = service::screenTimeAppDue(settings_, result.key,
                                                result.today[result.key].number());
@@ -399,7 +425,8 @@ void ScreenTimeEnforcer::check() {
 
     bool cleared = false;
     for (auto item = switchedOff_.begin(); item != switchedOff_.end();) {
-        if (!assessment.tv.due || assessment.tv.id != item->first) {
+        if (!assessment.tv.due || assessment.tv.id != item->first ||
+            assessment.tvWindow != item->second) {
             item = switchedOff_.erase(item);
             cleared = true;
         } else {
@@ -449,7 +476,7 @@ void ScreenTimeEnforcer::check() {
             current.tv.due ? current.tv : current.app;
         if (current.valid && current.screenOn && still.due && still.id == id &&
             still.action != "warn")
-            run(still.action, id);
+            run(still.action, id, current.tvWindow);
     });
     if (!pendingTimer_) {
         if (logger_)
@@ -458,13 +485,15 @@ void ScreenTimeEnforcer::check() {
     }
 }
 
-void ScreenTimeEnforcer::run(const std::string &action, const std::string &id) {
+void ScreenTimeEnforcer::run(const std::string &action, const std::string &id,
+                             const std::string &window) {
     if (logger_)
         logger_->info("screentime: " + (id.empty() ? std::string("limit") : id) +
                       ", " + action);
     if (action == "off") {
-        if ((id == "daily" || id == "bedtime") && !switchedOff_[id]) {
-            switchedOff_[id] = true;
+        if ((id == "daily" || id == "bedtime") && !window.empty() &&
+            switchedOff_[id] != window) {
+            switchedOff_[id] = window;
             saveSwitchedOff();
         }
         powerOff();
@@ -608,23 +637,25 @@ void ScreenTimeEnforcer::powerOff() {
     Json request = Json::object();
     request.set("reason", Json::text("remoteKey"));
     const std::weak_ptr<int> lifetime = lifetime_;
+    const uint64_t generation = actionGeneration_;
     if (!command("screentime.power-off", "com.webos.service.tvpower/power/powerOff",
                     request, "tv-power", true,
-                    [this, lifetime](const LunaReply &reply) {
-                        if (lifetime.expired()) return;
+                    [this, lifetime, generation](const LunaReply &reply) {
+                        if (lifetime.expired() || generation != actionGeneration_) return;
                         if (reply.response["returnValue"].boolean()) {
                             logControl("power off", true);
                             return;
                         }
                         const LunaReply firstReply = reply;
                         powerTimer_ = loop_.scheduleAfter(timings_.powerSettle,
-                            [this, lifetime, firstReply]() {
-                                if (lifetime.expired()) return;
+                            [this, lifetime, generation, firstReply]() {
+                                if (lifetime.expired() || generation != actionGeneration_) return;
                                 powerTimer_ = 0;
                                 (void)luna_.call(
                                     "com.webos.service.tvpower/power/getPowerState", Json::object(),
-                                    [this, lifetime, firstReply](const LunaReply &stateReply) {
-                                        if (lifetime.expired()) return;
+                                    [this, lifetime, generation, firstReply](const LunaReply &stateReply) {
+                                        if (lifetime.expired() || generation != actionGeneration_)
+                                            return;
                                         const std::string raw =
                                             stateReply.response["state"].string();
                                         const Json mapped = names::powerState(Json::text(raw));
@@ -666,57 +697,73 @@ void ScreenTimeEnforcer::turnScreenOff() {
         logControl("screen off", false);
         return;
     }
+    if (acting_)
+        return; // one under way already
     acting_ = true;
-    const std::weak_ptr<int> lifetime = lifetime_;
-    const auto sendOff = [this, lifetime](bool verify) {
-        if (lifetime.expired()) return;
-        if (!command("screentime.screen-off",
-                        "com.webos.service.tvpower/power/turnOffScreen", Json::object(),
-                        "tv-screen", false,
-                        [this, lifetime, verify](const LunaReply &reply) {
-                            if (lifetime.expired()) return;
-                            logControl("screen off", reply.response["returnValue"].boolean());
-                            if (verifyTimer_)
-                                loop_.cancelTimer(verifyTimer_);
-                            verifyTimer_ = loop_.scheduleAfter(timings_.verify,
-                                [this, lifetime, verify]() {
-                                    if (lifetime.expired()) return;
-                                    verifyTimer_ = 0;
-                                    if (verify && screenIsOn()) {
-                                        if (logger_)
-                                            logger_->info("screentime: the screen came back on, turning it off again");
-                                        turnScreenOff();
-                                    } else {
-                                        acting_ = false;
-                                    }
-                                });
-                            if (!verifyTimer_) {
-                                acting_ = false;
-                                logControl("screen off verification", false);
-                            }
-                        })) {
-            acting_ = false;
-            logControl("screen off", false);
-        }
-    };
+    screenOffAttempt(actionGeneration_, true);
+}
 
+// Checks wait while acting_ is set, so an action ends here on every path: the screen is turned off
+// at most twice, as on LCD panels turnOffScreen is refused or does nothing and the screen stays on.
+void ScreenTimeEnforcer::screenOffAttempt(uint64_t generation, bool retryIfOn) {
     if (!isScreenSaver(state_.snapshot())) {
-        sendOff(true);
+        sendScreenOff(generation, retryIfOn);
         return;
     }
-    injectKey(kKeyBack, timings_.keyPress, [this, lifetime, sendOff](bool) {
-        if (lifetime.expired()) return;
+    const std::weak_ptr<int> lifetime = lifetime_;
+    injectKey(kKeyBack, timings_.keyPress, [this, lifetime, generation, retryIfOn](bool) {
+        if (lifetime.expired() || generation != actionGeneration_) return;
         screenSaverTimer_ = loop_.scheduleAfter(timings_.screenSaver,
-            [this, lifetime, sendOff]() {
-                if (lifetime.expired()) return;
+            [this, lifetime, generation, retryIfOn]() {
+                if (lifetime.expired() || generation != actionGeneration_) return;
                 screenSaverTimer_ = 0;
-                sendOff(true);
+                sendScreenOff(generation, retryIfOn);
             });
         if (!screenSaverTimer_) {
             acting_ = false;
             logControl("screen saver dismissal", false);
         }
     });
+}
+
+void ScreenTimeEnforcer::sendScreenOff(uint64_t generation, bool retryIfOn) {
+    const std::weak_ptr<int> lifetime = lifetime_;
+    if (!command("screentime.screen-off",
+                    "com.webos.service.tvpower/power/turnOffScreen", Json::object(),
+                    "tv-screen", false,
+                    [this, lifetime, generation, retryIfOn](const LunaReply &reply) {
+                        if (lifetime.expired() || generation != actionGeneration_) return;
+                        const bool accepted = reply.response["returnValue"].boolean();
+                        logControl("screen off", accepted);
+                        if (!accepted) {
+                            acting_ = false;
+                            return;
+                        }
+                        if (verifyTimer_)
+                            loop_.cancelTimer(verifyTimer_);
+                        verifyTimer_ = loop_.scheduleAfter(timings_.verify,
+                            [this, lifetime, generation, retryIfOn]() {
+                                if (lifetime.expired() || generation != actionGeneration_) return;
+                                verifyTimer_ = 0;
+                                if (!screenIsOn()) {
+                                    acting_ = false;
+                                } else if (retryIfOn) {
+                                    if (logger_)
+                                        logger_->info("screentime: the screen is on, turning it off once more");
+                                    screenOffAttempt(generation, false);
+                                } else {
+                                    acting_ = false;
+                                    logControl("screen off", false);
+                                }
+                            });
+                        if (!verifyTimer_) {
+                            acting_ = false;
+                            logControl("screen off verification", false);
+                        }
+                    })) {
+        acting_ = false;
+        logControl("screen off", false);
+    }
 }
 
 void ScreenTimeEnforcer::launchHome() {
@@ -875,9 +922,10 @@ void ScreenTimeEnforcer::afterSwitchedOff(const service::ScreenTimeDue &due,
             pendingAgain_ = false;
             pendingId_.clear();
             const Assessment current = assess();
+            const auto marker = switchedOff_.find(id);
             if (current.valid && current.tv.due && current.tv.id == id &&
-                switchedOff_.find(id) != switchedOff_.end())
-                run("off", id);
+                marker != switchedOff_.end() && marker->second == current.tvWindow)
+                run("off", id, current.tvWindow);
         });
         if (!pendingTimer_) {
             if (logger_)
@@ -936,7 +984,7 @@ void ScreenTimeEnforcer::saveSwitchedOff() {
     Json state = Json::object();
     Json switched = Json::object();
     for (const auto &item : switchedOff_)
-        if (item.second) switched.set(item.first, Json::flag(true));
+        if (!item.second.empty()) switched.set(item.first, Json::text(item.second));
     state.set("switchedOff", switched);
     std::string error;
     if (!switchedOffFile_.save(state, &error) && logger_)

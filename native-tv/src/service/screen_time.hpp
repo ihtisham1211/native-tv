@@ -18,6 +18,8 @@ struct ScreenTimeDue {
 struct ScreenTimeBedtime {
     bool configured = false;
     bool inside = false;
+    // Inside a window that runs past midnight, after midnight: it began the day before.
+    bool startedYesterday = false;
     int64_t untilStartSeconds = 0;
 };
 

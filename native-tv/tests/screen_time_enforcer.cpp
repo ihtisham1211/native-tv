@@ -8,6 +8,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -89,6 +90,21 @@ bool waitForOccurrences(const std::string &path, const std::string &needle,
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }
     return occurrences(readFile(path), needle) >= expected;
+}
+
+// The local day of a wall-clock time, moved by a number of days.
+std::string localDayOf(int64_t wallMs, int days) {
+    const time_t seconds = static_cast<time_t>(wallMs / 1000);
+    struct tm local;
+    if (!localtime_r(&seconds, &local))
+        return std::string();
+    local.tm_mday += days;
+    local.tm_hour = 12;
+    local.tm_isdst = -1;
+    if (std::mktime(&local) == static_cast<time_t>(-1))
+        return std::string();
+    char value[16] = {};
+    return std::strftime(value, sizeof(value), "%Y-%m-%d", &local) ? value : std::string();
 }
 
 void cleanup(const std::string &root) {
@@ -351,6 +367,55 @@ bool runAppAndScreenSaverCase() {
         check(occurrences(readFile(details), "applicationManager") == 1,
               "the no-Home firmware fallback should not try to launch the missing Home app");
 
+        // A screen that stays on, as an LCD panel's does, is turned off once more and no more, and
+        // the checks then go on: the limit's toast and minute come round again.
+        ScreenTimeTimings stuckTimings = timings;
+        stuckTimings.check = std::chrono::milliseconds(2000);
+        stuckTimings.verify = std::chrono::milliseconds(50);
+        const std::string screenOffWarning = "The screen goes off in a minute.";
+        const std::string beforeStuck = readFile(details);
+        const unsigned screenOffBeforeStuck = occurrences(beforeStuck, "turnOffScreen");
+        check(loop.post([&]() {
+                  enforcer->stop();
+                  enforcer.reset();
+                  enforcer.reset(new ScreenTimeEnforcer(loop, state, history, luna, root,
+                                                        root + "/proc", root, screenSettings,
+                                                        true, true, nullptr, stuckTimings));
+                  (void)enforcer->start();
+              }), "a screen-off limit should start over a screen that stays on");
+        check(waitForOccurrences(details, "turnOffScreen", screenOffBeforeStuck + 2,
+                                 std::chrono::seconds(3)),
+              "a screen still on after screen-off should be turned off once more");
+        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+        check(occurrences(readFile(details), "turnOffScreen") == screenOffBeforeStuck + 2,
+              "a screen that stays on should be turned off no more than twice");
+        check(waitForOccurrences(details, screenOffWarning,
+                                 occurrences(beforeStuck, screenOffWarning) + 2,
+                                 std::chrono::seconds(4)),
+              "the checks should go on after a screen that stays on");
+
+        // Changing the limits drops a screen-off under way: its check of the screen does not act.
+        stuckTimings.check = std::chrono::milliseconds(60000);
+        stuckTimings.verify = std::chrono::milliseconds(300);
+        const unsigned screenOffBeforeApply = occurrences(readFile(details), "turnOffScreen");
+        check(loop.post([&]() {
+                  enforcer->stop();
+                  enforcer.reset();
+                  enforcer.reset(new ScreenTimeEnforcer(loop, state, history, luna, root,
+                                                        root + "/proc", root, screenSettings,
+                                                        true, true, nullptr, stuckTimings));
+                  (void)enforcer->start();
+              }), "a screen-off limit should start before it is changed");
+        check(waitForOccurrences(details, "turnOffScreen", screenOffBeforeApply + 1,
+                                 std::chrono::seconds(3)),
+              "the limit should turn the screen off before it is changed");
+        check(loop.post([&]() {
+                  (void)enforcer->apply(Json::parse("{\"enabled\":false}"));
+              }), "the change should reach the event loop");
+        std::this_thread::sleep_for(std::chrono::milliseconds(700));
+        check(occurrences(readFile(details), "turnOffScreen") == screenOffBeforeApply + 1,
+              "a screen-off under way should not be retried after the limits change");
+
         const unsigned screenOffCallsBeforeNoPowerFallback =
             occurrences(readFile(details), "turnOffScreen");
         const unsigned powerOffCallsBeforeNoPowerFallback =
@@ -564,9 +629,42 @@ bool runAppAndScreenSaverCase() {
         check(waitForOccurrences(details, "powerOff", powerOffBeforeBedtime + 1,
                                  std::chrono::seconds(3)),
               "an active bedtime limit should power off the TV after its grace period");
+        // The window began an hour ago: the day before when that was before midnight.
+        const std::string bedtimeWindow = localDayOf(wall, local.tm_hour == 0 ? -1 : 0);
         const Json persisted = Json::parse(readFile(root + "/screentime.json"));
-        check(persisted["switchedOff"]["bedtime"].boolean(),
-              "a bedtime power-off should persist the bedtime marker before the command");
+        check(persisted["switchedOff"]["bedtime"].string() == bedtimeWindow,
+              "a bedtime power-off should persist the bedtime it began on before the command");
+
+        // A marker from another bedtime, or one with no window as written up to 0.126, is not this
+        // bedtime's: the TV gets the toast and minute again, not the screen going off.
+        for (const char *stale : {"{\"switchedOff\":{\"bedtime\":\"2000-01-01\"}}",
+                                  "{\"switchedOff\":{\"bedtime\":true}}"}) {
+            const std::string before = readFile(details);
+            const unsigned powerOffBefore = occurrences(before, "powerOff");
+            check(loop.post([&, stale]() {
+                      enforcer->stop();
+                      enforcer.reset();
+                      std::ofstream((root + "/screentime.json").c_str(), std::ios::trunc) << stale;
+                      enforcer.reset(new ScreenTimeEnforcer(loop, state, history, luna, root,
+                                                            root + "/proc", root,
+                                                            bedtimeSettings, true, true, nullptr,
+                                                            timings));
+                      (void)enforcer->start();
+                  }), "bedtime enforcement should restart over a stale marker");
+            check(waitForOccurrences(details, "powerOff", powerOffBefore + 1,
+                                     std::chrono::seconds(3)),
+                  std::string("a stale bedtime marker should not stop the power-off: ") + stale);
+            // The urgent power-off can start before the toast's luna-send, so wait for both.
+            const std::string warning = "It is bedtime. The TV switches off in a minute.";
+            check(waitForOccurrences(details, warning, occurrences(before, warning) + 1,
+                                     std::chrono::milliseconds(500)) &&
+                      occurrences(readFile(details), "turnOffScreen") ==
+                          occurrences(before, "turnOffScreen"),
+                  std::string("a stale bedtime marker should warn first, not blank: ") + stale);
+            check(Json::parse(readFile(root + "/screentime.json"))["switchedOff"]["bedtime"]
+                          .string() == bedtimeWindow,
+                  "the power-off should record this bedtime in place of the stale marker");
+        }
 
         const std::string callsBeforeHistoryDisabled = readFile(details);
         check(loop.post([&]() {
@@ -884,8 +982,8 @@ int main() {
         check(occurrences(readFile(details), "com.webos.notification") == 1,
               "an already reached daily limit should not emit an extra near-limit warning");
         Json saved = Json::parse(readFile(root + "/screentime.json"));
-        check(saved["switchedOff"]["daily"].boolean(),
-              "a daily power-off is persisted before the device command");
+        check(saved["switchedOff"]["daily"].string() == localDayOf(wall, 0),
+              "a daily power-off is persisted, with its day, before the device command");
 
         check(loop.post([&]() {
                   enforcer->stop();
