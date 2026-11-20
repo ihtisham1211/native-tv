@@ -15332,6 +15332,8 @@ class DaemonRuntimeTests(unittest.TestCase):
             environment["NATIVETV_FAKE_HOME_TAKEOVER_MOUNTED"] = str(mountedMarker)
             environment["NATIVETV_FAKE_HOME_TAKEOVER_APPINFO"] = str(appDirectory / "appinfo.json")
             environment["NATIVETV_FAKE_HOME_TAKEOVER_REFUSE"] = str(samRefuse)
+            appInfoFailures = root / "sam-appinfo-failures"
+            environment["NATIVETV_FAKE_HOME_TAKEOVER_APPINFO_FAILS"] = str(appInfoFailures)
             environment["NATIVETV_FAKE_LUNA_DETAILS"] = str(root / "luna-details.jsonl")
             environment["TVWEB_DATA_DIR"] = str(dataRoot)
             environment["TVWEB_PROXY_SECRET"] = secret
@@ -15564,6 +15566,45 @@ class DaemonRuntimeTests(unittest.TestCase):
                                  "a SAM refusal must roll back the native mount")
                 self.assertEqual(len(lgHomePreload()), preloadTold,
                                  "a refused takeover does not hold LG's Home off")
+
+                # sam's app info failing after the unmount says nothing about the manifest sam
+                # holds, so the release still has sam read it again.
+                samRefuse.unlink()
+                status, body = request("takeover")
+                self.assertEqual(body["result"]["ok"], True, body)
+                self.assertEqual(samHomeType.read_text().strip(), "nativetv")
+                appInfoFailures.write_text("1")
+                status, body = request("releaseTakeover")
+                self.assertEqual(status, 200, body)
+                self.assertEqual(body["result"]["ok"], True, body)
+                self.assertEqual(float(appInfoFailures.read_text()), 0,
+                                 "the release asked sam for LG's Home's app info")
+                self.assertEqual(samHomeType.read_text().strip(), "native",
+                                 "an unanswered app info still has sam read LG's manifest again")
+                self.assertEqual(lgHomePreload()[-1], True)
+
+                # A release that unmounts but cannot have sam read LG's manifest fails, and
+                # keeps LG's Home held off; sent again it rereads and lets LG's Home back.
+                status, body = request("takeover")
+                self.assertEqual(body["result"]["ok"], True, body)
+                samRefuse.touch()
+                status, body = request("releaseTakeover")
+                self.assertEqual(status, 200, body)
+                self.assertEqual(body["result"]["ok"], False, body)
+                self.assertIn("sam did not take LG's Home back", body["result"]["error"])
+                self.assertFalse(mountedMarker.exists())
+                self.assertEqual(samHomeType.read_text().strip(), "nativetv")
+                self.assertEqual(lgHomePreload()[-1], False)
+                samRefuse.unlink()
+                status, body = request("releaseTakeover")
+                self.assertEqual(status, 200, body)
+                self.assertEqual(body["result"], {
+                    "ok": True, "changed": False, "mounted": False, "already": True
+                })
+                self.assertEqual(samHomeType.read_text().strip(), "native",
+                                 "a release sent again has sam read LG's manifest")
+                self.assertEqual(lgHomePreload()[-1], True,
+                                 "a release sent again lets LG's Home back after a failed reread")
 
                 (dataRoot / "home.json").write_text(json.dumps({
                     "enabled": False, "restorePending": False

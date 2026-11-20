@@ -73,6 +73,21 @@ class JsonFileLock {
   private:
     int descriptor_ = -1;
 };
+
+// home-takeover: NATIVETV_FAKE_HOME_TAKEOVER_APPINFO_FAILS names a file holding
+// how many of sam's app info answers for LG's Home fail once Home is unmounted,
+// as when getAppInfo times out. Each failure counts one down.
+bool takeHomeTakeoverAppInfoFailure() {
+    const std::string path = environment("NATIVETV_FAKE_HOME_TAKEOVER_APPINFO_FAILS");
+    const std::string mounted = environment("NATIVETV_FAKE_HOME_TAKEOVER_MOUNTED");
+    if (path.empty() || (!mounted.empty() && ::access(mounted.c_str(), F_OK) == 0))
+        return false;
+    JsonFileLock lock(path);
+    const Json count = readJsonFile(path);
+    if (!count.isNumber() || count.number() < 1) return false;
+    writeJsonFile(path, Json::numeric(count.number() - 1));
+    return true;
+}
 } // namespace
 
 int main(int argc, char **argv) {
@@ -381,6 +396,12 @@ int main(int argc, char **argv) {
                uri == "com.webos.service.settings/getSystemSettings") {
         reply.set("returnValue", Json::flag(true));
         reply.set("settings", Json::object());
+    } else if (homeTakeoverMode &&
+               uri == "com.webos.applicationManager/getAppInfo" &&
+               callPayload["id"].string() == "com.webos.app.home" &&
+               takeHomeTakeoverAppInfoFailure()) {
+        reply.set("returnValue", Json::flag(false));
+        reply.set("errorText", Json::text("sam did not answer"));
     } else if (homeTakeoverMode &&
                uri == "com.webos.applicationManager/getAppInfo" &&
                callPayload["id"].string() == "com.webos.app.home") {
