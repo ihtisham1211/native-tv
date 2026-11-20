@@ -1308,14 +1308,21 @@ reports itself on before its screen does, so a TV switched back on after the
 daily limit or bedtime switched it off gets its toast once the screen is on,
 the screen off 10 seconds later, and the TV off after 5 minutes, unless the
 limit has been changed by then. That the limit switched it off is kept in
-`/var/lib/tvweb/screentime.json` until the limit no longer applies or the
-settings are changed, as a C5 (webOS 10.3.1) shuts down fully and starts the
-server again when switched on.
+`/var/lib/tvweb/screentime.json`, with the local day of the daily limit or the
+day its bedtime began (`{"switchedOff":{"bedtime":"2026-11-19"}}`), until the
+limit no longer applies, another day's limit or bedtime does, or the settings
+are changed, as a C5 (webOS 10.3.1) shuts down fully and starts the server
+again when switched on. A TV kept off through the day and switched on in the
+next bedtime gets that bedtime's toast and minute. A marker written without its
+day, as up to 0.126, is dropped at start.
 
 Turning the screen off over LG's screen saver does not hold, so when it is
 showing, Back dismisses it first and the screen goes off 1.5 seconds later.
-Either way, a screen back on 3 seconds after is turned off once more. Checks
-wait meanwhile, as the screen saver closing reports the screen on.
+Either way, a screen still on 3 seconds after is turned off once more, and no
+more, as on LCD sets `turnOffScreen` fails or does nothing. Checks wait
+meanwhile, as the screen saver closing reports the screen on, and go on once
+the screen is off or the second try is over. Changing the limits or stopping
+the server drops a screen-off or power-off under way, Back key press included.
 
 The idle power-off (`screenTime.idleMinutes`) runs in the same enforcer but needs neither the limits switched on nor watch time. The
 enforcer keeps the time of the last sign of activity on the steady clock: a key press that the remote reader

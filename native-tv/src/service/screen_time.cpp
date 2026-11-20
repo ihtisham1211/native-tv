@@ -199,6 +199,7 @@ ScreenTimeBedtime screenTimeBedtime(const Json &settings, int64_t localNowMs) {
     const int minute = static_cast<int>(seconds / 60);
     result.inside = from < to ? minute >= from && minute < to
                               : minute >= from || minute < to;
+    result.startedYesterday = result.inside && from > to && minute < to;
     const int64_t secondsUntilStart = static_cast<int64_t>(from) * 60 - seconds;
     result.untilStartSeconds = (secondsUntilStart % 86400 + 86400) % 86400;
     return result;

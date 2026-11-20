@@ -65,6 +65,8 @@ class ScreenTimeEnforcer {
         bool screenOn = false;
         int64_t localClockMs = 0;
         std::string day;
+        // Which daily limit or bedtime tv is: the local day it counts, or the one its bedtime began.
+        std::string tvWindow;
         std::string key;
         Json today;
         service::ScreenTimeDue tv;
@@ -80,7 +82,8 @@ class ScreenTimeEnforcer {
     void warnSoon(const Assessment &assessment);
     void warnOnce(const std::string &id, const std::string &message);
     void toast(const std::string &message);
-    void run(const std::string &action, const std::string &id);
+    void run(const std::string &action, const std::string &id,
+             const std::string &window = std::string());
     void powerOff();
     void checkIdle();
     void cancelIdle();
@@ -91,6 +94,8 @@ class ScreenTimeEnforcer {
     double idleNow() const;
     int idleMinutes() const;
     void turnScreenOff();
+    void screenOffAttempt(uint64_t generation, bool retryIfOn);
+    void sendScreenOff(uint64_t generation, bool retryIfOn);
     void launchHome();
     bool command(const std::string &action, const std::string &uri,
                  const Json &payload, const std::string &resource,
@@ -99,6 +104,8 @@ class ScreenTimeEnforcer {
     void injectKey(unsigned code, EventLoop::Milliseconds press,
                    std::function<void(bool)> callback);
     bool writeKeyEvent(unsigned code, int value);
+    void cancelKeyPress();
+    void cancelActions();
     std::string inputDevicePath() const;
     bool screenIsOn() const;
     void afterSwitchedOff(const service::ScreenTimeDue &due, bool screenOn);
@@ -133,7 +140,10 @@ class ScreenTimeEnforcer {
     bool pendingBlanking_ = false;
     std::string pendingId_;
     std::string warnedDay_;
-    std::map<std::string, bool> switchedOff_;
+    // The limit that switched the TV off, by id, with its window (Assessment::tvWindow).
+    std::map<std::string, std::string> switchedOff_;
+    // Bumped by stop() and apply(): a reply or timer of an action started before is dropped.
+    uint64_t actionGeneration_ = 0;
     std::map<std::string, bool> warned_;
     EventLoop::TimerId checkTimer_ = 0;
     EventLoop::TimerId pendingTimer_ = 0;

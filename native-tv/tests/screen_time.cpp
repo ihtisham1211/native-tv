@@ -101,8 +101,12 @@ int main() {
     service::ScreenTimeBedtime bed = service::screenTimeBedtime(overnight, localTwoAm);
     check(bed.configured && bed.inside && bed.untilStartSeconds == 20 * 3600 + 30 * 60,
           "overnight bedtime includes the early morning and counts to its next start");
+    check(bed.startedYesterday, "after midnight an overnight bedtime began the day before");
+    bed = service::screenTimeBedtime(overnight, localTwoAm + 21 * 3600 * 1000LL);
+    check(bed.inside && !bed.startedYesterday,
+          "before midnight an overnight bedtime began the same day");
     bed = service::screenTimeBedtime(overnight, localTwoAm + 4 * 3600 * 1000LL);
-    check(!bed.inside, "bedtime ends at its configured minute");
+    check(!bed.inside && !bed.startedYesterday, "bedtime ends at its configured minute");
     check(!service::screenTimeBedtime(
                Json::parse("{\"bedtimeStart\":\"\",\"bedtimeEnd\":\"06:00\"}"),
                localTwoAm).configured,
