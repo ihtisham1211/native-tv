@@ -432,24 +432,36 @@ void testNativeCapabilities() {
     config.allowControl = false;
     config.allowPower = true;
     const Json tv =
-        nativeCapabilities(config, "0.118.0", root, "::ffff:127.0.0.1", "192.168.10.22");
+        nativeCapabilities(config, "0.118.0", root, "::ffff:127.0.0.1", "127.0.0.1:8123",
+                           "192.168.10.22");
     check(tv["ok"].boolean() && !tv["allowControl"].boolean() && tv["allowPower"].boolean() &&
               tv["origin"].string() == "http://192.168.10.22:8123" &&
               tv["version"].string() == "0.118.0" && tv["fromHomebrewChannel"].boolean() &&
               tv["setupNeeded"].boolean() && tv["key"].string() == config.token,
           "native caps must preserve configuration, origin, setup flags and TV token");
 
-    const Json remote = nativeCapabilities(config, "0.118.0", root, "192.0.2.20", "192.168.10.22");
+    const Json remote = nativeCapabilities(config, "0.118.0", root, "192.0.2.20",
+                                           "192.168.10.22:8123", "192.168.10.22");
     check(!remote.has("key"), "native caps must never disclose the token to a remote peer");
+    for (const char *host : {"localhost:8123", "localhost", "[::1]:8123", "127.0.0.1"}) {
+        check(nativeCapabilities(config, "0.118.0", root, "127.0.0.1", host, "192.168.10.22")
+                  .has("key"),
+              std::string("native caps must give the TV's own client the token by ") + host);
+    }
+    for (const char *host : {"evil.example:8123", "localhost.evil.example", "", "127.0.0.1.nip.io"}) {
+        check(!nativeCapabilities(config, "0.118.0", root, "127.0.0.1", host, "192.168.10.22")
+                   .has("key"),
+              std::string("native caps must not give the token to a rebinding Host ") + host);
+    }
     (void)std::remove((root + "/.setup-pending").c_str());
     config.document = Json::parse("{\"emulateSetup\":true}");
     const Json emulatedSetup =
-        nativeCapabilities(config, "0.118.0", root, "127.0.0.1", "192.168.10.22");
+        nativeCapabilities(config, "0.118.0", root, "127.0.0.1", "localhost", "192.168.10.22");
     check(emulatedSetup["setupNeeded"].boolean(),
           "native caps must preserve the configured setup demo flag");
     config.host = "127.0.0.1";
     const Json loopbackOnly =
-        nativeCapabilities(config, "0.118.0", root, "127.0.0.1", "192.168.10.22");
+        nativeCapabilities(config, "0.118.0", root, "127.0.0.1", "localhost", "192.168.10.22");
     check(loopbackOnly.dump().find("\"origin\":null") != std::string::npos,
           "a loopback-only server must return a null LAN origin");
 
@@ -774,8 +786,25 @@ void testHttpAuthentication() {
           "duplicate query tokens should not be interpreted ambiguously");
     requestValue.query.clear();
     requestValue.remoteAddress = "::ffff:127.0.0.1";
+    requestValue.headers = {{"Host", "127.0.0.1:8080"}};
     check(isLoopbackPeer(requestValue.remoteAddress) && requestIsAuthorized(requestValue, token),
           "the TV's IPv4-mapped loopback address should retain its token bypass");
+    requestValue.headers = {{"Host", "LocalHost:8080"}};
+    check(requestIsAuthorized(requestValue, token), "localhost should count as the TV itself");
+    requestValue.headers = {{"Host", "evil.example:8080"}};
+    check(!requestIsAuthorized(requestValue, token),
+          "a loopback peer naming another host (DNS rebinding) should need the token");
+    requestValue.headers.clear();
+    check(!requestIsAuthorized(requestValue, token),
+          "a loopback peer without a Host should need the token");
+    requestValue.headers = {{"Host", "evil.example:8080"}, {"Authorization", "Bearer shared-api-token"}};
+    check(requestIsAuthorized(requestValue, token),
+          "a rebinding-named request that presents the token is still authorized");
+    check(loopbackHostName("[::1]:8080") && loopbackHostName("127.1.2.3") &&
+              loopbackHostName("localhost.") && !loopbackHostName("192.168.1.2") &&
+              !loopbackHostName("[::1]x") && !loopbackHostName("localhost.example"),
+          "loopback host names are localhost, 127.0.0.0/8 and ::1 only");
+    requestValue.headers.clear();
     requestValue.remoteAddress = "192.0.2.15";
     check(requestIsAuthorized(requestValue, ""),
           "an unset token should preserve the legacy open API behavior");

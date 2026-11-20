@@ -82,7 +82,7 @@ std::string localMacAddress(const std::string &address) {
 
 Json nativeCapabilities(const ServerConfig &config, const std::string &version,
                        const std::string &dataRoot, const std::string &remoteAddress,
-                       const std::string &localAddress) {
+                       const std::string &hostHeader, const std::string &localAddress) {
     Json result = Json::object();
     result.set("ok", Json::flag(true));
     result.set("allowControl", Json::flag(config.allowControl));
@@ -98,7 +98,9 @@ Json nativeCapabilities(const ServerConfig &config, const std::string &version,
     const Json emulateSetup = config.document["emulateSetup"];
     result.set("setupNeeded", Json::flag(emulateSetup.boolean() ||
                                           exists(join(dataRoot, ".setup-pending"))));
-    if (!config.token.empty() && isLoopbackPeer(remoteAddress))
+    // Only the TV's own clients, by a loopback name, get the key: a rebinding page reads this
+    // answer from loopback too, but under its own name.
+    if (!config.token.empty() && loopbackRequest(remoteAddress, hostHeader))
         result.set("key", Json::text(config.token));
     return result;
 }

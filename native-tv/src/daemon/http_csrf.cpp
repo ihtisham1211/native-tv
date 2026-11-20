@@ -51,6 +51,7 @@ const GuardedRoute kGuardedRoutes[] = {
     {"/api/preload/toggle", ContentTypeRule::JsonPrefix},
     {"/api/settings", ContentTypeRule::JsonPrefix},
     {"/api/backup", ContentTypeRule::JsonPrefix},
+    {"/api/backup/apps/clear", ContentTypeRule::JsonPrefix},
     {"/api/control", ContentTypeRule::JsonPrefix},
     {"/api/adblock/custom", ContentTypeRule::JsonPrefix},
     {"/api/services/toggle", ContentTypeRule::JsonPrefix},

@@ -339,8 +339,11 @@ The front door checks it once, after the token gate: `adminRoute()` lists the
 `POST` routes that need a session (app install and uninstall, `/api/ssh`,
 `/api/services/toggle`, `/api/backup`, `/api/settings`, `/api/admin/pin`) and
 `adminControlAction()` the `/api/control` actions (`reboot`, `powerOff`,
-`setDashboardPort`, `setNetworkDebuggerAllowed`). Both apply to the TV's own
-loopback requests, which the token gate trusts, so the TV app asks too. Those
+`setDashboardPort`, `setNetworkDebuggerAllowed`, `installRelease`, `tvAppInstall`,
+`tvAppRemove`). Both apply to the TV's own loopback requests, which the token
+gate trusts, so the TV app asks too. The gate trusts loopback only with a
+loopback Host (`localhost`, `127.0.0.1`, `[::1]`; `loopbackRequest()` in
+`http_auth`), so a DNS-rebinding page in the TV's browser is not the TV. Those
 answer 403 `{"pin":true}` until the request carries an open session; with no PIN
 set the check passes, so an install with none behaves as before. To guard
 another route, add it to those lists and to the manifest note in

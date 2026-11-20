@@ -20,8 +20,9 @@ it before exposing it more widely.
   0000 is offered as the default. Once one is set, the risky actions need it on
   top of the token: installing and removing apps (including from a URL or a
   file), SSH keys, restoring a backup, the Home Assistant tab's broker settings,
-  background services, and reboot, power off, changing the dashboard's port and the
-  network debugger. The TV app asks for it too, so holding the remote does not
+  background services, and reboot, power off, changing the dashboard's port, the
+  network debugger, installing a Native Tv release and adding or removing the
+  TV app. The TV app asks for it too, so holding the remote does not
   get round it. Everyday controls (volume, input, picture, launching apps) and
   reading the dashboard do not ask, and neither do the Server tab's other
   switches (the time server, update checks, experimental features, history, backups). Entering the PIN opens a session of ten idle
@@ -44,7 +45,9 @@ it before exposing it more widely.
   gets the browser the token, so the long link is only needed once, or never.
   While the PIN is still the default 0000 the sign-in is refused: anyone on
   the network could type it, which would turn the token into nothing. The link
-  or QR code on the TV keeps working either way.
+  or QR code on the TV keeps working either way. The default still unlocks the
+  risky actions for a browser that has the token and for the TV itself, since
+  that hands over nothing they could not already reach.
 - **The Tools tab shows the TV's logs** - its system log, Native Tv's own and,
   if asked, the kernel's - to whoever can reach the dashboard, as `/api/logs`.
   They name the apps in use, the network and the broker the TV talks to. A
@@ -106,6 +109,13 @@ it before exposing it more widely.
   therefore answer only to an IP address, `localhost` or a name listed in
   `apps.hosts` in `config.json`, which is file-only. A name such as `lgtv.local`
   has to be added there to install from it.
+- **The TV itself is known by its address and its Host header.** A request
+  from the TV's loopback address goes without the token, and is given it by
+  `/api/caps`, only when it names `localhost`, `127.0.0.1` or `[::1]` as its
+  Host, as the TV app and the Homebrew Channel app do. A page in the TV's
+  browser that reached the server through a rebinding name also connects from
+  loopback, but under its own name, so it needs the token like any client on
+  the network.
 - **`apps.repos` adds trust.** Each extra catalog listed there can offer
   packages for installation, with their hashes. Its packages are not treated
   as vetted: root for them is confirmed service by service, as for a URL, and
@@ -156,7 +166,7 @@ it before exposing it more widely.
 | Setting                        | Browser on the network                                                   | App on the TV | MQTT  |
 | :----------------------------- | :----------------------------------------------------------------------- | :------------ | :---- |
 | `"token": "your-secret-token"` | with `?k=your-secret-token` or `Authorization: Bearer your-secret-token` | works         | works |
-| Admin PIN set                  | install, remove, SSH keys, restore, Home Assistant settings, services, the dashboard port, power and installing a Native Tv release need `X-Admin-Session`, from the PIN | asks for the PIN | unaffected |
+| Admin PIN set                  | install, remove, SSH keys, restore, Home Assistant settings, services, the dashboard port, power, the TV app and installing a Native Tv release need `X-Admin-Session`, from the PIN | asks for the PIN | unaffected |
 | `"host": "0.0.0.0"`            | over IPv4 only                                                           | works         | works |
 | `"host": "127.0.0.1"`          | no — port 8080 is closed to the network                                  | works         | works |
 
@@ -260,9 +270,9 @@ telnet.
 no root access, and recovery means re-rooting the TV.
 
 A key is a way in that outlasts the dashboard, so the Server tab changes keys
-only with a `token` set, even from the TV itself: a page in the TV's browser
-reached through a rebinding name, or any app on the TV, also connects from the
-TV. Without a token it only lists them, by fingerprint. Its **Delete the key file** puts the `alpine` password back from
+only with a `token` set, and only for a request that carries it (`?k=` or
+`Authorization: Bearer`), even from the TV itself: any app on the TV also
+connects from the TV. Without a token it only lists them, by fingerprint. Its **Delete the key file** puts the `alpine` password back from
 the next reboot, for a TV whose keys are lost; add a key again straight after.
 
 `deploy.sh` prefers SSH and falls back to telnet automatically, so it keeps

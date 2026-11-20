@@ -14,7 +14,6 @@ EXCEPTIONS = {
     "/api/setup/handoff": "TV-only setup action preserves the no-Origin-comparison contract",
     "/api/setup/handoff-stop": "TV-only setup action preserves the no-Origin-comparison contract",
     "/api/history": "native history POST validates JSON, loopback and same-origin when Origin is present; legacy fallback is unchanged",
-    "/api/backup/apps/clear": "manifest explicitly has no content-type/CSRF guard",
 }
 
 

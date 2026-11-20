@@ -11,6 +11,6 @@ std::string localIpv4Address();
 std::string localMacAddress(const std::string &address);
 Json nativeCapabilities(const ServerConfig &config, const std::string &version,
                        const std::string &dataRoot, const std::string &remoteAddress,
-                       const std::string &localAddress);
+                       const std::string &hostHeader, const std::string &localAddress);
 } // namespace daemon
 } // namespace nativetv

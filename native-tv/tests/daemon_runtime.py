@@ -2332,13 +2332,16 @@ class DaemonRuntimeTests(unittest.TestCase):
                         process.kill()
                         process.communicate(timeout=3)
 
-            def request(port, path, method="GET", payload=None, requestToken=None):
+            def request(port, path, method="GET", payload=None, requestToken=None, host=None):
                 data = None if payload is None else json.dumps(payload).encode("utf-8")
                 headers = {}
                 if requestToken:
                     headers["Authorization"] = "Bearer " + requestToken
                 if data is not None:
                     headers["Content-Type"] = "application/json"
+                if host is not None:
+                    headers["Host"] = "%s:%d" % (host, port)
+                    headers["Origin"] = "http://%s:%d" % (host, port)
                 req = Request("http://127.0.0.1:%d%s" % (port, path),
                               data=data, method=method, headers=headers)
                 try:
@@ -2351,6 +2354,17 @@ class DaemonRuntimeTests(unittest.TestCase):
             try:
                 port = next_port()
                 process = start_server(port, True, token)
+                # A page in the TV's browser reached through a rebinding name connects from
+                # loopback: it gets neither the token nor a key change.
+                status, body = request(port, "/api/caps", host="rebind.example")
+                self.assertEqual(status, 401, body.decode("utf-8", "replace"))
+                status, body = request(port, "/api/caps", host="localhost")
+                self.assertEqual(json.loads(body).get("key"), token)
+                for host in (None, "localhost", "rebind.example"):
+                    status, body = request(port, "/api/ssh", "POST",
+                                           {"action": "add", "key": ec}, host=host)
+                    self.assertEqual(status, 401, (host, body.decode("utf-8", "replace")))
+                self.assertNotIn("ec@test", keyFile.read_text())
                 status, body = request(port, "/api/ssh", requestToken=token)
                 self.assertEqual(status, 200, body.decode("utf-8", "replace"))
                 result = json.loads(body)
@@ -5174,13 +5188,13 @@ class DaemonRuntimeTests(unittest.TestCase):
                     except HTTPError as error:
                         return error.code, error.read()
 
-                def postPublicClear(origin=None):
-                    headers = {"Authorization": "Bearer " + token}
+                def postPublicClear(origin=None, contentType="application/json"):
+                    headers = {"Authorization": "Bearer " + token, "Content-Type": contentType}
                     if origin is not None:
                         headers["Origin"] = origin
                     request = Request(
                         "http://127.0.0.1:%d/api/backup/apps/clear" % publicPort,
-                        data=b"ignored", method="POST", headers=headers)
+                        data=b"{}", method="POST", headers=headers)
                     try:
                         with urlopen(request, timeout=8) as response:
                             return response.status, response.read()
@@ -5369,7 +5383,14 @@ class DaemonRuntimeTests(unittest.TestCase):
                         "ok": True,
                         "apps": [{"id": "com.example.missing", "title": "Missing app"}]
                     })
+                # A cross-site form can neither send JSON nor pass the Origin check.
+                status, response = postPublicClear(
+                    contentType="application/x-www-form-urlencoded")
+                self.assertEqual(status, 415, response.decode("utf-8", "replace"))
                 status, response = postPublicClear(origin="https://other.example")
+                self.assertEqual(status, 403, response.decode("utf-8", "replace"))
+                self.assertTrue(pendingPath.exists())
+                status, response = postPublicClear(origin="http://127.0.0.1:%d" % publicPort)
                 self.assertEqual(status, 200, response.decode("utf-8", "replace"))
                 self.assertEqual(json.loads(response.decode("utf-8")),
                                  {"ok": True, "apps": []})
@@ -6246,6 +6267,8 @@ class DaemonRuntimeTests(unittest.TestCase):
                                       ("/api/control", {"action": "powerOff"}),
                                       ("/api/control", {"action": "setDashboardPort", "value": 8090}),
                                       ("/api/control", {"action": "installRelease", "value": "99.0.0"}),
+                                      ("/api/control", {"action": "tvAppInstall"}),
+                                      ("/api/control", {"action": "tvAppRemove"}),
                                       ("/api/admin/pin", {"pin": "1111"})):
                     status, body, _ = request(path, "POST", payload)
                     self.assertTrue(needs_pin(status, body), (path, payload, status, body))
@@ -6290,6 +6313,16 @@ class DaemonRuntimeTests(unittest.TestCase):
                 status, body, _ = request("/api/admin/login", "POST", {"pin": "0000"}, auth=False)
                 self.assertEqual((status, body.get("defaultPin")), (403, True))
                 self.assertNotIn("token", body)
+                # The default unlocks only for a client that already has the token or is the TV:
+                # a rebinding name from loopback is neither.
+                rebind = Request("http://127.0.0.1:%d/api/admin/unlock" % port,
+                                 data=b'{"pin":"0000"}', method="POST",
+                                 headers={"Content-Type": "application/json",
+                                          "Host": "rebind.example:%d" % port,
+                                          "Origin": "http://rebind.example:%d" % port})
+                with self.assertRaises(HTTPError) as refused:
+                    urlopen(rebind, timeout=12)
+                self.assertEqual(refused.exception.code, 401)
                 status, body, _ = request("/api/admin/unlock", "POST", {"pin": "0000"})
                 self.assertEqual(status, 200, body)
                 opened = body["session"]
