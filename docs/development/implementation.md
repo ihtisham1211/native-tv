@@ -1832,8 +1832,12 @@ comes back for one that cannot stay up.
   that id brings it in front of the app being watched (upstream Glasshouse measured three launches in 90 s during a 4K
   stream on a B4, webOS 10.3.2; we have not seen it). While Native Tv Home has the place,
   `HomeTakeoverLifecycleManager::holdLgHomePreload` tells the preload manager not to keep LG's Home loaded
-  (`setPreloadPolicy`, `isEnabled` false), after a takeover that worked, and lets it again (`isEnabled` true) after a release that
-  unmounted something, so a release of a place that was not held sets nothing. The policy is the preload manager's own and is lost
+  (`setPreloadPolicy`, `isEnabled` false), after a takeover that worked, and lets it again (`isEnabled` true) after a release
+  that sam took, unless the process has already been told so since its last hold (a hold made by the boot hook's process is not
+  known, so a process's first release always sends it). After the unmount a release has sam read the manifest again unless
+  `getAppInfo` shows LG's (no answer counts as not), since sam keeps Native Tv Home's and would start a script that is gone; when
+  sam still does not show LG's after the reread, the release fails and keeps the hold, and sent again it finds nothing mounted,
+  rereads and lets LG's Home back. The policy is the preload manager's own and is lost
   when it restarts, so the orchestrator (where the lifecycle manager says the TV needs it) sends it again each minute and when
   the screen comes on, while Native Tv Home is mounted and LG's Home is not open on purpose, under the same lock as the switch. A cold
   start where the preload manager starts after the server can see LG's Home preloaded once, until the next minute. A TV that

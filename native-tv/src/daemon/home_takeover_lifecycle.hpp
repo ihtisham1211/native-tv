@@ -3,6 +3,7 @@
 #include "daemon/command_policy.hpp"
 #include "core/json.hpp"
 
+#include <atomic>
 #include <mutex>
 #include <string>
 
@@ -55,6 +56,9 @@ class HomeTakeoverLifecycleManager {
     LunaClient &luna_;
     bool blockFirst_ = false;
     bool preloadHold_ = false;
+    // Whether LG's Home may be held off: true until a release is acknowledged,
+    // as a hold made by another process (the boot hook's takeover) is unknown.
+    std::atomic<bool> preloadMayBeHeld_{true};
     std::mutex mutex_;
 };
 } // namespace daemon

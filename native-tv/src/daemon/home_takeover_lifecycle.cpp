@@ -125,9 +125,14 @@ HomeTakeoverLifecycleManager::HomeTakeoverLifecycleManager(
 
 bool HomeTakeoverLifecycleManager::holdLgHomePreload(bool hold) {
     if (!preloadHold_) return false;
+    // A hold whose answer did not come back may still have been applied.
+    if (hold) preloadMayBeHeld_ = true;
     LunaReply reply;
-    return lunaCall(luna_, "com.webos.service.preloadmanager/setPreloadPolicy",
-                    service::preloadPolicyRequest(kHomeId, !hold), reply);
+    const bool told =
+        lunaCall(luna_, "com.webos.service.preloadmanager/setPreloadPolicy",
+                 service::preloadPolicyRequest(kHomeId, !hold), reply);
+    if (!hold && told) preloadMayBeHeld_ = false;
+    return told;
 }
 
 bool HomeTakeoverLifecycleManager::appInfo(Json &info) {
@@ -218,8 +223,7 @@ void HomeTakeoverLifecycleManager::rollbackTakeover(
     const CommandPolicyContext &context) {
     (void)homeScreen_.startLayout(false);
     (void)takeover_.release();
-    Json info;
-    if (appInfo(info) && ownManifest(info)) (void)reread(false, context);
+    if (!manifestAccepted(false)) (void)reread(false, context);
     bool stopped = false;
     (void)homeScreen_.stopNativeTvHome(stopped);
 }
@@ -277,13 +281,19 @@ Json HomeTakeoverLifecycleManager::release(
     const Json released = takeover_.release();
     if (!released["ok"].boolean()) return released;
 
-    Json info;
-    if (appInfo(info) && ownManifest(info) && !reread(false, context))
+    // sam keeps the manifest it read, so it reads it again unless it shows LG's
+    // own: a getAppInfo that timed out or failed says nothing, and a sam left
+    // with Native Tv Home's manifest after the unmount starts a script that is
+    // gone, so the Home key does nothing until a reboot. A failed reread is
+    // the caller's to see; a release sent again finds the unmount done and
+    // rereads.
+    if (!manifestAccepted(false) && !reread(false, context))
         return failure("sam did not take LG's Home back");
 
     stopEarlierInstances();
-    // Only where Native Tv Home was in its place: there the policy was held.
-    if (!released["already"].boolean()) (void)holdLgHomePreload(false);
+    // Also after an earlier release that unmounted but stopped at the reread
+    // and so left the hold in place.
+    if (preloadMayBeHeld_) (void)holdLgHomePreload(false);
     return released;
 }
 } // namespace daemon
