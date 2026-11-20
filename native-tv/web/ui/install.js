@@ -828,7 +828,9 @@ async function installRestoredApps() {
 
 async function dismissRestoredApps() {
   try {
-    await fetch(api('/api/backup/apps/clear'), { method: 'POST' });
+    await fetch(api('/api/backup/apps/clear'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+    });
   } catch (e) {}
   restoredApps = [];
   renderRestoredApps();

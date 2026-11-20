@@ -4,8 +4,8 @@
   "source": "native-tv/src/daemon/http_frontdoor.cpp",
   "authClasses": {
     "public": "No credential is required.",
-    "token": "For /api routes, Bearer or ?k is accepted when a token is configured; an unset token leaves the route open, and a request from the TV loopback address is accepted. Route notes call out stronger per-action checks. Once an admin PIN is set, the routes that install, remove or restart things, and the reboot, power-off, port and network-debugger actions of /api/control, also need an unlocked admin session (X-Admin-Session, from /api/admin/unlock), whatever the peer, the TV itself included.",
-    "loopback-TV": "The request must originate from 127.0.0.1 or ::1, except the setup demo mode. The route also passes through the general /api token gate.",
+    "token": "For /api routes, Bearer or ?k is accepted when a token is configured; an unset token leaves the route open, and a request from the TV loopback address is accepted when its Host is localhost or a loopback address (a DNS-rebinding name from loopback is not). Route notes call out stronger per-action checks. Once an admin PIN is set, the routes that install, remove or restart things, and the reboot, power-off, port, network-debugger, release-install and TV-app add/remove actions of /api/control, also need an unlocked admin session (X-Admin-Session, from /api/admin/unlock), whatever the peer, the TV itself included.",
+    "loopback-TV": "The request must originate from 127.0.0.1 or ::1 and name localhost or a loopback address in Host, except the setup demo mode. The route also passes through the general /api token gate.",
     "handoff-code": "The phone must present the active one-time code generated on the TV; it expires after ten minutes or when setup ends."
   },
   "routes": [
@@ -70,7 +70,7 @@
       "csrf": "not applicable",
       "bodyLimit": {"max": 0, "unit": "bytes"},
       "owner": "native",
-      "notes": "Native capabilities, network origin and TV-only token disclosure; Node keeps its copy for rollback. It carries `tvTheme`, the TV theme the client draws its first frame in."
+      "notes": "Native capabilities, network origin and TV-only token disclosure (a loopback peer whose Host is localhost or a loopback address); Node keeps its copy for rollback. It carries `tvTheme`, the TV theme the client draws its first frame in."
     },
     {
       "paths": ["/api/screensaver"],
@@ -331,7 +331,7 @@
       "csrf": "POST uses JSON body guard and same-origin Origin/Host comparison when Origin is present",
       "bodyLimit": {"max": 8192, "unit": "JS string code units"},
       "owner": "native",
-      "notes": "Mutations additionally require a configured token and allowControl. Public-key parsing, SHA256 fingerprints, atomic 0600 file replacement, and password-after-reboot reporting preserve the legacy route; Node remains the rollback handler."
+      "notes": "Mutations additionally require a configured token, presented by the request itself (Bearer or ?k, from the TV too), and allowControl. Public-key parsing, SHA256 fingerprints, atomic 0600 file replacement, and password-after-reboot reporting preserve the legacy route; Node remains the rollback handler."
     },
     {
       "paths": ["/api/screentime"],
@@ -807,7 +807,7 @@
       "paths": ["/api/backup/apps/clear"],
       "methods": ["POST"],
       "auth": "token",
-      "csrf": "no explicit CSRF/content-type guard; token gate and allowControl are enforced",
+      "csrf": "application/json and same-origin Origin/Host comparison when Origin is present; also requires allowControl",
       "bodyLimit": {"max": 0, "unit": "bytes; request body is ignored"},
       "owner": "native",
       "notes": "The daemon checks allowControl and idempotently clears restore-apps.json; Node retains its route for standalone mode."
@@ -877,7 +877,7 @@
     }
   ],
   "routeGuards": [
-    {"pathPrefix": "/api/", "policy": "General API token gate; TV loopback is accepted by authed()."},
+    {"pathPrefix": "/api/", "policy": "General API token gate; TV loopback with a loopback Host is accepted by authed()."},
     {"pathPrefix": "/api/home/", "policy": "Delegates to the Home dispatcher; only its enumerated methods/paths are served; others return 404."},
     {"pathPrefix": "/api/apps/install/", "policy": "Install host and control gate; only enumerated actions are served; others return 404."},
     {"pathPrefix": "/assets/", "policy": "Public asset lookup through the configured asset directories; unknown files return 404."}

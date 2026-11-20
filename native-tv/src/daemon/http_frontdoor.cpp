@@ -245,7 +245,7 @@ int unlinkJsonFile(const std::string &path) {
 bool readSetupPayload(HttpExchange &exchange, Json &payload,
                       size_t maximumBytes = 1024) {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress)) {
+    if (!loopbackRequest(request)) {
         sendSetupError(exchange, 403, "TV-local setup action required", true);
         return false;
     }
@@ -387,7 +387,8 @@ bool adminRoute(const HttpRequest &request) {
 
 bool adminControlAction(const std::string &action) {
     return action == "reboot" || action == "powerOff" || action == "setDashboardPort" ||
-           action == "setNetworkDebuggerAllowed" || action == "installRelease";
+           action == "setNetworkDebuggerAllowed" || action == "installRelease" ||
+           action == "tvAppInstall" || action == "tvAppRemove";
 }
 
 void sendAdminJson(HttpExchange &exchange, int status, const Json &body,
@@ -572,33 +573,6 @@ bool sameOriginRequest(const HttpRequest &request) {
     else if (origin.compare(0, 8, "https://") == 0)
         origin.erase(0, 8);
     return origin == request.header("host");
-}
-
-std::string normalizedHostName(const std::string &header) {
-    std::string host = header;
-    if (!host.empty() && host[0] == '[') {
-        const size_t closing = host.find(']');
-        if (closing == std::string::npos)
-            return std::string();
-        const std::string suffix = host.substr(closing + 1);
-        if (!suffix.empty() && suffix[0] != ':')
-            return std::string();
-        for (size_t index = 1; index < suffix.size(); ++index) {
-            if (!std::isdigit(static_cast<unsigned char>(suffix[index])))
-                return std::string();
-        }
-        host = host.substr(1, closing - 1);
-    } else {
-        const size_t colon = host.rfind(':');
-        if (colon != std::string::npos && host.find(':') == colon)
-            host.erase(colon);
-    }
-    std::transform(host.begin(), host.end(), host.begin(), [](unsigned char character) {
-        return static_cast<char>(std::tolower(character));
-    });
-    if (!host.empty() && host.back() == '.')
-        host.pop_back();
-    return host;
 }
 
 bool isIpLiteral(const std::string &host) {
@@ -1272,7 +1246,7 @@ bool setupRead(HttpExchange &exchange, const ServerConfig &config, const std::st
                const std::string &tvTheme) {
     const HttpRequest &request = exchange.request();
     const bool demo = isSetupDemo(config, request);
-    if (!isLoopbackPeer(request.remoteAddress) && !demo) {
+    if (!loopbackRequest(request) && !demo) {
         sendSetupError(exchange, 403, "only from the TV itself", true);
         return true;
     }
@@ -2771,6 +2745,7 @@ bool HttpFrontDoor::serverSettingControl(const std::string &action, const Json &
                 request.uri = "/api/services/toggle";
                 request.version = "1.1";
                 request.remoteAddress = "127.0.0.1";
+                request.headers.push_back({"Host", "127.0.0.1"});
                 request.contentLength = static_cast<long long>(toggleBody.size());
                 request.headers.push_back({"Content-Type", "application/json"});
                 HttpExchange toggleExchange(std::move(request), toggleBody);
@@ -3416,6 +3391,7 @@ HomeOrchestrator *HttpFrontDoor::homeOrchestrator() const {
             request.uri = "/api/home/disable";
             request.version = "1.1";
             request.remoteAddress = "127.0.0.1";
+            request.headers.push_back({"Host", "127.0.0.1"});
             request.contentLength = static_cast<long long>(body.size());
             request.headers.push_back({"Content-Type", "application/json"});
             HttpExchange exchange(std::move(request), body);
@@ -3650,6 +3626,7 @@ Json HttpFrontDoor::homeScreenAction(const Json &command) const {
     request.uri = "/_internal/home-screen";
     request.version = "1.1";
     request.remoteAddress = "127.0.0.1";
+    request.headers.push_back({"Host", "127.0.0.1"});
     request.contentLength = static_cast<long long>(body.size());
     request.headers.push_back({"Content-Type", "application/json"});
     request.headers.push_back({"X-NativeTv-Proxy-Secret", proxySecret_});
@@ -4336,6 +4313,7 @@ Json HttpFrontDoor::appsRuntimeContext(const Json &appsReply,
         request.uri = "/api/services";
         request.version = "1.1";
         request.remoteAddress = "127.0.0.1";
+        request.headers.push_back({"Host", "127.0.0.1"});
         HttpExchange exchange(std::move(request), std::string());
         sendBackgroundServices(exchange);
         const Json services = Json::parse(exchange.responseBody())["services"];
@@ -4519,6 +4497,7 @@ Json HttpFrontDoor::appTileOperation(const std::string &action, int &status) con
     request.uri = "/_internal/apps/tile-hiding";
     request.version = "1.1";
     request.remoteAddress = "127.0.0.1";
+    request.headers.push_back({"Host", "127.0.0.1"});
     request.contentLength = static_cast<long long>(body.size());
     request.headers.push_back({"Content-Type", "application/json"});
     request.headers.push_back({"X-NativeTv-Proxy-Secret", proxySecret_});
@@ -5115,6 +5094,17 @@ void HttpFrontDoor::setSshKeys(HttpExchange &exchange) const {
                        say::msg("srv.ssh.needsToken", "Changing SSH keys needs a token in config.json."));
         return;
     }
+    // A key outlasts the dashboard, so the request itself carries the token, even from the TV:
+    // any app on the TV connects from loopback too.
+    if (!requestHasValidToken(request, config_.token)) {
+        (void)exchange.respond(401,
+                               {{"Content-Type", "application/json"},
+                                {"Cache-Control", "no-store"},
+                                {"X-Content-Type-Options", "nosniff"},
+                                {"Referrer-Policy", "no-referrer"}},
+                               "{\"ok\":false,\"error\":\"bad or missing token\"}");
+        return;
+    }
     if (!setupJsonContentType(request)) {
         sendSetupError(exchange, 415, "Content-Type must be application/json");
         return;
@@ -5202,7 +5192,7 @@ void HttpFrontDoor::sendBackgroundServices(HttpExchange &exchange) const {
 
 void HttpFrontDoor::setNativeDevtools(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native DevTools control required", true);
@@ -5304,7 +5294,7 @@ void HttpFrontDoor::setNativeDevtools(HttpExchange &exchange) const {
 
 void HttpFrontDoor::setNativeScreensaver(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native screen saver control required", true);
@@ -5412,7 +5402,7 @@ void HttpFrontDoor::setNativeScreensaver(HttpExchange &exchange) const {
 
 void HttpFrontDoor::setNativeSamRescan(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native SAM control required", true);
@@ -5597,7 +5587,7 @@ void HttpFrontDoor::setNativeAppTileOperation(HttpExchange &exchange) const {
     const bool unhideAllRoute = request.uri == "/api/apps/unhide-all";
     const bool toggleRoute = request.uri == "/api/apps/tile-hiding";
     const bool publicRoute = hidingRoute || unhidingRoute || unhideAllRoute || toggleRoute;
-    if (internal && (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (internal && (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty())) {
         sendSetupError(exchange, 403, "native app tile operation required", true);
@@ -5941,7 +5931,7 @@ void HttpFrontDoor::setNativeAppUninstall(HttpExchange &exchange) const {
         sendSetupError(exchange, 404, "not found");
         return;
     }
-    if (internal && (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (internal && (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty())) {
         sendSetupError(exchange, 403, "native app removal required", true);
@@ -6233,7 +6223,7 @@ void HttpFrontDoor::setNativeAppSideload(HttpExchange &exchange) const {
         result.set("sideloadVia", Json::text("config"));
     else if (!config_.token.empty())
         result.set("sideloadVia", Json::text("token"));
-    else if (isLoopbackPeer(request.remoteAddress))
+    else if (loopbackRequest(request))
         result.set("sideloadVia", Json::text("tv"));
     else
         result.set("sideloadVia", Json());
@@ -6246,7 +6236,7 @@ void HttpFrontDoor::setNativeAppSideload(HttpExchange &exchange) const {
 
 void HttpFrontDoor::setNativeAppsRepos(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native app repository update required", true);
@@ -6332,7 +6322,7 @@ void HttpFrontDoor::setNativePublicAppsRepos(HttpExchange &exchange) const {
     if (config_.document["apps"]["sideload"].isBoolean() &&
         config_.document["apps"]["sideload"].boolean()) {
         // Explicitly enabled for arbitrary app sources.
-    } else if (config_.token.empty() && !isLoopbackPeer(request.remoteAddress)) {
+    } else if (config_.token.empty() && !loopbackRequest(request)) {
         sendInstallError(exchange, 403,
                          say::msg("srv.install.sideloadOff",
                                   "installing from a URL or a file is off; set \"apps\": {\"sideload\": true} in config.json, set a token, or use the TV's web browser"));
@@ -6484,7 +6474,7 @@ void HttpFrontDoor::setNativePublicAppsRepos(HttpExchange &exchange) const {
 
 void HttpFrontDoor::findNativeAppPackage(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native app catalog lookup required", true);
@@ -6550,7 +6540,7 @@ void HttpFrontDoor::findNativeAppPackage(HttpExchange &exchange) const {
 
 void HttpFrontDoor::checkNativeAppsRepository(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native app repository check required", true);
@@ -6597,7 +6587,7 @@ void HttpFrontDoor::checkNativeAppsRepository(HttpExchange &exchange) const {
 
 void HttpFrontDoor::downloadNativeAppPackage(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native app package download required", true);
@@ -6931,7 +6921,7 @@ void HttpFrontDoor::downloadNativeAppPackage(HttpExchange &exchange) const {
 
 void HttpFrontDoor::inspectNativeAppPackage(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native app package inspection required", true);
@@ -7048,7 +7038,7 @@ void HttpFrontDoor::inspectNativeAppPackage(HttpExchange &exchange) const {
 
 void HttpFrontDoor::buildAppInstallPreview(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native app install preview access required", true);
@@ -7129,7 +7119,7 @@ void HttpFrontDoor::buildAppInstallPreview(HttpExchange &exchange) const {
 
 void HttpFrontDoor::readAppInstallSpace(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native app install space access required", true);
@@ -7320,7 +7310,7 @@ void HttpFrontDoor::cacheAppInstallStartSnapshot(const Json &response) const {
 
 void HttpFrontDoor::persistHomeConfig(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native Home config persistence required", true);
@@ -7452,7 +7442,7 @@ void HttpFrontDoor::handleHomeProfilePost(HttpExchange &exchange) const {
         response.set("error", Json::text(message));
         respond(status, response);
     };
-    if (!config_.allowControl && !isLoopbackPeer(request.remoteAddress)) {
+    if (!config_.allowControl && !loopbackRequest(request)) {
         failure(say::msg("srv.controlsOff", "controls disabled in config"), 403);
         return;
     }
@@ -7583,7 +7573,7 @@ void HttpFrontDoor::handleHomeLayoutPost(HttpExchange &exchange) const {
         response.set("error", Json::text(message));
         respond(status, response);
     };
-    if (!config_.allowControl && !isLoopbackPeer(request.remoteAddress)) {
+    if (!config_.allowControl && !loopbackRequest(request)) {
         failure(say::msg("srv.controlsOff", "controls disabled in config"), 403);
         return;
     }
@@ -7678,7 +7668,7 @@ void HttpFrontDoor::handleHomeStartLayoutPost(HttpExchange &exchange) const {
         response.set("error", Json::text(message));
         respond(status, response);
     };
-    if (!config_.allowControl && !isLoopbackPeer(request.remoteAddress)) {
+    if (!config_.allowControl && !loopbackRequest(request)) {
         failure(say::msg("srv.controlsOff", "controls disabled in config"), 403);
         return;
     }
@@ -7803,7 +7793,7 @@ void HttpFrontDoor::handleHomeStartupPost(HttpExchange &exchange) const {
         response.set("error", Json::text(message));
         respond(status, response);
     };
-    if (!config_.allowControl && !isLoopbackPeer(request.remoteAddress)) {
+    if (!config_.allowControl && !loopbackRequest(request)) {
         failure(say::msg("srv.controlsOff", "controls disabled in config"), 403);
         return;
     }
@@ -8142,7 +8132,7 @@ void HttpFrontDoor::handleHomeEnablePost(HttpExchange &exchange) const {
         response.set("error", Json::text(message));
         respond(status, response);
     };
-    if (!config_.allowControl && !isLoopbackPeer(request.remoteAddress)) {
+    if (!config_.allowControl && !loopbackRequest(request)) {
         failure(say::msg("srv.controlsOff", "controls disabled in config"), 403);
         return;
     }
@@ -8288,7 +8278,7 @@ void HttpFrontDoor::handleHomeDisablePost(HttpExchange &exchange) const {
         response.set("error", Json::text(message));
         respond(status, response);
     };
-    if (!config_.allowControl && !isLoopbackPeer(request.remoteAddress)) {
+    if (!config_.allowControl && !loopbackRequest(request)) {
         failure(say::msg("srv.controlsOff", "controls disabled in config"), 403);
         return;
     }
@@ -8386,7 +8376,7 @@ void HttpFrontDoor::handleHomeDisablePost(HttpExchange &exchange) const {
 
 void HttpFrontDoor::persistHomeRecent(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native Home history persistence required", true);
@@ -8509,7 +8499,7 @@ void HttpFrontDoor::persistHomeRecent(HttpExchange &exchange) const {
 
 void HttpFrontDoor::syncHomeAutoLaunch(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native Home auto-launch sync required", true);
@@ -8935,7 +8925,7 @@ void HttpFrontDoor::setNativeHomeInput(HttpExchange &exchange, const Json &paylo
 
 void HttpFrontDoor::setNativeHomeScreen(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native Home screen control required", true);
@@ -10071,6 +10061,7 @@ Json HttpFrontDoor::executeMqttControl(const Json &payload) const {
     request.uri = "/api/control";
     request.version = "1.1";
     request.remoteAddress = "127.0.0.1";
+    request.headers.push_back({"Host", "127.0.0.1"});
     request.contentLength = static_cast<long long>(body.size());
     request.headers.push_back({"Content-Type", "application/json"});
     HttpExchange exchange(std::move(request), body);
@@ -13704,7 +13695,7 @@ std::string HttpFrontDoor::activeHandoffUrl() const {
 bool HttpFrontDoor::setupHandoffAction(HttpExchange &exchange,
                                        const std::string &expectedAction,
                                        const Json *providedPayload) const {
-    if (!isLoopbackPeer(exchange.request().remoteAddress)) {
+    if (!loopbackRequest(exchange.request())) {
         sendSetupError(exchange, 403, "TV-local setup action required", true);
         return true;
     }
@@ -13782,7 +13773,7 @@ bool HttpFrontDoor::setupHandoffAction(HttpExchange &exchange,
 
 void HttpFrontDoor::handleHdmiSeen(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native HDMI observation required", true);
@@ -13828,7 +13819,7 @@ void HttpFrontDoor::handleHdmiSeen(HttpExchange &exchange) const {
 // turns writing LG's values and remotekeys-lg.json.
 void HttpFrontDoor::handleRemoteKeysApply(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native remote keys apply required", true);
@@ -13921,7 +13912,7 @@ bool HttpFrontDoor::restoreNativeRemoteKeys(std::string &error) const {
 
 void HttpFrontDoor::handleMqttForget(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native MQTT forget required", true);
@@ -13945,7 +13936,7 @@ void HttpFrontDoor::handleMqttForget(HttpExchange &exchange) const {
 
 void HttpFrontDoor::handleLastApp(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native last app observation required", true);
@@ -13986,7 +13977,7 @@ void HttpFrontDoor::handleLastApp(HttpExchange &exchange) const {
 
 void HttpFrontDoor::handleAppsState(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native apps state update required", true);
@@ -14021,7 +14012,7 @@ void HttpFrontDoor::handleAppsState(HttpExchange &exchange) const {
 
 void HttpFrontDoor::handleAppElevation(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native app elevation state access required", true);
@@ -14081,7 +14072,7 @@ void HttpFrontDoor::handleAppElevation(HttpExchange &exchange) const {
 
 void HttpFrontDoor::handleInstallerJob(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native installer job state access required", true);
@@ -14171,7 +14162,7 @@ void HttpFrontDoor::handleInstallerJob(HttpExchange &exchange) const {
 
 void HttpFrontDoor::handleAppElevationRun(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native app elevation access required", true);
@@ -14275,7 +14266,7 @@ void HttpFrontDoor::handleAppUpload(HttpExchange &exchange) const {
     const bool sideloadEnabled = config_.document["apps"]["sideload"].isBoolean() &&
                                  config_.document["apps"]["sideload"].boolean();
     const bool sideloadAllowed = sideloadEnabled || !config_.token.empty() ||
-                                 isLoopbackPeer(request.remoteAddress);
+                                 loopbackRequest(request);
     if (!sideloadAllowed) {
         sendInstallError(exchange, 403,
                          say::msg("srv.install.sideloadOff",
@@ -14591,7 +14582,7 @@ void HttpFrontDoor::handleAppInstallUrl(HttpExchange &exchange) const {
     const bool sideloadEnabled = config_.document["apps"]["sideload"].isBoolean() &&
                                  config_.document["apps"]["sideload"].boolean();
     if (!sideloadEnabled && config_.token.empty() &&
-        !isLoopbackPeer(request.remoteAddress)) {
+        !loopbackRequest(request)) {
         sendInstallError(exchange, 403,
                          say::msg("srv.install.sideloadOff",
                                   "installing from a URL or a file is off; set \"apps\": {\"sideload\": true} in config.json, set a token, or use the TV's web browser"));
@@ -14841,7 +14832,7 @@ void HttpFrontDoor::sendAppInstallStatus(HttpExchange &exchange) const {
         sideloadVia = "config";
     } else if (!config_.token.empty()) {
         sideloadVia = "token";
-    } else if (isLoopbackPeer(request.remoteAddress)) {
+    } else if (loopbackRequest(request)) {
         sideloadVia = "tv";
     }
     status.set("ok", Json::flag(true));
@@ -14857,7 +14848,7 @@ void HttpFrontDoor::sendAppInstallStatus(HttpExchange &exchange) const {
 
 void HttpFrontDoor::handleAppInstallRun(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native app install access required", true);
@@ -14976,7 +14967,7 @@ void HttpFrontDoor::handleAppInstallRun(HttpExchange &exchange) const {
 
 void HttpFrontDoor::handleInstalledApps(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native installed-app access required", true);
@@ -15035,7 +15026,7 @@ void HttpFrontDoor::handleInstalledApps(HttpExchange &exchange) const {
 
 void HttpFrontDoor::setNativeBackupConfig(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native backup config update required", true);
@@ -15102,7 +15093,7 @@ void HttpFrontDoor::setNativeBackupConfig(HttpExchange &exchange) const {
 
 void HttpFrontDoor::validateNativeBackupRestore(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native backup validator required", true);
@@ -15160,7 +15151,7 @@ void HttpFrontDoor::validateNativeBackupRestore(HttpExchange &exchange) const {
 
 void HttpFrontDoor::setNativePendingBackupApps(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native pending backup app update required", true);
@@ -15237,7 +15228,7 @@ void HttpFrontDoor::setNativePendingBackupApps(HttpExchange &exchange) const {
 void HttpFrontDoor::planNativeBackupApps(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
     if (!exchange.inProcess() &&
-        (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+        (!loopbackRequest(request) || proxySecret_.empty() ||
          !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
          !request.header("x-nativetv-original-remote").empty())) {
         sendSetupError(exchange, 403, "native backup app planner required", true);
@@ -15363,7 +15354,7 @@ void HttpFrontDoor::planNativeBackupApps(HttpExchange &exchange) const {
 void HttpFrontDoor::restoreNativeBackupLg(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
     if (!exchange.inProcess() &&
-        (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+        (!loopbackRequest(request) || proxySecret_.empty() ||
          !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
          !request.header("x-nativetv-original-remote").empty())) {
         sendSetupError(exchange, 403, "native backup LG restore required", true);
@@ -15543,6 +15534,7 @@ void HttpFrontDoor::handleBackupRestore(HttpExchange &exchange, const std::strin
         request.uri = uri;
         request.version = "1.1";
         request.remoteAddress = "127.0.0.1";
+        request.headers.push_back({"Host", "127.0.0.1"});
         request.contentLength = static_cast<long long>(requestBody.size());
         request.headers.push_back({"Content-Type", "application/json"});
         HttpExchange inner(std::move(request), requestBody);
@@ -15626,7 +15618,7 @@ void HttpFrontDoor::handleBackupRestore(HttpExchange &exchange, const std::strin
 
 void HttpFrontDoor::setNativeDailyBackup(HttpExchange &exchange) const {
     const HttpRequest &request = exchange.request();
-    if (!isLoopbackPeer(request.remoteAddress) || proxySecret_.empty() ||
+    if (!loopbackRequest(request) || proxySecret_.empty() ||
         !tokenMatchesConstantTime(request.header("x-nativetv-proxy-secret"), proxySecret_) ||
         !request.header("x-nativetv-original-remote").empty()) {
         sendSetupError(exchange, 403, "native daily backup creator required", true);
@@ -15803,7 +15795,7 @@ void HttpFrontDoor::handleAdminPin(HttpExchange &exchange) const {
         return;
     }
     if (!adminPin_.configured() && config_.token.empty() &&
-        !isLoopbackPeer(exchange.request().remoteAddress)) {
+        !loopbackRequest(exchange.request())) {
         sendSetupError(exchange, 403, "set the first admin PIN on the TV");
         return;
     }
@@ -15988,7 +15980,7 @@ void HttpFrontDoor::sendHomeStatus(HttpExchange &exchange) const {
         service::experimentalHomeAllowed(config_.document), active,
         lgHomeOpen, historyEnabled, wallpapers, mainProfileName());
     response.set("writable", Json::flag(config_.allowControl ||
-                                         isLoopbackPeer(request.remoteAddress)));
+                                         loopbackRequest(request)));
     // The native client's probe as it last ran (never run from here), and the
     // watch that gives LG's Home back when the client keeps failing.
     const Json probe = homeProbeGate()->known();
@@ -16679,7 +16671,7 @@ void HttpFrontDoor::handleHomeWallpaperUpload(HttpExchange &exchange) const {
             headers.push_back({"Connection", "close"});
         (void)exchange.respond(status, headers, failure.dump());
     };
-    if (!config_.allowControl && !isLoopbackPeer(request.remoteAddress)) {
+    if (!config_.allowControl && !loopbackRequest(request)) {
         respond(403, say::msg("srv.controlsOff", "controls disabled in config"), false);
         return;
     }
@@ -16969,7 +16961,7 @@ void HttpFrontDoor::handleHomeRecentAppsPost(HttpExchange &exchange) const {
         respond(status, body);
     };
 
-    if (!config_.allowControl && !isLoopbackPeer(request.remoteAddress)) {
+    if (!config_.allowControl && !loopbackRequest(request)) {
         fail(say::msg("srv.controlsOff", "controls disabled in config"), 403);
         return;
     }
@@ -17427,7 +17419,7 @@ void HttpFrontDoor::handleHomeOpenPost(HttpExchange &exchange) const {
         respond(status, body);
     };
 
-    if (!config_.allowControl && !isLoopbackPeer(request.remoteAddress)) {
+    if (!config_.allowControl && !loopbackRequest(request)) {
         fail(say::msg("srv.controlsOff", "controls disabled in config"), 403);
         return;
     }
@@ -18095,7 +18087,7 @@ void HttpFrontDoor::dispatch(HttpExchange &exchange) const {
         return;
     }
     if (request.uri == "/api/home/wallpapers" && request.method == "POST") {
-        if (!config_.allowControl && !isLoopbackPeer(request.remoteAddress)) {
+        if (!config_.allowControl && !loopbackRequest(request)) {
             sendSetupError(exchange, 403,
                            say::msg("srv.controlsOff", "controls disabled in config"));
             return;
@@ -18314,7 +18306,7 @@ void HttpFrontDoor::dispatch(HttpExchange &exchange) const {
     }
     if (request.uri == "/api/caps") {
         Json caps = nativeCapabilities(config_, version_, dataRoot_, request.remoteAddress,
-                                       localIpv4Address());
+                                       request.header("host"), localIpv4Address());
         // The client draws its first frame in this theme, before the catalogue has answered.
         caps.set("tvTheme", Json::text(tvThemeId(currentConfigDocument())));
         (void)exchange.respond(200,
@@ -18466,7 +18458,7 @@ void HttpFrontDoor::dispatch(HttpExchange &exchange) const {
         std::string requestedReader;
         if (queryParameter(request.query, "reader", requestedReader) &&
             requestedReader == "publish") {
-            if (!isLoopbackPeer(request.remoteAddress)) {
+            if (!loopbackRequest(request)) {
                 (void)exchange.respond(403,
                                        {{"Content-Type", "application/json"},
                                         {"Cache-Control", "no-store"},
@@ -18977,6 +18969,8 @@ void HttpFrontDoor::dispatch(HttpExchange &exchange) const {
             sendSetupError(exchange, 403, say::msg("srv.controlsOff", "controls disabled in config"));
             return;
         }
+        if (rejectCrossSitePost(exchange))
+            return;
         const std::string path = dataFilePath(dataRoot_, "restore-apps.json");
         std::string error;
         bool cleared = false;
