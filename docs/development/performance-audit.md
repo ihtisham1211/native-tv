@@ -1,6 +1,6 @@
 # Performance audit
 
-Where the TV client (`nativetv-tv`) and the server (`nativetv-daemon`) spend time and wakeups, as of 30 October 2026. The numbers behind it are in [the baseline](performance-baseline.md), what was changed in [the optimizations](performance-optimizations.md), and how to repeat the measurements in [the benchmarks](performance-benchmarks.md).
+Where the TV client (`nativetv-tv`) and the server (`nativetv-daemon`) spend time and wakeups, as of 30 October 2026, with findings 25 and 26 from a C6 on 22 November 2026. The numbers behind it are in [the baseline](performance-baseline.md), what was changed in [the optimizations](performance-optimizations.md), and how to repeat the measurements in [the benchmarks](performance-benchmarks.md).
 
 Each finding carries how it is known: **measured** (a number from a run), **read** (checked in the source by the author) or **audit** (reported by a read-only pass over the code and not run). Audit findings are leads, not results.
 
@@ -22,7 +22,7 @@ Ranked by expected benefit for the effort and risk.
 
 | # | Finding | Where | Basis | State |
 |---|---|---|---|---|
-| 1 | Every resident `luna-send -i` child polls its pipes every 50 ms: about 20 wakeups a second each, six to eight children | `src/daemon/child_process.cpp` | measured on the B3 | fixed; whole daemon 142 to 35 wakeups a second at idle |
+| 1 | Every resident `luna-send -i` child polls its pipes every 50 ms: about 20 wakeups a second each, six to eight children | `src/daemon/child_process.cpp` | measured on the B3 | fixed; whole daemon 142 to 35 wakeups a second at idle; the rest in 25 |
 | 2 | The remote-key watcher loads two JSON files every 200 ms; the NTP client reads and parses `config.json` every second; neither checks whether the file changed | `remote_button_log_watcher.cpp`, `ntp_client.cpp` | read | fixed |
 | 3 | The picture cache's LRU clock ticks once per loop iteration, idle wakeups included, so pictures on screen become evictable after about 100 ms of idling | `src/graphics/image_loader.cpp` | read | fixed |
 | 4 | The vertex shader was compiled once per program, eight times, at start-up: 41 to 46 ms on the B3 | `src/graphics/renderer.cpp` | measured on the B3 | fixed (first swap 359 to 306 ms) |
@@ -38,7 +38,7 @@ Ranked by expected benefit for the effort and risk.
 | 14 | `Batcher::place` is quadratic in batches per primitive | `batch.cpp` | audit, suspected | open |
 | 15 | Source pictures up to 64 Mpx are accepted; decoded pixels in flight are not counted against the 40 MB budget | `image_loader.cpp` | audit | open |
 | 16 | An EGL context loss is not handled; the renderer holds raw GL names | `main.cpp`, `renderer.cpp` | audit | open |
-| 17 | With MQTT on, one telemetry collection starts roughly 15 to 20 `luna-send` children, about 30 to 45 a minute with the other timers | `stats_collector.cpp`, `mqtt_telemetry_publisher.cpp` | audit, estimated from cache lifetimes | open |
+| 17 | With MQTT on, one telemetry collection starts roughly 15 to 20 `luna-send` children, about 30 to 45 a minute with the other timers | `stats_collector.cpp`, `mqtt_telemetry_publisher.cpp` | audit, estimated from cache lifetimes | reduced by 26, which is the same collection |
 | 18 | The MQTT client loop wakes about 13 times a second; `signalPoll` wakes every 250 ms | `mqtt_client.cpp`, `daemon/main.cpp` | audit | open |
 | 19 | The TV pages are rebuilt on every request (file reads, `std::regex`, a hash of the body); only the phone dashboard is cached | `http_static_assets.cpp` | audit | open |
 | 20 | `collectLgSettingsData` and `oledStats` hold their mutexes across Luna calls of up to 5 s, so setting writes wait behind them | `http_frontdoor.cpp` | audit | open |
@@ -46,6 +46,8 @@ Ranked by expected benefit for the effort and risk.
 | 22 | The first Home catalogue request starts serial `luna-send` children 150 ms apart; 8 shader programs and about 1,235 single-glyph uploads run before the first frame; on the B3 the glyph prewarm takes 86 ms and the 8 programs 142 to 155 ms (10 ms and not timed on the host) | `http_frontdoor.cpp`, `renderer.cpp`, `main.cpp` | audit | open |
 | 23 | Info log lines go through block-buffered `std::cout` and only warnings (unbuffered `cerr`) and debug lines are flushed, so on the TV they reach `tvweb.log` when the buffer fills or the daemon stops, and are lost if the watchdog kills it: the log held the stopped daemon's info lines, flushed at its exit, and none from the running one | `src/daemon/logger.cpp` (`defaultSink`) | read, and the TV's `tvweb.log` | fixed; every line is flushed: the C6's log held 484 lines over three days of use, most of them a check the server now makes once a start |
 | 24 | ARM builds use `-O2`, a static libstdc++ and `--as-needed`; there is no section GC, LTO or strip step | `CMakeLists.txt`, SDK toolchain file | read | open; size only |
+| 25 | The 250 ms poll that replaced 50 ms in finding 1 still woke each resident subscription's thread 4 times a second, only to notice a cancel. On the C6 at idle the daemon switched 45 times a second, about 10 threads at about 4 a second each, the 7 subscription runners among them | `src/daemon/child_process.cpp` | measured on the C6 | fixed; the cancel has a pipe and `poll` blocks |
+| 26 | One `/api/stats` started about 14 `luna-send` children (9 of them `getSystemSettings`); polling every 10 s, as the TV app's OLED Care Home and the open phone dashboard do, cost 1.4 % of a core and about 340 process starts a minute system-wide. Most reads were cached for 10 to 60 s, at or under the poll interval, and power, the foreground app and the volume were read again although a live subscription held them | `stats_collector.cpp`, `http_frontdoor.cpp` (`oledStats`) | measured on the C6 | fixed |
 
 Finding 9 is small. The client costs about 1.6 % of a core and 3 wakeups a second on a screen that never animates (Apple M1 Pro; the TV was not measured), and optimistic updates hide most reply waits. Waking the loop from the worker is a few lines, but it only pays once the 50 ms idle wait can also be raised, and that needs a next-deadline answer from every screen's timers.
 

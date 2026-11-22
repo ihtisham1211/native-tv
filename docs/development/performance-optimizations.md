@@ -1,14 +1,55 @@
 # Performance optimizations
 
-What was changed on 30 October 2026, why, and what was and was not verified. The findings are in [the audit](performance-audit.md) and the starting numbers in [the baseline](performance-baseline.md).
+What was changed on 30 October 2026, and in the first two sections on 22 November 2026, why, and what was and was not verified. The findings are in [the audit](performance-audit.md) and the starting numbers in [the baseline](performance-baseline.md).
 
-Each result is labelled: **measured on the TV** (a B3, webOS 10.3.2), **measured on the host** (Apple M1 Pro), **implemented, not hardware-validated** or **estimated**.
+Each result is labelled: **measured on the TV** (a B3, webOS 10.3.2), **measured on the host** (Apple M1 Pro; for the November sections, WSL Ubuntu 24.04 on a Windows laptop), **implemented, not hardware-validated** or **estimated**.
+
+## A resident child sleeps until it has output, exits or is cancelled
+
+Finding 25. The 250 ms poll below was kept only so that a cancel from another thread was noticed. A cancel is now a `ChildCancellation`: a flag and a pipe, written once by the cancelling thread. The runner polls the pipe beside the child's output, so with no deadline `poll` has no timeout. Once the child is told to stop, the pipe leaves the poll set (it stays readable) and the wait is bounded by the kill deadline, so SIGTERM, then SIGKILL after the grace, work as before. A child with a deadline waits until the deadline instead of every 50 ms. If `pipe()` fails, the runner falls back to polling the flag at the old intervals.
+
+Files: `src/daemon/child_process.{hpp,cpp}`, `luna.{hpp,cpp}` and `app_install_executor.cpp` (the two users of a cancel), `tests/child_process.cpp`.
+
+| | Before | After |
+|---|---|---|
+| One resident child with a cancel, 5 s, host | 22, 22 and 22 switches | 3, 3 and 3 (**measured on the host**, `child_process.cpp` of each build linked into the same probe) |
+
+Tests: `testResidentChildWakesRarely` now gives the child a cancel and allows fewer than 6 switches in 2 s (about 8 at 250 ms); `testCancelWithoutDeadlineIsNoticed` requires a cancel to end a resident child with SIGTERM within 1 s, which only the pipe can do, since `poll` has no timeout; `testCancelEscalatesToKill` cancels a child that ignores SIGTERM and requires SIGKILL within 1 s. On the TV this should take the 7 subscription threads' 4 wakeups a second, about 28 of the C6's 45 at idle, to nothing while nothing changes. **Implemented, not hardware-validated.**
+
+## `/api/stats` reads the TV's services far less often
+
+Finding 26. Polled every 10 s, a read cached for 10 s or less is a `luna-send` per request. What changed, in `src/daemon/stats_collector.cpp` unless named:
+
+- **Power, the foreground app and the volume** are taken from the last answer of their live subscription (`StateSubscriptions::liveReply`), which is the reply the call would get. Only these three groups keep their answers: the picture group's later answers hold only the keys that changed.
+- **Picture settings and the picture-mode list** are kept 30 s while the picture group delivers (10 s before). Not longer: the modes follow the dynamic range of what plays, and whether the settings subscription speaks on that switch alone was not seen.
+- While the audio group delivers, **sound settings** (15 s) are kept 60 s, the offered sound outputs (60 s) 5 minutes and Bluetooth (60 s) 2 minutes; an audio event drops all three, Bluetooth now included.
+- **The owner's settings** (lights, Wake on LAN, LG logo, device detection, Always Ready; 60 s) are kept 5 minutes while the foreground-app group delivers, because a change of foreground app drops them and LG's Settings is an app; the network category now drops with the others.
+- **The Wi-Fi name and the input names** (60 s) are kept 5 minutes.
+- **The app list** (60 s) is kept 10 minutes, and read again after an install job finishes, an app is removed, the TV app is installed, removed or refreshed, a dashboard write, or a change of foreground app (an app installed from LG's store is opened to be used).
+- **The OLED readings** (`oledStats` in `http_frontdoor.cpp`, 30 s for all) are kept 2 minutes for the refresher status and the GSR and TPC switches, and 5 for the panel hours, which count whole hours. A dashboard or MQTT write reads them again at once.
+- **MQTT controls** now drop the stats cache as the dashboard's writes do; they went to the control handler directly and left it.
+
+The model, firmware and logo-light reads were already made once per start. The time category (sleep timer, 30 s), the audio input format (3 s), the video format (4 s), the dimming status (15 s) and the light sensor (30 s) are unchanged: they follow what plays, or the owner sets them from the remote's quick menu, which is not an app change. Merging the two `other` reads and the two `general` reads into one each was not done: a request naming a key the TV lacks answers `returnValue: false` with the rest of the keys on a C6 ([TV research](tv-research.md#settings-reads-naming-a-key-the-tv-lacks-c6-webos-1120)), but older webOS was not checked, and at the new lifetimes it would save one call a minute.
+
+With the subscriptions not delivering (at start, on a TV where a group is refused, or a group that stopped), the reads they cover keep their old lifetimes and power is read on every request as before; the Wi-Fi name, the input names, the app list and the OLED readings do not depend on them.
+
+`luna-send` calls made by the stats read, **measured on the host**:
+
+| | Before | After |
+|---|---|---|
+| Scripted TV, subscriptions delivering: first request / 10 s later / the next minute at 10 s | 29 / 4 / 50 | 26 / 2 / 25 |
+| Scripted TV, no subscriptions | 30 / 9 / 75 | 30 / 9 / 72 |
+| `scripts/emulate-tv.js` (its subscriptions answer without a state, so none counts as delivering, as on a TV at start): one request 10 s after the last / six over a minute | 9 / 82 | 9 / 72 |
+
+The scripted TV is `lunaCallsWhilePolling` in `tests/stats_collector.cpp`, which prints these figures; it answers every read, and leaves out the OLED readings, which the front door makes. Of the 25 a minute left with the subscriptions delivering, 12 are the audio input format and the video format. In the emulator the OLED readings fell from 8 to 4 calls a minute and `getSystemSettings` from 16 to 14; most of the rest are power, read on every request while its group is not delivering, the reads kept 3 to 4 s, and reads that fail in the emulator and so are never cached (the input names, the player state). On the C6, one request started about 14 children; a live event (an app change, a volume change) still drops the reads it covers, so the TV's figure depends on what it is doing. **Not measured on the TV.**
+
+Tests: `liveRepliesStandInForReads` (no `luna-send` for what a live group delivered, the same stats, and a read again once the group stops), `lunaCallsWhilePolling` (at most 2 calls for a request 10 s after the last and 25 over the next minute, with the subscriptions delivering), and `installedAppsRescanRules` (the list is kept 10 minutes and read again after `forgetInstalledApps`). The other stats cases, the daemon runtime cases and the fixtures in `tests/fixtures/tv` pass unchanged.
 
 ## Resident child processes wake 4.5 times a second instead of 20
 
 `ChildProcessRunner::run` polls a child's pipes with a 50 ms timeout, and checks a cancellation flag and `waitpid` on every wake-up. Output and exit wake `poll` by themselves, so only a cancel from another thread needs the timeout. The daemon keeps six to eight children without a deadline (the `luna-send -i` subscriptions), each on its own thread.
 
-- A child with no deadline now polls every 250 ms. A child with a deadline still polls every 50 ms.
+- A child with no deadline now polls every 250 ms. A child with a deadline still polls every 50 ms. (Since 22 November neither polls; see the section above.)
 - Once both pipes are closed there is nothing left to wake `poll`, and the only wait is for the exit status, so the wait is 5 ms instead of a full poll interval.
 - Cost: a cancelled resident child is killed up to 250 ms later than before. Cancellation is asynchronous (nothing joins on it), so this only delays a restart that waits for the old child to exit.
 

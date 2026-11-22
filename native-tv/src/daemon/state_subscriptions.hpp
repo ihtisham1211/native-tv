@@ -6,6 +6,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 
 namespace nativetv {
@@ -35,6 +36,9 @@ class StateSubscriptions {
     bool startGroup(const std::string &name);
     bool stopGroup(const std::string &name);
     bool isLive(const std::string &name) const;
+    // The last answer a live group subscribed to uri delivered, as the TV sent it (a copy), or
+    // an invalid Json when no live group has. Safe from HTTP workers.
+    Json liveReply(const std::string &uri) const;
     Json snapshot() const;
     state::Cache &cache();
     const state::Cache &cache() const;
@@ -69,6 +73,14 @@ class StateSubscriptions {
     std::string mediaSeenPath_;
     state::Cache cache_;
     std::map<std::string, std::unique_ptr<Group>> groups_;
+    struct Reply {
+        std::string uri;
+        Json response;
+    };
+    // By group. Group::uri changes on the loop thread, so the uri the answer came from is kept
+    // with it.
+    mutable std::mutex repliesMutex_;
+    std::map<std::string, Reply> replies_;
 };
 } // namespace daemon
 } // namespace nativetv

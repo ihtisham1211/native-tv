@@ -2934,6 +2934,9 @@ StatsCollector *HttpFrontDoor::statsCollector() const {
         deps.liveGroup = [this](const std::string &group) {
             return stateSubscriptions_ && stateSubscriptions_->isLive(group);
         };
+        deps.liveReply = [this](const std::string &uri) {
+            return stateSubscriptions_ ? stateSubscriptions_->liveReply(uri) : Json();
+        };
         deps.config = [this]() { return currentConfigDocument(); };
         deps.systemRoot = systemRoot_;
         deps.version = displayVersion();
@@ -3014,6 +3017,9 @@ StatsCollector *HttpFrontDoor::statsCollector() const {
             Json cached;
             service::OledCareSources cachedSources;
             std::chrono::steady_clock::time_point cachedAt;
+            // When the panel hours were last read; they are kept longer than the rest.
+            std::chrono::steady_clock::time_point hoursAt;
+            unsigned long long writesSeen = 0;
         };
         const std::shared_ptr<OledStatsState> oledState = std::make_shared<OledStatsState>();
         deps.isOled = [this, oledState]() {
@@ -3049,9 +3055,18 @@ StatsCollector *HttpFrontDoor::statsCollector() const {
         deps.oledStats = [this, oledState](const Json &pictureSettings, const Json &) {
             std::lock_guard<std::mutex> lock(oledState->mutex);
             const auto now = std::chrono::steady_clock::now();
-            const bool fresh = oledState->cached.valid() && now - oledState->cachedAt < std::chrono::seconds(30);
+            // The refresher status and the GSR and TPC switches change when the owner runs or
+            // sets them, from the dashboard (a write, which reads them again at once) or LG's
+            // service menu, so they are kept 2 minutes. The panel hours count whole hours and
+            // are kept 5. At 30 s for all, a dashboard polling every 10 s made 8 luna-sends a
+            // minute for these alone.
+            const unsigned long long writes = statsWrites_.load(std::memory_order_acquire);
+            const bool fresh = oledState->cached.valid() && oledState->writesSeen == writes &&
+                               now - oledState->cachedAt < std::chrono::minutes(2);
+            const bool hoursFresh = oledState->hoursAt != std::chrono::steady_clock::time_point() &&
+                                    now - oledState->hoursAt < std::chrono::minutes(5);
             if (fresh) {
-                // Inside the 30 s the Luna reads stand; the picture settings and
+                // Inside the 2 minutes the Luna reads stand; the picture settings and
                 // the compensation state, which are cheap, are brought up to date.
                 // Copies throughout: a Json is a handle, and the answer that holds
                 // the last one may be on its way out on another thread.
@@ -3070,22 +3085,31 @@ StatsCollector *HttpFrontDoor::statsCollector() const {
             sources.systemRoot = systemRoot_;
             sources.isOled = true;
             sources.pictureSettings = pictureSettings;
-            Json propertiesRequest = Json::object();
-            Json propertyKeys = Json::array();
-            propertyKeys.add(Json::text("panelUsageTime"));
-            propertyKeys.add(Json::text("lastCompensationTimestamp"));
-            propertiesRequest.set("keys", propertyKeys);
-            LunaReply propertiesReply;
-            if (waitForLuna(luna_, "com.webos.service.tv.systemproperty/getSystemProperties",
-                            propertiesRequest, propertiesReply))
-                sources.systemProperties = propertiesReply.response;
-            if (!service::javascriptTruthy(sources.systemProperties["panelUsageTime"])) {
-                Json request = Json::object();
-                request.set("subscribe", Json::flag(false));
-                LunaReply panelReply;
-                if (waitForLuna(luna_, "com.webos.service.panelcontroller/getPanelUsageTime",
-                                request, panelReply))
-                    sources.panelController = panelReply.response;
+            if (hoursFresh) {
+                sources.systemProperties = oledState->cachedSources.systemProperties;
+                sources.panelController = oledState->cachedSources.panelController;
+            } else {
+                Json propertiesRequest = Json::object();
+                Json propertyKeys = Json::array();
+                propertyKeys.add(Json::text("panelUsageTime"));
+                propertyKeys.add(Json::text("lastCompensationTimestamp"));
+                propertiesRequest.set("keys", propertyKeys);
+                LunaReply propertiesReply;
+                if (waitForLuna(luna_, "com.webos.service.tv.systemproperty/getSystemProperties",
+                                propertiesRequest, propertiesReply))
+                    sources.systemProperties = propertiesReply.response;
+                if (!service::javascriptTruthy(sources.systemProperties["panelUsageTime"])) {
+                    Json request = Json::object();
+                    request.set("subscribe", Json::flag(false));
+                    LunaReply panelReply;
+                    if (waitForLuna(luna_, "com.webos.service.panelcontroller/getPanelUsageTime",
+                                    request, panelReply))
+                        sources.panelController = panelReply.response;
+                }
+                // Only an answer is kept: a slow TV is asked again on the next read.
+                if (service::javascriptTruthy(sources.systemProperties["panelUsageTime"]) ||
+                    service::javascriptTruthy(sources.panelController["panelUsageTime"]))
+                    oledState->hoursAt = now;
             }
             LunaReply displayReply;
             (void)waitForLuna(luna_, "com.webos.service.tv.display/getClearPanelNoiseStatus",
@@ -3132,6 +3156,7 @@ StatsCollector *HttpFrontDoor::statsCollector() const {
             oledState->cachedSources = sources;
             oledState->cached = service::oledStatsObject(sources);
             oledState->cachedAt = std::chrono::steady_clock::now();
+            oledState->writesSeen = writes;
             return Json::parse(oledState->cached.dump());
         };
         deps.sourceFrameRate = [this](const std::string &appId) -> Json {
@@ -4531,7 +4556,9 @@ Json HttpFrontDoor::runTvApp(const std::string &action, const std::string &appDi
         missing.set("installed", Json::flag(false));
         return missing;
     }
-    return tvAppManager_->run(action, appDir);
+    const Json result = tvAppManager_->run(action, appDir);
+    if (action != "status") noteInstalledAppsChanged();
+    return result;
 }
 
 void HttpFrontDoor::invalidateOledCareCache() const {
@@ -6073,6 +6100,7 @@ void HttpFrontDoor::setNativeAppUninstall(HttpExchange &exchange) const {
     const auto respondSuccess = [this, &exchange, &id, &waitForRemoval,
                                  internal, publicRoute]() {
         waitForRemoval();
+        noteInstalledAppsChanged();
         if (publicRoute) {
             refreshLauncher();
             Json event = Json::object();
@@ -7194,6 +7222,7 @@ InstallJobs *HttpFrontDoor::installJobs() const {
         };
         // Node reads the app list again and refreshes the launcher.
         environment.onInstalled = [this]() {
+            noteInstalledAppsChanged();
             refreshLauncher();
             Json event = Json::object();
             event.set("type", Json::text("apps-changed"));
@@ -10066,6 +10095,9 @@ Json HttpFrontDoor::executeMqttControl(const Json &payload) const {
     request.headers.push_back({"Content-Type", "application/json"});
     HttpExchange exchange(std::move(request), body);
     setControl(exchange);
+    // As handle() does for the dashboard's writes: this one does not pass through it.
+    if (exchange.responseStatus() >= 200 && exchange.responseStatus() < 300)
+        invalidateStatsAfterWrite();
     const Json result = Json::parse(exchange.responseBody());
     return result.isObject() ? result : failure(
         exchange.responseStarted() ? "control returned an invalid response"
@@ -17818,24 +17850,36 @@ void HttpFrontDoor::handle(HttpExchange &exchange) const {
     // write counts too, as the Node side cannot reach this collector.
     const int status = exchange.responseStatus();
     if (request.method != "GET" && request.method != "HEAD" && request.method != "OPTIONS" &&
-        status >= 200 && status < 300 && request.uri.compare(0, 10, "/_internal") != 0) {
-        statsCollector()->clearCache();
-        statsCollector()->forget({});
-    }
+        status >= 200 && status < 300 && request.uri.compare(0, 10, "/_internal") != 0)
+        invalidateStatsAfterWrite();
 }
 
+void HttpFrontDoor::invalidateStatsAfterWrite() const {
+    statsWrites_.fetch_add(1, std::memory_order_acq_rel);
+    statsCollector()->clearCache();
+    statsCollector()->forget({});
+}
+
+void HttpFrontDoor::noteInstalledAppsChanged() const { statsCollector()->forgetInstalledApps(); }
+
 void HttpFrontDoor::expireStats(const std::string &group) const {
-    // The cached reads each live subscription makes stale (tvweb.js LIVE_STALE).
+    // The cached reads each live subscription makes stale (tvweb.js LIVE_STALE). A Bluetooth
+    // device coming or going moves the volume. LG's Settings is an app: leaving it drops the
+    // owner's settings, the network category among them.
     static const std::map<std::string, std::vector<std::string>> stale = {
-        {"audio", {"com.webos.audio/", "com.webos.service.audio/", "\"category\":\"sound\""}},
+        {"audio", {"com.webos.audio/", "com.webos.service.audio/", "\"category\":\"sound\"",
+                   "bluetooth2/device/getStatus"}},
         {"application", {"getForegroundAppInfo", "\"category\":\"picture\"", "getVRRInfo",
                          "\"category\":\"other\"", "\"category\":\"general\"",
-                         "\"category\":\"option\"", "getSystemSettingDesc"}},
+                         "\"category\":\"option\"", "\"category\":\"network\"",
+                         "getSystemSettingDesc"}},
         {"picture", {"\"category\":\"picture\""}},
         {"power", {"tvpower/power/getPowerState"}}};
     statsCollector()->expire();
     const auto found = stale.find(group);
     if (found != stale.end()) statsCollector()->forget(found->second);
+    // An app installed from LG's store is opened to be used.
+    if (group == "application") statsCollector()->forgetInstalledApps();
 }
 
 void HttpFrontDoor::dispatch(HttpExchange &exchange) const {

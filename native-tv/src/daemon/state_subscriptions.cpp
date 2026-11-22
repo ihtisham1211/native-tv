@@ -158,6 +158,14 @@ bool StateSubscriptions::isLive(const std::string &name) const {
            !found->second->snapshotPending.load(std::memory_order_acquire);
 }
 
+Json StateSubscriptions::liveReply(const std::string &uri) const {
+    std::lock_guard<std::mutex> lock(repliesMutex_);
+    for (const auto &entry : replies_)
+        if (entry.second.uri == uri && isLive(entry.first))
+            return Json::parse(entry.second.response.dump());
+    return Json();
+}
+
 Json StateSubscriptions::snapshot() const { return cache_.snapshot(); }
 
 state::Cache &StateSubscriptions::cache() { return cache_; }
@@ -171,6 +179,13 @@ void StateSubscriptions::receive(Group &group, unsigned long long generation,
     if (response["returnValue"].isBoolean() && !response["returnValue"].boolean()) {
         refused(group, response);
         return;
+    }
+    // Kept for /api/stats, which reads them in place of a luna-send of its own. Only the groups
+    // whose every answer is whole: the picture group's later answers hold just the keys that
+    // changed.
+    if (group.name == "power" || group.name == "application" || group.name == "audio") {
+        std::lock_guard<std::mutex> lock(repliesMutex_);
+        replies_[group.name] = Reply{group.uri, Json::parse(response.dump())};
     }
     if (invalidate_ && (group.name == "picture" || group.name == "power" ||
                         group.name == "application" || group.name == "audio")) {

@@ -1,6 +1,7 @@
 #include "daemon/child_process.hpp"
 #include <atomic>
 #include <chrono>
+#include <csignal>
 #include <cstdio>
 #include <stdexcept>
 #include <string>
@@ -87,15 +88,18 @@ long contextSwitches() {
     return usage.ru_nvcsw + usage.ru_nivcsw;
 }
 
-// A resident child (no deadline) must not wake its reader 20 times a second: eight of them sit
-// in the daemon at idle. At the old 50 ms poll this 2 s run switched more than 40 times.
+// A resident child (no deadline) must not wake its reader while it is silent: seven of them sit
+// in the daemon at idle. The old 250 ms poll, kept only to notice a cancel, switched about 8
+// times in this 2 s run (50 ms: more than 40); blocked on the cancel's pipe it switches a few.
 void testResidentChildWakesRarely() {
     ChildProcessRunner runner;
+    ChildOptions resident = shell("sleep 2", std::chrono::milliseconds(0));
+    resident.cancellation = std::make_shared<ChildCancellation>();
     const long before = contextSwitches();
-    ChildResult result = runner.run(shell("sleep 2", std::chrono::milliseconds(0)));
+    ChildResult result = runner.run(resident);
     const long switches = contextSwitches() - before;
-    check(result.succeeded(), "a child without a deadline should run to its exit");
-    check(switches < 25, "a resident child woke " + std::to_string(switches) + " times in 2 s");
+    check(result.succeeded() && !result.cancelled, "a child without a deadline should run to its exit");
+    check(switches < 6, "a resident child woke " + std::to_string(switches) + " times in 2 s");
 }
 
 void testCancelWithoutDeadlineIsNoticed() {
@@ -103,18 +107,41 @@ void testCancelWithoutDeadlineIsNoticed() {
     // exec: dash (Ubuntu's /bin/sh) keeps the shell as the parent of sleep, so a SIGTERM to the
     // shell would leave sleep holding the pipes open, and the run would last the full 5 s.
     ChildOptions resident = shell("exec sleep 5", std::chrono::milliseconds(0));
-    resident.cancellation = std::make_shared<std::atomic<bool>>(false);
-    std::thread canceller([flag = resident.cancellation] {
+    resident.cancellation = std::make_shared<ChildCancellation>();
+    std::thread canceller([cancellation = resident.cancellation] {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        flag->store(true);
+        cancellation->cancel();
     });
     const auto started = std::chrono::steady_clock::now();
     ChildResult result = runner.run(resident);
     canceller.join();
     const auto took = std::chrono::steady_clock::now() - started;
     check(result.cancelled, "a cancelled resident child should report it");
-    // The child sleeps 5 s: ending well before that is the cancel.
-    check(took < std::chrono::seconds(3), "a cancel should end the child within a few seconds");
+    check(result.signal == SIGTERM, "a cancel should end the child with SIGTERM");
+    // poll has no timeout here, so only the cancel's pipe can end the wait this soon: 100 ms to
+    // the cancel, then the SIGTERM. The 1 s bound leaves room for a loaded host.
+    check(took < std::chrono::seconds(1), "a cancel should end a resident child at once");
+}
+
+// After a cancel the cancel's pipe leaves the poll set and the kill deadline bounds the wait, so
+// a child that ignores SIGTERM is still killed after the grace.
+void testCancelEscalatesToKill() {
+    ChildRunnerOptions quick;
+    quick.terminateGrace = std::chrono::milliseconds(100);
+    ChildProcessRunner runner(quick);
+    ChildOptions stubborn = shell("trap '' TERM; exec sleep 5", std::chrono::milliseconds(0));
+    stubborn.cancellation = std::make_shared<ChildCancellation>();
+    std::thread canceller([cancellation = stubborn.cancellation] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        cancellation->cancel();
+    });
+    const auto started = std::chrono::steady_clock::now();
+    ChildResult result = runner.run(stubborn);
+    canceller.join();
+    const auto took = std::chrono::steady_clock::now() - started;
+    check(result.cancelled && result.signal == SIGKILL,
+          "a child that ignores SIGTERM should be killed after the grace");
+    check(took < std::chrono::seconds(1), "the kill should follow the grace, not the child's exit");
 }
 
 // Both pipes close while the child lives on; the exit must still be noticed.
@@ -134,6 +161,7 @@ int main() {
         testSingleTurnSpacingAndUrgentOrder();
         testResidentChildWakesRarely();
         testCancelWithoutDeadlineIsNoticed();
+        testCancelEscalatesToKill();
         testExitAfterPipesClose();
         return 0;
     } catch (const std::exception &error) {

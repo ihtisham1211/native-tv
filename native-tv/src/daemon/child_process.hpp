@@ -12,6 +12,27 @@
 
 namespace nativetv {
 namespace daemon {
+// A cancel raised from any thread. It carries a pipe that the runner polls beside the child's
+// output, so a child with no deadline (a resident subscription) blocks until output, exit or
+// cancel. Polling a flag every 250 ms instead woke each of the 7 resident subscription threads
+// on a C6 (webOS 11.2) 4 times a second at idle.
+class ChildCancellation {
+  public:
+    ChildCancellation();
+    ~ChildCancellation();
+    ChildCancellation(const ChildCancellation &) = delete;
+    ChildCancellation &operator=(const ChildCancellation &) = delete;
+
+    void cancel();
+    bool cancelled() const { return cancelled_.load(std::memory_order_acquire); }
+    // Readable once cancelled; -1 when the pipe could not be made, and the runner then polls.
+    int wakeFd() const { return fds_[0]; }
+
+  private:
+    std::atomic<bool> cancelled_{false};
+    int fds_[2] = {-1, -1};
+};
+
 struct ChildOptions {
     std::vector<std::string> arguments;
     std::vector<std::string> environment;
@@ -19,7 +40,7 @@ struct ChildOptions {
     size_t maximumOutputBytes = 4 * 1024 * 1024;
     bool urgent = false;
     bool captureOutput = true;
-    std::shared_ptr<std::atomic<bool>> cancellation;
+    std::shared_ptr<ChildCancellation> cancellation;
     std::function<void(const std::string &)> onStandardOutput;
     std::function<void(const std::string &)> onStandardError;
 };

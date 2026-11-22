@@ -15,9 +15,34 @@ namespace {
 // cached for 3 s or more below.
 const long long kStatsReuseMs = 400;
 const size_t kTempHistoryMax = 120;
+// The phone dashboard and the TV app's OLED Care Home ask every 10 s, so a TTL at or under 10 s
+// is a luna-send per request: on a C6 (webOS 11.2) one request started about 14, and polling cost
+// 1.4% of a core. Every dashboard or MQTT write drops the whole cache
+// (HttpFrontDoor::handle, executeMqttControl), so the longer TTLs below only bound a change made
+// on the TV itself.
+//
+// While a subscription group delivers, its change events drop the reads it covers
+// (HttpFrontDoor::expireStats): the TTL only bounds a missed event.
 const long long kLiveReadTtlMs = 60000;
 const long long kLivePowerTtlMs = 30000;
-const long long kAppsScanMs = 60000;
+// Picture settings and the mode list while the picture group delivers. Shorter than the other
+// live reads: the modes follow the dynamic range of what plays (Netflix in Dolby Vision reads
+// dynamicRange dolbyHdr), and whether the settings subscription speaks on that switch alone was
+// not seen.
+const long long kLivePictureTtlMs = 30000;
+// What the owner sets in LG's menus (lights, Wake on LAN, LG logo, device detection, Always
+// Ready). LG's Settings is an app, so leaving it drops these reads (expireStats, "application").
+const long long kOwnerSettingsTtlMs = 300000;
+// The Wi-Fi network, the inputs' names and the sound outputs offered change when something is
+// plugged in, joined or renamed; minutes late misleads no control.
+const long long kSlowTtlMs = 300000;
+// Whether a Bluetooth audio device is connected; an audio event drops it as well, since
+// switching to or from one moves the volume.
+const long long kBluetoothTtlMs = 120000;
+// The app list, the largest reply (over 100 kB with many apps). An install or removal through
+// the server, and a change of foreground app (an app installed from LG's store is opened to be
+// used), drop it.
+const long long kAppsScanMs = 600000;
 
 const char *const kSettings = "com.webos.service.settings/getSystemSettings";
 
@@ -177,6 +202,17 @@ bool StatsCollector::cached(const std::string &uri, const Json &payload, long lo
     return true;
 }
 
+// A live group's last answer is the reply the call would get, so while it delivers no luna-send
+// is needed; otherwise the read is cached for ttlMs.
+bool StatsCollector::liveOrCached(const std::string &uri, long long ttlMs, Json &reply) {
+    const Json live = deps_.liveReply ? deps_.liveReply(uri) : Json();
+    if (live.isObject()) {
+        reply = live;
+        return true;
+    }
+    return cached(uri, Json::object(), ttlMs, reply);
+}
+
 long long StatsCollector::liveTtl(const std::string &group, long long pollMs, long long liveMs) {
     return deps_.liveGroup && deps_.liveGroup(group) ? liveMs : pollMs;
 }
@@ -203,6 +239,11 @@ void StatsCollector::forget(const std::vector<std::string> &substrings) {
     else pending_.forget.insert(pending_.forget.end(), substrings.begin(), substrings.end());
 }
 
+void StatsCollector::forgetInstalledApps() {
+    std::lock_guard<std::mutex> lock(pendingMutex_);
+    pending_.apps = true;
+}
+
 void StatsCollector::noteVolumeRefused() {
     std::lock_guard<std::mutex> lock(pendingMutex_);
     pending_.expire = true;
@@ -220,6 +261,7 @@ void StatsCollector::applyPending() {
         lastAppsScan_ = 0;
         lastLightSensorProbe_ = 0;
     }
+    if (taken.apps) lastAppsScan_ = 0;
     if (taken.volumeRefused) {
         haveVolumeRefusedRoute_ = !lastSoundRoute_.empty();
         volumeRefusedRoute_ = lastSoundRoute_;
@@ -411,7 +453,7 @@ Json StatsCollector::remoteInfo(const Json &system) {
 
 void StatsCollector::refreshInputNames() {
     const long long now = deps_.nowMs();
-    if (now - lastInputScan_ < 60000 && inputNames_.keys().size() > 0) return;
+    if (now - lastInputScan_ < kSlowTtlMs && inputNames_.keys().size() > 0) return;
     Json reply;
     if (!deps_.luna("com.webos.service.eim/getAllInputStatus", Json::object(), reply)) return;
     if (!reply["devices"].isArray() || reply["devices"].size() == 0) return;
@@ -464,7 +506,8 @@ Json StatsCollector::pictureModes() {
     request.set("category", Json::text("picture"));
     request.set("key", Json::text("pictureMode"));
     Json reply;
-    (void)cached("com.webos.service.settings/getSystemSettingValues", request, 10000, reply);
+    (void)cached("com.webos.service.settings/getSystemSettingValues", request,
+                 liveTtl("picture", 10000, kLivePictureTtlMs), reply);
     Json modes = Json::array();
     const Json values = reply["values"]["arrayExt"];
     if (values.isArray())
@@ -487,7 +530,8 @@ void StatsCollector::soundOutputs(const std::string &current, Json &out) {
     valuesRequest.set("category", Json::text("sound"));
     valuesRequest.set("key", Json::text("soundOutput"));
     Json values;
-    (void)cached("com.webos.service.settings/getSystemSettingValues", valuesRequest, 60000, values);
+    (void)cached("com.webos.service.settings/getSystemSettingValues", valuesRequest,
+                 liveTtl("audio", 60000, kSlowTtlMs), values);
     Json configRequest = Json::object();
     Json configNames = Json::array();
     for (const char *name : {"tv.model.supportHeadPhone", "tv.model.supportOpticalJack",
@@ -603,7 +647,8 @@ Json StatsCollector::collect(const Json &system) {
     // pairing prompt.
     {
         Json bluetooth;
-        if (cached("com.webos.service.bluetooth2/device/getStatus", Json::object(), 60000, bluetooth) &&
+        if (cached("com.webos.service.bluetooth2/device/getStatus", Json::object(),
+                   liveTtl("audio", 60000, kBluetoothTtlMs), bluetooth) &&
             good(bluetooth) && bluetooth["devices"].isArray()) {
             bool any = false;
             for (const Json &device : bluetooth["devices"].items()) {
@@ -824,7 +869,7 @@ Json StatsCollector::collect(const Json &system) {
     Json power;
     {
         const std::string uri = "com.webos.service.tvpower/power/getPowerState";
-        if (deps_.liveGroup && deps_.liveGroup("power")) (void)cached(uri, Json::object(), kLivePowerTtlMs, power);
+        if (deps_.liveGroup && deps_.liveGroup("power")) (void)liveOrCached(uri, kLivePowerTtlMs, power);
         else (void)deps_.luna(uri, Json::object(), power);
     }
     std::string rawPower = power.isObject()
@@ -877,7 +922,7 @@ Json StatsCollector::collect(const Json &system) {
     {
         Json options;
         (void)cached(kSettings, settingsRequest("option", {"standByLight", "logoLight", "powerOnLight", "quickStartMode"}),
-                     60000, options);
+                     liveTtl("application", 60000, kOwnerSettingsTtlMs), options);
         const Json settings = options["settings"].isObject() ? options["settings"] : Json::object();
         Json lights = Json::object();
         lights.set("standby", Json::flag(settings["standByLight"].isString() && settings["standByLight"].string() == "on"));
@@ -891,7 +936,8 @@ Json StatsCollector::collect(const Json &system) {
     }
     {
         Json network;
-        (void)cached(kSettings, settingsRequest("network", {"wolwowlOnOff"}), 60000, network);
+        (void)cached(kSettings, settingsRequest("network", {"wolwowlOnOff"}),
+                     liveTtl("application", 60000, kOwnerSettingsTtlMs), network);
         const Json wol = network["settings"]["wolwowlOnOff"];
         if (wol.valid())
             out.set("wakeOnLan", Json::flag((wol.isBoolean() && wol.boolean()) ||
@@ -899,13 +945,15 @@ Json StatsCollector::collect(const Json &system) {
     }
     {
         Json other;
-        (void)cached(kSettings, settingsRequest("other", {"lgLogoDisplay"}), 60000, other);
+        (void)cached(kSettings, settingsRequest("other", {"lgLogoDisplay"}),
+                     liveTtl("application", 60000, kOwnerSettingsTtlMs), other);
         const Json logo = other["settings"]["lgLogoDisplay"];
         if (logo.valid()) out.set("lgLogo", Json::flag(jsOn(logo)));
     }
     {
         Json uei;
-        (void)cached(kSettings, settingsRequest("other", {"ueiEnable"}), 60000, uei);
+        (void)cached(kSettings, settingsRequest("other", {"ueiEnable"}),
+                     liveTtl("application", 60000, kOwnerSettingsTtlMs), uei);
         const Json value = good(uei) ? uei["settings"]["ueiEnable"] : Json();
         if (value.valid() && !(value.isBoolean() && !value.boolean()))
             out.set("deviceDetection", Json::flag(jsOn(value)));
@@ -915,7 +963,7 @@ Json StatsCollector::collect(const Json &system) {
         (void)cached(kSettings,
                      settingsRequest("general", {"alwaysOn", "alwaysOnDisableStartHour", "alwaysOnDisableStartMinute",
                                                  "alwaysOnDisableEndHour", "alwaysOnDisableEndMinute"}),
-                     60000, general);
+                     liveTtl("application", 60000, kOwnerSettingsTtlMs), general);
         const Json settings = general["settings"].isObject() ? general["settings"] : Json::object();
         const Json always = alwaysOnSupport_ == 1 ? settings["alwaysOn"] : Json();
         if (always.valid()) out.set("alwaysReady", Json::flag(jsOn(always)));
@@ -931,7 +979,8 @@ Json StatsCollector::collect(const Json &system) {
     }
     {
         Json life;
-        (void)cached(kSettings, settingsRequest("general", {"lifeOnScreenMode"}), 60000, life);
+        (void)cached(kSettings, settingsRequest("general", {"lifeOnScreenMode"}),
+                     liveTtl("application", 60000, kOwnerSettingsTtlMs), life);
         const Json mode = good(life) ? life["settings"]["lifeOnScreenMode"] : Json();
         if (service::javascriptTruthy(mode)) {
             alwaysReadyScreenOn_ = service::javascriptString(mode) != "off";
@@ -940,7 +989,7 @@ Json StatsCollector::collect(const Json &system) {
     }
     {
         Json connection;
-        (void)cached("com.palm.connectionmanager/getStatus", Json::object(), 60000, connection);
+        (void)cached("com.palm.connectionmanager/getStatus", Json::object(), kSlowTtlMs, connection);
         const Json ssid = connection["wifi"]["ssid"];
         out.set("ssid", service::javascriptTruthy(ssid) ? ssid : Json());
     }
@@ -962,8 +1011,9 @@ Json StatsCollector::collect(const Json &system) {
     Json vs;
     if (masterVolumeSupported_ != 0) {
         Json reply;
-        (void)cached("com.webos.service.audio/master/getVolume", Json::object(),
-                     liveTtl("audio", 10000, kLiveReadTtlMs), reply);
+        const std::string uri = "com.webos.service.audio/master/getVolume";
+        if (deps_.liveGroup && deps_.liveGroup("audio")) (void)liveOrCached(uri, kLiveReadTtlMs, reply);
+        else (void)cached(uri, Json::object(), 10000, reply);
         const std::string errorText = lowerText(reply["errorText"].string());
         if (errorText.find("unknown method") != std::string::npos ||
             errorText.find("unknown service") != std::string::npos)
@@ -991,7 +1041,8 @@ Json StatsCollector::collect(const Json &system) {
     }
     {
         Json soundSettings;
-        (void)cached(kSettings, settingsRequest("sound", {"soundOutput", "soundMode"}), 15000, soundSettings);
+        (void)cached(kSettings, settingsRequest("sound", {"soundOutput", "soundMode"}),
+                     liveTtl("audio", 15000, kLiveReadTtlMs), soundSettings);
         std::string rawSound = "tv_speaker";
         if (service::javascriptTruthy(soundSettings["settings"]["soundOutput"]))
             rawSound = service::javascriptString(soundSettings["settings"]["soundOutput"]);
@@ -1049,8 +1100,11 @@ Json StatsCollector::collect(const Json &system) {
 
     // What is in front.
     Json app;
-    (void)cached("com.webos.applicationManager/getForegroundAppInfo", Json::object(),
-                 liveTtl("application", 4000, kLiveReadTtlMs), app);
+    {
+        const std::string uri = "com.webos.applicationManager/getForegroundAppInfo";
+        if (deps_.liveGroup && deps_.liveGroup("application")) (void)liveOrCached(uri, kLiveReadTtlMs, app);
+        else (void)cached(uri, Json::object(), 4000, app);
+    }
     const bool screenOff = screenSaver || (powerState.isObject() &&
         ((powerState["screenOn"].isBoolean() && !powerState["screenOn"].boolean()) ||
          lowerText(powerState["raw"].string()) == "off"));
@@ -1130,7 +1184,7 @@ Json StatsCollector::collect(const Json &system) {
     Json picture;
     (void)cached(kSettings,
                  settingsRequest("picture", {"backlight", "pictureMode", "energySaving", "screenShift", "logoLuminanceAdjust"}),
-                 10000, picture);
+                 liveTtl("picture", 10000, kLivePictureTtlMs), picture);
     const std::string foregroundId = app.isObject() ? app["appId"].string() : std::string();
     const bool isGallery = (picture.isObject() && picture["dimension"]["input"].isString() &&
                             picture["dimension"]["input"].string() == "gallery") ||

@@ -61,7 +61,7 @@ class LunaSubscription : public std::enable_shared_from_this<LunaSubscription> {
     void onExit(unsigned long long generation, const ChildResult &result,
                 std::exception_ptr failure);
     void reportError(const std::string &error);
-    std::shared_ptr<std::atomic<bool>> cancellationToken() const;
+    std::shared_ptr<ChildCancellation> cancellationToken() const;
 
     LunaClient &client_;
     std::string uri_;
@@ -76,7 +76,7 @@ class LunaSubscription : public std::enable_shared_from_this<LunaSubscription> {
     std::chrono::milliseconds retryDelay_{1000};
     EventLoop::TimerId retryTimer_ = 0;
     mutable std::mutex cancellationMutex_;
-    std::shared_ptr<std::atomic<bool>> cancellation_;
+    std::shared_ptr<ChildCancellation> cancellation_;
     std::string buffer_;
 };
 
