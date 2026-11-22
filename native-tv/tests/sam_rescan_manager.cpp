@@ -143,12 +143,28 @@ Json nudged(const char *list) {
     return out;
 }
 
+size_t configReads(const Json &tv) {
+    size_t reads = 0;
+    for (const Json &uri : tv["uris"].items())
+        reads += uri.string().find("com.webos.service.config/getConfigs") != std::string::npos;
+    return reads;
+}
+
 void testNudge() {
     {   // No list (webOS 4): nothing written, and the caller restarts sam.
         Rig rig("{\"list\":null}");
         check(failed(rig.sam->canNudge(rig.context)), "without the list sam cannot be nudged");
         check(failed(rig.sam->nudge(rig.context)), "the nudge says so");
+        check(failed(rig.sam->canNudge(rig.context)), "and so does the next check");
         check(rig.tv()["writes"].size() == 0, "nothing written to configd");
+        check(configReads(rig.tv()) == 1,
+              "a list configd says it lacks is asked for once, not on every check");
+    }
+    {   // A list configd has is read on every check: it can change.
+        Rig rig("{\"list\":[\"netflix\"]}");
+        check(ok(rig.sam->canNudge(rig.context)) && ok(rig.sam->canNudge(rig.context)),
+              "the list is there");
+        check(configReads(rig.tv()) == 2, "read each time");
     }
     {   // LG's own entries are put back exactly, after the nudge id was added.
         Rig rig("{\"list\":[\"com.webos.app.roomconnect\",\"netflix\"]}");

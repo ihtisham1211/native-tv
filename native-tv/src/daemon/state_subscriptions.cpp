@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cctype>
+#include <csignal>
 #include <utility>
 
 namespace nativetv {
@@ -99,9 +100,16 @@ std::shared_ptr<LunaSubscription> StateSubscriptions::makeSubscription(
             return;
         group.snapshotPending.store(true, std::memory_order_release);
         setLive(group, false);
-        if (logger_ && (code != 0 || signal != 0))
-            logger_->warning("state: " + group.name + " subscription closed (" +
-                             std::to_string(code) + ", signal " + std::to_string(signal) + ")");
+        if (logger_ && (code != 0 || signal != 0)) {
+            const std::string line = "state: " + group.name + " subscription closed (" +
+                                     std::to_string(code) + ", signal " +
+                                     std::to_string(signal) + ")";
+            // The TV switching off sends SIGTERM to luna-send before the server: not a fault.
+            if (signal == SIGTERM)
+                logger_->info(line);
+            else
+                logger_->warning(line);
+        }
     };
     return luna_.subscribe(group.uri, group.payload, "", std::move(handlers));
 }
