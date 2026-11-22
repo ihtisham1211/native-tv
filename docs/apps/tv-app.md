@@ -123,7 +123,7 @@ Once a PIN is set, the server refuses the actions it guards until it is given th
 
 ### Pairing and settings
 
-In Settings, the **Settings** section gives the web dashboard's address, with a QR code to scan on a phone (OK on the address), and the TV's DNS name under it where the home network's DNS has one. Opening the web dashboard to the network or closing it restarts the server, and the TV app waits until it answers again.
+In Settings, the **Settings** section gives the web dashboard's address, with a QR code to scan on a phone (OK on the address), and the TV's DNS name under it where the home network's DNS has one. Its last row, under About, is the Native Tv version on the TV, as the web dashboard's footer shows it: a release such as `0.126.0`, or with the commit after a `+` for a build from a git checkout. Opening the web dashboard to the network or closing it restarts the server, and the TV app waits until it answers again.
 
 Scanning the code automatically pairs the phone with the TV, passing the access token if one is configured, allowing the dashboard to be opened without typing an IP address with the remote. The code holds the full link (`http://<address>:<port>/`), read from the server as the code opens; while the web dashboard is closed to the network, or the TV has no network address, the screen says so instead of showing a code.
 

@@ -5,3 +5,5 @@ link    Home Assistant = Connected -> Open <ha>
 link    TV theme = Google TV -> Open <palette>
 link    Theme = Dark -> Open <palette>
 link    Native Tv Home = Open -> Open <globe>
+== About
+info    Native Tv version = 0.126.0 <info>

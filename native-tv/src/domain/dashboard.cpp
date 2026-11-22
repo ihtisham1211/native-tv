@@ -1607,6 +1607,15 @@ void settings(Rows &rows, const Json &data) {
     row(rows, say::msg("home.title", "Native Tv Home"), say::msg("tv.settings.open", "Open"),
         navigate("home"), say::msg("tv.settings.openHome", "Open Native Tv Home on the TV."),
         say::msg("tv.settings.open", "Open"));
+    // Servers before this row do not send a version; the row is left out for them.
+    if (!data["version"].string().empty()) {
+        head(rows, say::msg("tv.settings.head.about", "About"));
+        row(rows, say::msg("tv.settings.version", "Native Tv version"), data["version"].string(),
+            Command(),
+            say::msg("tv.settings.version.hint",
+                     "The Native Tv release on this TV. A build from a git checkout adds its "
+                     "commit after a plus sign."));
+    }
 }
 } // namespace
 

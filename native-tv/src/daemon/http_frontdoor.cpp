@@ -1243,7 +1243,7 @@ bool isSetupDemo(const ServerConfig &config, const HttpRequest &request) {
 bool setupRead(HttpExchange &exchange, const ServerConfig &config, const std::string &dataRoot,
                LunaClient &luna, const HttpProxy &proxy,
                const std::string &nativeHandoffUrl, const std::string &model,
-               const std::string &tvTheme) {
+               const std::string &tvTheme, const std::string &version) {
     const HttpRequest &request = exchange.request();
     const bool demo = isSetupDemo(config, request);
     if (!loopbackRequest(request) && !demo) {
@@ -1283,6 +1283,8 @@ bool setupRead(HttpExchange &exchange, const ServerConfig &config, const std::st
     state.set("model", Json::text(model));
     // The TV theme, for the row in Settings.
     state.set("tvTheme", Json::text(tvTheme));
+    // The version the dashboard's footer shows, for the Version row in Settings.
+    state.set("version", Json::text(version));
 
     const Json mqtt = config.document["mqtt"];
     Json homeAssistant = Json::object();
@@ -18934,7 +18936,7 @@ void HttpFrontDoor::dispatch(HttpExchange &exchange) const {
     if (request.uri == "/api/setup" && request.method == "GET") {
         (void)setupRead(exchange, config_, dataRoot_, luna_, proxy_, activeHandoffUrl(),
                         statsCollector() ? statsCollector()->deviceModel() : std::string(),
-                        tvThemeId(currentConfigDocument()));
+                        tvThemeId(currentConfigDocument()), displayVersion());
         return;
     }
     if (request.uri == "/api/setup" && request.method == "POST") {

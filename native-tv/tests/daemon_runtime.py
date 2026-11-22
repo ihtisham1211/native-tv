@@ -9841,6 +9841,9 @@ class DaemonRuntimeTests(unittest.TestCase):
                 setup = json.loads(body)
                 self.assertTrue(setup["needed"])
                 self.assertEqual(setup["homeAssistant"]["state"], "disabled")
+                # The TV's Settings section shows the version the dashboard's footer does.
+                self.assertEqual(setup["version"], Path(__file__).resolve().parent.parent
+                                 .joinpath("VERSION").read_text().strip())
 
                 status, body = request("/api/setup", "POST", {"action": "done"})
                 self.assertEqual(status, 200, body.decode("utf-8", "replace"))
