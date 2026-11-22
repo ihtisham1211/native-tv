@@ -8,5 +8,6 @@
   "configured": true,
   "state": "connected"
  },
- "tvTheme": "n-google-tv"
+ "tvTheme": "n-google-tv",
+ "version": "0.126.0"
 }

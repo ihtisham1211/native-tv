@@ -115,7 +115,7 @@ std::string iconOf(const std::string &group, const std::string &title) {
         return "display";
     if (mentions(label, {"game", "latency", "vrr", "frame"}))
         return "game";
-    if (mentions(label, {"model", "firmware", "webos", "soc", "info"}))
+    if (mentions(label, {"model", "firmware", "webos", "soc", "info", "version"}))
         return "info";
     for (const auto &entry : settingGroups())
         if (entry.key == group)
