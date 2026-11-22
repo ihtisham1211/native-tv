@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <csignal>
 #include <cstdlib>
 
 namespace nativetv {
@@ -240,9 +241,15 @@ void GameFrameRate::receiveBindClose(unsigned long long generation, int code, in
     if (!loop_.isLoopThread() || generation != generation_)
         return;
     clearPipeline();
-    if (logger_ && (code != 0 || signal != 0))
-        logger_->warning("game: input bind subscription closed (" +
-                         std::to_string(code) + ", " + std::to_string(signal) + ")");
+    if (logger_ && (code != 0 || signal != 0)) {
+        const std::string line = "game: input bind subscription closed (" +
+                                 std::to_string(code) + ", " + std::to_string(signal) + ")";
+        // SIGTERM is the TV switching off.
+        if (signal == SIGTERM)
+            logger_->info(line);
+        else
+            logger_->warning(line);
+    }
 }
 
 void GameFrameRate::clearPipeline() {

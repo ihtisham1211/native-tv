@@ -396,11 +396,23 @@ bool runAppAndScreenSaverCase() {
 
         // Changing the limits drops a screen-off under way: its check of the screen does not act.
         stuckTimings.check = std::chrono::milliseconds(60000);
-        stuckTimings.verify = std::chrono::milliseconds(300);
-        const unsigned screenOffBeforeApply = occurrences(readFile(details), "turnOffScreen");
+        // Long enough that the change lands before the retry would: noticing the first call takes
+        // the test over 300 ms in a sanitizer build under load.
+        stuckTimings.verify = std::chrono::milliseconds(1500);
+        // The enforcer before keeps turning the screen off; a luna-send it started can record its
+        // call after it is stopped, so the count is taken once the calls have settled.
         check(loop.post([&]() {
                   enforcer->stop();
                   enforcer.reset();
+              }), "the enforcer before should stop");
+        unsigned screenOffBeforeApply = occurrences(readFile(details), "turnOffScreen");
+        for (int settled = 0, waited = 0; settled < 4 && waited < 50; ++waited) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(200));
+            const unsigned now = occurrences(readFile(details), "turnOffScreen");
+            settled = now == screenOffBeforeApply ? settled + 1 : 0;
+            screenOffBeforeApply = now;
+        }
+        check(loop.post([&]() {
                   enforcer.reset(new ScreenTimeEnforcer(loop, state, history, luna, root,
                                                         root + "/proc", root, screenSettings,
                                                         true, true, nullptr, stuckTimings));
@@ -412,7 +424,7 @@ bool runAppAndScreenSaverCase() {
         check(loop.post([&]() {
                   (void)enforcer->apply(Json::parse("{\"enabled\":false}"));
               }), "the change should reach the event loop");
-        std::this_thread::sleep_for(std::chrono::milliseconds(700));
+        std::this_thread::sleep_for(std::chrono::milliseconds(2000));
         check(occurrences(readFile(details), "turnOffScreen") == screenOffBeforeApply + 1,
               "a screen-off under way should not be retried after the limits change");
 

@@ -1391,7 +1391,10 @@ int main(int argc, char **argv) {
                 logger.warning("native MQTT shadow requires TVWEB_NATIVE_STATE=1");
             if (nativeMqttProductionRequested && !nativeStateConfigured)
                 logger.warning("native MQTT production requires TVWEB_NATIVE_STATE=1");
-            if (nativeMqttProductionRequested && nativeStateConfigured && !mqttEnabled)
+            // A start with no Node asks for MQTT production on every TV, so only MQTT switched
+            // on without a broker is worth a warning.
+            if (nativeMqttProductionRequested && nativeStateConfigured && !mqttEnabled &&
+                loaded.config.document["mqtt"]["enabled"].boolean())
                 logger.warning("native MQTT production requires an enabled broker with a host");
             if (nativeRemoteInputConfigured && !nativeStateConfigured)
                 logger.warning("native remote input bridge requires TVWEB_NATIVE_STATE=1");

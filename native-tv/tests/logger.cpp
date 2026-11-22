@@ -34,8 +34,8 @@ void testLevelPrecedenceAndFiltering() {
     logger.error("request failed");
     check(logger.activeLevel() == "debug" && output.size() == 4,
           "environment verbosity should override the config file");
-    check(output[0].flushed && !output[1].flushed && !output[2].flushed,
-          "debug lines should flush immediately");
+    check(output[0].flushed && output[1].flushed && output[2].flushed && output[3].flushed,
+          "every line should flush immediately, so tvweb.log is current while the server runs");
 
     LoggerOptions quietOptions;
     quietOptions.environmentLevel = "quiet";

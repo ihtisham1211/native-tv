@@ -135,11 +135,14 @@ void Logger::write(LogLevel level, const std::string &message) {
         if (records_.size() > options_.ringCapacity)
             records_.pop_front();
     }
+    // Every line is flushed: on the TV stdout is tvweb.log, which a file stream buffers in full,
+    // so unflushed info lines reached it only when the server stopped (and not at all on a
+    // crash), after the warnings that stderr had already written.
     std::lock_guard<std::mutex> sinkLock(sinkMutex_);
     if (options_.sink)
-        options_.sink(level, record.raw, level == LogLevel::Debug);
+        options_.sink(level, record.raw, true);
     else
-        defaultSink(level, record.raw, level == LogLevel::Debug);
+        defaultSink(level, record.raw, true);
 }
 
 void Logger::debug(const std::string &message) { write(LogLevel::Debug, message); }

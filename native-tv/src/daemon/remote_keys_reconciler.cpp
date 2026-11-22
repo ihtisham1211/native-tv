@@ -3,6 +3,7 @@
 #include "daemon/luna.hpp"
 #include <algorithm>
 #include <chrono>
+#include <csignal>
 #include <utility>
 
 namespace nativetv {
@@ -50,10 +51,15 @@ bool RemoteKeysReconciler::start() {
             logger_->warning("remotekeys: settings subscription: " + error);
     };
     handlers.close = [this](int code, int signal) {
-        if (running_ && logger_ && (code != 0 || signal != 0))
-            logger_->warning("remotekeys: settings subscription closed (" +
-                             std::to_string(code) + ", " +
-                             std::to_string(signal) + ")");
+        if (running_ && logger_ && (code != 0 || signal != 0)) {
+            const std::string line = "remotekeys: settings subscription closed (" +
+                                     std::to_string(code) + ", " + std::to_string(signal) + ")";
+            // SIGTERM is the TV switching off.
+            if (signal == SIGTERM)
+                logger_->info(line);
+            else
+                logger_->warning(line);
+        }
     };
     settingsSubscription_ = luna_.subscribe(
         "com.webos.settingsservice/getSystemSettings", payload, "",

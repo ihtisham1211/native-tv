@@ -60,6 +60,9 @@ class SamRescanManager {
     // Under operationMutex_: whether sam has releaseBlockSystemApp, once an answer says.
     bool releaseKnown_ = false;
     bool releaseAvailable_ = false;
+    // Under operationMutex_: the config service said it has no blocked list (webOS 11), which
+    // does not change while the server runs, so it is asked once.
+    bool blockedListMissing_ = false;
 };
 } // namespace daemon
 } // namespace nativetv

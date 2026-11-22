@@ -143,10 +143,20 @@ bool SamRescanManager::readBlockedList(const CommandPolicyContext &context, Json
     names.add(Json::text(kBlockedListKey));
     payload.set("configNames", names);
     Json response;
+    if (blockedListMissing_)
+        return false;
     if (!call("sam-rescan.get-blocked-list", "com.webos.service.config/getConfigs",
               payload, "sam-blocked-app-list", context, response) ||
         !returnedTrue(response))
         return false;
+    for (const Json &missing : response["missingConfigs"].items()) {
+        if (missing.isString() && missing.string() == kBlockedListKey) {
+            blockedListMissing_ = true;
+            if (logger_)
+                logger_->info("sam-rescan: profile.blockedAppList is unavailable; SAM cannot be nudged");
+            return false;
+        }
+    }
     const Json configs = response["configs"];
     list = configs[kBlockedListKey];
     return configs.isObject() && list.isArray();
@@ -171,20 +181,14 @@ void SamRescanManager::delay(unsigned milliseconds) const {
 Json SamRescanManager::canNudge(const CommandPolicyContext &context) {
     std::lock_guard<std::mutex> operation(operationMutex_);
     Json list;
-    const bool supported = readBlockedList(context, list);
-    if (!supported && logger_)
-        logger_->info("sam-rescan: profile.blockedAppList is unavailable; SAM cannot be nudged");
-    return result(supported);
+    return result(readBlockedList(context, list));
 }
 
 Json SamRescanManager::nudge(const CommandPolicyContext &context) {
     std::unique_lock<std::mutex> operation(operationMutex_);
     Json list;
-    if (!readBlockedList(context, list)) {
-        if (logger_)
-            logger_->info("sam-rescan: profile.blockedAppList is unavailable; SAM cannot be nudged");
+    if (!readBlockedList(context, list))
         return result(false);
-    }
 
     Json restore = Json::array();
     Json nudge = Json::array();
