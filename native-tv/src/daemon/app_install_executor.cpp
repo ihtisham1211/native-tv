@@ -133,7 +133,7 @@ bool AppInstallExecutor::run(const std::string &packageId,
 
     bool terminal = false;
     size_t streamBytes = 0;
-    std::shared_ptr<std::atomic<bool>> cancellation(new std::atomic<bool>(false));
+    std::shared_ptr<ChildCancellation> cancellation = std::make_shared<ChildCancellation>();
     std::string frameBuffer;
     const auto readFrame = [&result, &terminal, &cancellation](const std::string &frame) {
         Json response = Json::parse(frame);
@@ -168,7 +168,7 @@ bool AppInstallExecutor::run(const std::string &packageId,
                 terminal = true;
             }
         }
-        if (terminal) cancellation->store(true, std::memory_order_relaxed);
+        if (terminal) cancellation->cancel();
     };
 
     ChildOptions options;
@@ -186,7 +186,7 @@ bool AppInstallExecutor::run(const std::string &packageId,
             result.outcome = AppInstallOutcome::Failed;
             result.error = "the install service stream exceeded its limit";
             terminal = true;
-            cancellation->store(true, std::memory_order_relaxed);
+            cancellation->cancel();
             frameBuffer.clear();
             return;
         }
@@ -196,7 +196,7 @@ bool AppInstallExecutor::run(const std::string &packageId,
             result.outcome = AppInstallOutcome::Failed;
             result.error = "the install service response exceeded its limit";
             terminal = true;
-            cancellation->store(true, std::memory_order_relaxed);
+            cancellation->cancel();
             frameBuffer.clear();
             return;
         }

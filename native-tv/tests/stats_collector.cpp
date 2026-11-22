@@ -74,6 +74,9 @@ struct Tv {
     std::map<std::string, int> asked;
     std::function<void(const std::string &)> onAsk;
     std::set<std::string> live;
+    // What a live group last delivered, by the uri it is subscribed to.
+    std::map<std::string, Json> liveReplies;
+    int calls = 0;
     long long now = 1000000;
     Json config = Json::parse("{}");
     Json powerOn;
@@ -106,6 +109,7 @@ struct Tv {
         StatsDeps d;
         d.luna = [this](const std::string &uri, const Json &payload, Json &reply) {
             const std::string name = key(uri, payload);
+            ++calls;
             ++asked[name];
             if (name != uri) ++asked[uri];
             if (onAsk) onAsk(name);
@@ -116,6 +120,10 @@ struct Tv {
             return true;
         };
         d.liveGroup = [this](const std::string &group) { return live.count(group) == 1; };
+        d.liveReply = [this](const std::string &uri) {
+            const auto found = liveReplies.find(uri);
+            return found == liveReplies.end() ? Json() : found->second;
+        };
         d.config = [this]() { return config; };
         d.systemRoot = "/nonexistent-root";
         d.version = "1.2.3";
@@ -254,6 +262,88 @@ void liveReadsFallBackPerGroup() {
     tv.later();
     check(tv.count(kApp) == 1, "the group still delivering stays kept");
     check(tv.count(kSound) == 2 && tv.count(kVolume) == 2, "a group that stopped is polled again");
+}
+
+// Every reply in the scripted TV a collection asks for, so each read can be cached.
+void seedWholeTv(Tv &tv) {
+    seedLiveReads(tv);
+    tv.say(kDesc, "{\"returnValue\":true,\"results\":[{\"ui\":{\"visible\":true}}]}");
+    tv.say("com.webos.service.tv.systemproperty/getSystemProperties",
+           "{\"returnValue\":true,\"modelName\":\"OLED65C6\",\"firmwareVersion\":\"1.0\"}");
+    tv.say("com.webos.service.panelcontroller/getOledCellInfo", "{\"returnValue\":true}");
+    tv.say("com.webos.service.panelcontroller/getOledTconInfo", "{\"returnValue\":true}");
+    tv.say("com.webos.service.bluetooth2/device/getStatus", "{\"returnValue\":true,\"devices\":[]}");
+    tv.say(kEim, "{\"returnValue\":true,\"devices\":[{\"id\":\"HDMI_1\",\"label\":\"HDMI 1\"}]}");
+    for (const char *category : {"time", "option", "network", "other", "general", "sound", "picture"})
+        tv.settings(category, "{\"returnValue\":true,\"settings\":{}}");
+    tv.say("com.palm.connectionmanager/getStatus", "{\"returnValue\":true,\"wifi\":{\"ssid\":\"home\"}}");
+    tv.say("com.webos.service.tv.display/getDimmingStatus", "{\"returnValue\":true,\"status\":\"off\"}");
+    tv.say("com.webos.service.tv.display/getLightSensorData", "{\"returnValue\":true,\"sensorData\":[]}");
+    tv.say("com.webos.service.audio/tv/getAudioInputProperty", "{\"returnValue\":true,\"audioInputProperty\":[]}");
+    tv.say("com.webos.service.settings/getSystemSettingValues#picture", "{\"returnValue\":true,\"values\":{}}");
+    tv.say("com.webos.service.settings/getSystemSettingValues#sound", "{\"returnValue\":true,\"values\":{}}");
+    tv.say("com.webos.service.config/getConfigs", "{\"returnValue\":true,\"configs\":{}}");
+    tv.say(kAcb, "{\"returnValue\":true,\"acbs\":[]}");
+    tv.say("com.webos.service.videooutput/getStatus", "{\"returnValue\":true}");
+    tv.say(kListApps, "{\"returnValue\":true,\"launchPoints\":[{\"id\":\"netflix\",\"title\":\"Netflix\"}]}");
+}
+
+// A live group's last answer stands in for the read: no luna-send, the same stats.
+void liveRepliesStandInForReads() {
+    Tv polled;
+    seedLiveReads(polled);
+    const Json down = polled.collect();
+    Tv tv;
+    seedLiveReads(tv);
+    tv.live = {"application", "audio", "power"};
+    tv.liveReplies[kApp] = Json::parse("{\"returnValue\":true,\"subscribed\":true,\"appId\":\"netflix\"}");
+    tv.liveReplies[kPower] = Json::parse("{\"returnValue\":true,\"subscribed\":true,\"state\":\"Active\"}");
+    tv.liveReplies[kVolume] = Json::parse(
+        "{\"returnValue\":true,\"subscribed\":true,\"volumeStatus\":{\"soundOutput\":\"tv_speaker\","
+        "\"volume\":9,\"adjustVolume\":true,\"externalDeviceControl\":false,\"muteStatus\":false}}");
+    const Json up = tv.collect();
+    check(tv.count(kApp) == 0 && tv.count(kPower) == 0 && tv.count(kVolume) == 0,
+          "what a live group delivered is not asked for");
+    check(canon(up["powerState"]) == canon(down["powerState"]) && up["app"].string() == down["app"].string() &&
+              canon(up["volume"]) == canon(down["volume"]) &&
+              up["audio_output"].string() == down["audio_output"].string(),
+          "the stats are the same either way");
+    tv.live.erase("power");  // the group stopped: its last answer no longer stands
+    tv.liveReplies.erase(kPower);
+    tv.later();
+    check(tv.count(kPower) == 1, "a group that stopped is asked again");
+}
+
+// The luna-sends of a dashboard polling every 10 s for a minute, as on a C6 with the
+// subscriptions delivering. Printed for docs/development/performance-baseline.md.
+void lunaCallsWhilePolling() {
+    for (const bool delivering : {false, true}) {
+        Tv tv;
+        seedWholeTv(tv);
+        if (delivering) {
+            tv.live = {"application", "audio", "power", "picture", "media"};
+            tv.liveReplies[kApp] = Json::parse("{\"returnValue\":true,\"appId\":\"netflix\"}");
+            tv.liveReplies[kPower] = Json::parse("{\"returnValue\":true,\"state\":\"Active\"}");
+            tv.liveReplies[kVolume] = Json::parse(
+                "{\"returnValue\":true,\"volumeStatus\":{\"soundOutput\":\"tv_speaker\",\"volume\":9,"
+                "\"adjustVolume\":true,\"externalDeviceControl\":false,\"muteStatus\":false}}");
+            tv.liveMedia = Json::parse("{\"state\":\"playing\",\"playerType\":\"MSE\",\"fullScreen\":true}");
+        }
+        tv.collect();
+        const int first = tv.calls;
+        tv.later(10000);
+        const int second = tv.calls - first;
+        for (int poll = 0; poll < 5; ++poll) tv.later(10000);
+        const int minute = tv.calls - first;
+        std::printf("     luna calls (%s): first request %d, 10 s later %d, the next minute %d\n",
+                    delivering ? "subscriptions live" : "no subscriptions", first, second, minute);
+        if (delivering) {
+            // What plays: the audio codec (3 s) and the video format (4 s), kept short for the
+            // Live screen.
+            check(second <= 2, "a request 10 s after the last asked " + std::to_string(second));
+            check(minute <= 25, "a minute of polling asked " + std::to_string(minute));
+        }
+    }
 }
 
 // ---- power ------------------------------------------------------------------
@@ -597,12 +687,19 @@ void installedAppsRescanRules() {
     Json s = tv.later(2000);
     check(s["apps"][0]["id"].string() == "netflix", "a live event expires the stats but keeps the app list");
     s = tv.later(61000);
-    check(s["apps"].size() == 1 && s["apps"][0]["id"].string() == "other", "the list is read again after a minute");
+    check(s["apps"][0]["id"].string() == "netflix", "a minute later the list is still kept");
+    s = tv.later(540000);
+    check(s["apps"].size() == 1 && s["apps"][0]["id"].string() == "other", "the list is read again after ten minutes");
     tv.replies[kListApps].clear();
     tv.say(kListApps, "{\"returnValue\":true,\"launchPoints\":[{\"id\":\"third\",\"title\":\"Third\"}]}");
     tv.collector->clearCache();
     s = tv.later(2000);
     check(s["apps"][0]["id"].string() == "third", "a control write reads the list again");
+    tv.replies[kListApps].clear();
+    tv.say(kListApps, "{\"returnValue\":true,\"launchPoints\":[{\"id\":\"fourth\",\"title\":\"Fourth\"}]}");
+    tv.collector->forgetInstalledApps();
+    s = tv.later(2000);
+    check(s["apps"][0]["id"].string() == "fourth", "an install or removal reads the list again");
 }
 
 // ---- reuse and invalidation -------------------------------------------------
@@ -884,6 +981,8 @@ int main() {
         {"live reads: short lives without a subscription", liveReadsKeepShortLivesWithoutSubscription},
         {"live reads: kept while delivering", liveReadsAreKeptWhileDelivering},
         {"live reads: polled again per group", liveReadsFallBackPerGroup},
+        {"live reads: a live group's answer stands in", liveRepliesStandInForReads},
+        {"live reads: luna calls while polling", lunaCallsWhilePolling},
         {"power: reason and times under powerState", powerStateCarriesReasonAndTimes},
         {"power: no reason is null", powerWithoutReasonIsNull},
         {"power: no answer is not off", noPowerAnswerIsNotOff},

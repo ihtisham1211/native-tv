@@ -111,6 +111,9 @@ class HttpFrontDoor {
     // A live state event: the next stats read is made afresh, and the cached
     // reads the event's group makes stale are dropped.
     void expireStats(const std::string &group) const;
+    // An app was installed or removed outside an HTTP request: the next stats read lists the
+    // apps again.
+    void noteInstalledAppsChanged() const;
     // What Node's private routes answer, for a start with no Node (see NodeFreeHooks).
     bool nodeFreeRestart(bool checkOnly, int &status, std::string &body, std::string &error) const;
     bool nodeFreeSetupContext(bool demo, Json &context, std::string &error) const;
@@ -367,6 +370,8 @@ class HttpFrontDoor {
     void setNativeHomeInput(HttpExchange &exchange, const Json &payload) const;
     void invalidateOledCareCache() const;
     void invalidatePrivacyCache() const;
+    // A write the TV accepted, from the dashboard or MQTT: the next stats read is made afresh.
+    void invalidateStatsAfterWrite() const;
     void sendGameSettings(HttpExchange &exchange) const;
     void sendGameFrameRate(HttpExchange &exchange) const;
     void sendLgSettings(HttpExchange &exchange) const;
@@ -494,6 +499,9 @@ class HttpFrontDoor {
     mutable std::unique_ptr<ScreensaverControl> screensaverControl_;
     mutable std::once_flag screensaverControlOnce_;
     mutable std::unique_ptr<StatsCollector> statsCollector_;
+    // Counts the writes invalidateStatsAfterWrite saw, so the OLED readings kept beside the
+    // collector know to read again.
+    mutable std::atomic<unsigned long long> statsWrites_{0};
     mutable std::once_flag homeOrchestratorOnce_;
     mutable std::unique_ptr<HomeOrchestrator> homeOrchestrator_;
     mutable std::once_flag homeProbeGateOnce_;

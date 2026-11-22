@@ -1,6 +1,20 @@
 # Performance baseline
 
-Measurements taken before any of the changes in [the optimizations](performance-optimizations.md), on 30 October 2026. The method is in [the benchmarks](performance-benchmarks.md).
+Measurements taken before any of the changes in [the optimizations](performance-optimizations.md), on 30 October 2026, and before the two of 22 November on a C6 (below). The method is in [the benchmarks](performance-benchmarks.md).
+
+## C6: the server at idle and under polling (22 November 2026)
+
+An OLED83C6HUP, webOS 11.2.0, 4 cores, with the server idle and Netflix in front.
+
+| Measure | Value |
+|---|---|
+| Daemon memory | 4.6 MB private |
+| Resident `luna-send -i` children | 7, about 370 kB private each |
+| CPU at idle | 0.17 % of a core |
+| Context switches, whole daemon | 45 a second; about 10 threads at about 4 a second each, the 7 subscription runners among them |
+| `luna-send` children started by one `/api/stats` | about 14. Over two requests a second apart: `getSystemSettings` 9 times, `getSystemSettingValues` twice, and once each videooutput `getStatus`, `getPowerState`, `getSystemProperties`, `getDimmingStatus`, `getClearPanelNoiseStatus`, `getPanelUsageTime`, `getTemporalPeakControl`, `getGlobalStressReduction`, `getAllInputStatus`, Bluetooth `getStatus`, `getAudioInputProperty`, `master/getVolume`, `getSoundOut`, `listApps`, applicationManager `getForegroundAppInfo` and connectionmanager `getStatus` |
+| `/api/stats` time | 2 s for the first request, 0.24 to 1.3 s after |
+| Polling `/api/stats` every 10 s (the TV app's OLED Care Home, the open phone dashboard) | 84 CPU ticks a minute (1.4 % of a core), about 340 process starts a minute system-wide |
 
 ## Environments
 

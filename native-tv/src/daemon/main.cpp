@@ -2058,11 +2058,13 @@ int main(int argc, char **argv) {
                 (void)loop.scheduleAfter(std::chrono::milliseconds(30000), enforce);
                 (void)loop.scheduleEvery(std::chrono::minutes(5), enforce);
             }
-            (void)loop.submitBlocking([&tvAppManager, &logger, fromHbc = access(
+            (void)loop.submitBlocking([&tvAppManager, &frontDoor, &logger, fromHbc = access(
                 (dataDirectory() + "/.from-homebrew-channel").c_str(), F_OK) == 0]() {
                 if (!tvAppManager) return;
                 const Json result = fromHbc ? tvAppManager->run("retire")
                                             : tvAppManager->refreshInstalled();
+                if (frontDoor && (result["retired"].boolean() || result["refreshed"].boolean()))
+                    frontDoor->noteInstalledAppsChanged();
                 if (fromHbc && result["retired"].boolean())
                     logger.info("tvapp: old tile removed; Homebrew Channel replaces it");
                 else if (!fromHbc && result["refreshed"].boolean() && result["ok"].boolean())

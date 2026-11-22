@@ -2071,3 +2071,13 @@ once over SSH), the launcher's `exec` ran `install.sh` 4 s after the app was
 opened, with the server stopped, and the server started; the WebAppMgr process
 had been running since before the grant, and Homebrew Channel's service was not
 restarted.
+
+## Settings reads naming a key the TV lacks (C6, webOS 11.2.0)
+
+On 22 November 2026, `settings/getSystemSettings` with `category: other` and
+the keys `lgLogoDisplay`, `ueiEnable` and one that does not exist answered
+`returnValue: false`, the missing key in `errorKey`, and the two it has in
+`settings`; `category: general` with `alwaysOn`, `lifeOnScreenMode` and a
+missing key did the same. A `returnValue: false` from this service is
+therefore not an empty answer. Older webOS versions were not checked, so the
+stats read still asks for keys that may be missing on their own.

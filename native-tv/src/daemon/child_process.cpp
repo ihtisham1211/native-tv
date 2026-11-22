@@ -103,6 +103,31 @@ std::vector<char *> makePointers(const std::vector<std::string> &strings) {
 }
 } // namespace
 
+ChildCancellation::ChildCancellation() {
+    std::string error;
+    if (makePipe(fds_, error)) {
+        setNonBlocking(fds_[0]);
+        setNonBlocking(fds_[1]);
+    }
+}
+
+ChildCancellation::~ChildCancellation() {
+    closeFd(fds_[0]);
+    closeFd(fds_[1]);
+}
+
+void ChildCancellation::cancel() {
+    if (cancelled_.exchange(true, std::memory_order_acq_rel))
+        return;
+    if (fds_[1] >= 0) {
+        const char byte = 1;
+        ssize_t written;
+        do {
+            written = write(fds_[1], &byte, 1);
+        } while (written < 0 && errno == EINTR);
+    }
+}
+
 ChildProcessRunner::ChildProcessRunner(ChildRunnerOptions options)
     : options_(options), bornAt_(std::chrono::steady_clock::now()) {}
 
@@ -213,8 +238,7 @@ ChildResult ChildProcessRunner::run(const ChildOptions &options) {
 
     while (!reaped || !stdoutEof || !stderrEof) {
         auto now = std::chrono::steady_clock::now();
-        if (!terminateSent && options.cancellation &&
-            options.cancellation->load(std::memory_order_relaxed)) {
+        if (!terminateSent && options.cancellation && options.cancellation->cancelled()) {
             result.cancelled = true;
             terminate(pid, terminateSent, killSent, killAt, options_.terminateGrace);
         }
@@ -227,7 +251,7 @@ ChildResult ChildProcessRunner::run(const ChildOptions &options) {
             (void)kill(pid, SIGKILL);
         }
 
-        pollfd fds[2];
+        pollfd fds[3];
         nfds_t count = 0;
         if (!stdoutEof) {
             fds[count].fd = stdoutPipe[0];
@@ -242,22 +266,35 @@ ChildResult ChildProcessRunner::run(const ChildOptions &options) {
             ++count;
         }
 
-        // The pipes wake poll for output and exit. Only a cancel from another thread has no
-        // fd, so a child with no deadline (a resident subscription, eight of them at idle)
-        // looks for it every 250 ms; at 50 ms each cost 20 wakeups a second doing nothing.
-        int waitMs = options.timeout.count() > 0 ? 50 : 250;
-        // Both pipes closed: only the exit status is left and nothing will wake poll for it.
-        if (count == 0)
-            waitMs = 5;
-        if (terminateSent && !killSent) {
-            auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(killAt - now).count();
-            if (remaining >= 0 && remaining < waitMs)
-                waitMs = static_cast<int>(remaining);
-        } else if (options.timeout.count() > 0) {
-            auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(deadline - now).count();
-            if (remaining >= 0 && remaining < waitMs)
-                waitMs = static_cast<int>(remaining);
+        const bool pipesOpen = count > 0;
+        // The pipes wake poll for output and exit, and the cancel's pipe for a cancel, so with
+        // nothing due poll blocks: a resident subscription sleeps until it has work. The cancel
+        // pipe stays readable once raised, so it leaves the set once the child is told to stop.
+        int waitMs = -1;
+        const int cancelFd = options.cancellation ? options.cancellation->wakeFd() : -1;
+        if (cancelFd >= 0 && !terminateSent) {
+            fds[count].fd = cancelFd;
+            fds[count].events = POLLIN;
+            fds[count].revents = 0;
+            ++count;
+        } else if (options.cancellation && !terminateSent) {
+            // No cancel pipe (pipe() failed): look for the flag as before the pipe existed.
+            waitMs = options.timeout.count() > 0 ? 50 : 250;
         }
+        // Both pipes closed: only the exit status is left and nothing will wake poll for it.
+        if (!pipesOpen)
+            waitMs = 5;
+        const auto clampTo = [&waitMs, now](std::chrono::steady_clock::time_point due) {
+            auto remaining = std::chrono::duration_cast<std::chrono::milliseconds>(due - now).count();
+            if (remaining < 0)
+                remaining = 0;
+            if (waitMs < 0 || remaining < waitMs)
+                waitMs = static_cast<int>(remaining);
+        };
+        if (terminateSent && !killSent)
+            clampTo(killAt);
+        else if (!terminateSent && options.timeout.count() > 0)
+            clampTo(deadline);
         int pollResult = poll(fds, count, waitMs);
         if (pollResult < 0 && errno != EINTR) {
             result.error = std::string("poll child output: ") + std::strerror(errno);

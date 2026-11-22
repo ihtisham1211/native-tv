@@ -331,6 +331,8 @@ stats tests hold the native reply, then verify partial data, timeout ownership
 and late-reply rejection. `native-tv/tests/stats_collector.cpp` runs the native
 `/api/stats` collector against a scripted TV: the always-on, input-key, live-read,
 play-state, power, hostname, sound/volume, HDMI, apps and device cases,
+a live group's answer standing in for a read, the `luna-send` calls of a minute of
+polling every 10 s (printed, and bounded with the subscriptions delivering),
 the 0.4 s reuse, the early (`fast=1`)
 read, and how expire, clear, forget and the volume refusal are taken. `native-tv/tests/retired_files.cpp` runs the start-up removal of files earlier releases
 installed (two cases on temporary folders).

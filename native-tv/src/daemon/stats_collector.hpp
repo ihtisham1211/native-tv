@@ -21,6 +21,9 @@ struct StatsDeps {
     std::function<bool(const std::string &uri, const Json &payload, Json &reply)> luna;
     // Whether a live subscription group is connected and delivering.
     std::function<bool(const std::string &group)> liveGroup;
+    // The last answer a live subscription to uri delivered, or an invalid Json when none is
+    // live: the collector then asks the TV itself.
+    std::function<Json(const std::string &uri)> liveReply;
     // config.json as it is now.
     std::function<Json()> config;
     std::string systemRoot = "/";
@@ -73,6 +76,9 @@ class StatsCollector {
     void clearCache();
     // Drops the cached Luna reads whose key holds any of the given strings.
     void forget(const std::vector<std::string> &substrings);
+    // An app was installed or removed, or another came to the front: the next collection
+    // reads the app list again.
+    void forgetInstalledApps();
     // The TV refused a volume or mute change on the route it is on.
     void noteVolumeRefused();
 
@@ -102,10 +108,12 @@ class StatsCollector {
         bool clear = false;
         bool forgetAll = false;
         bool volumeRefused = false;
+        bool apps = false;
         std::vector<std::string> forget;
     };
     void applyPending();
     bool cached(const std::string &uri, const Json &payload, long long ttlMs, Json &reply);
+    bool liveOrCached(const std::string &uri, long long ttlMs, Json &reply);
     long long liveTtl(const std::string &group, long long pollMs, long long liveMs);
     bool media(Json &out);
     void detectDevice();

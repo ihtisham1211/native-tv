@@ -271,9 +271,9 @@ LunaSubscription::LunaSubscription(LunaClient &client, std::string uri, Json pay
       appId_(std::move(appId)), handlers_(std::move(handlers)) {}
 
 LunaSubscription::~LunaSubscription() {
-    std::shared_ptr<std::atomic<bool>> cancellation = cancellationToken();
+    std::shared_ptr<ChildCancellation> cancellation = cancellationToken();
     if (cancellation)
-        cancellation->store(true, std::memory_order_relaxed);
+        cancellation->cancel();
 }
 
 bool LunaSubscription::start() {
@@ -292,9 +292,9 @@ void LunaSubscription::stop() {
         return;
     }
     if (!client_.loop_.post([self]() { self->stopOnLoop(); })) {
-        std::shared_ptr<std::atomic<bool>> cancellation = cancellationToken();
+        std::shared_ptr<ChildCancellation> cancellation = cancellationToken();
         if (cancellation)
-            cancellation->store(true, std::memory_order_relaxed);
+            cancellation->cancel();
     }
 }
 
@@ -319,9 +319,9 @@ void LunaSubscription::stopOnLoop() {
         client_.loop_.cancelTimer(retryTimer_);
         retryTimer_ = 0;
     }
-    std::shared_ptr<std::atomic<bool>> cancellation = cancellationToken();
+    std::shared_ptr<ChildCancellation> cancellation = cancellationToken();
     if (cancellation)
-        cancellation->store(true, std::memory_order_relaxed);
+        cancellation->cancel();
     buffer_.clear();
     ++generation_; // discard already-posted output from the old child
 }
@@ -331,8 +331,8 @@ void LunaSubscription::connectOnLoop() {
         return;
     active_ = true;
     const unsigned long long generation = ++generation_;
-    std::shared_ptr<std::atomic<bool>> cancellation =
-        std::make_shared<std::atomic<bool>>(false);
+    std::shared_ptr<ChildCancellation> cancellation =
+        std::make_shared<ChildCancellation>();
     {
         std::lock_guard<std::mutex> lock(cancellationMutex_);
         cancellation_ = cancellation;
@@ -369,7 +369,7 @@ void LunaSubscription::connectOnLoop() {
                 if (current)
                     current->onOutput(generation, chunk);
         }) && cancellation) {
-            cancellation->store(true, std::memory_order_relaxed);
+            cancellation->cancel();
         }
     };
     options.onStandardError = [weak, generation](const std::string &chunk) {
@@ -440,9 +440,9 @@ void LunaSubscription::onOutput(unsigned long long generation, const std::string
                     if (alias && alias->state == 0 && serviceNotFound(parsed)) {
                         alias->state = -1;
                         retryImmediately_ = true;
-                        std::shared_ptr<std::atomic<bool>> cancellation = cancellationToken();
+                        std::shared_ptr<ChildCancellation> cancellation = cancellationToken();
                         if (cancellation)
-                            cancellation->store(true, std::memory_order_relaxed);
+                            cancellation->cancel();
                     } else {
                         if (alias && alias->state == 0 && serviceSucceeded(parsed))
                             alias->state = 1;
@@ -464,9 +464,9 @@ void LunaSubscription::onOutput(unsigned long long generation, const std::string
     if (buffer_.size() > 1024 * 1024) {
         buffer_.clear();
         reportError("Luna subscription response exceeded 1 MiB");
-        std::shared_ptr<std::atomic<bool>> cancellation = cancellationToken();
+        std::shared_ptr<ChildCancellation> cancellation = cancellationToken();
         if (cancellation)
-            cancellation->store(true, std::memory_order_relaxed);
+            cancellation->cancel();
     }
 }
 
@@ -522,7 +522,7 @@ void LunaSubscription::reportError(const std::string &error) {
         handlers_.error(error);
 }
 
-std::shared_ptr<std::atomic<bool>> LunaSubscription::cancellationToken() const {
+std::shared_ptr<ChildCancellation> LunaSubscription::cancellationToken() const {
     std::lock_guard<std::mutex> lock(cancellationMutex_);
     return cancellation_;
 }
