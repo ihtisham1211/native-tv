@@ -158,6 +158,8 @@ class ScreenTimeEnforcer {
     int idleSaverMinutes_ = 0;
     bool idleSaverEligible_ = false;
     double lastActivityMs_ = 0;
+    // The power state before the latest change, compacted ("screensaver").
+    std::string lastPowerState_;
     int keyFd_ = -1;
     unsigned keyCode_ = 0;
     std::function<void(bool)> keyCallback_;

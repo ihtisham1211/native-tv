@@ -276,6 +276,8 @@ void seedWholeTv(Tv &tv) {
     tv.say(kEim, "{\"returnValue\":true,\"devices\":[{\"id\":\"HDMI_1\",\"label\":\"HDMI 1\"}]}");
     for (const char *category : {"time", "option", "network", "other", "general", "sound", "picture"})
         tv.settings(category, "{\"returnValue\":true,\"settings\":{}}");
+    tv.say("com.webos.service.tvReservationAgent/timer/sleep/getRemainTime",
+           "{\"returnValue\":true,\"sleepTimeSecond\":0}");
     tv.say("com.palm.connectionmanager/getStatus", "{\"returnValue\":true,\"wifi\":{\"ssid\":\"home\"}}");
     tv.say("com.webos.service.tv.display/getDimmingStatus", "{\"returnValue\":true,\"status\":\"off\"}");
     tv.say("com.webos.service.tv.display/getLightSensorData", "{\"returnValue\":true,\"sensorData\":[]}");
@@ -341,12 +343,30 @@ void lunaCallsWhilePolling() {
             // What plays: the audio codec (3 s) and the video format (4 s), kept short for the
             // Live screen.
             check(second <= 2, "a request 10 s after the last asked " + std::to_string(second));
-            check(minute <= 25, "a minute of polling asked " + std::to_string(minute));
+            // 27: the sleep timer's countdown, read every 30 s beside the time category.
+            check(minute <= 27, "a minute of polling asked " + std::to_string(minute));
         }
     }
 }
 
 // ---- power ------------------------------------------------------------------
+
+// The sleep timer counts down in tvReservationAgent; the setting stays "off" while it runs.
+void sleepTimerReadsTheCountdown() {
+    Tv tv;
+    tv.settings("time", "{\"returnValue\":true,\"settings\":{\"sleepTimer\":\"off\"}}");
+    tv.say("com.webos.service.tvReservationAgent/timer/sleep/getRemainTime",
+           "{\"returnValue\":true,\"sleepTimeMinute\":25,\"sleepTimeSecond\":4}");
+    check(tv.collect()["sleepTimer"].string() == "30",
+          "a running sleep timer shows as the step that covers the time left");
+
+    Tv older;
+    older.settings("time", "{\"returnValue\":true,\"settings\":{\"sleepTimer\":\"60\"}}");
+    older.say("com.webos.service.tvReservationAgent/timer/sleep/getRemainTime",
+              "{\"returnValue\":false,\"errorText\":\"Unknown method\"}");
+    check(older.collect()["sleepTimer"].string() == "60",
+          "without the countdown the setting is shown");
+}
 
 void powerStateCarriesReasonAndTimes() {
     Tv tv;
@@ -984,6 +1004,7 @@ int main() {
         {"live reads: a live group's answer stands in", liveRepliesStandInForReads},
         {"live reads: luna calls while polling", lunaCallsWhilePolling},
         {"power: reason and times under powerState", powerStateCarriesReasonAndTimes},
+        {"timers: the sleep timer reads the countdown", sleepTimerReadsTheCountdown},
         {"power: no reason is null", powerWithoutReasonIsNull},
         {"power: no answer is not off", noPowerAnswerIsNotOff},
         {"power: processing stands in for state", powerFallsBackToProcessing},

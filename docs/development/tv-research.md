@@ -566,6 +566,29 @@ answer was taken as a failure: a second `powerOff` with reason `localKey` got
 the remote booted the TV from scratch (uptime 42 s), so the server started
 again.
 
+## Timers that switch the TV off (C6, webOS 11.2.0)
+
+The sleep timer counts down in `tv-reservation-agent`
+(`com.webos.service.tvReservationAgent`), which LG's quick settings, its
+Timers menu and the hot-key popup start with `timer/sleep/add`
+`{"sleepTimeMinute": N}`, 0 cancelling, and read with
+`timer/sleep/getRemainTime`: `{"sleepTimeMinute":9,"sleepTimeSecond":58}`
+while one runs (the seconds are what is left over from the minutes),
+`{"sleepTimeSecond":0}` when none does. Writing `sleepTimer` to the `time`
+settings category is stored and answered `returnValue: true`, but starts
+nothing (`getRemainTime` stayed at 0), and the setting stays `off` while a timer
+started through the agent runs. The Off Timer is different: the agent subscribes
+to `offTimerEnable`, `offTimerHour`, `offTimerMinute` and `offTimerWeekday` and
+picks a write up at once (`getCurrentResvOffTimerInfo` and its log line
+`_setOffTimerValue: Disable -> Enable, [4h-7min-0x0]`).
+
+On the same TV, with **Switch off when idle** at 60 minutes and the idle screen
+saver at 2 minutes, the server's log showed the idle warning's toast and, 2
+minutes after it, the idle screen saver started again, every hour for 13 hours
+overnight with no power-off. The screen saver had ended as the toast showed,
+and tvpower's Screen Saver to Active was then counted as activity, which called
+off the power-off the toast announced.
+
 ## The Magic Remote's battery (C4, webOS 10.3.1)
 
 `/mnt/lg/cmn_data/mrcu/mrcu1.info` is written when the remote pairs and not

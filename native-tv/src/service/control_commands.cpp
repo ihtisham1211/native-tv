@@ -290,6 +290,24 @@ bool controlSleepTimerTarget(const Json &value, std::string &target) {
            target == "60" || target == "90" || target == "120";
 }
 
+std::string sleepTimerStepFromRemaining(const Json &reply) {
+    // A running timer answers {"sleepTimeMinute":9,"sleepTimeSecond":58}, an
+    // idle one {"sleepTimeSecond":0} (webOS 11.2): the seconds are the part
+    // left over from the minutes, not the whole.
+    if (!reply["returnValue"].boolean() || !reply["sleepTimeSecond"].isNumber())
+        return std::string();
+    const double minutes = reply["sleepTimeMinute"].isNumber()
+        ? reply["sleepTimeMinute"].number() : 0;
+    const double total = minutes * 60 + reply["sleepTimeSecond"].number();
+    if (total <= 0)
+        return "off";
+    // LG's own menu offers longer timers than the dashboards; those show as 120.
+    for (const int step : {10, 30, 60, 90})
+        if (total <= step * 60)
+            return std::to_string(step);
+    return "120";
+}
+
 bool controlPowerTimerChange(const Json &value, PowerTimerChange &change,
                              std::string &error) {
     change = PowerTimerChange();

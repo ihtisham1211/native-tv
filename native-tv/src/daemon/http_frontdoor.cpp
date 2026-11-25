@@ -12173,7 +12173,8 @@ void HttpFrontDoor::setControl(HttpExchange &exchange) const {
         : powerOffAction ? "com.webos.service.tvpower/power/powerOff"
         : powerOnAction ? "com.webos.service.tvpower/power/powerOn"
         : soundOutputAction ? "com.webos.service.settings/setSystemSettings"
-        : sleepTimerAction || quickBootAction || deviceDetectionAction || powerTimerAction
+        : sleepTimerAction ? "com.webos.service.tvReservationAgent/timer/sleep/add"
+        : quickBootAction || deviceDetectionAction || powerTimerAction
             ? "com.webos.service.settings/setSystemSettings"
         : lgSettingAction ? "com.webos.service.settings/setSystemSettings"
         : inputAction ? "com.webos.applicationManager/launch"
@@ -12294,10 +12295,9 @@ void HttpFrontDoor::setControl(HttpExchange &exchange) const {
         settings.set(lgSetting.key, lgSetting.storedValue);
         requestPayload.set("settings", settings);
     } else if (sleepTimerAction) {
-        requestPayload.set("category", Json::text("time"));
-        Json settings = Json::object();
-        settings.set("sleepTimer", Json::text(sleepTimer));
-        requestPayload.set("settings", settings);
+        // LG's own Timers menu and quick settings start it this way, 0 cancelling.
+        requestPayload.set("sleepTimeMinute", Json::numeric(
+            sleepTimer == "off" ? 0 : std::atoi(sleepTimer.c_str())));
     } else if (quickBootAction || deviceDetectionAction) {
         requestPayload.set("category", Json::text(quickBootAction ? "option" : "other"));
         Json settings = Json::object();
@@ -12937,6 +12937,19 @@ void HttpFrontDoor::setControl(HttpExchange &exchange) const {
             answered = command(policyAction, uri, requestPayload, resource,
                                powerOffAction || powerOnAction, reply);
             succeeded = answered && reply.response["returnValue"].boolean();
+            if (sleepTimerAction && !succeeded) {
+                // Writing the sleepTimer setting does not start LG's countdown
+                // on webOS 11.2; it is kept for a TV whose agent lacks the method.
+                Json settingRequest = Json::object();
+                settingRequest.set("category", Json::text("time"));
+                Json settings = Json::object();
+                settings.set("sleepTimer", Json::text(sleepTimer));
+                settingRequest.set("settings", settings);
+                answered = command(policyAction,
+                                   "com.webos.service.settings/setSystemSettings",
+                                   settingRequest, resource, false, reply);
+                succeeded = answered && reply.response["returnValue"].boolean();
+            }
         }
         if ((succeeded && (screenShiftAction || logoDimmingAction)) ||
             (oledProtectionAction && oledProtectionWriteAttempted) ||

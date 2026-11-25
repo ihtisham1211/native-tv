@@ -226,12 +226,21 @@ void ScreenTimeEnforcer::onStateChange(const state::Event &event) {
     if (idleSaverMinutes_ && (event.group == "power" || event.group == "application" ||
                              event.group == "audio" || event.group == "media"))
         updateIdleScreensaver(!event.snapshot && (event.group == "application" || event.group == "audio"));
+    // Leaving the screen saver is not by itself someone at the TV: a toast ends
+    // it too, the idle warning's own among them (C6, webOS 11.2), which then
+    // cancelled the power-off it announced, every hour all night. A key that
+    // ends it arrives through noteActivity.
+    bool wokeUp = false;
+    if (event.group == "power" && event.key == "state") {
+        const std::string powerState = compactState(event.value.string());
+        wokeUp = powerState == "active" && lastPowerState_ != "screensaver";
+        lastPowerState_ = powerState;
+    }
     if (!running_)
         return;
     // What a person does shows in the state: another app or input, the volume, the TV waking up.
     if (!event.snapshot &&
-        (event.group == "application" || event.group == "audio" ||
-         (event.group == "power" && compactState(event.value.string()) == "active")))
+        (event.group == "application" || event.group == "audio" || wokeUp))
         activityOnLoop();
     if (event.group == "power")
         powerChanged();
@@ -584,6 +593,8 @@ void ScreenTimeEnforcer::updateIdleScreensaver(bool activity) {
 
 void ScreenTimeEnforcer::activityOnLoop() {
     lastActivityMs_ = idleNow();
+    if (idleTimer_ && logger_)
+        logger_->info("screentime: the TV was used during the idle warning; it stays on");
     cancelIdle();
 }
 
@@ -614,6 +625,8 @@ void ScreenTimeEnforcer::checkIdle() {
     if (idleTimer_ || now - lastActivityMs_ < minutes * 60000.0)
         return;
     const double since = lastActivityMs_;
+    if (logger_)
+        logger_->info("screentime: idle for " + minutesText(minutes * 60.0) + ", warning before switching off");
     toast("The TV has been idle for " + minutesText(minutes * 60.0) +
           ". It switches off in a minute; press any key to keep it on.");
     idleTimer_ = loop_.scheduleAfter(timings_.grace, [this, since, minutes]() {

@@ -220,6 +220,13 @@ int main(int argc, char **argv) {
         // The Native Tv tile taken off the home screen: sam does not know the app, nor open it.
         reply.set("returnValue", Json::flag(false));
         reply.set("errorText", Json::text("Invalid appId"));
+    } else if (uri == "com.webos.service.tvReservationAgent/timer/sleep/add" &&
+               !environment("NATIVETV_FAKE_NO_SLEEP_AGENT").empty() &&
+               ::access(environment("NATIVETV_FAKE_NO_SLEEP_AGENT").c_str(), F_OK) == 0) {
+        // A TV whose reservation agent has no sleep timer method.
+        reply.set("returnValue", Json::flag(false));
+        reply.set("errorText", Json::text(
+            "Unknown method \"add\" for category \"/timer/sleep\""));
     } else if (mode == "screen-time" &&
         (uri == "com.webos.notification/createToast" ||
          uri == "com.webos.applicationManager/launch" ||
