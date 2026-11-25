@@ -1,5 +1,6 @@
 #include "daemon/stats_collector.hpp"
 #include "domain/names.hpp"
+#include "service/control_commands.hpp"
 #include "service/preload.hpp"
 #include "service/stats_fields.hpp"
 #include <algorithm>
@@ -902,8 +903,17 @@ Json StatsCollector::collect(const Json &system) {
     {
         Json time;
         (void)cached(kSettings, settingsRequest("time"), 30000, time);
-        out.set("sleepTimer", Json::text(service::javascriptTruthy(time["settings"]["sleepTimer"])
-            ? service::javascriptString(time["settings"]["sleepTimer"]) : "off"));
+        // The countdown lives in tvReservationAgent; the sleepTimer setting
+        // stays "off" while a timer runs (webOS 11.2), so it is only the answer
+        // where the agent has no such method.
+        Json remaining;
+        (void)cached("com.webos.service.tvReservationAgent/timer/sleep/getRemainTime",
+                     Json::object(), 30000, remaining);
+        std::string sleepStep = service::sleepTimerStepFromRemaining(remaining);
+        if (sleepStep.empty())
+            sleepStep = service::javascriptTruthy(time["settings"]["sleepTimer"])
+                ? service::javascriptString(time["settings"]["sleepTimer"]) : "off";
+        out.set("sleepTimer", Json::text(sleepStep));
         const Json timers = service::statsTimersFromSettings(
             time.isObject() && !returnedFalse(time) ? time["settings"] : Json());
         if (timers.valid()) out.set("powerTimers", timers);

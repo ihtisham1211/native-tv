@@ -27,7 +27,7 @@ The **Control** tab, `/?tab=control`, is the top of the **Overview** section, ab
 
 * **Screen blanking:** **Screen off** turns off the OLED or LCD panel immediately while audio and background services continue running. **Screen on** or any remote interaction restores the picture.
 * **Screensaver:** Triggers the configured screensaver directly on the TV.
-* **Sleep timer:** Sets a timed shutoff (Off, 10, 30, 60, 90, or 120 minutes).
+* **Sleep timer:** Starts or cancels LG's own sleep timer, the one the TV's quick settings show (Off, 10, 30, 60, 90, or 120 minutes). A running timer shows as the smallest of these that covers the time left, so one started for longer from LG's menu shows as 120.
 * **Power and reboot:** Switches the TV between standby and on, or performs a full operating system reboot.
 
 ## Apps and remote tools

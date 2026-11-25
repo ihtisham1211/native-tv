@@ -802,18 +802,42 @@ bool runIdleCase() {
         check(powerOffs() == 1, "a key press during the warning keeps the TV on");
         check(toasts() == 2, "and the count starts again from it");
 
+        // The warning's toast ends the screen saver (C6, webOS 11.2): that is not someone at the TV.
+        const auto powerState = [&](const char *value) {
+            check(loop.post([&, value]() {
+                      state.update(state::Event{"power", "state", Json::text(value), wall, false, true});
+                  }), "a power state change should reach the event loop");
+        };
+        powerState("Screen Saver");
+        settle(100);
+        idle = 31 * minute + 15 * minute;
+        check(waitForOccurrences(details, "createToast", 3, std::chrono::seconds(3)),
+              "the idle warning shows over the screen saver");
+        powerState("Active");
+        check(waitForOccurrences(details, "powerOff", 2, std::chrono::seconds(3)),
+              "the screen saver ending under the warning does not keep the TV on");
+        // From standby, Active is the TV switched back on, which is activity.
+        idle = 56 * minute;
+        powerState("Active Standby");
+        settle(100);
+        powerState("Active");
+        settle(100);
+        idle = 56 * minute + 14 * minute;
+        settle(200);
+        check(toasts() == 3, "switching the TV on starts the count again");
+
         // An HDMI input is never idle, and an app or input change counts as activity.
         loop.post([&]() { state.update(state::Event{"application", "app", Json::text("hdmi1"), wall, false, true}); });
         settle(100); // the state is in before the clock moves on
         idle = 90 * minute;
         settle(300);
-        check(toasts() == 2 && powerOffs() == 1, "on an HDMI input the TV is not switched off");
+        check(toasts() == 3 && powerOffs() == 2, "on an HDMI input the TV is not switched off");
         idle = 90 * minute;
         loop.post([&]() { state.update(state::Event{"application", "app", Json::text("netflix"), wall, false, true}); });
         settle(100);
         idle = 90 * minute + 14 * minute;
         settle(200);
-        check(toasts() == 2, "leaving the input starts the count again");
+        check(toasts() == 3, "leaving the input starts the count again");
 
         // Playing is not idle.
         loop.post([&]() {
@@ -822,7 +846,7 @@ bool runIdleCase() {
         settle(100);
         idle = 200 * minute;
         settle(300);
-        check(toasts() == 2 && powerOffs() == 1, "while something is playing the TV is not switched off");
+        check(toasts() == 3 && powerOffs() == 2, "while something is playing the TV is not switched off");
 
         // With power actions off in the config there is nothing to warn about.
         loop.post([&]() {
@@ -836,7 +860,7 @@ bool runIdleCase() {
         settle(100);
         idle = 400 * minute;
         settle(300);
-        check(toasts() == 2 && powerOffs() == 1, "without allowPower the idle power-off does nothing");
+        check(toasts() == 3 && powerOffs() == 2, "without allowPower the idle power-off does nothing");
 
         const auto saverStarts = [&]() { return occurrences(readFile(details), "turnOnScreenSaver"); };
         const auto selectApp = [&](const char *app) {

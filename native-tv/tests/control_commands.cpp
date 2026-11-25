@@ -210,6 +210,21 @@ int main() {
               !service::controlSleepTimerTarget(Json::numeric(15), sleepTimer) &&
               !service::controlSleepTimerTarget(Json::text("Off"), sleepTimer),
           "sleep timer preserves null default, trimming and LG's accepted values");
+    check(service::sleepTimerStepFromRemaining(Json::parse(
+              "{\"returnValue\":true,\"sleepTimeSecond\":0}")) == "off" &&
+              service::sleepTimerStepFromRemaining(Json::parse(
+                  "{\"returnValue\":true,\"sleepTimeMinute\":9,\"sleepTimeSecond\":58}")) == "10" &&
+              service::sleepTimerStepFromRemaining(Json::parse(
+                  "{\"returnValue\":true,\"sleepTimeMinute\":10,\"sleepTimeSecond\":1}")) == "30" &&
+              service::sleepTimerStepFromRemaining(Json::parse(
+                  "{\"returnValue\":true,\"sleepTimeMinute\":239,\"sleepTimeSecond\":0}")) == "120",
+          "a running sleep timer shows as the smallest step covering the time left");
+    check(service::sleepTimerStepFromRemaining(Json()).empty() &&
+              service::sleepTimerStepFromRemaining(Json::parse(
+                  "{\"returnValue\":false,\"errorText\":\"Unknown method\"}")).empty() &&
+              service::sleepTimerStepFromRemaining(Json::parse(
+                  "{\"returnValue\":true}")).empty(),
+          "a TV without the countdown leaves the sleep timer to its setting");
     service::PowerTimerChange timerChange;
     std::string timerError;
     const Json validTimer = Json::parse(

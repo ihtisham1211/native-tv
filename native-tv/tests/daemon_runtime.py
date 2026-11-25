@@ -580,6 +580,7 @@ class DaemonRuntimeTests(unittest.TestCase):
             assets = root / "assets"
             assets.mkdir()
             details = root / "luna-details.jsonl"
+            noSleepAgent = root / "no-sleep-agent"
             config.write_text(json.dumps({
                 "host": "127.0.0.1", "port": publicPort, "token": token,
                 "allowControl": True
@@ -590,6 +591,7 @@ class DaemonRuntimeTests(unittest.TestCase):
             environment["TVWEB_PROXY_SECRET"] = secret
             environment["NATIVETV_FAKE_LUNA_MODE"] = "quick-access"
             environment["NATIVETV_FAKE_LUNA_DETAILS"] = str(details)
+            environment["NATIVETV_FAKE_NO_SLEEP_AGENT"] = str(noSleepAgent)
             process = subprocess.Popen(
                 [str(binary), "--config", str(config), "--heartbeat", str(heartbeat),
                  "--workers", "4", "--listen", "--node-port", str(nodePort),
@@ -1193,10 +1195,33 @@ class DaemonRuntimeTests(unittest.TestCase):
                 self.assertEqual(status, 200, body.decode("utf-8", "replace"))
                 self.assertEqual(json.loads(body), {"ok": True})
                 calls = [json.loads(line) for line in details.read_text().splitlines()]
+                sleepAgent = "com.webos.service.tvReservationAgent/timer/sleep/add"
+                self.assertEqual([call["payload"] for call in calls[before:]
+                                  if call["uri"] == sleepAgent], [{"sleepTimeMinute": 30}],
+                                 "the sleep timer starts LG's countdown")
+                self.assertFalse(any(
+                    call["uri"] == "com.webos.service.settings/setSystemSettings"
+                    for call in calls[before:]),
+                    "the setting is not written where the countdown started")
+
+                before = len(calls)
+                status, body = postControl('{"action":"sleepTimer","value":"off"}')
+                self.assertEqual(json.loads(body), {"ok": True})
+                calls = [json.loads(line) for line in details.read_text().splitlines()]
+                self.assertEqual([call["payload"] for call in calls[before:]
+                                  if call["uri"] == sleepAgent], [{"sleepTimeMinute": 0}])
+
+                noSleepAgent.write_text("")
+                before = len(calls)
+                status, body = postControl('{"action":"sleepTimer","value":60}')
+                self.assertEqual(json.loads(body), {"ok": True})
+                calls = [json.loads(line) for line in details.read_text().splitlines()]
                 sleepWrite = [call for call in calls[before:]
                               if call["uri"] == "com.webos.service.settings/setSystemSettings"]
                 self.assertEqual(sleepWrite[-1]["payload"], {
-                    "category": "time", "settings": {"sleepTimer": "30"}})
+                    "category": "time", "settings": {"sleepTimer": "60"}},
+                    "without the agent's method the setting is written instead")
+                noSleepAgent.unlink()
 
                 before = len(calls)
                 status, body = postControl('{"action":"sleepTimer","value":15}')
@@ -1206,7 +1231,7 @@ class DaemonRuntimeTests(unittest.TestCase):
                     "error": "sleep timer must be one of off, 10, 30, 60, 90, 120"})
                 calls = [json.loads(line) for line in details.read_text().splitlines()]
                 self.assertFalse(any(
-                    call["uri"] == "com.webos.service.settings/setSystemSettings"
+                    call["uri"] in ("com.webos.service.settings/setSystemSettings", sleepAgent)
                     for call in calls[before:]),
                     "an unsupported sleep-timer value must not call Luna")
 

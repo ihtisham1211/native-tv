@@ -44,6 +44,10 @@ bool controlIndicatorLightTarget(const Json &value);
 bool controlLogoDimmingTarget(const Json &value, std::string &target);
 bool controlAlwaysReadyOffStartHour(const Json &value, int &hour);
 bool controlSleepTimerTarget(const Json &value, std::string &target);
+// tvReservationAgent's timer/sleep/getRemainTime answer as the step the
+// dashboards offer: the smallest that covers the time left, "off" when none is
+// running, and an empty string when the reply carries no countdown.
+std::string sleepTimerStepFromRemaining(const Json &reply);
 bool controlPowerTimerChange(const Json &value, PowerTimerChange &change,
                              std::string &error);
 std::string controlCloseAppId(const Json &value);
